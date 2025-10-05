@@ -121,7 +121,7 @@ export const MOCK_DISCORD_ROLES: (DiscordRole & { position: number })[] = [
  * This mimics the response from the Discord API's "Get Guild Member" endpoint.
  */
 export const MOCK_GUILD_MEMBERS: Record<string, { username: string; avatar: string; roles: string[] }> = {
-  // This user will get Admin privileges because they have the '1423683069893673050' role.
+  // This user will get Admin privileges because they have the '1423683069893673050' role, which is in ADMIN_ROLE_IDS in config.ts.
   '1328693484798083183': {
     username: 'Founder',
     avatar: 'https://cdn.discordapp.com/embed/avatars/1.png',

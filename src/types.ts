@@ -109,7 +109,7 @@ export interface QuizSubmission {
 
 // FIX: Added AuditLogEntry interface for admin action tracking.
 export interface AuditLogEntry {
-  id: string;
+  id:string;
   adminId: string;
   adminUsername: string;
   timestamp: string;

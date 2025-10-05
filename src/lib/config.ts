@@ -25,18 +25,6 @@ export const CONFIG = {
   DISCORD_INVITE_URL: 'https://discord.gg/u3CazwhxVa',
 
   /**
-   * Your main Discord Server ID (also called Guild ID).
-   * This is REQUIRED for the live Discord member count widget to work.
-   * 
-   * >>> IMPORTANT ACTION REQUIRED <<<
-   * For the widget to work, you MUST:
-   * 1. Go to your Server Settings -> Widget -> Enable Server Widget.
-   * 2. Copy the "Server ID" from that page.
-   * 3. Replace the placeholder value below with your REAL Server ID.
-   */
-  DISCORD_SERVER_ID: '1289683067333771357', // <-- REPLACE THIS WITH YOUR ACTUAL SERVER/GUILD ID
-
-  /**
    * The connection URL for your Multi Theft Auto (MTA) server.
    * Format: 'mtasa://ip:port'
    */
@@ -51,6 +39,12 @@ export const CONFIG = {
    * Get it from the Discord Developer Portal: https://discord.com/developers/applications
    */
   DISCORD_CLIENT_ID: '1423341328355295394', // <-- Replace with your actual Application/Client ID
+
+  /**
+   * Your main Discord Server ID (also called Guild ID).
+   * This is REQUIRED for fetching user roles and for the live member count widget.
+   */
+  DISCORD_GUILD_ID: '1422936346233933980', // <-- REPLACE THIS WITH YOUR ACTUAL SERVER/GUILD ID
 
   /**
    * YOUR REDIRECT URI(s)
@@ -77,12 +71,13 @@ export const CONFIG = {
   // In a real application, these might be environment variables on your server.
   
   /**
-   * The ID of the Discord channel where new application notifications should be sent.
-   */
-  APPLICATION_NOTIFICATION_CHANNEL_ID: '1422936347093504012', // <-- Replace
-
-  /**
    * An array of Discord Role IDs that grant admin access to the website's admin panel.
    */
-  ADMIN_ROLE_IDS: ['1423683069893673050'], // <-- Replace. Example: ['123456789012345678']
+  ADMIN_ROLE_IDS: ['1423683069893673050'], // <-- Replace with your actual admin role ID(s). Example: ['123456789012345678']
+
+  /**
+   * The Discord Channel ID where new application submissions will be sent.
+   * Your bot needs write permissions in this channel.
+   */
+  APPLICATION_NOTIFICATION_CHANNEL_ID: '1422936347093504012', // <-- Replace with your actual channel ID
 };

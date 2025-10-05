@@ -84,7 +84,7 @@ const AuthCallbackPage: React.FC = () => {
 
                 const userRoleIds = new Set(mockGuildMember.roles);
 
-                // Determine admin status by checking if any of the user's roles are in the admin list
+                // Determine admin status by checking if any of the user's roles are in the admin list from config
                 isAdmin = CONFIG.ADMIN_ROLE_IDS.some(adminRoleId => userRoleIds.has(adminRoleId));
 
                 // Determine the user's primary role by finding their highest-positioned role

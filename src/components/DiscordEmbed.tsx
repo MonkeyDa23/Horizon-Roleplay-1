@@ -29,14 +29,16 @@ const DiscordEmbed: React.FC = () => {
       setError(null);
 
       // Explicitly check for the placeholder ID to guide the developer.
-      if (!CONFIG.DISCORD_SERVER_ID || CONFIG.DISCORD_SERVER_ID === '1422936346233933980') {
+      // FIX: Changed DISCORD_SERVER_ID to DISCORD_GUILD_ID to match the config file.
+      if (!CONFIG.DISCORD_GUILD_ID || CONFIG.DISCORD_GUILD_ID === '1422936346233933980') {
           setError(t('discord_widget_error_misconfigured'));
           setIsLoading(false);
           return;
       }
 
       try {
-        const response = await fetch(`https://discord.com/api/guilds/${CONFIG.DISCORD_SERVER_ID}/widget.json`);
+        // FIX: Changed DISCORD_SERVER_ID to DISCORD_GUILD_ID to match the config file.
+        const response = await fetch(`https://discord.com/api/guilds/${CONFIG.DISCORD_GUILD_ID}/widget.json`);
         // The widget.json endpoint can return a 200 OK with an error object inside,
         // so we need to check the body content as well.
         const data: DiscordWidgetData | DiscordWidgetError = await response.json();

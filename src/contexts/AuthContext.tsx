@@ -88,6 +88,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => window.removeEventListener('message', handleAuthMessage);
   }, []);
 
+  // The loading UI that used to be here is moved to AuthCallbackPage.tsx
+  // where it belongs. This context provider should not render a full page.
 
   const value = { user, login, logout, loading };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
