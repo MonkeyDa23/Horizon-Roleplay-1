@@ -57,6 +57,14 @@ export interface CartContextType {
   totalPrice: number;
 }
 
+// FIX: Added MtaServerStatus interface for shared use.
+// MTA Server
+export interface MtaServerStatus {
+  name: string;
+  players: number;
+  maxPlayers: number;
+}
+
 export interface Rule {
   id: string;
   textKey: string;

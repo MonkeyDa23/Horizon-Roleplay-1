@@ -16,7 +16,6 @@ const RulesPage: React.FC = () => {
       try {
         const rules = await getRules();
         setRuleCategories(rules);
-        // Automatically open the first category if it exists
         if (rules.length > 0) {
           setOpenCategoryId(rules[0].id);
         }

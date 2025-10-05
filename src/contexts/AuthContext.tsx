@@ -2,7 +2,12 @@ import React, { createContext, useState, useEffect } from 'react';
 import type { User, AuthContextType } from '../types';
 import { CONFIG } from '../lib/config';
 
-export const AuthContext = createContext<AuthContextType | undefined>(undefined);
+// Define a new AuthContextType that includes the updateUser function
+interface AppAuthContextType extends AuthContextType {
+  updateUser: (user: User) => void;
+}
+
+export const AuthContext = createContext<AppAuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -54,12 +59,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
       );
 
-      // A timer to check if the popup was closed manually by the user
       const timer = setInterval(() => {
         if (!popup || popup.closed) {
           clearInterval(timer);
-          // If the popup is closed and we don't have a user, stop loading.
-          // The storage event will set the user if login was successful.
           setLoading(false);
         }
       }, 500);
@@ -79,10 +81,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     localStorage.removeItem('horizon_user_session');
   };
+  
+  const updateUser = (updatedUser: User) => {
+    setUser(updatedUser);
+    localStorage.setItem('horizon_user_session', JSON.stringify(updatedUser));
+  };
+
 
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
-      // Listen for the user session being set by the auth popup.
       if (event.key === 'horizon_user_session') {
         if (event.newValue) {
           try {
@@ -90,10 +97,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(updatedUser);
           } catch (e) {
             console.error("Failed to parse user session from storage event", e);
-            setUser(null); // Clear user if data is corrupt
+            setUser(null);
           }
         } else {
-          // This handles logout from another tab.
           setUser(null);
         }
         setLoading(false);
@@ -104,6 +110,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  const value = { user, login, logout, loading };
+  const value = { user, login, logout, loading, updateUser };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

@@ -3,16 +3,11 @@ import { useLocalization } from '../hooks/useLocalization';
 import { CONFIG } from '../lib/config';
 import { getMtaServerStatus } from '../lib/api';
 import { Server, Users, Wifi, WifiOff, Loader2 } from 'lucide-react';
-
-interface ServerStatus {
-  name: string;
-  players: number;
-  maxPlayers: number;
-}
+import type { MtaServerStatus } from '../types';
 
 const MtaServerStatus: React.FC = () => {
   const { t } = useLocalization();
-  const [status, setStatus] = useState<ServerStatus | null>(null);
+  const [status, setStatus] = useState<MtaServerStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
