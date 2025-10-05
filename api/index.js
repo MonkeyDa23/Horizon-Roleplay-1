@@ -230,17 +230,21 @@ app.put('/api/submissions/:id/status', verifyAdmin, async (req, res) => {
 app.get('/api/auth/callback', async (req, res) => {
   const code = req.query.code;
   const frontendCallbackUrl = `${config.APP_URL}/auth/callback`;
+  console.log('[AUTH_CALLBACK] Received request.');
 
   if (missingEnvVars.length > 0) {
-    const errorMessage = `Server is misconfigured. Administrator needs to set: ${missingEnvVars.join(', ')}`;
+    const errorMessage = `Server is misconfigured. Missing env vars: ${missingEnvVars.join(', ')}`;
+    console.error(`[AUTH_CALLBACK] ERROR: ${errorMessage}`);
     return res.redirect(`${frontendCallbackUrl}?error=${encodeURIComponent(errorMessage)}`);
   }
 
   if (!code) {
-    const error = req.query.error_description || "No code provided by Discord.";
+    const error = req.query.error_description || "Authorization was denied or cancelled.";
+    console.log(`[AUTH_CALLBACK] WARN: No code provided. Reason: ${error}`);
     return res.redirect(`${frontendCallbackUrl}?error=${encodeURIComponent(error)}`);
   }
 
+  console.log('[AUTH_CALLBACK] Code received, exchanging for token...');
   try {
     const discordApi = axios.create({ baseURL: 'https://discord.com/api' });
     const redirect_uri = `${config.APP_URL}/api/auth/callback`;
@@ -254,7 +258,9 @@ app.get('/api/auth/callback', async (req, res) => {
     }), { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
 
     const { access_token } = tokenResponse.data;
+    console.log('[AUTH_CALLBACK] Token acquired. Fetching user and guild data...');
 
+    // Fetch member data (for roles/nick) and guild roles simultaneously
     const [memberResponse, guildRolesResponse] = await Promise.all([
       discordApi.get(`/users/@me/guilds/${config.DISCORD_GUILD_ID}/member`, {
         headers: { Authorization: `Bearer ${access_token}` },
@@ -265,33 +271,44 @@ app.get('/api/auth/callback', async (req, res) => {
       })
     ]);
 
+    console.log('[AUTH_CALLBACK] User and guild data fetched. Processing roles...');
     const memberData = memberResponse.data;
     const userRolesIds = memberData.roles;
+    // Sort all guild roles by position, highest first
     const guildRoles = guildRolesResponse.data.sort((a, b) => b.position - a.position);
     
-    const userRoles = userRolesIds.map(id => guildRoles.find(r => r.id === id)).filter(Boolean);
-    const primaryRole = userRoles[0] || null;
+    // Find the user's highest role by iterating through the sorted guild roles
+    const primaryRoleObject = guildRoles.find(guildRole => userRolesIds.includes(guildRole.id)) || null;
+    
     const isAdmin = userRolesIds.some(roleId => config.ADMIN_ROLE_IDS.includes(roleId));
 
     const finalUser = {
       id: memberData.user.id,
       username: memberData.nick || memberData.user.global_name || memberData.user.username,
-      avatar: `https://cdn.discordapp.com/avatars/${memberData.user.id}/${memberData.user.avatar}.png`,
+      avatar: memberData.user.avatar 
+        ? `https://cdn.discordapp.com/avatars/${memberData.user.id}/${memberData.user.avatar}.png` 
+        : `https://cdn.discordapp.com/embed/avatars/${(parseInt(memberData.user.id.slice(-1))) % 5}.png`,
       isAdmin,
-      primaryRole: primaryRole ? {
-        id: primaryRole.id,
-        name: primaryRole.name,
-        color: `#${primaryRole.color.toString(16).padStart(6, '0')}`,
+      primaryRole: primaryRoleObject ? {
+        id: primaryRoleObject.id,
+        name: primaryRoleObject.name,
+        // Convert decimal color to a proper hex string
+        color: `#${primaryRoleObject.color.toString(16).padStart(6, '0')}`,
       } : null,
     };
 
+    console.log(`[AUTH_CALLBACK] Success for user: ${finalUser.username} (${finalUser.id}). Redirecting to frontend.`);
     const base64User = Buffer.from(JSON.stringify(finalUser)).toString('base64');
     res.redirect(`${frontendCallbackUrl}?user=${base64User}`);
 
   } catch (error) {
-    console.error('Auth Error:', error.response ? error.response.data : error.message);
+    const errorData = error.response ? JSON.stringify(error.response.data, null, 2) : error.message;
+    console.error(`[AUTH_CALLBACK] CRITICAL ERROR: ${errorData}`);
+    
     const discordError = error.response?.data;
-    const errorMessage = discordError?.error_description || discordError?.message || 'Server error during authentication.';
+    const errorMessage = discordError?.error_description 
+                        || discordError?.message 
+                        || 'An unknown server error occurred during authentication. Check server logs for details.';
     res.redirect(`${frontendCallbackUrl}?error=${encodeURIComponent(errorMessage)}`);
   }
 });
