@@ -69,32 +69,46 @@ const AdminPage: React.FC = () => {
   // CRITICAL: Re-validate user's admin status on page load.
   useEffect(() => {
     const validate = async () => {
-        if (user) {
-            setIsValidating(true);
-            try {
-                const freshUser = await revalidateSession(user);
-                updateUser(freshUser); // Update context with latest roles/info
-                if (!freshUser.isAdmin) {
-                    alert("Your admin permissions have been revoked.");
-                    logout();
-                    navigate('/');
-                } else {
-                    await fetchAllData();
-                }
-            } catch (error) {
-                console.error("Session validation failed.", error);
-                alert("Could not verify your admin session. Logging out for security.");
+        if (!user) {
+            navigate('/');
+            return;
+        }
+        
+        setIsValidating(true);
+        try {
+            const freshUser = await revalidateSession(user);
+            
+            // First, check for permission loss. This is the most critical action.
+            if (!freshUser.isAdmin) {
+                alert("Your admin permissions have been revoked.");
                 logout();
                 navigate('/');
-            } finally {
-                setIsValidating(false);
+                return; 
             }
-        } else if (!user) {
+            
+            // FIX: Prevent infinite loop by only updating context if user data has changed.
+            if (JSON.stringify(freshUser) !== JSON.stringify(user)) {
+                updateUser(freshUser); 
+            }
+
+            await fetchAllData();
+
+        } catch (error) {
+            console.error("Session validation failed.", error);
+            alert("Could not verify your admin session. Logging out for security.");
+            logout();
             navigate('/');
+        } finally {
+            setIsValidating(false);
         }
     };
+
     validate();
-  }, [user, navigate, logout, fetchAllData, updateUser]);
+    // We only want this effect to run when the user ID changes (i.e., login/logout)
+    // or when the component mounts for the first time.
+    // The internal logic handles fetching fresh data without causing loops.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
 
   // --- Quiz Management Functions ---

@@ -105,24 +105,28 @@ app.use(express.json());
 // --- HEALTH CHECK ENDPOINT ---
 app.get('/api/health', async (req, res) => {
   const checks = { env: {}, bot: { status: 'pending', guild_found: false, guild_name: 'N/A', error: null }, url_config: { detected_app_url: config.APP_URL, using_vercel_url: !process.env.APP_URL && !!process.env.VERCEL_URL, is_localhost: config.APP_URL.includes('localhost') }};
-  requiredEnvVars.forEach(v => checks.env[v] = process.env[v] ? '✅ Set' : '❌ MISSING');
-  recommendedEnvVars.forEach(v => checks.env[v] = process.env[v] ? '✅ Set' : '⚠️ Not Set (Required for production login)');
-  const currentMissing = Object.values(checks.env).some(v => v.includes('MISSING'));
-  if (currentMissing) { checks.bot.status = '❌ Skipped'; checks.bot.error = 'Cannot check bot status due to missing env vars.'; return res.status(500).json(checks); }
   try {
+    requiredEnvVars.forEach(v => checks.env[v] = process.env[v] ? '✅ Set' : '❌ MISSING');
+    recommendedEnvVars.forEach(v => checks.env[v] = process.env[v] ? '✅ Set' : '⚠️ Not Set (Required for production login)');
+    const currentMissing = Object.values(checks.env).some(v => v.includes('MISSING'));
+    if (currentMissing) { checks.bot.status = '❌ Skipped'; checks.bot.error = 'Cannot check bot status due to missing env vars.'; return res.status(500).json(checks); }
+
     const client = await getReadyBotClient();
     const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
     if (guild) { checks.bot.status = '✅ OK'; checks.bot.guild_found = true; checks.bot.guild_name = guild.name; } 
     else { checks.bot.status = '❌ FAILED'; checks.bot.error = `Could not find Guild with ID: ${config.DISCORD_GUILD_ID}.`; }
+  
+    const hasErrors = currentMissing || checks.bot.status !== '✅ OK' || (!process.env.APP_URL && process.env.NODE_ENV === 'production');
+    res.status(hasErrors ? 500 : 200).json(checks);
   } catch (e) {
+    console.error('[HEALTH CHECK] Unhandled error:', e);
     checks.bot.status = '❌ FAILED';
     if (e.code === 10004) checks.bot.error = `Unknown Guild. The DISCORD_GUILD_ID is incorrect.`;
     else if (e.code === 50001) checks.bot.error = `Missing Access. The bot may not be in the specified guild.`;
-    else if (e.message.includes('Invalid token')) checks.bot.error = `Invalid Token. The DISCORD_BOT_TOKEN is incorrect.`;
+    else if (e.message?.includes('Invalid token')) checks.bot.error = `Invalid Token. The DISCORD_BOT_TOKEN is incorrect.`;
     else checks.bot.error = `An unexpected error occurred: ${e.message}`;
+    res.status(500).json(checks);
   }
-  const hasErrors = currentMissing || checks.bot.status !== '✅ OK' || (!process.env.APP_URL && process.env.NODE_ENV === 'production');
-  res.status(hasErrors ? 500 : 200).json(checks);
 });
 
 // --- Security Middleware: Verify Admin ---
@@ -186,108 +190,126 @@ app.post('/api/rules', verifyAdmin, (req, res) => {
 
 // --- SUBMISSIONS LOGIC ---
 app.post('/api/submissions', async (req, res) => {
-  const submissionData = req.body;
-  const newSubmission = { ...submissionData, id: `sub_${Date.now()}`, status: 'pending' };
-  submissions.push(newSubmission);
+  try {
+    const submissionData = req.body;
+    const newSubmission = { ...submissionData, id: `sub_${Date.now()}`, status: 'pending' };
+    submissions.push(newSubmission);
 
-  const client = await getReadyBotClient();
-  const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
+    const client = await getReadyBotClient();
+    const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
 
-  const userDM = new EmbedBuilder()
-    .setColor(0x3498DB).setTitle(`Application Received: ${newSubmission.quizTitle}`)
-    .setDescription(`Thank you for your application, **${newSubmission.username}**! We have received it and our administration team will review it shortly. You will be notified here of any status updates.`)
-    .setThumbnail(guild.iconURL())
-    .setTimestamp().setFooter({ text: guild.name, iconURL: guild.iconURL() });
-  sendDm(newSubmission.userId, userDM);
+    const userDM = new EmbedBuilder()
+      .setColor(0x3498DB).setTitle(`Application Received: ${newSubmission.quizTitle}`)
+      .setDescription(`Thank you for your application, **${newSubmission.username}**! We have received it and our administration team will review it shortly. You will be notified here of any status updates.`)
+      .setThumbnail(guild.iconURL())
+      .setTimestamp().setFooter({ text: guild.name, iconURL: guild.iconURL() });
+    sendDm(newSubmission.userId, userDM);
 
-  const adminEmbed = new EmbedBuilder()
-    .setColor(0x3498DB).setTitle('New Application Submitted')
-    .setURL(`${config.APP_URL}/admin`)
-    .setDescription(`**${newSubmission.username}** has submitted a new application.`)
-    .addFields(
-      { name: 'Applicant', value: `<@${newSubmission.userId}> (${newSubmission.username})`, inline: true },
-      { name: 'Application Type', value: newSubmission.quizTitle, inline: true },
-      { name: 'Action', value: `[Click here to view submissions](${config.APP_URL}/admin)` }
-    ).setTimestamp().setFooter({ text: `User ID: ${newSubmission.userId}` });
-  sendMessageToChannel(config.DISCORD_ADMIN_NOTIFY_CHANNEL_ID, adminEmbed);
-  
-  res.status(201).json(newSubmission);
+    const adminEmbed = new EmbedBuilder()
+      .setColor(0x3498DB).setTitle('New Application Submitted')
+      .setURL(`${config.APP_URL}/admin`)
+      .setDescription(`**${newSubmission.username}** has submitted a new application.`)
+      .addFields(
+        { name: 'Applicant', value: `<@${newSubmission.userId}> (${newSubmission.username})`, inline: true },
+        { name: 'Application Type', value: newSubmission.quizTitle, inline: true },
+        { name: 'Action', value: `[Click here to view submissions](${config.APP_URL}/admin)` }
+      ).setTimestamp().setFooter({ text: `User ID: ${newSubmission.userId}` });
+    sendMessageToChannel(config.DISCORD_ADMIN_NOTIFY_CHANNEL_ID, adminEmbed);
+    
+    res.status(201).json(newSubmission);
+  } catch (error) {
+    console.error('[SUBMISSION] Failed to process new submission:', error);
+    res.status(500).json({ message: 'Failed to process submission due to a server error.' });
+  }
 });
 
 app.put('/api/submissions/:id/status', verifyAdmin, async (req, res) => {
-  const { id } = req.params;
-  const { status, admin } = req.body;
-  const submission = submissions.find(s => s.id === id);
-  if (!submission) return res.status(404).json({ message: 'Submission not found' });
-  
-  const oldStatus = submission.status;
-  submission.status = status;
-  submission.adminId = admin.id;
-  submission.adminUsername = admin.username;
-
-  const client = await getReadyBotClient();
-  const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
-  let logEmbed; let userDM;
-
-  if (status === 'taken' && oldStatus === 'pending') {
-    logEmbed = new EmbedBuilder().setColor(0xF1C40F).setTitle(`📝 Application Claimed`).setDescription(`**${admin.username}** claimed the application from **${submission.username}** for review.`).setTimestamp();
-  } else if (status === 'accepted' || status === 'refused') {
-    const isAccepted = status === 'accepted';
-    const decisionText = isAccepted ? 'Accepted' : 'Refused';
-    const decisionColor = isAccepted ? 0x2ECC71 : 0xE74C3C;
+  try {
+    const { id } = req.params;
+    const { status, admin } = req.body;
+    const submission = submissions.find(s => s.id === id);
+    if (!submission) return res.status(404).json({ message: 'Submission not found' });
     
-    userDM = new EmbedBuilder().setColor(decisionColor).setTitle(`Application Update: ${submission.quizTitle}`)
-      .setDescription(`Hello **${submission.username}**, your application has been **${decisionText}**.`)
-      .addFields({ name: 'Reviewed By', value: admin.username, inline: true })
-      .setThumbnail(guild.iconURL())
-      .setTimestamp().setFooter({ text: guild.name, iconURL: guild.iconURL() });
-    sendDm(submission.userId, userDM);
-    
-    logEmbed = new EmbedBuilder().setColor(decisionColor).setTitle(`✅ Application ${decisionText}`)
-      .setDescription(`**${admin.username}** ${decisionText.toLowerCase()} the application from **${submission.username}**.`)
-      .addFields(
-          { name: 'Applicant', value: `<@${submission.userId}>`, inline: true },
-          { name: 'Admin', value: `<@${admin.id}>`, inline: true }
-      ).setTimestamp();
+    const oldStatus = submission.status;
+    submission.status = status;
+    submission.adminId = admin.id;
+    submission.adminUsername = admin.username;
+
+    const client = await getReadyBotClient();
+    const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
+    let logEmbed; let userDM;
+
+    if (status === 'taken' && oldStatus === 'pending') {
+      logEmbed = new EmbedBuilder().setColor(0xF1C40F).setTitle(`📝 Application Claimed`).setDescription(`**${admin.username}** claimed the application from **${submission.username}** for review.`).setTimestamp();
+    } else if (status === 'accepted' || status === 'refused') {
+      const isAccepted = status === 'accepted';
+      const decisionText = isAccepted ? 'Accepted' : 'Refused';
+      const decisionColor = isAccepted ? 0x2ECC71 : 0xE74C3C;
+      
+      userDM = new EmbedBuilder().setColor(decisionColor).setTitle(`Application Update: ${submission.quizTitle}`)
+        .setDescription(`Hello **${submission.username}**, your application has been **${decisionText}**.`)
+        .addFields({ name: 'Reviewed By', value: admin.username, inline: true })
+        .setThumbnail(guild.iconURL())
+        .setTimestamp().setFooter({ text: guild.name, iconURL: guild.iconURL() });
+      sendDm(submission.userId, userDM);
+      
+      logEmbed = new EmbedBuilder().setColor(decisionColor).setTitle(`✅ Application ${decisionText}`)
+        .setDescription(`**${admin.username}** ${decisionText.toLowerCase()} the application from **${submission.username}**.`)
+        .addFields(
+            { name: 'Applicant', value: `<@${submission.userId}>`, inline: true },
+            { name: 'Admin', value: `<@${admin.id}>`, inline: true }
+        ).setTimestamp();
+    }
+    if (logEmbed) sendMessageToChannel(config.DISCORD_LOG_CHANNEL_ID, logEmbed);
+    res.json(submission);
+  } catch (error) {
+    console.error(`[SUBMISSION STATUS] Failed to update status for submission ${req.params.id}:`, error);
+    res.status(500).json({ message: 'Failed to update submission status due to a server error.' });
   }
-  if (logEmbed) sendMessageToChannel(config.DISCORD_LOG_CHANNEL_ID, logEmbed);
-  res.json(submission);
 });
 
 
 // --- OAUTH2 & SESSION ENDPOINTS ---
 app.post('/api/auth/session', async (req, res) => {
+  try {
     const { user } = req.body;
     if (!user || !user.id) return res.status(400).json({ message: 'User ID is required.' });
-    try {
-        const client = await getReadyBotClient();
-        const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
-        const member = await guild.members.fetch(user.id);
-        const guildRoles = (await guild.roles.fetch()).sort((a, b) => b.position - a.position);
-        
-        const userRolesIds = member.roles.cache.map(r => r.id);
-        const primaryRoleObject = guildRoles.find(gr => userRolesIds.includes(gr.id)) || null;
 
-        const freshUser = {
-            ...user,
-            isAdmin: userRolesIds.some(roleId => config.ADMIN_ROLE_IDS.includes(roleId)),
-            primaryRole: primaryRoleObject ? { id: primaryRoleObject.id, name: primaryRoleObject.name, color: primaryRoleObject.hexColor } : null,
-        };
-        res.status(200).json(freshUser);
-    } catch (error) {
-        console.error('Session revalidation failed:', error.message);
-        res.status(404).json({ message: 'User not found in the Discord server.' });
-    }
+    const client = await getReadyBotClient();
+    const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
+    const member = await guild.members.fetch(user.id);
+    const guildRoles = (await guild.roles.fetch()).sort((a, b) => b.position - a.position);
+    
+    const userRolesIds = member.roles.cache.map(r => r.id);
+    const primaryRoleObject = guildRoles.find(gr => userRolesIds.includes(gr.id)) || null;
+
+    const freshUser = {
+        ...user,
+        username: member.displayName,
+        avatar: member.displayAvatarURL(),
+        isAdmin: userRolesIds.some(roleId => config.ADMIN_ROLE_IDS.includes(roleId)),
+        primaryRole: primaryRoleObject ? { id: primaryRoleObject.id, name: primaryRoleObject.name, color: primaryRoleObject.hexColor } : null,
+    };
+    res.status(200).json(freshUser);
+  } catch (error) {
+      console.error('Session revalidation failed:', error.message);
+      // If the user is not found, it's a valid outcome (e.g., they left the server).
+      if (error.code === 10007) {
+        return res.status(404).json({ message: 'User not found in the Discord server.' });
+      }
+      res.status(500).json({ message: 'A server error occurred during session validation.' });
+  }
 });
 
 
 app.get('/api/auth/callback', async (req, res) => {
   const { code, state } = req.query;
   const frontendCallbackUrl = `${config.APP_URL}/auth/callback`;
-  if (missingEnvVars.length > 0) return res.redirect(`${frontendCallbackUrl}?error=${encodeURIComponent(`Server misconfigured. Missing: ${missingEnvVars.join(', ')}`)}&state=${state}`);
-  if (!code) return res.redirect(`${frontendCallbackUrl}?error=${encodeURIComponent(req.query.error_description || "Authorization denied.")}&state=${state}`);
-
+  
   try {
+    if (missingEnvVars.length > 0) throw new Error(`Server misconfigured. Missing: ${missingEnvVars.join(', ')}`);
+    if (!code) throw new Error(req.query.error_description || "Authorization denied.");
+
     const discordApi = axios.create({ baseURL: 'https://discord.com/api' });
     const tokenResponse = await discordApi.post('/oauth2/token', new URLSearchParams({
       client_id: config.DISCORD_CLIENT_ID, client_secret: config.DISCORD_CLIENT_SECRET,
@@ -295,13 +317,20 @@ app.get('/api/auth/callback', async (req, res) => {
     }), { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
 
     const { access_token } = tokenResponse.data;
-    const [memberResponse, guildRolesResponse] = await Promise.all([
-      discordApi.get(`/users/@me/guilds/${config.DISCORD_GUILD_ID}/member`, { headers: { Authorization: `Bearer ${access_token}` } }),
-      discordApi.get(`/guilds/${config.DISCORD_GUILD_ID}/roles`, { headers: { Authorization: `Bot ${config.DISCORD_BOT_TOKEN}` } })
-    ]);
-
+    
+    // Instead of two parallel calls, fetch the user's guild member profile directly.
+    // This gives us everything we need in one go: user object, guild roles, nick, etc.
+    const memberResponse = await discordApi.get(`/users/@me/guilds/${config.DISCORD_GUILD_ID}/member`, { 
+        headers: { Authorization: `Bearer ${access_token}` } 
+    });
+    
     const memberData = memberResponse.data;
     const userRolesIds = memberData.roles;
+    
+    // We still need all guild roles to find the highest one.
+    const guildRolesResponse = await discordApi.get(`/guilds/${config.DISCORD_GUILD_ID}/roles`, { 
+        headers: { Authorization: `Bot ${config.DISCORD_BOT_TOKEN}` } 
+    });
     const guildRoles = guildRolesResponse.data.sort((a, b) => b.position - a.position);
     
     const primaryRoleObject = guildRoles.find(guildRole => userRolesIds.includes(guildRole.id)) || null;
@@ -309,8 +338,8 @@ app.get('/api/auth/callback', async (req, res) => {
 
     const finalUser = {
       id: memberData.user.id,
-      username: memberData.user.global_name || memberData.nick || memberData.user.username,
-      avatar: memberData.user.avatar ? `https://cdn.discordapp.com/avatars/${memberData.user.id}/${memberData.user.avatar}.png` : `https://cdn.discordapp.com/embed/avatars/${(parseInt(memberData.user.id.slice(-1))) % 5}.png`,
+      username: memberData.nick || memberData.user.global_name || memberData.user.username,
+      avatar: memberData.avatar ? `https://cdn.discordapp.com/guilds/${config.DISCORD_GUILD_ID}/users/${memberData.user.id}/avatars/${memberData.avatar}.png` : (memberData.user.avatar ? `https://cdn.discordapp.com/avatars/${memberData.user.id}/${memberData.user.avatar}.png` : `https://cdn.discordapp.com/embed/avatars/${(parseInt(memberData.user.id.slice(-1))) % 5}.png`),
       isAdmin,
       primaryRole: primaryRoleObject ? { id: primaryRoleObject.id, name: primaryRoleObject.name, color: `#${primaryRoleObject.color.toString(16).padStart(6, '0')}` } : null,
     };
@@ -320,7 +349,7 @@ app.get('/api/auth/callback', async (req, res) => {
   } catch (error) {
     const errorData = error.response ? JSON.stringify(error.response.data) : error.message;
     console.error(`[AUTH_CALLBACK] CRITICAL ERROR: ${errorData}`);
-    const errorMessage = error.response?.data?.error_description || error.response?.data?.message || 'An unknown server error occurred.';
+    const errorMessage = error.response?.data?.error_description || error.response?.data?.message || error.message || 'An unknown server error occurred.';
     res.redirect(`${frontendCallbackUrl}?error=${encodeURIComponent(errorMessage)}&state=${state}`);
   }
 });
