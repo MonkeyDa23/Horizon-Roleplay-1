@@ -11,7 +11,7 @@ export const CONFIG = {
   /**
    * The name of your community. This will be displayed on the homepage, navbar, etc.
    */
-  COMMUNITY_NAME: 'Horizon VRoleplay',
+  COMMUNITY_NAME: 'Horizon Roleplay',
 
   /**
    * The URL for your community's logo.
