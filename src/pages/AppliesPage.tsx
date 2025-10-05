@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useLocalization } from '../hooks/useLocalization';
@@ -90,6 +89,8 @@ const AppliesPage: React.FC = () => {
         </Link>
       );
   };
+
+  const openQuizzes = quizzes.filter(q => q.isOpen);
 
   return (
     <div className="container mx-auto px-6 py-16">

@@ -4,6 +4,7 @@ import { CONFIG } from '../lib/config';
 import Modal from '../components/Modal';
 import Logo from '../components/Logo';
 import { Disc3, Gamepad2 } from 'lucide-react';
+import MtaServerStatus from '../components/MtaServerStatus';
 
 const HomePage: React.FC = () => {
   const { t } = useLocalization();
@@ -11,7 +12,7 @@ const HomePage: React.FC = () => {
 
   return (
     <>
-      <div className="relative h-[calc(100vh-68px)] flex items-center justify-center overflow-hidden">
+      <div className="relative h-[calc(100vh-84px)] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 w-full h-full opacity-5 pointer-events-none">
           <Logo className="w-full h-full object-contain" />
         </div>
@@ -36,6 +37,10 @@ const HomePage: React.FC = () => {
             {t('join_us')}
           </button>
         </div>
+      </div>
+
+      <div className="container mx-auto px-6 py-16 -mt-16">
+        <MtaServerStatus />
       </div>
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={t('join_modal_title')}>

@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useLocalization } from '../hooks/useLocalization';
 import { getSubmissionsByUserId } from '../lib/api';
 import type { QuizSubmission, SubmissionStatus } from '../types';
 import { useNavigate } from 'react-router-dom';
-import { User, Loader2, FileText } from 'lucide-react';
+import { User as UserIcon, Loader2, FileText } from 'lucide-react';
 
 const ProfilePage: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
@@ -60,7 +59,7 @@ const ProfilePage: React.FC = () => {
     <div className="container mx-auto px-6 py-16">
       <div className="text-center mb-12">
         <div className="inline-block p-4 bg-brand-light-blue rounded-full mb-4">
-          <User className="text-brand-cyan" size={48} />
+          <UserIcon className="text-brand-cyan" size={48} />
         </div>
         <h1 className="text-4xl md:text-5xl font-bold mb-4">{t('my_profile')}</h1>
       </div>

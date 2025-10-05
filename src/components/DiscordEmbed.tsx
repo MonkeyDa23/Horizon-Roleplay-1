@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import Logo from './icons/Logo';
+import Logo from './Logo';
 import { useLocalization } from '../hooks/useLocalization';
 import { CONFIG } from '../lib/config';
 import { Loader2, AlertTriangle } from 'lucide-react';
@@ -11,7 +11,6 @@ interface DiscordWidgetData {
   instant_invite: string;
 }
 
-// This interface is for Discord's error response on the widget.json endpoint
 interface DiscordWidgetError {
   code: number;
   message: string;
@@ -28,8 +27,6 @@ const DiscordEmbed: React.FC = () => {
       setIsLoading(true);
       setError(null);
 
-      // Explicitly check for the placeholder ID to guide the developer.
-      // FIX: Changed DISCORD_SERVER_ID to DISCORD_GUILD_ID to match the config file.
       if (!CONFIG.DISCORD_GUILD_ID || CONFIG.DISCORD_GUILD_ID === '1422936346233933980') {
           setError(t('discord_widget_error_misconfigured'));
           setIsLoading(false);
@@ -37,17 +34,14 @@ const DiscordEmbed: React.FC = () => {
       }
 
       try {
-        // FIX: Changed DISCORD_SERVER_ID to DISCORD_GUILD_ID to match the config file.
         const response = await fetch(`https://discord.com/api/guilds/${CONFIG.DISCORD_GUILD_ID}/widget.json`);
-        // The widget.json endpoint can return a 200 OK with an error object inside,
-        // so we need to check the body content as well.
         const data: DiscordWidgetData | DiscordWidgetError = await response.json();
 
         if ('code' in data) {
            switch (data.code) {
                case 10004: // Unknown Guild
                    throw new Error(t('discord_widget_error_invalid_id'));
-               case 50027: // Widget Disabled
+               case 50027: // Widget Disabled in Discord Server Settings
                    throw new Error(t('discord_widget_error_disabled'));
                default:
                    throw new Error(data.message || t('discord_widget_error'));
@@ -101,7 +95,6 @@ const DiscordEmbed: React.FC = () => {
           </div>
       );
     }
-    // Fallback case
     return (
        <div className="text-center text-gray-400 text-sm py-2 h-16 flex items-center justify-center">
          {t('discord_widget_error')}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocalization } from '../hooks/useLocalization';
 import { useCart } from '../hooks/useCart';
-import { products as mockProducts } from '../lib/mockData';
+import { getProducts } from '../lib/api';
 import type { Product } from '../types';
 import { ShoppingCart, PlusCircle } from 'lucide-react';
 import { CONFIG } from '../lib/config';
@@ -13,12 +13,18 @@ const StorePage: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    setIsLoading(true);
-    // Simulate an asynchronous API call to fetch products
-    setTimeout(() => {
-      setProducts(mockProducts);
-      setIsLoading(false);
-    }, 1000); // 1-second delay
+    const fetchProducts = async () => {
+      setIsLoading(true);
+      try {
+        const fetchedProducts = await getProducts();
+        setProducts(fetchedProducts);
+      } catch (error) {
+        console.error("Failed to fetch products:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchProducts();
   }, []);
 
   const handleAddToCart = (product: Product) => {

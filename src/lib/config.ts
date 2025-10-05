@@ -1,17 +1,13 @@
-// /lib/config.ts
+// src/lib/config.ts
 
-// ===================================================================================
-// --- CENTRAL WEBSITE CONFIGURATION ---
-// ===================================================================================
-// This file contains all the public, non-sensitive variables for your community website.
-// Fill in the placeholder values with your actual server details.
-// ===================================================================================
+// This file contains the central configuration for the website.
+// Update these values to match your community's details.
 
 export const CONFIG = {
   /**
-   * The name of your community. This will be displayed on the homepage, navbar, etc.
+   * Your community's name. This will be used in titles and other parts of the site.
    */
-  COMMUNITY_NAME: 'Horizon Roleplay',
+  COMMUNITY_NAME: 'Horizon V',
 
   /**
    * The URL for your community's logo.
@@ -29,54 +25,26 @@ export const CONFIG = {
    * Format: 'mtasa://ip:port'
    */
   MTA_SERVER_URL: 'mtasa://134.255.216.22:22041',
-  
-  // ===================================================================================
-  // --- Discord Application & OAuth2 (Public Info) ---
-  // ===================================================================================
+
+  // --- Discord OAuth2 & API Configuration ---
   
   /**
-   * Your Application's "APPLICATION ID" (also known as Client ID). This is public.
-   * Get it from the Discord Developer Portal: https://discord.com/developers/applications
+   * The client ID of your Discord application from the Discord Developer Portal.
+   * This is safe to be public and is required by the frontend to initiate login.
+   * IMPORTANT: You must also set this as an Environment Variable in Vercel for the backend to use.
    */
-  DISCORD_CLIENT_ID: '1423341328355295394', // <-- Replace with your actual Application/Client ID
+  DISCORD_CLIENT_ID: '1423341328355295394',
 
   /**
-   * Your main Discord Server ID (also called Guild ID).
-   * This is REQUIRED for fetching user roles and for the live member count widget.
+   * The ID of your Discord server (also known as a Guild ID).
+   * This is public and used for the live member count widget.
+   * IMPORTANT: You must also set this as an Environment Variable in Vercel for the backend to use.
    */
-  DISCORD_GUILD_ID: '1422936346233933980', // <-- REPLACE THIS WITH YOUR ACTUAL SERVER/GUILD ID
+  DISCORD_GUILD_ID: '1422936346233933980', 
 
   /**
-   * YOUR REDIRECT URI(s)
-   * The OAuth2 redirect URI is generated dynamically by the website to support multiple
-   * environments (development, preview, production) seamlessly.
-   * 
-   * >>> CRITICAL ACTION REQUIRED <<<
-   * You MUST add all potential callback URLs to your Discord application's
-   * OAuth2 -> "Redirects" section in the Developer Portal. The login will fail otherwise.
-   * 
-   * Copy and paste the following URLs into the "Redirects" box:
-   * 
-   * 1. For local development: http://localhost:5173/auth/callback
-   * 2. For your Vercel/live site: https://horizonroleplay1.vercel.app/auth/callback
-   * 
-   * (If you deploy to a different domain, add its callback URL too, following the same pattern)
+   * A mock user ID for a simulated admin in a local development environment.
+   * This is ONLY used by the mock data layer and has no effect on the live system.
    */
-   
-  // ===================================================================================
-  // --- Discord Bot Integration (Backend Simulation) ---
-  // ===================================================================================
-  // These values are used by the mock backend to simulate sending notifications.
-  // In a real application, these might be environment variables on your server.
-  
-  /**
-   * An array of Discord Role IDs that grant admin access to the website's admin panel.
-   */
-  ADMIN_ROLE_IDS: ['1423683069893673050'], // <-- Replace with your actual admin role ID(s). Example: ['123456789012345678']
-
-  /**
-   * The Discord Channel ID where new application submissions will be sent.
-   * Your bot needs write permissions in this channel.
-   */
-  APPLICATION_NOTIFICATION_CHANNEL_ID: '1422936347093504012', // <-- Replace with your actual channel ID
+  MOCK_ADMIN_ID: '1423683069893673050',
 };

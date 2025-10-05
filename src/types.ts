@@ -13,7 +13,6 @@ export interface LocalizationContextType {
   dir: 'rtl' | 'ltr';
 }
 
-// FIX: Added DiscordRole interface for user role data.
 export interface DiscordRole {
   id: string;
   name: string;
@@ -25,8 +24,7 @@ export interface User {
   username: string;
   avatar: string;
   isAdmin: boolean;
-  // FIX: Added optional primaryRole to store user's main Discord role.
-  primaryRole?: DiscordRole;
+  primaryRole?: DiscordRole | null;
 }
 
 export interface AuthContextType {
@@ -34,6 +32,7 @@ export interface AuthContextType {
   login: () => void;
   logout: () => void;
   loading: boolean;
+  handleLoginSuccess: (user: User) => void;
 }
 
 // Store & Cart
@@ -59,7 +58,6 @@ export interface CartContextType {
   totalPrice: number;
 }
 
-// FIX: Added Rule and RuleCategory interfaces for the rules page.
 export interface Rule {
   id: string;
   textKey: string;
@@ -107,7 +105,6 @@ export interface QuizSubmission {
   adminUsername?: string; // Username of the admin
 }
 
-// FIX: Added AuditLogEntry interface for admin action tracking.
 export interface AuditLogEntry {
   id:string;
   adminId: string;
