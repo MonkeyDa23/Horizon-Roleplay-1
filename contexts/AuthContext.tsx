@@ -11,8 +11,8 @@ const DISCORD_CLIENT_ID = '1423341328355295394';
 const REDIRECT_URI = window.location.origin;
 // Add 'guilds.members.read' to request role information
 const OAUTH_SCOPES = 'identify guilds.members.read';
-const DISCORD_GUILD_ID = '1289683067333771357'; // <-- IMPORTANT: Replace with your actual Guild ID
-const MOCK_ADMIN_ID = "1328693484798083183"; 
+const DISCORD_GUILD_ID = '1422936346233933980'; // <-- IMPORTANT: Replace with your actual Guild ID
+const MOCK_ADMIN_ID = "1423683069893673050"; 
 
 // --- MOCK PERMISSION DATA ---
 // In the Discord API, permissions are a bitfield. 0x8 is the ADMINISTRATOR flag.

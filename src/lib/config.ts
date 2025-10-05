@@ -1,4 +1,3 @@
-
 // /lib/config.ts
 
 // ===================================================================================
@@ -54,15 +53,14 @@ export const CONFIG = {
    * 
    * >>> CRITICAL ACTION REQUIRED <<<
    * You MUST add all potential callback URLs to your Discord application's
-   * OAuth2 -> "Redirects" section in the Developer Portal.
+   * OAuth2 -> "Redirects" section in the Developer Portal. The login will fail otherwise.
    * 
    * Copy and paste the following URLs into the "Redirects" box:
    * 
    * 1. For local development: http://localhost:5173/auth/callback
-   * 2. For your live website: https://YOUR-WEBSITE-URL.com/auth/callback
-   * (Replace "YOUR-WEBSITE-URL.com" with your actual domain name)
+   * 2. For your Vercel/live site: https://horizonroleplay1.vercel.app/auth/callback
    * 
-   * The site now uses clean URLs (BrowserRouter), so the hash (#) is no longer needed.
+   * (If you deploy to a different domain, add its callback URL too, following the same pattern)
    */
    
   // ===================================================================================

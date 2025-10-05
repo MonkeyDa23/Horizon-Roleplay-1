@@ -107,7 +107,7 @@ let submissions: QuizSubmission[] = [];
 
 /**
  * A list of all relevant roles on your Discord server for the simulation.
- * The `position` property determines priority (higher is better).
+ * The `position` property determines priority (higher is better for display).
  */
 export const MOCK_DISCORD_ROLES: (DiscordRole & { position: number })[] = [
   { id: '1423683069893673050', name: 'Founder', color: '#f1c40f', position: 5 },
@@ -121,11 +121,17 @@ export const MOCK_DISCORD_ROLES: (DiscordRole & { position: number })[] = [
  * This mimics the response from the Discord API's "Get Guild Member" endpoint.
  */
 export const MOCK_GUILD_MEMBERS: Record<string, { username: string; avatar: string; roles: string[] }> = {
-  // This user will get Admin privileges because they have the '1423683069893673050' role, which is in ADMIN_ROLE_IDS in config.ts.
+  // This user will get Admin privileges because they have the '1423683069893673050' role, 
+  // which is in ADMIN_ROLE_IDS in config.ts.
+  //
+  // >> TO TEST DYNAMIC ROLES:
+  // >> Temporarily remove '1423683069893673050' from the roles array below.
+  // >> After logging in, refresh the page. Admin access should be gone.
+  //
   '1328693484798083183': {
     username: 'Founder',
-    avatar: 'https://cdn.discordapp.com/embed/avatars/1.png',
-    roles: ['1423683069893673050', 'mock_member_role']
+    avatar: 'https://cdn.discordapp.com/avatars/1328693484798083183/a_62981bedf68748b61c86f2e8254c95f1.png',
+    roles: ['1423683069893673050', 'mock_member_role'] 
   },
   // This user will be a regular member with the Gold VIP role.
   '100000000000000001': {
