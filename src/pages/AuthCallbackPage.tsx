@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Loader } from 'lucide-react';
 import { CONFIG } from '../lib/config';
-import type { User } from '../types';
+import type { User, DiscordRole } from '../types';
+import { MOCK_DISCORD_ROLES, MOCK_GUILD_MEMBERS } from '../lib/mockData';
 
 // ===================================================================================
 // --- SIMULATED BACKEND: OAUTH2 CALLBACK HANDLER ---
@@ -53,45 +54,56 @@ const AuthCallbackPage: React.FC = () => {
             localStorage.removeItem('oauth_state');
 
             try {
-                // --- Step 2: (SIMULATED) Exchange code for access token ---
-                setStatus('Verifying identity...');
-                await new Promise(resolve => setTimeout(resolve, 500));
-                // In a real backend:
-                // const tokenResponse = await fetch('https://discord.com/api/oauth2/token', { ... });
-                // const { access_token } = await tokenResponse.json();
-
-                // --- Step 3: (SIMULATED) Fetch user identity ---
-                setStatus('Fetching user profile...');
-                await new Promise(resolve => setTimeout(resolve, 500));
-                // In a real backend:
-                // const userResponse = await fetch('https://discord.com/api/users/@me', { headers: { Authorization: `Bearer ${access_token}` } });
-                // const userData = await userResponse.json();
+                // --- Step 2 & 3: (SIMULATED) Exchange code & fetch user identity ---
+                setStatus('Verifying identity & fetching profile...');
+                await new Promise(resolve => setTimeout(resolve, 1000));
                 
-                // MOCKING for demo purposes
-                const mockUserData = {
-                    id: '1328693484798083183',
-                    username: 'AdminUser',
-                    avatar: '1a2b3c4d5e6f7g8h9i0j'
-                };
+                // In this simulation, we'll cycle through our mock users on each login
+                // to make testing different roles (admin, vip, member) easier.
+                const mockUserIds = Object.keys(MOCK_GUILD_MEMBERS);
+                const loginCount = parseInt(sessionStorage.getItem('login_count') || '0', 10);
+                const mockUserId = mockUserIds[loginCount % mockUserIds.length];
+                sessionStorage.setItem('login_count', (loginCount + 1).toString());
 
-                // --- Step 4: (SIMULATED) Check if user is an admin ---
-                setStatus('Checking permissions...');
+
+                // --- Step 4: (SIMULATED) Fetch guild-specific info (roles) ---
+                setStatus('Checking server roles...');
                 await new Promise(resolve => setTimeout(resolve, 500));
-                // In a real backend, you would fetch the user's roles for your specific guild:
-                // const guildMemberResponse = await fetch(`https://discord.com/api/guilds/${CONFIG.DISCORD_SERVER_ID}/members/${userData.id}`, { ... });
-                // const guildMemberData = await guildMemberResponse.json();
-                // const userRoleIds = guildMemberData.roles;
-                // const isAdmin = userRoleIds.some(roleId => CONFIG.ADMIN_ROLE_IDS.includes(roleId));
 
-                // MOCKING for demo purposes
-                const isAdmin = mockUserData.id === "1328693484798083183";
-                
+                const mockGuildMember = MOCK_GUILD_MEMBERS[mockUserId];
+                let isAdmin = false;
+                let primaryRole: DiscordRole | undefined = undefined;
+
+                if (!mockGuildMember) {
+                    throw new Error(`Mock data for user ID ${mockUserId} not found in mockData.ts.`);
+                }
+
+                const userRoleIds = new Set(mockGuildMember.roles);
+
+                // Determine admin status by checking if any of the user's roles are in the admin list
+                isAdmin = CONFIG.ADMIN_ROLE_IDS.some(adminRoleId => userRoleIds.has(adminRoleId));
+
+                // Determine the user's primary role by finding their highest-positioned role
+                const userRoles = MOCK_DISCORD_ROLES
+                    .filter(role => userRoleIds.has(role.id))
+                    .sort((a, b) => b.position - a.position); // Sort descending by position
+
+                if (userRoles.length > 0) {
+                    const highestRole = userRoles[0];
+                    primaryRole = {
+                        id: highestRole.id,
+                        name: highestRole.name,
+                        color: highestRole.color,
+                    };
+                }
+
                 // --- Step 5: Construct the final User object ---
                 const finalUser: User = {
-                    id: mockUserData.id,
-                    username: mockUserData.username,
-                    avatar: `https://cdn.discordapp.com/avatars/${mockUserData.id}/${mockUserData.avatar}.png`,
+                    id: mockUserId,
+                    username: mockGuildMember.username,
+                    avatar: mockGuildMember.avatar,
                     isAdmin: isAdmin,
+                    primaryRole: primaryRole,
                 };
 
                 // --- Step 6: Send the user data back to the main window and close ---
@@ -103,7 +115,7 @@ const AuthCallbackPage: React.FC = () => {
                 }
 
             } catch (e) {
-                const errorMessage = "An unexpected error occurred during login.";
+                const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred during login.";
                 console.error("Auth processing error:", e);
                 setError(errorMessage);
                  if (window.opener) {
