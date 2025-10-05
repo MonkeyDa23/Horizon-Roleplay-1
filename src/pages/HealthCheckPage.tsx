@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, AlertTriangle, Copy } from 'lucide-react';
 
 interface HealthCheckData {
   env: Record<string, string>;
@@ -15,6 +15,17 @@ const HealthCheckPage: React.FC = () => {
   const [data, setData] = useState<HealthCheckData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  
+  const redirectUri = `${window.location.origin}/api/auth/callback`;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(redirectUri).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
 
   useEffect(() => {
     const checkHealth = async () => {
@@ -44,11 +55,25 @@ const HealthCheckPage: React.FC = () => {
   return (
     <div className="container mx-auto px-6 py-16">
       <div className="max-w-3xl mx-auto">
-        <h1 className="text-4xl font-bold mb-2 text-center">Server Health Check</h1>
-        <p className="text-gray-400 mb-8 text-center">
-          This page checks the server's connection to Discord and its configuration.
-        </p>
+        <h1 className="text-4xl font-bold mb-8 text-center">Server Health Check</h1>
         
+        <div className="bg-brand-dark-blue p-6 rounded-lg border-2 border-brand-cyan shadow-glow-cyan-light mb-8">
+            <h2 className="text-2xl font-bold text-brand-cyan mb-3">1. Discord Configuration (Crucial Step)</h2>
+            <p className="text-gray-300 mb-4">
+            For login to work, you must add the correct **OAuth2 Redirect URI** in the Discord Developer Portal. An incorrect URI is the most common cause of login failure.
+            </p>
+            <label className="text-gray-400 mb-2 font-semibold block">Your Required Redirect URI:</label>
+            <div className="flex items-center gap-4 bg-brand-dark p-3 rounded-md">
+            <code className="text-white text-md md:text-lg flex-grow break-all">{redirectUri}</code>
+            <button onClick={handleCopy} className="bg-brand-cyan text-brand-dark font-bold py-1 px-3 rounded-md hover:bg-white transition-colors flex-shrink-0">
+                {copied ? 'Copied!' : 'Copy'}
+            </button>
+            </div>
+            <p className="text-xs text-gray-400 mt-3">Go to your <a href="https://discord.com/developers/applications" target="_blank" rel="noopener noreferrer" className="text-brand-cyan underline">Discord Applications</a>, select your app, go to "OAuth2", and paste this exact URL into the "Redirects" box, then click "Save Changes".</p>
+        </div>
+
+        <h2 className="text-3xl font-bold mb-6 text-center">2. Server Diagnostics</h2>
+
         {loading && (
           <div className="flex justify-center items-center py-10">
             <Loader2 size={40} className="animate-spin text-brand-cyan" />
@@ -66,7 +91,7 @@ const HealthCheckPage: React.FC = () => {
         {data && (
           <div className="space-y-6">
             <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
-              <h2 className="text-2xl font-bold text-brand-cyan mb-4">Environment Variables</h2>
+              <h3 className="text-2xl font-bold text-brand-cyan mb-4">Environment Variables</h3>
               <p className="text-sm text-gray-400 mb-4">Checks if the required secrets are set in your Vercel project settings.</p>
               <ul className="space-y-2">
                 {Object.entries(data.env).map(([key, value]) => (
@@ -80,7 +105,7 @@ const HealthCheckPage: React.FC = () => {
             </div>
 
             <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
-              <h2 className="text-2xl font-bold text-brand-cyan mb-4">Discord Bot Connection</h2>
+              <h3 className="text-2xl font-bold text-brand-cyan mb-4">Discord Bot Connection</h3>
                <p className="text-sm text-gray-400 mb-4">Tests if the server can log in with your bot token and find your guild ID.</p>
               <div className="bg-brand-dark p-4 rounded-md space-y-3">
                  <div className="flex items-center">
@@ -111,7 +136,7 @@ const HealthCheckPage: React.FC = () => {
             ) : (
                  <div className="bg-green-500/10 border border-green-500/30 text-green-300 p-6 rounded-lg">
                     <h2 className="text-xl font-bold mb-2 flex items-center"><CheckCircle className="mr-2"/> Overall Status: All Systems Operational</h2>
-                    <p>The server is configured correctly and connected to Discord. If login is still failing, the final step is to double-check your Discord Developer Portal settings for the correct **Redirect URI**.</p>
+                    <p>The server is configured correctly. If login still fails after setting the Redirect URI from Step 1, the issue may be with your Discord Application settings.</p>
                 </div>
             )}
           </div>
