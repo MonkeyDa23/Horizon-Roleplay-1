@@ -27,13 +27,16 @@ const DiscordEmbed: React.FC = () => {
       setIsLoading(true);
       setError(null);
 
-      if (!CONFIG.DISCORD_GUILD_ID || CONFIG.DISCORD_GUILD_ID === '1422936346233933980') {
+      if (!CONFIG.DISCORD_GUILD_ID || CONFIG.DISCORD_GUILD_ID === 'YOUR_GUILD_ID_HERE') {
           setError(t('discord_widget_error_misconfigured'));
           setIsLoading(false);
           return;
       }
 
       try {
+        // Use a proxy or serverless function in production if CORS is an issue.
+        // For Vercel, a simple fetch might be blocked. A rewrite rule or API route is better.
+        // For simplicity here, we'll try a direct fetch.
         const response = await fetch(`https://discord.com/api/guilds/${CONFIG.DISCORD_GUILD_ID}/widget.json`);
         const data: DiscordWidgetData | DiscordWidgetError = await response.json();
 

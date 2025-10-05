@@ -98,6 +98,8 @@ export const saveRules = (newRules: RuleCategory[], admin: User): void => {
     addAuditLog(admin, 'Updated server rules.');
 };
 
+// NOTE: These submission functions are no longer used by the frontend,
+// as it now calls the backend API. They can be removed once a real database is in place.
 export const getSubmissions = (): QuizSubmission[] => {
   return JSON.parse(JSON.stringify(submissions.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())));
 }

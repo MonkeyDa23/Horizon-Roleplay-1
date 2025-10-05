@@ -7,7 +7,7 @@ export const CONFIG = {
   /**
    * Your community's name. This will be used in titles and other parts of the site.
    */
-  COMMUNITY_NAME: 'Horizon V',
+  COMMUNITY_NAME: 'Horizon VRoleplay',
 
   /**
    * The URL for your community's logo.

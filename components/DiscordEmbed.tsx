@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import Logo from './icons/Logo';
+// FIX: Corrected the import path for the Logo component.
+import Logo from './Logo';
 import { useLocalization } from '../hooks/useLocalization';
 import { CONFIG } from '../lib/config';
 

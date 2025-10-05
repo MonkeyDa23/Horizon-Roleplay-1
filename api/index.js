@@ -3,8 +3,22 @@ const axios = require('axios');
 const cors = require('cors');
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 
-// --- Configuration from Environment Variables ---
-// On Vercel, these will be set in the Project Settings.
+// --- Configuration and Sanity Checks ---
+const requiredEnvVars = [
+  'DISCORD_CLIENT_ID',
+  'DISCORD_CLIENT_SECRET',
+  'DISCORD_BOT_TOKEN',
+  'DISCORD_GUILD_ID',
+  'ADMIN_ROLE_IDS',
+];
+
+const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingEnvVars.length > 0) {
+  console.error('!!! FATAL ERROR: Missing required environment variables on Vercel:');
+  console.error(`!!! Please set the following in your Vercel Project Settings -> Environment Variables: ${missingEnvVars.join(', ')}`);
+}
+
 const config = {
   DISCORD_CLIENT_ID: process.env.DISCORD_CLIENT_ID,
   DISCORD_CLIENT_SECRET: process.env.DISCORD_CLIENT_SECRET,
@@ -27,11 +41,11 @@ const client = new Client({
 
 // A flag to ensure we only log in once in a serverless environment
 let botLoggedIn = false;
-if (!botLoggedIn && config.DISCORD_BOT_TOKEN) {
+if (!botLoggedIn && config.DISCORD_BOT_TOKEN && missingEnvVars.length === 0) {
     client.login(config.DISCORD_BOT_TOKEN).then(() => {
         botLoggedIn = true;
         console.log(`✅ Discord Bot logged in as ${client.user.tag}`);
-    }).catch(e => console.error("Bot login failed:", e));
+    }).catch(e => console.error("Bot login failed:", e.message));
 }
 
 const sendDm = async (userId, message) => {
@@ -65,10 +79,41 @@ let submissions = [];
 
 // --- Express App Setup ---
 const app = express();
-
-// Use CORS for the frontend URL
-app.use(cors({ origin: config.APP_URL }));
+app.use(cors()); // Enable CORS for all routes
 app.use(express.json());
+
+// --- Security Middleware ---
+// Verifies that the user making the request is a genuine admin.
+const verifyAdmin = async (req, res, next) => {
+    // For actions that need admin rights, the frontend sends the 'admin' user object.
+    // This middleware verifies the user's roles on the backend to prevent impersonation.
+    // NOTE: A more robust solution for a large application would use signed session tokens (JWTs).
+    const { admin } = req.body;
+    if (!admin || !admin.id) {
+        return res.status(401).json({ message: 'Unauthorized: Admin user not provided.' });
+    }
+
+    if (!botLoggedIn) {
+        return res.status(503).json({ message: 'Service Unavailable: Bot is not ready.' });
+    }
+
+    try {
+        const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
+        const member = await guild.members.fetch(admin.id);
+        const isAdmin = member.roles.cache.some(role => config.ADMIN_ROLE_IDS.includes(role.id));
+
+        if (!isAdmin) {
+            return res.status(403).json({ message: 'Forbidden: User is not an admin.' });
+        }
+        // If admin is verified, proceed to the actual route handler.
+        next();
+    } catch (error) {
+        console.error('Admin verification failed:', error.message);
+        // This can happen if the admin is no longer in the server.
+        return res.status(403).json({ message: 'Forbidden: Could not verify admin status.' });
+    }
+};
+
 
 // --- API Endpoints for Frontend ---
 // Note: Vercel maps requests like /api/submissions to this file,
@@ -122,7 +167,7 @@ app.post('/api/submissions', async (req, res) => {
 });
 
 // PUT: Update submission status
-app.put('/api/submissions/:id/status', async (req, res) => {
+app.put('/api/submissions/:id/status', verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const { status, admin } = req.body;
     
@@ -173,7 +218,18 @@ app.put('/api/submissions/:id/status', async (req, res) => {
 // --- OAUTH2 AUTHENTICATION ROUTE ---
 app.get('/api/auth/callback', async (req, res) => {
   const code = req.query.code;
-  if (!code) return res.status(400).redirect(`${config.APP_URL}/?error=no_code`);
+  const frontendCallbackUrl = `${config.APP_URL}/auth/callback`;
+
+  if (missingEnvVars.length > 0) {
+    const errorMessage = `Server is misconfigured. Administrator needs to set the following environment variables: ${missingEnvVars.join(', ')}`;
+    return res.redirect(`${frontendCallbackUrl}?error=${encodeURIComponent(errorMessage)}`);
+  }
+
+  if (!code) {
+      // If Discord sends an error, forward it to the frontend popup.
+      const error = req.query.error_description || "No code provided by Discord.";
+      return res.redirect(`${frontendCallbackUrl}?error=${encodeURIComponent(error)}`);
+  }
 
   try {
     const discordApi = axios.create({ baseURL: 'https://discord.com/api' });
@@ -219,11 +275,13 @@ app.get('/api/auth/callback', async (req, res) => {
     };
 
     const base64User = Buffer.from(JSON.stringify(finalUser)).toString('base64');
-    res.redirect(`${config.APP_URL}/auth/callback?user=${base64User}`);
+    res.redirect(`${frontendCallbackUrl}?user=${base64User}`);
 
   } catch (error) {
     console.error('Auth Error:', error.response ? error.response.data : error.message);
-    res.redirect(`${config.APP_URL}/?error=auth_failed`);
+    const discordError = error.response?.data;
+    const errorMessage = discordError?.error_description || discordError?.message || 'An unknown server error occurred during authentication.';
+    res.redirect(`${frontendCallbackUrl}?error=${encodeURIComponent(errorMessage)}`);
   }
 });
 
