@@ -70,7 +70,12 @@ async function getReadyBotClient() {
   const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
   clientPromise = new Promise((resolve, reject) => {
     client.once('ready', () => { console.log(`✅ Discord Bot logged in as ${client.user.tag}`); clientInstance = client; resolve(client); });
-    client.login(config.DISCORD_BOT_TOKEN).catch(err => { console.error("Bot login failed:", err.message); clientPromise = null; reject(err); });
+    client.login(config.DISCORD_BOT_TOKEN).catch(err => { 
+      console.error("Bot login failed:", err.message); 
+      // CRITICAL FIX: Reset promise on failure to allow retry on next request.
+      clientPromise = null; 
+      reject(err); 
+    });
   });
   return clientPromise;
 }
@@ -158,21 +163,27 @@ app.get('/api/submissions', (req, res) => res.json(submissions.sort((a, b) => ne
 app.get('/api/users/:userId/submissions', (req, res) => res.json(submissions.filter(s => s.userId === req.params.userId)));
 
 // --- ADMIN API ENDPOINTS ---
-app.post('/api/products', verifyAdmin, (req, res) => {
-  const { product, admin } = req.body;
-  const isNew = !product.id || !products.some(p => p.id === product.id);
-  if (isNew) {
-      product.id = `prod_${Date.now()}`;
-      products.push(product);
-      addAuditLog(admin, `Created product: "${product.nameKey}"`);
-  } else {
-      const index = products.findIndex(p => p.id === product.id);
-      products[index] = product;
-      addAuditLog(admin, `Updated product: "${product.nameKey}"`);
+app.post('/api/products', verifyAdmin, async (req, res) => {
+  try {
+    const { product, admin } = req.body;
+    const isNew = !product.id || !products.some(p => p.id === product.id);
+    if (isNew) {
+        product.id = `prod_${Date.now()}`;
+        products.push(product);
+        addAuditLog(admin, `Created product: "${product.nameKey}"`);
+    } else {
+        const index = products.findIndex(p => p.id === product.id);
+        products[index] = product;
+        addAuditLog(admin, `Updated product: "${product.nameKey}"`);
+    }
+    res.status(200).json(product);
+  } catch (error) {
+    console.error(`[API][Products] Failed to save product:`, error);
+    res.status(500).json({ message: 'Failed to save product due to a server error.' });
   }
-  res.status(200).json(product);
 });
-app.delete('/api/products/:id', verifyAdmin, (req, res) => {
+app.delete('/api/products/:id', verifyAdmin, async (req, res) => {
+  try {
     const { admin } = req.body;
     const { id } = req.params;
     const product = products.find(p => p.id === id);
@@ -181,12 +192,64 @@ app.delete('/api/products/:id', verifyAdmin, (req, res) => {
     }
     products = products.filter(p => p.id !== id);
     res.status(204).send();
+  } catch (error) {
+    console.error(`[API][Products] Failed to delete product ${req.params.id}:`, error);
+    res.status(500).json({ message: 'Failed to delete product due to a server error.' });
+  }
 });
-app.post('/api/rules', verifyAdmin, (req, res) => {
-  rules = req.body.rules;
-  addAuditLog(req.adminUser, 'Updated the server rules.');
-  res.status(200).json(rules);
+
+app.post('/api/rules', verifyAdmin, async (req, res) => {
+  try {
+    rules = req.body.rules;
+    addAuditLog(req.adminUser, 'Updated the server rules.');
+    res.status(200).json(rules);
+  } catch (error) {
+    console.error(`[API][Rules] Failed to save rules:`, error);
+    res.status(500).json({ message: 'Failed to save rules due to a server error.' });
+  }
 });
+
+// FIX: Add missing quiz management endpoints
+app.post('/api/quizzes', verifyAdmin, async (req, res) => {
+  try {
+    const { quiz, admin } = req.body;
+    const isNew = !quiz.id || !quizzes.some(q => q.id === quiz.id);
+    if (isNew) {
+      quiz.id = `quiz_${Date.now()}`;
+      quizzes.push(quiz);
+      addAuditLog(admin, `Created quiz: "${quiz.titleKey}"`);
+    } else {
+      const index = quizzes.findIndex(q => q.id === quiz.id);
+      if (index > -1) {
+        quizzes[index] = quiz;
+        addAuditLog(admin, `Updated quiz: "${quiz.titleKey}"`);
+      } else {
+         return res.status(404).json({ message: "Quiz not found for update."});
+      }
+    }
+    res.status(200).json(quiz);
+  } catch (error) {
+    console.error(`[API][Quizzes] Failed to save quiz:`, error);
+    res.status(500).json({ message: 'Failed to save quiz due to a server error.' });
+  }
+});
+
+app.delete('/api/quizzes/:id', verifyAdmin, async (req, res) => {
+  try {
+    const { admin } = req.body;
+    const { id } = req.params;
+    const quiz = quizzes.find(q => q.id === id);
+    if (quiz) {
+      addAuditLog(admin, `Deleted quiz: "${quiz.titleKey}"`);
+    }
+    quizzes = quizzes.filter(q => q.id !== id);
+    res.status(204).send();
+  } catch (error) {
+    console.error(`[API][Quizzes] Failed to delete quiz ${req.params.id}:`, error);
+    res.status(500).json({ message: 'Failed to delete quiz due to a server error.' });
+  }
+});
+
 
 // --- SUBMISSIONS LOGIC ---
 app.post('/api/submissions', async (req, res) => {

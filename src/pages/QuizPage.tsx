@@ -14,6 +14,7 @@ const QuizPage: React.FC = () => {
   
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [currentAnswer, setCurrentAnswer] = useState('');
@@ -53,7 +54,9 @@ const QuizPage: React.FC = () => {
   }, [quizId, navigate, user]);
   
   const handleSubmit = useCallback(async (finalAnswers: Answer[]) => {
-    if (!quiz || !user) return;
+    if (!quiz || !user || isSubmitting) return;
+
+    setIsSubmitting(true);
     const submission = {
         quizId: quiz.id,
         quizTitle: t(quiz.titleKey),
@@ -63,9 +66,15 @@ const QuizPage: React.FC = () => {
         submittedAt: new Date().toISOString(),
     };
     
-    await addSubmission(submission);
-    setQuizState('submitted');
-  }, [quiz, user, t]);
+    try {
+      await addSubmission(submission);
+      setQuizState('submitted');
+    } catch (error) {
+      console.error("Failed to submit application:", error);
+      alert("An error occurred while submitting your application. Please try again.");
+      setIsSubmitting(false);
+    }
+  }, [quiz, user, t, isSubmitting]);
 
   // Timer logic
   const handleNextQuestion = useCallback(() => {
@@ -110,7 +119,6 @@ const QuizPage: React.FC = () => {
   // Security: Reset quiz if user switches tabs
   useEffect(() => {
     const handleVisibilityChange = () => {
-      // Check if the page is hidden AND the user is actively taking the quiz.
       if (document.visibilityState === 'hidden' && quizState === 'taking') {
         alert("You have switched away from the quiz tab. To ensure fairness, your application attempt has been cancelled.");
         navigate('/applies');
@@ -118,8 +126,6 @@ const QuizPage: React.FC = () => {
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    // Cleanup the event listener when the component unmounts or dependencies change.
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
@@ -197,9 +203,16 @@ const QuizPage: React.FC = () => {
         
         <button 
           onClick={handleNextQuestion}
-          className="mt-8 w-full bg-brand-cyan text-brand-dark font-bold py-4 rounded-lg shadow-glow-cyan hover:bg-white transition-all text-lg"
+          disabled={isSubmitting && currentQuestionIndex === quiz.questions.length - 1}
+          className="mt-8 w-full bg-brand-cyan text-brand-dark font-bold py-4 rounded-lg shadow-glow-cyan hover:bg-white transition-all text-lg flex justify-center items-center disabled:opacity-70 disabled:cursor-not-allowed"
         >
-          {currentQuestionIndex < quiz.questions.length - 1 ? t('next_question') : t('submit_application')}
+          {isSubmitting && currentQuestionIndex === quiz.questions.length - 1 ? (
+            <Loader2 size={28} className="animate-spin" />
+          ) : currentQuestionIndex < quiz.questions.length - 1 ? (
+            t('next_question')
+          ) : (
+            t('submit_application')
+          )}
         </button>
       </div>
        <style>{`

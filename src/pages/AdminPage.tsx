@@ -66,49 +66,49 @@ const AdminPage: React.FC = () => {
     }
   }, []);
   
-  // CRITICAL: Re-validate user's admin status on page load.
+  // CRITICAL: Re-validate user's admin status on page load and periodically.
   useEffect(() => {
-    const validate = async () => {
-        if (!user) {
-            navigate('/');
-            return;
+    const validate = async (isInitial = false) => {
+      if (!user) {
+        if (isInitial) navigate('/');
+        return;
+      }
+
+      if (isInitial) setIsValidating(true);
+      
+      try {
+        const freshUser = await revalidateSession(user);
+        
+        if (!freshUser.isAdmin) {
+          alert("Your admin permissions have been revoked.");
+          logout();
+          navigate('/');
+          return; 
         }
         
-        setIsValidating(true);
-        try {
-            const freshUser = await revalidateSession(user);
-            
-            // First, check for permission loss. This is the most critical action.
-            if (!freshUser.isAdmin) {
-                alert("Your admin permissions have been revoked.");
-                logout();
-                navigate('/');
-                return; 
-            }
-            
-            // FIX: Prevent infinite loop by only updating context if user data has changed.
-            if (JSON.stringify(freshUser) !== JSON.stringify(user)) {
-                updateUser(freshUser); 
-            }
-
-            await fetchAllData();
-
-        } catch (error) {
-            console.error("Session validation failed.", error);
-            alert("Could not verify your admin session. Logging out for security.");
-            logout();
-            navigate('/');
-        } finally {
-            setIsValidating(false);
+        if (JSON.stringify(freshUser) !== JSON.stringify(user)) {
+            updateUser(freshUser); 
         }
-    };
 
-    validate();
-    // We only want this effect to run when the user ID changes (i.e., login/logout)
-    // or when the component mounts for the first time.
-    // The internal logic handles fetching fresh data without causing loops.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+        if (isInitial) await fetchAllData();
+
+      } catch (error) {
+        console.error("Session validation failed.", error);
+        alert("Could not verify your admin session. Logging out for security.");
+        logout();
+        navigate('/');
+      } finally {
+        if (isInitial) setIsValidating(false);
+      }
+    };
+    
+    validate(true); // Initial validation on component mount
+
+    // Set up a periodic check every 30 seconds for continuous security
+    const intervalId = setInterval(() => validate(false), 30000); 
+
+    return () => clearInterval(intervalId); // Cleanup interval on unmount
+  }, [user?.id, logout, navigate, updateUser, fetchAllData]); // user object is not a dependency to avoid loop
 
 
   // --- Quiz Management Functions ---
@@ -173,7 +173,6 @@ const AdminPage: React.FC = () => {
   };
   
   // --- RENDER METHODS ---
-  // FIX: Changed JSX.Element to React.ReactNode to fix "Cannot find namespace 'JSX'" error.
   const renderSharedPanel = (title:string, data: any[], columns: any[], renderRow: (item: any, index: number) => React.ReactNode, emptyMessage: string) => (
      <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50 mt-6">
       <div className="overflow-x-auto">
@@ -245,6 +244,50 @@ const AdminPage: React.FC = () => {
     </>
   );
 
+  const QuizzesPanel = () => (
+      <div>
+        <div className="flex justify-between items-center my-6">
+            <h2 className="text-2xl font-bold">{t('quiz_management')}</h2>
+            <button onClick={handleCreateNewQuiz} className="bg-brand-cyan text-brand-dark font-bold py-2 px-4 rounded-md hover:bg-white transition-all flex items-center gap-2">
+                <Plus size={20} />
+                {t('create_new_quiz')}
+            </button>
+        </div>
+        {editingQuiz ? <div>...QuizEditor...</div> : (
+        <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50">
+          <table className="w-full text-left">
+            <thead className="border-b border-brand-light-blue/50 text-gray-300">
+              <tr>
+                <th className="p-4">{t('quiz_title')}</th>
+                <th className="p-4">{t('status')}</th>
+                <th className="p-4 text-right">{t('actions')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {quizzes.map((quiz, index) => (
+                <tr key={quiz.id} className={`border-b border-brand-light-blue/50 ${index === quizzes.length - 1 ? 'border-none' : ''}`}>
+                  <td className="p-4 font-semibold">{t(quiz.titleKey)}</td>
+                  <td className="p-4">
+                    <span className={`px-3 py-1 text-sm font-bold rounded-full ${quiz.isOpen ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                      {quiz.isOpen ? t('open') : t('closed')}
+                    </span>
+                  </td>
+                  <td className="p-4 text-right">
+                    <div className="inline-flex gap-4">
+                       <button onClick={() => handleEditQuiz(quiz)} className="text-gray-300 hover:text-brand-cyan"><Edit size={20}/></button>
+                       <button onClick={() => handleDeleteQuiz(quiz.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={20}/></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        )}
+      </div>
+  );
+
+
   return (
     <div className="container mx-auto px-6 py-16">
       <div className="text-center mb-12"><div className="inline-block p-4 bg-brand-light-blue rounded-full mb-4"><UserCog className="text-brand-cyan" size={48} /></div><h1 className="text-4xl md:text-5xl font-bold mb-4">{t('page_title_admin')}</h1></div>
@@ -260,6 +303,7 @@ const AdminPage: React.FC = () => {
         {isLoading ? <div className="flex justify-center items-center py-20"><Loader2 size={40} className="text-brand-cyan animate-spin" /></div>
         : <>
             {activeTab === 'submissions' && <SubmissionsPanel />}
+            {activeTab === 'quizzes' && <QuizzesPanel />}
             {activeTab === 'audit' && <AuditLogPanel />}
             {activeTab === 'store' && <StorePanel />}
           </>}
