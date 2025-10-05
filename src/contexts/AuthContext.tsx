@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useEffect } from 'react';
 import type { User, AuthContextType } from '../types';
 import { CONFIG } from '../lib/config';
@@ -21,8 +22,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // sessionStorage is isolated to a single tab.
       localStorage.setItem('oauth_state', state);
 
-      // This is the crucial fix for HashRouter. The redirect URI must point to
-      // the route within the hash.
+      // The redirect URI now points to a clean path, compatible with BrowserRouter.
+      // This is generated dynamically to work on localhost and any deployment URL.
       const REDIRECT_URI = `https://horizonroleplay1.vercel.app/auth/callback`;
 
       const params = new URLSearchParams({

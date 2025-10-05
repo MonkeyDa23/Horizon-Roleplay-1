@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Loader } from 'lucide-react';
 import { CONFIG } from '../lib/config';
@@ -8,8 +9,7 @@ import { MOCK_DISCORD_ROLES, MOCK_GUILD_MEMBERS } from '../lib/mockData';
 // --- SIMULATED BACKEND: OAUTH2 CALLBACK HANDLER ---
 // ===================================================================================
 // This page's entire purpose is to act like a backend server after a user
-// authorizes the app on Discord. It fixes the "Invalid authentication request" bug
-// by correctly validating the state from localStorage and handling the HashRouter URL.
+// authorizes the app on Discord. It now correctly handles clean URLs from BrowserRouter.
 //
 // IN A REAL, SECURE APPLICATION:
 // 1. Discord would redirect to a real backend URL (e.g., `https://api.yourdomain.com/auth/discord/callback?code=...`).
@@ -27,25 +27,15 @@ const AuthCallbackPage: React.FC = () => {
 
     useEffect(() => {
         const processAuth = async () => {
-            // For HashRouter, params are in the hash part of the URL after '?'.
-            const paramsString = window.location.hash.split('?')[1];
-            if (!paramsString) {
-                 setError('Invalid authentication request. No parameters found.');
-                 if (window.opener) {
-                   window.opener.postMessage({ type: 'auth-error', error: 'Invalid authentication request. No parameters found.' }, window.location.origin);
-                   window.close();
-                 }
-                 return;
-            }
-            
-            const params = new URLSearchParams(paramsString);
+            // For BrowserRouter, params are in the standard URL search query.
+            const params = new URLSearchParams(window.location.search);
             const code = params.get('code');
             const state = params.get('state');
             
             // Get state from localStorage, which is shared between the main window and popup.
             const storedState = localStorage.getItem('oauth_state');
 
-            // --- Step 1: Validate the request (CRITICAL FIX) ---
+            // --- Step 1: Validate the request (CRITICAL) ---
             if (!code || !state || state !== storedState) {
                 const errorMessage = 'Invalid authentication state. Please try logging in again.';
                 setError(errorMessage);

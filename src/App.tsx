@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { HashRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { LocalizationProvider } from './contexts/LocalizationContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
@@ -23,7 +23,7 @@ const App: React.FC = () => {
     <LocalizationProvider>
       <AuthProvider>
         <CartProvider>
-          <HashRouter>
+          <BrowserRouter>
             <div className="bg-brand-dark min-h-screen text-white font-sans">
               <Navbar />
               <main>
@@ -42,7 +42,7 @@ const App: React.FC = () => {
               </main>
               <Footer />
             </div>
-          </HashRouter>
+          </BrowserRouter>
         </CartProvider>
       </AuthProvider>
     </LocalizationProvider>

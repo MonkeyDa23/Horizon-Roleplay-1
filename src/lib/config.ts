@@ -1,3 +1,4 @@
+
 // /lib/config.ts
 
 // ===================================================================================
@@ -57,11 +58,11 @@ export const CONFIG = {
    * 
    * Copy and paste the following URLs into the "Redirects" box:
    * 
-   * 1. For local development: http://localhost:5173/#/auth/callback
-   * 2. For your live website: https://YOUR-WEBSITE-URL.com/#/auth/callback
+   * 1. For local development: http://localhost:5173/auth/callback
+   * 2. For your live website: https://YOUR-WEBSITE-URL.com/auth/callback
    * (Replace "YOUR-WEBSITE-URL.com" with your actual domain name)
    * 
-   * The `#` is required because this site uses HashRouter.
+   * The site now uses clean URLs (BrowserRouter), so the hash (#) is no longer needed.
    */
    
   // ===================================================================================
