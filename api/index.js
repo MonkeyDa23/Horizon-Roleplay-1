@@ -67,7 +67,6 @@ async function getReadyBotClient() {
 }
 
 // Warm up the bot on cold start. We don't await this here.
-// Subsequent requests will await the `clientPromise`.
 getReadyBotClient().catch(() => { /* Error is logged inside */ });
 
 
@@ -105,6 +104,65 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// --- HEALTH CHECK / DIAGNOSTICS ENDPOINT ---
+app.get('/api/health', async (req, res) => {
+  console.log('[HEALTH_CHECK] Running diagnostics...');
+  const checks = {
+    env: {},
+    bot: {
+      status: 'pending',
+      guild_found: false,
+      guild_name: 'N/A',
+      error: null,
+    },
+  };
+
+  // 1. Check Environment Variables
+  requiredEnvVars.forEach(varName => {
+    checks.env[varName] = process.env[varName] ? '✅ Set' : '❌ MISSING';
+  });
+  const currentMissing = Object.values(checks.env).some(v => v.includes('MISSING'));
+
+
+  // 2. Check Discord Bot Token and Guild ID
+  if (currentMissing) {
+    checks.bot.status = '❌ Skipped';
+    checks.bot.error = 'Cannot check bot status due to missing environment variables.';
+    console.log('[HEALTH_CHECK] Result:', checks);
+    return res.status(500).json(checks);
+  }
+
+  try {
+    const client = await getReadyBotClient();
+    const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
+    if (guild) {
+      checks.bot.status = '✅ OK';
+      checks.bot.guild_found = true;
+      checks.bot.guild_name = guild.name;
+      console.log(`[HEALTH_CHECK] Bot OK, found guild: ${guild.name}`);
+    } else {
+      checks.bot.status = '❌ FAILED';
+      checks.bot.error = `Could not find Guild with ID: ${config.DISCORD_GUILD_ID}. Is the bot in the server?`;
+      console.error(`[HEALTH_CHECK] Bot FAILED: ${checks.bot.error}`);
+    }
+  } catch (error) {
+    checks.bot.status = '❌ FAILED';
+    if (error.code === 10004) { // Unknown Guild
+        checks.bot.error = `Unknown Guild. The DISCORD_GUILD_ID is incorrect.`;
+    } else if (error.code === 50001) { // Missing Access
+        checks.bot.error = `Missing Access. The bot may not be in the specified guild.`;
+    } else if (error.message.includes('Invalid token')) {
+        checks.bot.error = `Invalid Token. The DISCORD_BOT_TOKEN is incorrect.`;
+    } else {
+        checks.bot.error = `An unexpected error occurred: ${error.message}`;
+    }
+    console.error(`[HEALTH_CHECK] Bot FAILED: ${checks.bot.error}`);
+  }
+  
+  console.log('[HEALTH_CHECK] Result:', checks);
+  res.status(checks.bot.status === '✅ OK' && !currentMissing ? 200 : 500).json(checks);
+});
+
 
 // --- Security Middleware: Verify Admin ---
 const verifyAdmin = async (req, res, next) => {
@@ -131,20 +189,16 @@ const verifyAdmin = async (req, res, next) => {
 
 
 // --- API Endpoints ---
-
-// GET all submissions (for admin panel)
 app.get('/api/submissions', (req, res) => {
   res.json(submissions.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()));
 });
 
-// GET submissions for a specific user
 app.get('/api/users/:userId/submissions', (req, res) => {
   const { userId } = req.params;
   const userSubmissions = submissions.filter(s => s.userId === userId);
   res.json(userSubmissions);
 });
 
-// POST a new submission
 app.post('/api/submissions', async (req, res) => {
   const submissionData = req.body;
   const newSubmission = {
@@ -178,7 +232,6 @@ app.post('/api/submissions', async (req, res) => {
   res.status(201).json(newSubmission);
 });
 
-// PUT: Update submission status
 app.put('/api/submissions/:id/status', verifyAdmin, async (req, res) => {
   const { id } = req.params;
   const { status, admin } = req.body;
@@ -260,12 +313,10 @@ app.get('/api/auth/callback', async (req, res) => {
     const { access_token } = tokenResponse.data;
     console.log('[AUTH_CALLBACK] Token acquired. Fetching user and guild data...');
 
-    // Fetch member data (for roles/nick) and guild roles simultaneously
     const [memberResponse, guildRolesResponse] = await Promise.all([
       discordApi.get(`/users/@me/guilds/${config.DISCORD_GUILD_ID}/member`, {
         headers: { Authorization: `Bearer ${access_token}` },
       }),
-      // Use the bot's token for this, as it's more reliable and doesn't depend on user perms
       discordApi.get(`/guilds/${config.DISCORD_GUILD_ID}/roles`, {
         headers: { Authorization: `Bot ${config.DISCORD_BOT_TOKEN}` },
       })
@@ -274,10 +325,8 @@ app.get('/api/auth/callback', async (req, res) => {
     console.log('[AUTH_CALLBACK] User and guild data fetched. Processing roles...');
     const memberData = memberResponse.data;
     const userRolesIds = memberData.roles;
-    // Sort all guild roles by position, highest first
     const guildRoles = guildRolesResponse.data.sort((a, b) => b.position - a.position);
     
-    // Find the user's highest role by iterating through the sorted guild roles
     const primaryRoleObject = guildRoles.find(guildRole => userRolesIds.includes(guildRole.id)) || null;
     
     const isAdmin = userRolesIds.some(roleId => config.ADMIN_ROLE_IDS.includes(roleId));
@@ -292,7 +341,6 @@ app.get('/api/auth/callback', async (req, res) => {
       primaryRole: primaryRoleObject ? {
         id: primaryRoleObject.id,
         name: primaryRoleObject.name,
-        // Convert decimal color to a proper hex string
         color: `#${primaryRoleObject.color.toString(16).padStart(6, '0')}`,
       } : null,
     };

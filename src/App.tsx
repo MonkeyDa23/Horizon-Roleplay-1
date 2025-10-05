@@ -16,6 +16,7 @@ import QuizPage from './pages/QuizPage';
 import MyApplicationsPage from './pages/MyApplicationsPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import ProfilePage from './pages/ProfilePage';
+import HealthCheckPage from './pages/HealthCheckPage';
 
 const App: React.FC = () => {
   return (
@@ -37,6 +38,7 @@ const App: React.FC = () => {
                   <Route path="/my-applications" element={<MyApplicationsPage />} />
                   <Route path="/profile" element={<ProfilePage />} />
                   <Route path="/auth/callback" element={<AuthCallbackPage />} />
+                  <Route path="/health" element={<HealthCheckPage />} />
                 </Routes>
               </main>
               <Footer />
