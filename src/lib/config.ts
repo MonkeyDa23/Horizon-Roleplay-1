@@ -11,7 +11,7 @@ export const CONFIG = {
   /**
    * The name of your community. This will be displayed on the homepage, navbar, etc.
    */
-  COMMUNITY_NAME: 'Horizon Roleplay',
+  COMMUNITY_NAME: 'Horizon VRoleplay',
 
   /**
    * The URL for your community's logo.
@@ -34,7 +34,7 @@ export const CONFIG = {
    * 2. Copy the "Server ID" from that page.
    * 3. Replace the placeholder value below with your REAL Server ID.
    */
-  DISCORD_SERVER_ID: '1422936346233933980', // <-- REPLACE THIS WITH YOUR ACTUAL SERVER/GUILD ID
+  DISCORD_SERVER_ID: '1289683067333771357', // <-- REPLACE THIS WITH YOUR ACTUAL SERVER/GUILD ID
 
   /**
    * The connection URL for your Multi Theft Auto (MTA) server.
@@ -57,14 +57,17 @@ export const CONFIG = {
    * The OAuth2 redirect URI is generated dynamically by the website to support multiple
    * environments (development, preview, production) seamlessly.
    * 
-   * >>> IMPORTANT ACTION REQUIRED <<<
+   * >>> CRITICAL ACTION REQUIRED <<<
    * You MUST add all potential callback URLs to your Discord application's
    * OAuth2 -> "Redirects" section in the Developer Portal.
    * 
-   * Add the following URLs:
+   * Copy and paste the following URLs into the "Redirects" box:
+   * 
    * 1. For local development: http://localhost:5173/#/auth/callback
    * 2. For your live website: https://YOUR-WEBSITE-URL.com/#/auth/callback
-   * (Replace "YOUR-WEBSITE-URL.com" with your actual domain)
+   * (Replace "YOUR-WEBSITE-URL.com" with your actual domain name)
+   * 
+   * The `#` is required because this site uses HashRouter.
    */
    
   // ===================================================================================

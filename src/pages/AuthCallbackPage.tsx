@@ -31,6 +31,10 @@ const AuthCallbackPage: React.FC = () => {
             const paramsString = window.location.hash.split('?')[1];
             if (!paramsString) {
                  setError('Invalid authentication request. No parameters found.');
+                 if (window.opener) {
+                   window.opener.postMessage({ type: 'auth-error', error: 'Invalid authentication request. No parameters found.' }, window.location.origin);
+                   window.close();
+                 }
                  return;
             }
             
@@ -43,7 +47,7 @@ const AuthCallbackPage: React.FC = () => {
 
             // --- Step 1: Validate the request (CRITICAL FIX) ---
             if (!code || !state || state !== storedState) {
-                const errorMessage = 'Invalid authentication request. Please try logging in again.';
+                const errorMessage = 'Invalid authentication state. Please try logging in again.';
                 setError(errorMessage);
                 if (window.opener) {
                    window.opener.postMessage({ type: 'auth-error', error: errorMessage }, window.location.origin);
@@ -61,9 +65,9 @@ const AuthCallbackPage: React.FC = () => {
                 // In this simulation, we'll cycle through our mock users on each login
                 // to make testing different roles (admin, vip, member) easier.
                 const mockUserIds = Object.keys(MOCK_GUILD_MEMBERS);
-                const loginCount = parseInt(sessionStorage.getItem('login_count') || '0', 10);
+                const loginCount = parseInt(localStorage.getItem('login_count') || '0', 10);
                 const mockUserId = mockUserIds[loginCount % mockUserIds.length];
-                sessionStorage.setItem('login_count', (loginCount + 1).toString());
+                localStorage.setItem('login_count', (loginCount + 1).toString());
 
 
                 // --- Step 4: (SIMULATED) Fetch guild-specific info (roles) ---

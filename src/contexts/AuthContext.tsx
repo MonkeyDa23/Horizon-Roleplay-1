@@ -1,11 +1,11 @@
 import React, { createContext, useState, useEffect } from 'react';
 import type { User, AuthContextType } from '../types';
-import { Loader } from 'lucide-react';
+import { CONFIG } from '../lib/config';
+
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 // --- Discord OAuth2 Configuration ---
-const DISCORD_CLIENT_ID = '1423341328355295394';
 const OAUTH_SCOPES = 'identify guilds.members.read';
 
 
@@ -26,7 +26,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const REDIRECT_URI = `${window.location.origin}${window.location.pathname}#/auth/callback`;
 
       const params = new URLSearchParams({
-        client_id: DISCORD_CLIENT_ID,
+        client_id: CONFIG.DISCORD_CLIENT_ID,
         redirect_uri: REDIRECT_URI,
         response_type: 'code',
         scope: OAUTH_SCOPES,
