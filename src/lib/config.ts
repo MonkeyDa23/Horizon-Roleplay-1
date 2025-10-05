@@ -27,8 +27,14 @@ export const CONFIG = {
   /**
    * Your main Discord Server ID (also called Guild ID).
    * This is REQUIRED for the live Discord member count widget to work.
+   * 
+   * >>> IMPORTANT ACTION REQUIRED <<<
+   * For the widget to work, you MUST:
+   * 1. Go to your Server Settings -> Widget -> Enable Server Widget.
+   * 2. Copy the "Server ID" from that page.
+   * 3. Replace the placeholder value below with your REAL Server ID.
    */
-  DISCORD_SERVER_ID: '1422936346233933980', // <-- Replace with your actual Server/Guild ID
+  DISCORD_SERVER_ID: '1422936346233933980', // <-- REPLACE THIS WITH YOUR ACTUAL SERVER/GUILD ID
 
   /**
    * The connection URL for your Multi Theft Auto (MTA) server.
@@ -67,7 +73,6 @@ export const CONFIG = {
   // These values are used by the mock backend to simulate sending notifications.
   // In a real application, these might be environment variables on your server.
   
-  // FIX: Added missing config variables for backend simulation.
   /**
    * The ID of the Discord channel where new application notifications should be sent.
    */
@@ -77,14 +82,4 @@ export const CONFIG = {
    * An array of Discord Role IDs that grant admin access to the website's admin panel.
    */
   ADMIN_ROLE_IDS: ['1423683069893673050'], // <-- Replace. Example: ['123456789012345678']
-   
-  // ===================================================================================
-  // --- Discord Widget (Public Info) ---
-  // ===================================================================================
-
-  /**
-   * >>> For the Discord widget to work, you MUST enable it in your server settings! <<<
-   * Go to Server Settings -> Widget -> Enable Server Widget.
-   * The widget will not work if this is disabled.
-   */
 };

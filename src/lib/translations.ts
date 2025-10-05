@@ -12,6 +12,7 @@ export const translations: Translations = {
   welcome: { ar: 'أهلاً', en: 'Welcome' },
   admin_panel: { ar: 'لوحة التحكم', en: 'Admin Panel' },
   my_applications: { ar: 'تقديماتي', en: 'My Applications' },
+  my_profile: { ar: 'ملفي الشخصي', en: 'My Profile' },
 
   // Hero Section
   hero_title: { ar: 'مجتمع {communityName} للعب الأدوار', en: '{communityName} Roleplay Community' },
@@ -42,9 +43,12 @@ export const translations: Translations = {
   discord_online: { ar: 'متصل', en: 'Online' },
   discord_members: { ar: 'عضو', en: 'Members' },
   discord_widget_error: { ar: 'بيانات الأعضاء الحية غير متاحة.', en: 'Live member count unavailable.' },
+  discord_widget_error_misconfigured: { ar: 'الويدجت غير معد. يرجى وضع ID السيرفر في ملف الإعدادات.', en: 'Widget is not configured. Please set your Server ID in the config file.' },
+  discord_widget_error_invalid_id: { ar: 'ID سيرفر الديسكورد غير صالح. يرجى التحقق من الإعدادات.', en: 'Invalid Discord Server ID. Please check your configuration.' },
+  discord_widget_error_disabled: { ar: 'ويدجت الديسكورد معطل. يرجى تفعيله من إعدادات السيرفر.', en: 'Discord widget is disabled. Please enable it in your server settings.' },
 
   // Footer
-  footer_rights: { ar: '© 2024 {communityName}. جميع الحقوق محفوظة.', en: '© 2024 {communityName}. All Rights Reserved.' },
+  footer_rights: { ar: '© {year} {communityName}. جميع الحقوق محفوظة.', en: '© {year} {communityName}. All Rights Reserved.' },
 
   // Store & Cart
   add_to_cart: { ar: 'أضف للسلة', en: 'Add to Cart' },
@@ -57,6 +61,7 @@ export const translations: Translations = {
   // Applies & Quiz
   apply_now: { ar: 'قدم الآن', en: 'Apply Now' },
   application_closed: { ar: 'التقديم مغلق', en: 'Application Closed' },
+  already_applied: { ar: 'تم التقديم', en: 'Already Applied' },
   no_applies_open: { ar: 'لا يوجد تقديمات مفتوحة حالياً.', en: 'No applications are open at this time.'},
   quiz_rules: { ar: 'تعليمات التقديم', en: 'Application Instructions' },
   begin_quiz: { ar: 'ابدأ الاختبار', en: 'Begin Quiz' },
@@ -73,6 +78,8 @@ export const translations: Translations = {
   // Admin Page
   quiz_management: { ar: 'إدارة نماذج التقديم', en: 'Quiz Forms Management' },
   submission_management: { ar: 'إدارة طلبات التقديم', en: 'Application Submissions' },
+  rules_management: { ar: 'إدارة القوانين', en: 'Rules Management' },
+  audit_log: { ar: 'سجل الإجراءات', en: 'Audit Log' },
   create_new_quiz: { ar: 'إنشاء تقديم جديد', en: 'Create New Quiz' },
   edit_quiz: { ar: 'تعديل التقديم', en: 'Edit Quiz' },
   quiz_title: { ar: 'عنوان التقديم (مفتاح الترجمة)', en: 'Quiz Title (Translation Key)' },
@@ -98,6 +105,17 @@ export const translations: Translations = {
   submission_details: { ar: 'تفاصيل الطلب', en: 'Submission Details' },
   close: { ar: 'إغلاق', en: 'Close' },
   no_pending_submissions: { ar: 'لا توجد طلبات تقديم معلقة حالياً.', en: 'There are no pending submissions.' },
+  log_timestamp: { ar: 'الوقت', en: 'Timestamp' },
+  log_admin: { ar: 'المشرف', en: 'Admin' },
+  log_action: { ar: 'الإجراء', en: 'Action' },
+  no_logs_found: { ar: 'لا توجد سجلات.', en: 'No logs found.' },
+  category_title: { ar: 'عنوان الفئة (مفتاح الترجمة)', en: 'Category Title (Translation Key)' },
+  rule_text: { ar: 'نص القانون (مفتاح الترجمة)', en: 'Rule Text (Translation Key)' },
+  add_rule: { ar: 'إضافة قانون', en: 'Add Rule' },
+  add_category: { ar: 'إضافة فئة', en: 'Add Category' },
+  save_rules: { ar: 'حفظ القوانين', en: 'Save Rules' },
+  delete_category_confirm: { ar: 'هل أنت متأكد من حذف هذه الفئة وجميع قوانينها؟', en: 'Are you sure you want to delete this category and all its rules?' },
+  rules_updated_success: { ar: 'تم تحديث القوانين بنجاح!', en: 'Rules updated successfully!' },
   
   // Submission Statuses
   status_pending: { ar: 'قيد الانتظار', en: 'Pending' },
@@ -109,6 +127,13 @@ export const translations: Translations = {
   no_applications_submitted: { ar: 'لم تقم بتقديم أي طلبات بعد.', en: 'You have not submitted any applications yet.' },
   application_type: { ar: 'نوع التقديم', en: 'Application Type' },
   
+  // Profile Page
+  user_id: { ar: 'معرف المستخدم', en: 'User ID' },
+  role: { ar: 'الرتبة', en: 'Role' },
+  admin: { ar: 'مشرف', en: 'Admin' },
+  member: { ar: 'عضو', en: 'Member' },
+  recent_applications: { ar: 'آخر التقديمات', en: 'Recent Applications' },
+
   // MOCK DATA TRANSLATIONS
   // Products
   product_vip_bronze_name: { ar: 'عضوية VIP برونزية', en: 'Bronze VIP Membership' },
@@ -119,6 +144,14 @@ export const translations: Translations = {
   product_cash_1_desc: { ar: 'دفعة نقدية داخل اللعبة لتبدأ بقوة.', en: 'An in-game cash boost to get you started.' },
   product_custom_plate_name: { ar: 'لوحة سيارة مخصصة', en: 'Custom License Plate' },
   product_custom_plate_desc: { ar: 'لوحة فريدة لسيارتك المفضلة.', en: 'A unique license plate for your favorite vehicle.' },
+
+  // Rules
+  rules_general_title: { ar: 'القوانين العامة', en: 'General Rules' },
+  rule_general_1: { ar: 'يجب احترام جميع اللاعبين والمشرفين.', en: 'Respect all players and administrators.' },
+  rule_general_2: { ar: 'يمنع استخدام أي برامج غش أو استغلال أخطاء اللعبة.', en: 'The use of cheats or exploitation of game bugs is forbidden.' },
+  rules_rp_title: { ar: 'قوانين اللعب الأدوار', en: 'Roleplay Rules' },
+  rule_rp_1: { ar: 'يجب أن تبقى في شخصيتك طوال الوقت (In-Character).', en: 'You must remain in character at all times.' },
+  no_rules_yet: { ar: 'لم تتم إضافة القوانين بعد.', en: 'The rules have not been added yet.' },
 
   // Quizzes
   quiz_police_name: { ar: 'تقديم قسم الشرطة', en: 'Police Department Application' },

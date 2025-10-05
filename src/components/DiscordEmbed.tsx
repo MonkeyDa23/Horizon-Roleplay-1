@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Logo from './icons/Logo';
 import { useLocalization } from '../hooks/useLocalization';
 import { CONFIG } from '../lib/config';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertTriangle } from 'lucide-react';
 
 interface DiscordWidgetData {
   name: string;
@@ -11,36 +11,102 @@ interface DiscordWidgetData {
   instant_invite: string;
 }
 
+// This interface is for Discord's error response on the widget.json endpoint
+interface DiscordWidgetError {
+  code: number;
+  message: string;
+}
+
 const DiscordEmbed: React.FC = () => {
   const { t } = useLocalization();
   const [widgetData, setWidgetData] = useState<DiscordWidgetData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchWidgetData = async () => {
       setIsLoading(true);
+      setError(null);
+
+      // Explicitly check for the placeholder ID to guide the developer.
+      if (!CONFIG.DISCORD_SERVER_ID || CONFIG.DISCORD_SERVER_ID === '1422936346233933980') {
+          setError(t('discord_widget_error_misconfigured'));
+          setIsLoading(false);
+          return;
+      }
+
       try {
         const response = await fetch(`https://discord.com/api/guilds/${CONFIG.DISCORD_SERVER_ID}/widget.json`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch Discord widget data. Ensure the widget is enabled in your server settings.');
+        // The widget.json endpoint can return a 200 OK with an error object inside,
+        // so we need to check the body content as well.
+        const data: DiscordWidgetData | DiscordWidgetError = await response.json();
+
+        if ('code' in data) {
+           switch (data.code) {
+               case 10004: // Unknown Guild
+                   throw new Error(t('discord_widget_error_invalid_id'));
+               case 50027: // Widget Disabled
+                   throw new Error(t('discord_widget_error_disabled'));
+               default:
+                   throw new Error(data.message || t('discord_widget_error'));
+           }
         }
-        const data: DiscordWidgetData = await response.json();
-        setWidgetData(data);
+        
+        setWidgetData(data as DiscordWidgetData);
       } catch (err) {
-        console.error(err);
-        setWidgetData(null); // Set to null on failure for graceful fallback
+        console.error("Discord Widget Error:", err);
+        setError(err instanceof Error ? err.message : String(err));
+        setWidgetData(null);
       } finally {
         setIsLoading(false);
       }
     };
 
-    if (CONFIG.DISCORD_SERVER_ID) {
-      fetchWidgetData();
-    } else {
-      console.error("DISCORD_SERVER_ID is not configured in lib/config.ts");
-      setIsLoading(false);
+    fetchWidgetData();
+  }, [t]);
+
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="flex justify-center items-center h-16">
+          <Loader2 className="animate-spin text-gray-400" />
+        </div>
+      );
     }
-  }, []);
+    if (error) {
+      return (
+        <div className="text-center text-red-400 text-sm py-2 px-2 animate-fade-in flex flex-col items-center gap-2">
+            <AlertTriangle size={24}/>
+            <p className="font-bold">{error}</p>
+        </div>
+      );
+    }
+    if (widgetData) {
+      return (
+        <div className="space-y-2 text-gray-300 px-2 animate-fade-in h-16 flex flex-col justify-center">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></span>
+              <span>
+                {widgetData.presence_count.toLocaleString()} {t('discord_online')}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="w-2.5 h-2.5 bg-gray-500 rounded-full"></span>
+              <span>
+                {widgetData.members.length.toLocaleString()} {t('discord_members')}
+              </span>
+            </div>
+          </div>
+      );
+    }
+    // Fallback case
+    return (
+       <div className="text-center text-gray-400 text-sm py-2 h-16 flex items-center justify-center">
+         {t('discord_widget_error')}
+       </div>
+    )
+  };
+
 
   return (
     <div className="bg-[#2B2D31] p-4 rounded-lg w-full max-w-sm mx-auto border-l-4 border-brand-cyan shadow-lg">
@@ -55,33 +121,8 @@ const DiscordEmbed: React.FC = () => {
           </p>
         </div>
       </div>
-
-      <div className="flex flex-col justify-center min-h-[4rem]">
-        {isLoading ? (
-          <div className="flex justify-center items-center">
-              <Loader2 className="animate-spin text-gray-400" />
-          </div>
-        ) : widgetData ? (
-          <div className="space-y-2 text-gray-300 px-2 animate-fade-in">
-            <div className="flex items-center gap-2 text-sm">
-              <span className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></span>
-              <span>
-                {widgetData.presence_count.toLocaleString()} {t('discord_online')}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 text-sm">
-              <span className="w-2.5 h-2.5 bg-gray-500 rounded-full"></span>
-              <span>
-                {widgetData.members.length.toLocaleString()} {t('discord_members')}
-              </span>
-            </div>
-          </div>
-        ) : (
-          <div className="text-center text-gray-400 text-sm py-2">
-            {t('discord_widget_error')}
-          </div>
-        )}
-      </div>
+      
+      {renderContent()}
 
       <a
         href={widgetData?.instant_invite || CONFIG.DISCORD_INVITE_URL}
