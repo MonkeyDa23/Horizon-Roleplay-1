@@ -13,8 +13,7 @@ import {
   saveRules
 } from '../lib/api';
 import type { Quiz, QuizQuestion, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule } from '../types';
-// FIX: Replaced useNavigate with useHistory for react-router-dom v5 compatibility.
-import { useHistory } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, ArrowUp, ArrowDown } from 'lucide-react';
 import Modal from '../components/Modal';
 
@@ -23,8 +22,7 @@ type AdminTab = 'submissions' | 'quizzes' | 'rules' | 'audit';
 const AdminPage: React.FC = () => {
   const { user } = useAuth();
   const { t } = useLocalization();
-  // FIX: Replaced useNavigate with useHistory.
-  const history = useHistory();
+  const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('submissions');
   
@@ -65,12 +63,11 @@ const AdminPage: React.FC = () => {
 
   useEffect(() => {
     if (!user?.isAdmin) {
-      // FIX: Replaced navigate('/') with history.push('/')
-      history.push('/');
+      navigate('/');
     } else {
       fetchAllData();
     }
-  }, [user, history, fetchAllData]);
+  }, [user, navigate, fetchAllData]);
 
   // --- Quiz Management Functions ---
   const handleCreateNewQuiz = () => {

@@ -4,22 +4,19 @@ import { useAuth } from '../hooks/useAuth';
 import { useLocalization } from '../hooks/useLocalization';
 import { getSubmissionsByUserId } from '../lib/api';
 import type { QuizSubmission, SubmissionStatus } from '../types';
-// FIX: Replaced useNavigate with useHistory for react-router-dom v5 compatibility.
-import { useHistory } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { FileText, Loader2 } from 'lucide-react';
 
 const MyApplicationsPage: React.FC = () => {
   const { user } = useAuth();
   const { t } = useLocalization();
-  // FIX: Replaced useNavigate with useHistory.
-  const history = useHistory();
+  const navigate = useNavigate();
   const [submissions, setSubmissions] = useState<QuizSubmission[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) {
-      // FIX: Replaced navigate with history.push
-      history.push('/');
+      navigate('/');
       return;
     }
 
@@ -37,7 +34,7 @@ const MyApplicationsPage: React.FC = () => {
     
     fetchSubmissions();
     
-  }, [user, history]);
+  }, [user, navigate]);
   
   const renderStatusBadge = (status: SubmissionStatus) => {
     const statusMap = {

@@ -1,7 +1,6 @@
 
 import React from 'react';
-// FIX: Changed react-router-dom v6 imports (Routes) to v5 (Switch)
-import { BrowserRouter, Switch, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { LocalizationProvider } from './contexts/LocalizationContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
@@ -28,19 +27,18 @@ const App: React.FC = () => {
             <div className="bg-brand-dark min-h-screen text-white font-sans">
               <Navbar />
               <main>
-                {/* FIX: Replaced Routes with Switch and element prop with component prop for react-router-dom v5 compatibility */}
-                <Switch>
-                  <Route exact path="/" component={HomePage} />
-                  <Route path="/store" component={StorePage} />
-                  <Route path="/rules" component={RulesPage} />
-                  <Route exact path="/applies" component={AppliesPage} />
-                  <Route path="/applies/:quizId" component={QuizPage} />
-                  <Route path="/about" component={AboutUsPage} />
-                  <Route path="/admin" component={AdminPage} />
-                  <Route path="/my-applications" component={MyApplicationsPage} />
-                  <Route path="/profile" component={ProfilePage} />
-                  <Route path="/auth/callback" component={AuthCallbackPage} />
-                </Switch>
+                <Routes>
+                  <Route path="/" element={<HomePage />} />
+                  <Route path="/store" element={<StorePage />} />
+                  <Route path="/rules" element={<RulesPage />} />
+                  <Route path="/applies" element={<AppliesPage />} />
+                  <Route path="/applies/:quizId" element={<QuizPage />} />
+                  <Route path="/about" element={<AboutUsPage />} />
+                  <Route path="/admin" element={<AdminPage />} />
+                  <Route path="/my-applications" element={<MyApplicationsPage />} />
+                  <Route path="/profile" element={<ProfilePage />} />
+                  <Route path="/auth/callback" element={<AuthCallbackPage />} />
+                </Routes>
               </main>
               <Footer />
             </div>
