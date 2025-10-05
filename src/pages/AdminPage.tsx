@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useLocalization } from '../hooks/useLocalization';
@@ -12,7 +13,8 @@ import {
   saveRules
 } from '../lib/api';
 import type { Quiz, QuizQuestion, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule } from '../types';
-import { useNavigate } from 'react-router-dom';
+// FIX: Replaced useNavigate with useHistory for react-router-dom v5 compatibility.
+import { useHistory } from 'react-router-dom';
 import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, ArrowUp, ArrowDown } from 'lucide-react';
 import Modal from '../components/Modal';
 
@@ -21,7 +23,8 @@ type AdminTab = 'submissions' | 'quizzes' | 'rules' | 'audit';
 const AdminPage: React.FC = () => {
   const { user } = useAuth();
   const { t } = useLocalization();
-  const navigate = useNavigate();
+  // FIX: Replaced useNavigate with useHistory.
+  const history = useHistory();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('submissions');
   
@@ -62,11 +65,12 @@ const AdminPage: React.FC = () => {
 
   useEffect(() => {
     if (!user?.isAdmin) {
-      navigate('/');
+      // FIX: Replaced navigate('/') with history.push('/')
+      history.push('/');
     } else {
       fetchAllData();
     }
-  }, [user, navigate, fetchAllData]);
+  }, [user, history, fetchAllData]);
 
   // --- Quiz Management Functions ---
   const handleCreateNewQuiz = () => {

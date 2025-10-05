@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { NavLink, Link } from 'react-router-dom';
 import { useLocalization } from '../hooks/useLocalization';
@@ -39,11 +40,13 @@ const Navbar: React.FC = () => {
           </Link>
           <div className="hidden md:flex items-center gap-8">
             {navLinks.map((link) => (
+              // FIX: Replaced style function with activeStyle prop and added exact for react-router-dom v5 compatibility.
               <NavLink
                 key={link.to}
                 to={link.to}
+                exact
                 className="text-gray-300 hover:text-brand-cyan transition-colors duration-300 font-medium"
-                style={({ isActive }) => isActive ? activeLinkStyle : {}}
+                activeStyle={activeLinkStyle}
               >
                 {link.text}
               </NavLink>

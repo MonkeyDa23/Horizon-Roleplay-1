@@ -32,7 +32,6 @@ export interface AuthContextType {
   login: () => void;
   logout: () => void;
   loading: boolean;
-  handleLoginSuccess: (user: User) => void;
 }
 
 // Store & Cart

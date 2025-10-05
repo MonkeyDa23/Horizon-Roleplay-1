@@ -1,22 +1,26 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useLocalization } from '../hooks/useLocalization';
 import { getSubmissionsByUserId } from '../lib/api';
 import type { QuizSubmission, SubmissionStatus } from '../types';
-import { useNavigate } from 'react-router-dom';
+// FIX: Replaced useNavigate with useHistory for react-router-dom v5 compatibility.
+import { useHistory } from 'react-router-dom';
 import { User as UserIcon, Loader2, FileText } from 'lucide-react';
 
 const ProfilePage: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const { t } = useLocalization();
-  const navigate = useNavigate();
+  // FIX: Replaced useNavigate with useHistory.
+  const history = useHistory();
   
   const [submissions, setSubmissions] = useState<QuizSubmission[]>([]);
   const [submissionsLoading, setSubmissionsLoading] = useState(true);
 
   useEffect(() => {
     if (!authLoading && !user) {
-      navigate('/');
+      // FIX: Replaced navigate with history.push
+      history.push('/');
       return;
     }
 
@@ -34,7 +38,7 @@ const ProfilePage: React.FC = () => {
       };
       fetchSubmissions();
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, history]);
 
   const renderStatusBadge = (status: SubmissionStatus) => {
     const statusMap = {
