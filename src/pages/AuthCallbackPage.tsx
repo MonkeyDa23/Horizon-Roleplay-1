@@ -13,7 +13,7 @@ const AuthCallbackPage: React.FC = () => {
         console.error("AuthCallbackPage opened without a window.opener. This can happen if a user navigates to the URL directly.");
         // We can't post a message, but we can try to close if it's a popup.
         // If not a popup, this won't do anything, which is fine.
-        window.close();
+        setTimeout(() => window.close(), 500);
         return;
     }
     
@@ -38,8 +38,9 @@ const AuthCallbackPage: React.FC = () => {
         const errorMessage = e instanceof Error ? e.message : "An unknown error occurred.";
         window.opener.postMessage({ type: 'auth-error', error: errorMessage }, window.location.origin);
     } finally {
-        // Always close the popup after attempting to send the message.
-        window.close();
+        // Add a small delay before closing to ensure the message is processed by the parent window.
+        // This helps prevent a race condition in some browsers.
+        setTimeout(() => window.close(), 100);
     }
   }, [location]);
 

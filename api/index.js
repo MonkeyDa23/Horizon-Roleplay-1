@@ -275,7 +275,7 @@ app.get('/api/auth/callback', async (req, res) => {
 
     const finalUser = {
       id: memberData.user.id,
-      username: memberData.user.global_name || memberData.user.username,
+      username: memberData.nick || memberData.user.global_name || memberData.user.username,
       avatar: `https://cdn.discordapp.com/avatars/${memberData.user.id}/${memberData.user.avatar}.png`,
       isAdmin,
       primaryRole: primaryRole ? {
