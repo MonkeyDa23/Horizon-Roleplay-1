@@ -27,10 +27,17 @@ const AuthCallbackPage: React.FC = () => {
 
     useEffect(() => {
         const processAuth = async () => {
-            // For HashRouter, params are in the hash part of the URL.
-            const params = new URLSearchParams(window.location.hash.split('?')[1]);
+            // For HashRouter, params are in the hash part of the URL after '?'.
+            const paramsString = window.location.hash.split('?')[1];
+            if (!paramsString) {
+                 setError('Invalid authentication request. No parameters found.');
+                 return;
+            }
+            
+            const params = new URLSearchParams(paramsString);
             const code = params.get('code');
             const state = params.get('state');
+            
             // Get state from localStorage, which is shared between the main window and popup.
             const storedState = localStorage.getItem('oauth_state');
 
@@ -52,8 +59,6 @@ const AuthCallbackPage: React.FC = () => {
                 await new Promise(resolve => setTimeout(resolve, 500));
                 
                 // --- Step 3: (SIMULATED) Fetch user identity and guild member info ---
-                // We'll pick a random mock user from our config.
-                // A real backend would use the access token to get the *actual* user's ID.
                 setStatus('Fetching server roles...');
                 await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -64,7 +69,6 @@ const AuthCallbackPage: React.FC = () => {
 
                 // --- Step 4: Determine user's primary role and admin status ---
                 let primaryRole: DiscordRole | undefined = undefined;
-                // Sort defined roles by position (highest first) to find the primary role
                 const sortedRoles = [...MOCK_DISCORD_ROLES].sort((a, b) => b.position - a.position);
                 for (const definedRole of sortedRoles) {
                     if (userRoleIds.includes(definedRole.id)) {
@@ -87,16 +91,6 @@ const AuthCallbackPage: React.FC = () => {
                 // --- Step 6: (SIMULATED) Trigger welcome message bot ---
                 setStatus('Finalizing...');
                 await new Promise(resolve => setTimeout(resolve, 500));
-                
-                console.groupCollapsed(`[BACKEND SIM] Bot Welcome Message Trigger`);
-                console.log(`A real backend server would now send a welcome DM to the user.`);
-                console.log(`This requires a separate, running bot application connected to Discord.`);
-                console.log(`Payload:`, {
-                  discordUserId: finalUser.id,
-                  discordUsername: finalUser.username,
-                  message: `Welcome to Horizon VRoleplay, ${finalUser.username}! We're glad to have you.`
-                });
-                console.groupEnd();
                 
                 // --- Step 7: Send the user data back to the main window and close ---
                 if (window.opener) {

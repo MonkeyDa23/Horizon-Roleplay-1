@@ -1,4 +1,3 @@
-
 import { Translations } from '../types';
 
 export const translations: Translations = {
@@ -44,6 +43,7 @@ export const translations: Translations = {
   // Discord Embed
   discord_online: { ar: 'متصل', en: 'Online' },
   discord_members: { ar: 'عضو', en: 'Members' },
+  discord_widget_error: { ar: 'بيانات الأعضاء الحية غير متاحة.', en: 'Live member count unavailable.' },
 
   // Footer
   footer_rights: { ar: '© {year} {communityName}. جميع الحقوق محفوظة.', en: '© {year} {communityName}. All Rights Reserved.' },

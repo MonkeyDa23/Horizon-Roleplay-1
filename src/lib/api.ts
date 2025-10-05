@@ -1,4 +1,3 @@
-
 // src/lib/api.ts
 import { 
     products as mockProducts, 
@@ -10,7 +9,6 @@ import {
     getSubmissionsByUserId as mockGetSubmissionsByUserId,
     addSubmission as mockAddSubmission,
     updateSubmissionStatus as mockUpdateSubmissionStatus,
-    getMtaServerStatus as mockGetMtaServerStatus,
     getAuditLogs as mockGetAuditLogs,
     getRules as mockGetRules,
     saveRules as mockSaveRules
@@ -114,10 +112,4 @@ export const updateSubmissionStatus = async (submissionId: string, status: Submi
     console.log(`API: User ${admin.username} updating submission ${submissionId} to status ${status}`);
     await new Promise(resolve => setTimeout(resolve, SIMULATED_DELAY));
     mockUpdateSubmissionStatus(submissionId, status, admin);
-}
-
-// --- MTA Server Status API ---
-export const getMtaServerStatus = async () => {
-    // This function in mockData already simulates delay
-    return mockGetMtaServerStatus();
 }

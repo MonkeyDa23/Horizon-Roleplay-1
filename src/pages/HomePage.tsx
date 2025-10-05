@@ -1,11 +1,9 @@
-
 import React, { useState } from 'react';
 import { useLocalization } from '../hooks/useLocalization';
 import { CONFIG } from '../lib/config';
 import Modal from '../components/Modal';
 import Logo from '../components/Logo';
 import { Disc3, Gamepad2 } from 'lucide-react';
-import MtaServerStatus from '../components/MtaServerStatus';
 
 const HomePage: React.FC = () => {
   const { t } = useLocalization();
@@ -39,10 +37,6 @@ const HomePage: React.FC = () => {
             {t('join_us')}
           </button>
         </div>
-      </div>
-
-      <div className="container mx-auto px-6 -mt-16 relative z-10">
-        <MtaServerStatus />
       </div>
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={t('join_modal_title')}>

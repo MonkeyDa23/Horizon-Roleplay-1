@@ -1,4 +1,3 @@
-
 import type { Product, Quiz, QuizSubmission, SubmissionStatus, User, AuditLogEntry, DiscordRole, RuleCategory } from '../types';
 import { CONFIG } from './config';
 import { translations } from './translations';
@@ -244,22 +243,4 @@ const updateSubmissionStatus = (submissionId: string, status: SubmissionStatus, 
   }
 }
 
-// --- MTA SERVER API ---
-interface MtaServerStatus {
-    name: string;
-    players: number;
-    maxPlayers: number;
-}
-
-const getMtaServerStatus = async (): Promise<MtaServerStatus> => {
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    if (Math.random() < 0.1) {
-        return Promise.reject(new Error("Server is offline"));
-    }
-    const players = 80 + Math.floor(Math.random() * 40);
-    const maxPlayers = 200;
-    return { name: CONFIG.MTA_SERVER_DISPLAY_NAME, players, maxPlayers };
-}
-
-
-export { products, getQuizzes, getQuizById, saveQuiz, deleteQuiz, getRules, saveRules, getSubmissions, getSubmissionsByUserId, addSubmission, updateSubmissionStatus, getMtaServerStatus, getAuditLogs };
+export { products, getQuizzes, getQuizById, saveQuiz, deleteQuiz, getRules, saveRules, getSubmissions, getSubmissionsByUserId, addSubmission, updateSubmissionStatus, getAuditLogs };

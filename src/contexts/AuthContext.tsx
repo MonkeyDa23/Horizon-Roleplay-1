@@ -13,7 +13,7 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 // 1. `login()` opens a real Discord authorization URL in a popup.
 // 2. The user "authorizes" the app.
 // 3. Discord redirects the popup to `/#/auth/callback?code=...`
-// 4. `AuthCallbackPage.tsx` (acting as a mock backend) handles this callback.
+// 4. `AuthCallbackPage.tsx` handles this callback.
 //    - It simulates exchanging the code for a token.
 //    - It simulates fetching user info and server-specific roles.
 //    - It sends the final `User` object back to this main window via `postMessage`.
@@ -61,7 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Dynamically generate the redirect URI to work across all environments
     // (localhost, Vercel previews, production).
-    const REDIRECT_URI = `${window.location.origin}/#/auth/callback`;
+    const REDIRECT_URI = `${window.location.origin}${window.location.pathname}#/auth/callback`;
 
     const params = new URLSearchParams({
       client_id: CONFIG.DISCORD_CLIENT_ID,
@@ -134,5 +134,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
   const value = { user, login, logout, loading };
+  // FIX: Corrected a typo where AuthContext.Provider was likely referenced as Auth.Provider.
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

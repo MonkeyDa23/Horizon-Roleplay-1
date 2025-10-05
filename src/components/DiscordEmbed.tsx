@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Logo from './icons/Logo';
 import { useLocalization } from '../hooks/useLocalization';
@@ -16,12 +15,10 @@ const DiscordEmbed: React.FC = () => {
   const { t } = useLocalization();
   const [widgetData, setWidgetData] = useState<DiscordWidgetData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchWidgetData = async () => {
       setIsLoading(true);
-      setError(null);
       try {
         const response = await fetch(`https://discord.com/api/guilds/${CONFIG.DISCORD_SERVER_ID}/widget.json`);
         if (!response.ok) {
@@ -31,7 +28,7 @@ const DiscordEmbed: React.FC = () => {
         setWidgetData(data);
       } catch (err) {
         console.error(err);
-        setError(err instanceof Error ? err.message : 'An unknown error occurred.');
+        setWidgetData(null); // Set to null on failure for graceful fallback
       } finally {
         setIsLoading(false);
       }
@@ -53,30 +50,34 @@ const DiscordEmbed: React.FC = () => {
           </p>
         </div>
       </div>
-      {isLoading ? (
-         <div className="flex justify-center items-center h-16">
-            <Loader2 className="animate-spin text-gray-400" />
-         </div>
-      ) : error ? (
-        <div className="text-center text-red-400 text-sm p-2 bg-red-500/10 rounded-md">
-          {error}
-        </div>
-      ) : widgetData ? (
-        <div className="space-y-2 text-gray-300 mb-4 px-2">
-        <div className="flex items-center gap-2 text-sm">
-          <span className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></span>
-          <span>
-            {widgetData.presence_count.toLocaleString()} {t('discord_online')}
-          </span>
-        </div>
-        <div className="flex items-center gap-2 text-sm">
-          <span className="w-2.5 h-2.5 bg-gray-500 rounded-full"></span>
-          <span>
-            {widgetData.members.length.toLocaleString()} {t('discord_members')}
-          </span>
-        </div>
+
+      <div className="h-16 flex flex-col justify-center">
+        {isLoading ? (
+          <div className="flex justify-center items-center">
+              <Loader2 className="animate-spin text-gray-400" />
+          </div>
+        ) : widgetData ? (
+          <div className="space-y-2 text-gray-300 px-2">
+            <div className="flex items-center gap-2 text-sm">
+              <span className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></span>
+              <span>
+                {widgetData.presence_count.toLocaleString()} {t('discord_online')}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="w-2.5 h-2.5 bg-gray-500 rounded-full"></span>
+              <span>
+                {widgetData.members.length.toLocaleString()} {t('discord_members')}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center text-gray-400 text-sm py-2">
+            {t('discord_widget_error')}
+          </div>
+        )}
       </div>
-      ) : null}
+
       <a
         href={widgetData?.instant_invite || CONFIG.DISCORD_INVITE_URL}
         target="_blank"
