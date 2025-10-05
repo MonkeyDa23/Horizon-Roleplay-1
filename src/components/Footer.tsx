@@ -10,7 +10,7 @@ const Footer: React.FC = () => {
   return (
     <footer className="bg-brand-dark-blue border-t border-brand-light-blue/50 mt-16">
       <div className="container mx-auto px-6 py-6 flex flex-col sm:flex-row justify-between items-center text-center sm:text-start">
-        <p className="text-gray-400 text-sm">{t('footer_rights')}</p>
+        <p className="text-gray-400 text-sm">{t('footer_rights', { year: new Date().getFullYear(), communityName: CONFIG.COMMUNITY_NAME })}</p>
         <div className="flex items-center gap-4 mt-4 sm:mt-0">
           <a href={CONFIG.DISCORD_INVITE_URL} target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-brand-cyan transition-colors">
             <Disc3 size={24} />

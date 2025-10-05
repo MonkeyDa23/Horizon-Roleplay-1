@@ -15,6 +15,11 @@ export const CONFIG = {
   // ===================================================================================
 
   /**
+   * The name of your community. This will be displayed on the homepage, navbar, etc.
+   */
+  COMMUNITY_NAME: 'Horizon VRoleplay',
+
+  /**
    * The URL for your community's logo.
    * Recommended format: PNG with a transparent background.
    */
@@ -30,6 +35,12 @@ export const CONFIG = {
    * Format: 'mtasa://ip:port'
    */
   MTA_SERVER_URL: 'mtasa://134.255.216.22:22041',
+  
+  /**
+   * The name displayed for your MTA server on the status component.
+   * Can include extra details like '| Your Story Begins'.
+   */
+  MTA_SERVER_DISPLAY_NAME: 'Horizon VRoleplay | Your Story Begins',
 
   // ===================================================================================
   // --- Discord Application & OAuth2 (Public Info) ---
@@ -43,26 +54,49 @@ export const CONFIG = {
   DISCORD_CLIENT_ID: '1423341328355295394', // Replace with your actual Client ID
 
   /**
-   * The OAuth2 redirect URI is now generated dynamically in `src/contexts/AuthContext.tsx`
-   * to support multiple environments (development, preview, production) seamlessly.
+   * YOUR REDIRECT URI(s)
+   * The OAuth2 redirect URI is generated dynamically by the website to support multiple
+   * environments (development, preview, production) seamlessly.
    * 
-   * IMPORTANT: You must still add all potential callback URLs to your Discord application's
-   * OAuth2 "Redirects" section in the Developer Portal.
-   * For example:
-   * - http://localhost:5173/#/auth/callback (for local development)
-   * - https://your-production-site.com/#/auth/callback
+   * >>> IMPORTANT ACTION REQUIRED <<<
+   * You MUST add all potential callback URLs to your Discord application's
+   * OAuth2 -> "Redirects" section in the Developer Portal.
+   * 
+   * Add the following URLs:
+   * 1. For local development: http://localhost:5173/#/auth/callback
+   * 2. For your live website: https://YOUR-WEBSITE-URL.com/#/auth/callback
+   * (Replace "YOUR-WEBSITE-URL.com" with your actual domain)
    */
   
+  // ===================================================================================
+  // --- Gemini Live API Configuration ---
+  // ===================================================================================
+  // Settings for the real-time voice chat assistant feature.
+  // ===================================================================================
+  GEMINI_LIVE_CONFIG: {
+    /**
+     * The model name for the native audio (Live) API.
+     */
+    MODEL_NAME: 'gemini-2.5-flash-native-audio-preview-09-2025',
+
+    /**
+     * The system instruction defines the personality and role of the AI assistant.
+     */
+    SYSTEM_INSTRUCTION: 'You are a friendly and helpful AI assistant for the Horizon VRoleplay community. Keep your answers concise and helpful. You can answer questions about the community, the game, or general topics.',
+  },
+
   // ===================================================================================
   // --- SECRETS (FOR BACKEND REFERENCE ONLY) ---
   // ===================================================================================
   // WARNING: DO NOT store real secrets (API keys, tokens) in frontend code. 
-  // This section is a reference for your backend developer. In a real application,
-  // these values MUST be stored as environment variables on your server.
+  // This section is a reference for what your backend developer will need. In a real
+  // application, these values MUST be stored as environment variables on your server.
   //
-  // process.env.DISCORD_CLIENT_SECRET
-  // process.env.DISCORD_BOT_TOKEN
-  // process.env.API_KEY (for Google Gemini)
+  // On your server, you would have a `.env` file like this:
+  //
+  // DISCORD_CLIENT_SECRET="YOUR_DISCORD_APPLICATION_CLIENT_SECRET"
+  // DISCORD_BOT_TOKEN="YOUR_DISCORD_BOT_TOKEN_FOR_SENDING_NOTIFICATIONS"
+  // API_KEY="YOUR_GOOGLE_GEMINI_API_KEY"
   // ===================================================================================
 
   // ===================================================================================

@@ -14,8 +14,15 @@ export const LocalizationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     document.documentElement.dir = dir;
   }, [language]);
 
-  const t = useCallback((key: string): string => {
-    return translations[key]?.[language] || key;
+  const t = useCallback((key: string, replacements?: Record<string, string | number>): string => {
+    let translation = translations[key]?.[language] || key;
+    if (replacements) {
+      Object.keys(replacements).forEach(placeholder => {
+        const regex = new RegExp(`{${placeholder}}`, 'g');
+        translation = translation.replace(regex, String(replacements[placeholder]));
+      });
+    }
+    return translation;
   }, [language]);
 
   const value = {

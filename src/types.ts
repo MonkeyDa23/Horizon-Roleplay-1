@@ -10,7 +10,7 @@ export interface Translations {
 export interface LocalizationContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
-  t: (key: string) => string;
+  t: (key: string, replacements?: Record<string, string | number>) => string;
   dir: 'rtl' | 'ltr';
 }
 

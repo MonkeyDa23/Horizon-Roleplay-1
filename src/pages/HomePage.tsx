@@ -27,7 +27,7 @@ const HomePage: React.FC = () => {
         
         <div className="text-center z-10 p-6 animate-slide-up">
           <h1 className="text-5xl md:text-7xl font-extrabold text-white" style={{ textShadow: '0 0 20px rgba(0, 242, 234, 0.4)' }}>
-            {t('hero_title')}
+            {t('hero_title', { communityName: CONFIG.COMMUNITY_NAME })}
           </h1>
           <p className="mt-6 text-lg md:text-xl text-gray-300 max-w-3xl mx-auto">
             {t('hero_subtitle')}

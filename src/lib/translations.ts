@@ -8,6 +8,7 @@ export const translations: Translations = {
   rules: { ar: 'القوانين', en: 'Rules' },
   applies: { ar: 'التقديمات', en: 'Applies' },
   scenarios: { ar: 'سيناريوهات', en: 'Scenarios' },
+  live_chat: { ar: 'محادثة مباشرة', en: 'Live Chat' },
   about_us: { ar: 'من نحن', en: 'About Us' },
   login_discord: { ar: 'تسجيل الدخول', en: 'Login with Discord' },
   logout: { ar: 'تسجيل الخروج', en: 'Logout' },
@@ -17,7 +18,7 @@ export const translations: Translations = {
   my_profile: { ar: 'ملفي الشخصي', en: 'My Profile' },
 
   // Hero Section
-  hero_title: { ar: 'مجتمع هورايزن VRoleplay', en: 'Horizon VRoleplay Community' },
+  hero_title: { ar: 'مجتمع {communityName}', en: '{communityName} Community' },
   hero_subtitle: { ar: 'حيث تبدأ قصتك. انضم إلى عالم غامر من الاحتمالات اللانهائية.', en: 'Where your story begins. Join an immersive world of endless possibilities.' },
   join_us: { ar: 'انضم إلينا', en: 'Join Us' },
 
@@ -35,6 +36,7 @@ export const translations: Translations = {
   page_title_my_applications: { ar: 'حالة تقديماتي', en: 'My Applications Status' },
   page_title_profile: { ar: 'الملف الشخصي', en: 'Profile' },
   page_title_scenarios: { ar: 'مولد أفكار السيناريوهات', en: 'Scenario Idea Generator' },
+  page_title_live: { ar: 'مساعد هورايزن الصوتي', en: 'Horizon AI Assistant' },
   coming_soon: { ar: 'قريباً...', en: 'Coming Soon...' },
   
   // About Us Page
@@ -48,7 +50,7 @@ export const translations: Translations = {
   discord_members: { ar: 'عضو', en: 'Members' },
 
   // Footer
-  footer_rights: { ar: '© 2024 هورايزن VRoleplay. جميع الحقوق محفوظة.', en: '© 2024 Horizon VRoleplay. All Rights Reserved.' },
+  footer_rights: { ar: '© {year} {communityName}. جميع الحقوق محفوظة.', en: '© {year} {communityName}. All Rights Reserved.' },
 
   // Store & Cart
   add_to_cart: { ar: 'أضف للسلة', en: 'Add to Cart' },
@@ -133,6 +135,20 @@ export const translations: Translations = {
   generate_scenario: { ar: 'إنشاء سيناريو', en: 'Generate Scenario' },
   generating: { ar: 'جاري الإنشاء...', en: 'Generating...' },
   scenario_error: { ar: 'عذراً، حدث خطأ أثناء إنشاء السيناريو. يرجى المحاولة مرة أخرى.', en: 'Sorry, an error occurred while generating the scenario. Please try again.' },
+
+  // Live Chat Page
+  live_intro: { ar: 'تحدث مباشرةً مع مساعد الذكاء الاصطناعي الصوتي. اضغط على "بدء الجلسة" واسأل ما يدور في ذهنك.', en: 'Speak directly with our AI voice assistant. Press "Start Session" and ask your questions.' },
+  start_session: { ar: 'بدء الجلسة', en: 'Start Session' },
+  end_session: { ar: 'إنهاء الجلسة', en: 'End Session' },
+  status_idle: { ar: 'في الانتظار', en: 'Idle' },
+  status_connecting: { ar: 'جاري الاتصال...', en: 'Connecting...' },
+  status_connected: { ar: 'متصل', en: 'Connected' },
+  status_error: { ar: 'حدث خطأ', en: 'Error' },
+  you: { ar: 'أنت', en: 'You' },
+  assistant: { ar: 'المساعد', en: 'Assistant' },
+  listening: { ar: 'يستمع...', en: 'Listening...' },
+  speaking: { ar: 'يتحدث...', en: 'Speaking...' },
+  mic_permission_denied: { ar: 'تم رفض إذن الميكروفون. يرجى تمكينه في إعدادات المتصفح.', en: 'Microphone permission denied. Please enable it in your browser settings.'},
 
   // MOCK DATA TRANSLATIONS
   // Products

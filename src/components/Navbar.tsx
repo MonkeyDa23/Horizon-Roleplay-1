@@ -7,6 +7,7 @@ import { useCart } from '../hooks/useCart';
 import Logo from './Logo';
 import CartModal from './CartModal';
 import { Globe, ChevronDown, LogIn, LogOut, Loader, ShoppingCart, UserCog, FileText, User as UserIcon } from 'lucide-react';
+import { CONFIG } from '../lib/config';
 
 const Navbar: React.FC = () => {
   const { language, setLanguage, t, dir } = useLocalization();
@@ -22,6 +23,7 @@ const Navbar: React.FC = () => {
     { to: '/rules', text: t('rules') },
     { to: '/applies', text: t('applies') },
     { to: '/scenarios', text: t('scenarios') },
+    { to: '/live', text: t('live_chat') },
     { to: '/about', text: t('about_us') },
   ];
 
@@ -36,7 +38,7 @@ const Navbar: React.FC = () => {
         <div className="container mx-auto px-6 py-3 flex justify-between items-center">
           <Link to="/" className="flex items-center gap-4">
             <Logo className="h-10 w-10" />
-            <h1 className="text-xl font-bold text-white tracking-wider hidden md:block">HORIZON VROLEPLAY</h1>
+            <h1 className="text-xl font-bold text-white tracking-wider hidden md:block">{CONFIG.COMMUNITY_NAME.toUpperCase()}</h1>
           </Link>
           <div className="hidden md:flex items-center gap-8">
             {navLinks.map((link) => (

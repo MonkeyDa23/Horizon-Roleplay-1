@@ -1,3 +1,4 @@
+
 import type { Product, Quiz, QuizSubmission, SubmissionStatus, User, AuditLogEntry, DiscordRole } from '../types';
 import { CONFIG } from './config';
 import { translations } from './translations';
@@ -230,7 +231,7 @@ const getMtaServerStatus = async (): Promise<MtaServerStatus> => {
     }
     const players = 80 + Math.floor(Math.random() * 40);
     const maxPlayers = 200;
-    return { name: 'Horizon VRoleplay | Your Story Begins', players, maxPlayers };
+    return { name: CONFIG.MTA_SERVER_DISPLAY_NAME, players, maxPlayers };
 }
 
 
