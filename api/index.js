@@ -228,20 +228,20 @@ app.put('/api/submissions/:id/status', verifyAdmin, async (req, res) => {
 
 // --- OAUTH2 AUTHENTICATION ROUTE ---
 app.get('/api/auth/callback', async (req, res) => {
-  const code = req.query.code;
+  const { code, state } = req.query;
   const frontendCallbackUrl = `${config.APP_URL}/auth/callback`;
   console.log('[AUTH_CALLBACK] Received request.');
 
   if (missingEnvVars.length > 0) {
     const errorMessage = `Server is misconfigured. Missing env vars: ${missingEnvVars.join(', ')}`;
     console.error(`[AUTH_CALLBACK] ERROR: ${errorMessage}`);
-    return res.redirect(`${frontendCallbackUrl}?error=${encodeURIComponent(errorMessage)}`);
+    return res.redirect(`${frontendCallbackUrl}?error=${encodeURIComponent(errorMessage)}&state=${state}`);
   }
 
   if (!code) {
     const error = req.query.error_description || "Authorization was denied or cancelled.";
     console.log(`[AUTH_CALLBACK] WARN: No code provided. Reason: ${error}`);
-    return res.redirect(`${frontendCallbackUrl}?error=${encodeURIComponent(error)}`);
+    return res.redirect(`${frontendCallbackUrl}?error=${encodeURIComponent(error)}&state=${state}`);
   }
 
   console.log('[AUTH_CALLBACK] Code received, exchanging for token...');
@@ -299,7 +299,7 @@ app.get('/api/auth/callback', async (req, res) => {
 
     console.log(`[AUTH_CALLBACK] Success for user: ${finalUser.username} (${finalUser.id}). Redirecting to frontend.`);
     const base64User = Buffer.from(JSON.stringify(finalUser)).toString('base64');
-    res.redirect(`${frontendCallbackUrl}?user=${base64User}`);
+    res.redirect(`${frontendCallbackUrl}?user=${base64User}&state=${state}`);
 
   } catch (error) {
     const errorData = error.response ? JSON.stringify(error.response.data, null, 2) : error.message;
@@ -309,7 +309,7 @@ app.get('/api/auth/callback', async (req, res) => {
     const errorMessage = discordError?.error_description 
                         || discordError?.message 
                         || 'An unknown server error occurred during authentication. Check server logs for details.';
-    res.redirect(`${frontendCallbackUrl}?error=${encodeURIComponent(errorMessage)}`);
+    res.redirect(`${frontendCallbackUrl}?error=${encodeURIComponent(errorMessage)}&state=${state}`);
   }
 });
 

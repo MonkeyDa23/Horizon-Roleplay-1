@@ -6,7 +6,7 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true); // Start true for initial localStorage check
+  const [loading, setLoading] = useState(true);
 
   // On initial app load, check for a user session in localStorage.
   useEffect(() => {
@@ -26,6 +26,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     try {
       const state = Math.random().toString(36).substring(7);
+      // Use localStorage for state as well for consistency.
       localStorage.setItem('oauth_state', state);
 
       // The Redirect URI points to our backend API route.
@@ -35,7 +36,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         client_id: CONFIG.DISCORD_CLIENT_ID,
         redirect_uri: REDIRECT_URI,
         response_type: 'code',
-        scope: 'identify guilds.members.read', // guilds.members.read is needed for roles
+        scope: 'identify guilds.members.read',
         state: state,
         prompt: 'consent'
       });
@@ -58,7 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const timer = setInterval(() => {
           if (popup.closed) {
             clearInterval(timer);
-            // Stop loading when popup is closed, either by success or manually by user.
+            // The storage event will handle success/failure, but if the user closes manually, we stop loading.
             setLoading(false);
           }
         }, 500);
@@ -75,30 +76,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     setUser(null);
+    // Clear both session and potential error keys on logout.
     localStorage.removeItem('horizon_user_session');
+    localStorage.removeItem('horizon_auth_error');
   };
 
-  // --- Message Listener for Popup ---
+  // --- Storage Listener for Cross-Window Communication ---
   useEffect(() => {
-    const handleAuthMessage = (event: MessageEvent) => {
-      // Security: ensure the message is from our own origin
-      if (event.origin !== window.location.origin) return;
-      
-      const { type, user, error } = event.data;
-
-      if (type === 'auth-success' && user) {
-        setUser(user);
-        localStorage.setItem('horizon_user_session', JSON.stringify(user));
+    const handleStorageChange = (event: StorageEvent) => {
+      // Listen for the user session being set by the auth popup.
+      if (event.key === 'horizon_user_session' && event.newValue) {
+        try {
+          const updatedUser = JSON.parse(event.newValue);
+          setUser(updatedUser);
+          localStorage.removeItem('horizon_auth_error'); // Clean up any old errors
+        } catch (e) {
+          console.error("Failed to parse user session from storage event", e);
+          setUser(null);
+        }
         setLoading(false);
-      } else if (type === 'auth-error') {
-        console.error("Discord OAuth Error from popup:", error);
-        alert(`Login failed: ${error}`);
+      } 
+      // Listen for an error being set by the auth popup.
+      else if (event.key === 'horizon_auth_error' && event.newValue) {
+        console.error("Discord OAuth Error from popup:", event.newValue);
+        alert(`Login failed: ${event.newValue}`);
+        localStorage.removeItem('horizon_auth_error'); // Clean up the error after showing it.
         setLoading(false);
+      }
+      // Handles logout from another tab.
+      else if (event.key === 'horizon_user_session' && !event.newValue) {
+         setUser(null);
       }
     };
 
-    window.addEventListener('message', handleAuthMessage);
-    return () => window.removeEventListener('message', handleAuthMessage);
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
 
