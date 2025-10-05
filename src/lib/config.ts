@@ -1,24 +1,17 @@
-
 // /lib/config.ts
 
 // ===================================================================================
 // --- CENTRAL WEBSITE CONFIGURATION ---
 // ===================================================================================
 // This file contains all the public, non-sensitive variables for your community website.
-// Fill in the placeholder values with your actual server details. It is safe to
-// commit this file to version control.
+// Fill in the placeholder values with your actual server details.
 // ===================================================================================
 
 export const CONFIG = {
-
-  // ===================================================================================
-  // --- General Settings ---
-  // ===================================================================================
-
   /**
    * The name of your community. This will be displayed on the homepage, navbar, etc.
    */
-  COMMUNITY_NAME: 'Horizon VRoleplay',
+  COMMUNITY_NAME: 'Horizon Roleplay',
 
   /**
    * The URL for your community's logo.
@@ -32,27 +25,26 @@ export const CONFIG = {
   DISCORD_INVITE_URL: 'https://discord.gg/u3CazwhxVa',
 
   /**
+   * Your main Discord Server ID (also called Guild ID).
+   * This is REQUIRED for the live Discord member count widget to work.
+   */
+  DISCORD_SERVER_ID: '1422936346233933980', // <-- Replace with your actual Server/Guild ID
+
+  /**
    * The connection URL for your Multi Theft Auto (MTA) server.
    * Format: 'mtasa://ip:port'
    */
   MTA_SERVER_URL: 'mtasa://134.255.216.22:22041',
   
-  /**
-   * The name displayed for your MTA server on the status component.
-   * Can include extra details like '| Your Story Begins'.
-   */
-  MTA_SERVER_DISPLAY_NAME: 'Horizon VRoleplay | Your Story Begins',
-
   // ===================================================================================
   // --- Discord Application & OAuth2 (Public Info) ---
   // ===================================================================================
-  // These are public-facing settings for your Discord Application.
-  // Get them from the Discord Developer Portal: https://discord.com/developers/applications
   
   /**
    * Your Application's "APPLICATION ID" (also known as Client ID). This is public.
+   * Get it from the Discord Developer Portal: https://discord.com/developers/applications
    */
-  DISCORD_CLIENT_ID: '1423341328355295394', // Replace with your actual Client ID
+  DISCORD_CLIENT_ID: '1423341328355295394', // <-- Replace with your actual Application/Client ID
 
   /**
    * YOUR REDIRECT URI(s)
@@ -67,47 +59,32 @@ export const CONFIG = {
    * 1. For local development: http://localhost:5173/#/auth/callback
    * 2. For your live website: https://YOUR-WEBSITE-URL.com/#/auth/callback
    * (Replace "YOUR-WEBSITE-URL.com" with your actual domain)
-   * 
+   */
+   
+  // ===================================================================================
+  // --- Discord Bot Integration (Backend Simulation) ---
+  // ===================================================================================
+  // These values are used by the mock backend to simulate sending notifications.
+  // In a real application, these might be environment variables on your server.
+  
+  // FIX: Added missing config variables for backend simulation.
+  /**
+   * The ID of the Discord channel where new application notifications should be sent.
+   */
+  APPLICATION_NOTIFICATION_CHANNEL_ID: '1422936347093504012', // <-- Replace
+
+  /**
+   * An array of Discord Role IDs that grant admin access to the website's admin panel.
+   */
+  ADMIN_ROLE_IDS: ['1423683069893673050'], // <-- Replace. Example: ['123456789012345678']
+   
+  // ===================================================================================
+  // --- Discord Widget (Public Info) ---
+  // ===================================================================================
+
+  /**
    * >>> For the Discord widget to work, you MUST enable it in your server settings! <<<
    * Go to Server Settings -> Widget -> Enable Server Widget.
-   * You can also set an invite channel there. The widget will not work if this is disabled.
-   * 
+   * The widget will not work if this is disabled.
    */
-  
-  // ===================================================================================
-  // --- SECRETS (FOR BACKEND REFERENCE ONLY) ---
-  // ===================================================================================
-  // WARNING: DO NOT store real secrets (API keys, tokens) in frontend code. 
-  // This section is a reference for what your backend developer will need. In a real
-  // application, these values MUST be stored as environment variables on your server.
-  //
-  // On your server, you would have a `.env` file like this:
-  //
-  // DISCORD_CLIENT_SECRET="YOUR_DISCORD_APPLICATION_CLIENT_SECRET"
-  // DISCORD_BOT_TOKEN="YOUR_DISCORD_BOT_TOKEN_FOR_SENDING_NOTIFICATIONS"
-  // API_KEY="YOUR_GOOGLE_GEMINI_API_KEY"
-  // ===================================================================================
-
-  // ===================================================================================
-  // --- Server, Channel & Role IDs (Public Info) ---
-  // ===================================================================================
-  // These IDs are not sensitive and are used to identify resources within Discord.
-  // How to get IDs: https://support.discord.com/hc/en-us/articles/206346498
-  
-  /**
-   * Your main Discord Server ID (also called Guild ID).
-   */
-  DISCORD_SERVER_ID: '1422936346233933980', // Replace with your actual Server ID
-
-  /**
-   * Channel ID where the bot should post "New Application Submitted" notifications.
-   * This is a backend integration point.
-   */
-  APPLICATION_NOTIFICATION_CHANNEL_ID: '1422941415486390334',
-
-  /**
-   * An array of Discord Role IDs that grant admin access on the website.
-   * A secure backend is required to verify if a logged-in user has one of these roles.
-   */
-  ADMIN_ROLE_IDS: ['1423683069893673050'], // Replace with your actual Admin Role ID(s)
 };

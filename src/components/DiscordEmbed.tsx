@@ -34,7 +34,12 @@ const DiscordEmbed: React.FC = () => {
       }
     };
 
-    fetchWidgetData();
+    if (CONFIG.DISCORD_SERVER_ID) {
+      fetchWidgetData();
+    } else {
+      console.error("DISCORD_SERVER_ID is not configured in lib/config.ts");
+      setIsLoading(false);
+    }
   }, []);
 
   return (
@@ -51,13 +56,13 @@ const DiscordEmbed: React.FC = () => {
         </div>
       </div>
 
-      <div className="h-16 flex flex-col justify-center">
+      <div className="flex flex-col justify-center min-h-[4rem]">
         {isLoading ? (
           <div className="flex justify-center items-center">
               <Loader2 className="animate-spin text-gray-400" />
           </div>
         ) : widgetData ? (
-          <div className="space-y-2 text-gray-300 px-2">
+          <div className="space-y-2 text-gray-300 px-2 animate-fade-in">
             <div className="flex items-center gap-2 text-sm">
               <span className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse"></span>
               <span>
@@ -82,10 +87,19 @@ const DiscordEmbed: React.FC = () => {
         href={widgetData?.instant_invite || CONFIG.DISCORD_INVITE_URL}
         target="_blank"
         rel="noopener noreferrer"
-        className="block w-full text-center bg-brand-cyan text-brand-dark font-bold py-2.5 rounded-md hover:bg-white transition-all duration-300 shadow-glow-cyan-light"
+        className="block w-full text-center bg-brand-cyan text-brand-dark font-bold py-2.5 rounded-md hover:bg-white transition-all duration-300 shadow-glow-cyan-light mt-2"
       >
         {t('join_us')}
       </a>
+      <style>{`
+        @keyframes fade-in {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        .animate-fade-in {
+          animation: fade-in 0.5s ease-out forwards;
+        }
+      `}</style>
     </div>
   );
 };

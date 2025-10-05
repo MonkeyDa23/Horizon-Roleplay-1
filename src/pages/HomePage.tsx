@@ -15,7 +15,6 @@ const HomePage: React.FC = () => {
         <div className="absolute inset-0 w-full h-full opacity-5 pointer-events-none">
           <Logo className="w-full h-full object-contain" />
         </div>
-        
         <div 
           className="absolute inset-0 bg-gradient-to-t from-brand-dark via-brand-dark/80 to-transparent"
         ></div>

@@ -1,41 +1,30 @@
-
 import React, { useState, useEffect } from 'react';
 import { useLocalization } from '../hooks/useLocalization';
 import { useCart } from '../hooks/useCart';
-import { getProducts } from '../lib/api';
+import { products as mockProducts } from '../lib/mockData';
 import type { Product } from '../types';
-import { ShoppingCart, PlusCircle, Search } from 'lucide-react';
+import { ShoppingCart, PlusCircle } from 'lucide-react';
+import { CONFIG } from '../lib/config';
 
 const StorePage: React.FC = () => {
   const { t } = useLocalization();
   const { addToCart } = useCart();
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [searchQuery, setSearchQuery] = useState<string>('');
 
   useEffect(() => {
-    const fetchProducts = async () => {
-      setIsLoading(true);
-      try {
-        const fetchedProducts = await getProducts();
-        setProducts(fetchedProducts);
-      } catch (error) {
-        console.error("Failed to fetch products:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchProducts();
+    setIsLoading(true);
+    // Simulate an asynchronous API call to fetch products
+    setTimeout(() => {
+      setProducts(mockProducts);
+      setIsLoading(false);
+    }, 1000); // 1-second delay
   }, []);
 
   const handleAddToCart = (product: Product) => {
     addToCart(product);
   };
   
-  const filteredProducts = products.filter(product =>
-    t(product.nameKey).toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   const SkeletonCard: React.FC = () => (
     <div className="bg-brand-dark-blue border border-brand-light-blue/50 rounded-lg overflow-hidden flex flex-col animate-pulse">
       <div className="h-48 bg-brand-light-blue"></div>
@@ -57,28 +46,14 @@ const StorePage: React.FC = () => {
         <div className="inline-block p-4 bg-brand-light-blue rounded-full mb-4">
           <ShoppingCart className="text-brand-cyan" size={48} />
         </div>
-        <h1 className="text-4xl md:text-5xl font-bold">{t('page_title_store')}</h1>
-      </div>
-
-      <div className="mb-10 max-w-lg mx-auto relative">
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder={t('search_products')}
-          className="w-full bg-brand-light-blue text-white py-3 ps-12 pe-4 rounded-lg border-2 border-brand-light-blue focus:border-brand-cyan focus:outline-none focus:ring-0 transition-colors"
-          aria-label={t('search_products')}
-        />
-        <Search className="absolute top-1/2 -translate-y-1/2 start-4 text-gray-400 pointer-events-none" size={20} />
+        <h1 className="text-4xl md:text-5xl font-bold">{t('page_title_store', { communityName: CONFIG.COMMUNITY_NAME })}</h1>
       </div>
       
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {[...Array(4)].map((_, i) => <SkeletonCard key={i} />)}
-        </div>
-      ) : filteredProducts.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {filteredProducts.map((product) => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        {isLoading ? (
+          [...Array(4)].map((_, i) => <SkeletonCard key={i} />)
+        ) : (
+          products.map((product) => (
             <div key={product.id} className="bg-brand-dark-blue border border-brand-light-blue/50 rounded-lg overflow-hidden flex flex-col group transition-all duration-300 hover:shadow-glow-cyan hover:-translate-y-1">
               <div className="h-48 overflow-hidden">
                 <img src={product.imageUrl} alt={t(product.nameKey)} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
@@ -99,13 +74,9 @@ const StorePage: React.FC = () => {
                 </div>
               </div>
             </div>
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-16">
-          <p className="text-2xl text-gray-400">{t('no_products_found')}</p>
-        </div>
-      )}
+          ))
+        )}
+      </div>
     </div>
   );
 };
