@@ -1,3 +1,4 @@
+
 // /lib/config.ts
 
 // ===================================================================================
@@ -66,25 +67,13 @@ export const CONFIG = {
    * 1. For local development: http://localhost:5173/#/auth/callback
    * 2. For your live website: https://YOUR-WEBSITE-URL.com/#/auth/callback
    * (Replace "YOUR-WEBSITE-URL.com" with your actual domain)
+   * 
+   * >>> For the Discord widget to work, you MUST enable it in your server settings! <<<
+   * Go to Server Settings -> Widget -> Enable Server Widget.
+   * You can also set an invite channel there. The widget will not work if this is disabled.
+   * 
    */
   
-  // ===================================================================================
-  // --- Gemini Live API Configuration ---
-  // ===================================================================================
-  // Settings for the real-time voice chat assistant feature.
-  // ===================================================================================
-  GEMINI_LIVE_CONFIG: {
-    /**
-     * The model name for the native audio (Live) API.
-     */
-    MODEL_NAME: 'gemini-2.5-flash-native-audio-preview-09-2025',
-
-    /**
-     * The system instruction defines the personality and role of the AI assistant.
-     */
-    SYSTEM_INSTRUCTION: 'You are a friendly and helpful AI assistant for the Horizon VRoleplay community. Keep your answers concise and helpful. You can answer questions about the community, the game, or general topics.',
-  },
-
   // ===================================================================================
   // --- SECRETS (FOR BACKEND REFERENCE ONLY) ---
   // ===================================================================================

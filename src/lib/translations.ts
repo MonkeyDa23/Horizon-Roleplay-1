@@ -7,8 +7,6 @@ export const translations: Translations = {
   store: { ar: 'المتجر', en: 'Store' },
   rules: { ar: 'القوانين', en: 'Rules' },
   applies: { ar: 'التقديمات', en: 'Applies' },
-  scenarios: { ar: 'سيناريوهات', en: 'Scenarios' },
-  live_chat: { ar: 'محادثة مباشرة', en: 'Live Chat' },
   about_us: { ar: 'من نحن', en: 'About Us' },
   login_discord: { ar: 'تسجيل الدخول', en: 'Login with Discord' },
   logout: { ar: 'تسجيل الخروج', en: 'Logout' },
@@ -35,8 +33,6 @@ export const translations: Translations = {
   page_title_admin: { ar: 'لوحة تحكم المشرفين', en: 'Admin Control Panel' },
   page_title_my_applications: { ar: 'حالة تقديماتي', en: 'My Applications Status' },
   page_title_profile: { ar: 'الملف الشخصي', en: 'Profile' },
-  page_title_scenarios: { ar: 'مولد أفكار السيناريوهات', en: 'Scenario Idea Generator' },
-  page_title_live: { ar: 'مساعد هورايزن الصوتي', en: 'Horizon AI Assistant' },
   coming_soon: { ar: 'قريباً...', en: 'Coming Soon...' },
   
   // About Us Page
@@ -83,6 +79,7 @@ export const translations: Translations = {
   quiz_management: { ar: 'إدارة نماذج التقديم', en: 'Quiz Forms Management' },
   submission_management: { ar: 'إدارة طلبات التقديم', en: 'Application Submissions' },
   audit_log: { ar: 'سجل التدقيق', en: 'Audit Log' },
+  rules_management: { ar: 'إدارة القوانين', en: 'Rules Management' },
   create_new_quiz: { ar: 'إنشاء تقديم جديد', en: 'Create New Quiz' },
   edit_quiz: { ar: 'تعديل التقديم', en: 'Edit Quiz' },
   quiz_title: { ar: 'عنوان التقديم (مفتاح الترجمة)', en: 'Quiz Title (Translation Key)' },
@@ -112,6 +109,14 @@ export const translations: Translations = {
   log_action: { ar: 'الإجراء', en: 'Action' },
   log_timestamp: { ar: 'الوقت', en: 'Timestamp' },
   no_logs_found: { ar: 'لم يتم العثور على سجلات.', en: 'No log entries found.' },
+  add_category: { ar: 'إضافة فئة جديدة', en: 'Add New Category' },
+  category_title: { ar: 'عنوان الفئة (مفتاح الترجمة)', en: 'Category Title (Translation Key)' },
+  add_rule: { ar: 'إضافة قانون جديد', en: 'Add New Rule' },
+  rule_text: { ar: 'نص القانون (مفتاح الترجمة)', en: 'Rule Text (Translation Key)' },
+  save_rules: { ar: 'حفظ القوانين', en: 'Save Rules' },
+  no_rules_yet: { ar: 'لم تتم إضافة أي قوانين بعد. اذهب إلى لوحة التحكم لإضافتها.', en: 'No rules have been added yet. Go to the admin panel to add them.' },
+  delete_category_confirm: { ar: 'هل أنت متأكد من حذف هذه الفئة وجميع قوانينها؟', en: 'Are you sure you want to delete this category and all its rules?' },
+  rules_updated_success: { ar: 'تم تحديث القوانين بنجاح.', en: 'Rules updated successfully.' },
   
   // Submission Statuses
   status_pending: { ar: 'قيد الانتظار', en: 'Pending' },
@@ -128,27 +133,6 @@ export const translations: Translations = {
   admin: { ar: 'مشرف', en: 'Admin' },
   member: { ar: 'عضو', en: 'Member' },
   recent_applications: { ar: 'التقديمات الأخيرة', en: 'Recent Applications' },
-
-  // Scenario Generator
-  scenarios_intro: { ar: 'هل تحتاج إلى إلهام لمغامرة لعب الأدوار التالية؟ أدخل بعض الكلمات الرئيسية أو اتركها فارغة للحصول على فكرة عشوائية.', en: 'Need inspiration for your next roleplay adventure? Enter some keywords or leave it blank for a random idea.' },
-  keywords_placeholder: { ar: 'مثال: سرقة بنك، ليلة ممطرة، خيانة', en: 'e.g., bank heist, rainy night, betrayal' },
-  generate_scenario: { ar: 'إنشاء سيناريو', en: 'Generate Scenario' },
-  generating: { ar: 'جاري الإنشاء...', en: 'Generating...' },
-  scenario_error: { ar: 'عذراً، حدث خطأ أثناء إنشاء السيناريو. يرجى المحاولة مرة أخرى.', en: 'Sorry, an error occurred while generating the scenario. Please try again.' },
-
-  // Live Chat Page
-  live_intro: { ar: 'تحدث مباشرةً مع مساعد الذكاء الاصطناعي الصوتي. اضغط على "بدء الجلسة" واسأل ما يدور في ذهنك.', en: 'Speak directly with our AI voice assistant. Press "Start Session" and ask your questions.' },
-  start_session: { ar: 'بدء الجلسة', en: 'Start Session' },
-  end_session: { ar: 'إنهاء الجلسة', en: 'End Session' },
-  status_idle: { ar: 'في الانتظار', en: 'Idle' },
-  status_connecting: { ar: 'جاري الاتصال...', en: 'Connecting...' },
-  status_connected: { ar: 'متصل', en: 'Connected' },
-  status_error: { ar: 'حدث خطأ', en: 'Error' },
-  you: { ar: 'أنت', en: 'You' },
-  assistant: { ar: 'المساعد', en: 'Assistant' },
-  listening: { ar: 'يستمع...', en: 'Listening...' },
-  speaking: { ar: 'يتحدث...', en: 'Speaking...' },
-  mic_permission_denied: { ar: 'تم رفض إذن الميكروفون. يرجى تمكينه في إعدادات المتصفح.', en: 'Microphone permission denied. Please enable it in your browser settings.'},
 
   // MOCK DATA TRANSLATIONS
   // Products
@@ -170,4 +154,11 @@ export const translations: Translations = {
   quiz_medic_name: { ar: 'تقديم قسم الإسعاف', en: 'EMS Department Application' },
   quiz_medic_desc: { ar: 'مطلوب منك الهدوء والاحترافية في جميع الأوقات. سيتم إلغاء تقديمك إذا قمت بالخروج من الصفحة أثناء الإجابة.', en: 'You are required to be calm and professional at all times. Your application will be cancelled if you navigate away from the page while answering.' },
   q_medic_1: { ar: 'ما هي أولويتك القصوى عند الوصول إلى مكان الحادث؟', en: 'What is your top priority when arriving at an accident scene?' },
+
+  // Rules
+  rules_general_title: { ar: 'القوانين العامة', en: 'General Rules' },
+  rule_general_1: { ar: 'احترام جميع اللاعبين والإداريين.', en: 'Respect all players and administrators.' },
+  rule_general_2: { ar: 'ممنوع استخدام أي نوع من أنواع الغش أو البرامج المساعدة.', en: 'The use of any kind of cheats or external software is forbidden.' },
+  rules_rp_title: { ar: 'قوانين اللعب الأدوار (RP)', en: 'Roleplay (RP) Rules' },
+  rule_rp_1: { ar: 'ممنوع الخروج عن الشخصية (OOC) في المحادثات داخل اللعبة.', en: 'Out of Character (OOC) talk in in-game chat is not allowed.' },
 };

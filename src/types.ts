@@ -101,3 +101,15 @@ export interface AuditLogEntry {
   action: string;
   timestamp: string;
 }
+
+// Rules System
+export interface Rule {
+  id: string;
+  textKey: string;
+}
+
+export interface RuleCategory {
+  id: string;
+  titleKey: string;
+  rules: Rule[];
+}

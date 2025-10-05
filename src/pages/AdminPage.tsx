@@ -8,14 +8,16 @@ import {
   deleteQuiz,
   getSubmissions,
   updateSubmissionStatus,
-  getAuditLogs
+  getAuditLogs,
+  getRules,
+  saveRules
 } from '../lib/api';
-import type { Quiz, QuizQuestion, QuizSubmission, SubmissionStatus, AuditLogEntry } from '../types';
+import type { Quiz, QuizQuestion, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule } from '../types';
 import { useNavigate } from 'react-router-dom';
-import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck } from 'lucide-react';
+import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, ArrowUp, ArrowDown } from 'lucide-react';
 import Modal from '../components/Modal';
 
-type AdminTab = 'submissions' | 'quizzes' | 'audit';
+type AdminTab = 'submissions' | 'quizzes' | 'rules' | 'audit';
 
 const AdminPage: React.FC = () => {
   const { user } = useAuth();
@@ -31,6 +33,9 @@ const AdminPage: React.FC = () => {
   const [viewingSubmission, setViewingSubmission] = useState<QuizSubmission | null>(null);
   
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  
+  const [rules, setRules] = useState<RuleCategory[]>([]);
+  const [editableRules, setEditableRules] = useState<RuleCategory[] | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -38,14 +43,17 @@ const AdminPage: React.FC = () => {
   const fetchAllData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [quizzesData, submissionsData, logsData] = await Promise.all([
+      const [quizzesData, submissionsData, logsData, rulesData] = await Promise.all([
         getQuizzes(),
         getSubmissions(),
-        getAuditLogs()
+        getAuditLogs(),
+        getRules()
       ]);
       setQuizzes(quizzesData);
       setSubmissions(submissionsData);
       setAuditLogs(logsData);
+      setRules(rulesData);
+      setEditableRules(JSON.parse(JSON.stringify(rulesData))); // Create a deep copy for editing
     } catch (error) {
         console.error("Failed to fetch admin data", error);
     } finally {
@@ -301,6 +309,149 @@ const AdminPage: React.FC = () => {
     </div>
   );
 
+  const RulesPanel = () => {
+    const updateRuleState = (newRules: RuleCategory[]) => {
+      setEditableRules(newRules);
+    };
+  
+    const handleAddCategory = () => {
+      const newCategory: RuleCategory = {
+        id: `cat_${Date.now()}`,
+        titleKey: `new_category_${Date.now()}`,
+        rules: [],
+      };
+      updateRuleState([...(editableRules || []), newCategory]);
+    };
+  
+    const handleUpdateCategory = (catIndex: number, newTitleKey: string) => {
+      const newRules = [...(editableRules || [])];
+      newRules[catIndex].titleKey = newTitleKey;
+      updateRuleState(newRules);
+    };
+  
+    const handleDeleteCategory = (catIndex: number) => {
+      if (window.confirm(t('delete_category_confirm'))) {
+        const newRules = (editableRules || []).filter((_, i) => i !== catIndex);
+        updateRuleState(newRules);
+      }
+    };
+  
+    const handleAddRule = (catIndex: number) => {
+      const newRule: Rule = {
+        id: `rule_${Date.now()}`,
+        textKey: `new_rule_${Date.now()}`,
+      };
+      const newRules = [...(editableRules || [])];
+      newRules[catIndex].rules.push(newRule);
+      updateRuleState(newRules);
+    };
+  
+    const handleUpdateRule = (catIndex: number, ruleIndex: number, newTextKey: string) => {
+      const newRules = [...(editableRules || [])];
+      newRules[catIndex].rules[ruleIndex].textKey = newTextKey;
+      updateRuleState(newRules);
+    };
+  
+    const handleDeleteRule = (catIndex: number, ruleIndex: number) => {
+      const newRules = [...(editableRules || [])];
+      newRules[catIndex].rules = newRules[catIndex].rules.filter((_, i) => i !== ruleIndex);
+      updateRuleState(newRules);
+    };
+  
+    const handleMove = (arr: any[], from: number, to: number) => {
+      const newArr = [...arr];
+      const item = newArr.splice(from, 1)[0];
+      newArr.splice(to, 0, item);
+      return newArr;
+    };
+  
+    const handleMoveCategory = (fromIndex: number, toIndex: number) => {
+      if (!editableRules || toIndex < 0 || toIndex >= editableRules.length) return;
+      updateRuleState(handleMove(editableRules, fromIndex, toIndex));
+    };
+  
+    const handleMoveRule = (catIndex: number, fromIndex: number, toIndex: number) => {
+      if (!editableRules || toIndex < 0 || toIndex >= editableRules[catIndex].rules.length) return;
+      const newRules = [...editableRules];
+      newRules[catIndex].rules = handleMove(newRules[catIndex].rules, fromIndex, toIndex);
+      updateRuleState(newRules);
+    };
+  
+    const handleSaveRules = async () => {
+      if (editableRules && user) {
+        setIsSaving(true);
+        try {
+          // You should also save the new translation keys to your translations file system here
+          // For this demo, we'll just save the structure
+          await saveRules(editableRules, user);
+          await fetchAllData();
+          alert(t('rules_updated_success'));
+        } catch (error) {
+          console.error("Failed to save rules", error);
+        } finally {
+          setIsSaving(false);
+        }
+      }
+    };
+  
+    return (
+      <div className="mt-6 space-y-6">
+        {editableRules?.map((category, catIndex) => (
+          <div key={category.id} className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="flex-grow">
+                <label className="block text-sm font-semibold text-gray-400 mb-1">{t('category_title')}</label>
+                <input
+                  type="text"
+                  value={category.titleKey}
+                  onChange={(e) => handleUpdateCategory(catIndex, e.target.value)}
+                  className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <button onClick={() => handleMoveCategory(catIndex, catIndex - 1)} disabled={catIndex === 0} className="text-gray-400 hover:text-white disabled:opacity-30"><ArrowUp size={20}/></button>
+                <button onClick={() => handleMoveCategory(catIndex, catIndex + 1)} disabled={catIndex === editableRules.length - 1} className="text-gray-400 hover:text-white disabled:opacity-30"><ArrowDown size={20}/></button>
+              </div>
+              <button onClick={() => handleDeleteCategory(catIndex)} className="text-red-500 hover:text-red-400 self-end mb-1"><Trash2 size={20}/></button>
+            </div>
+  
+            <div className="space-y-3 pl-4 border-l-2 border-brand-light-blue">
+              {category.rules.map((rule, ruleIndex) => (
+                <div key={rule.id} className="flex items-center gap-2">
+                  <div className="flex-grow">
+                    <label className="block text-xs font-semibold text-gray-400 mb-1">{t('rule_text')}</label>
+                    <input
+                      type="text"
+                      value={rule.textKey}
+                      onChange={(e) => handleUpdateRule(catIndex, ruleIndex, e.target.value)}
+                      className="w-full bg-brand-dark p-2 rounded border border-gray-700"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <button onClick={() => handleMoveRule(catIndex, ruleIndex, ruleIndex - 1)} disabled={ruleIndex === 0} className="text-gray-400 hover:text-white disabled:opacity-30"><ArrowUp size={16}/></button>
+                    <button onClick={() => handleMoveRule(catIndex, ruleIndex, ruleIndex + 1)} disabled={ruleIndex === category.rules.length - 1} className="text-gray-400 hover:text-white disabled:opacity-30"><ArrowDown size={16}/></button>
+                  </div>
+                  <button onClick={() => handleDeleteRule(catIndex, ruleIndex)} className="text-red-500 hover:text-red-400 self-end mb-1"><Trash2 size={18}/></button>
+                </div>
+              ))}
+              <button onClick={() => handleAddRule(catIndex)} className="flex items-center gap-2 text-brand-cyan text-sm font-semibold pt-2">
+                <Plus size={16} /> {t('add_rule')}
+              </button>
+            </div>
+          </div>
+        ))}
+        <button onClick={handleAddCategory} className="flex items-center gap-2 bg-brand-light-blue/50 text-white font-bold py-2 px-4 rounded-md hover:bg-brand-light-blue transition-colors">
+          <Plus size={20} /> {t('add_category')}
+        </button>
+        <div className="flex justify-end pt-6">
+          <button onClick={handleSaveRules} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-3 px-8 rounded-md hover:bg-white transition-colors flex items-center justify-center min-w-[10rem] disabled:opacity-50 disabled:cursor-wait">
+            {isSaving ? <Loader2 className="animate-spin" size={20} /> : t('save_rules')}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
 
   return (
     <div className="container mx-auto px-6 py-16">
@@ -312,14 +463,17 @@ const AdminPage: React.FC = () => {
       </div>
       
       <div className="max-w-6xl mx-auto">
-        <div className="flex border-b border-brand-light-blue/50 mb-6">
-            <button onClick={() => setActiveTab('submissions')} className={`py-3 px-6 font-bold flex items-center gap-2 ${activeTab === 'submissions' ? 'text-brand-cyan border-b-2 border-brand-cyan' : 'text-gray-400'}`}>
+        <div className="flex border-b border-brand-light-blue/50 mb-6 overflow-x-auto">
+            <button onClick={() => setActiveTab('submissions')} className={`py-3 px-6 font-bold flex-shrink-0 flex items-center gap-2 ${activeTab === 'submissions' ? 'text-brand-cyan border-b-2 border-brand-cyan' : 'text-gray-400'}`}>
                 <FileText size={18}/> {t('submission_management')}
             </button>
-            <button onClick={() => setActiveTab('quizzes')} className={`py-3 px-6 font-bold flex items-center gap-2 ${activeTab === 'quizzes' ? 'text-brand-cyan border-b-2 border-brand-cyan' : 'text-gray-400'}`}>
+            <button onClick={() => setActiveTab('quizzes')} className={`py-3 px-6 font-bold flex-shrink-0 flex items-center gap-2 ${activeTab === 'quizzes' ? 'text-brand-cyan border-b-2 border-brand-cyan' : 'text-gray-400'}`}>
                 <Server size={18}/> {t('quiz_management')}
             </button>
-            <button onClick={() => setActiveTab('audit')} className={`py-3 px-6 font-bold flex items-center gap-2 ${activeTab === 'audit' ? 'text-brand-cyan border-b-2 border-brand-cyan' : 'text-gray-400'}`}>
+            <button onClick={() => setActiveTab('rules')} className={`py-3 px-6 font-bold flex-shrink-0 flex items-center gap-2 ${activeTab === 'rules' ? 'text-brand-cyan border-b-2 border-brand-cyan' : 'text-gray-400'}`}>
+                <BookCopy size={18}/> {t('rules_management')}
+            </button>
+            <button onClick={() => setActiveTab('audit')} className={`py-3 px-6 font-bold flex-shrink-0 flex items-center gap-2 ${activeTab === 'audit' ? 'text-brand-cyan border-b-2 border-brand-cyan' : 'text-gray-400'}`}>
                 <ShieldCheck size={18}/> {t('audit_log')}
             </button>
         </div>
@@ -332,6 +486,7 @@ const AdminPage: React.FC = () => {
           <>
             {activeTab === 'submissions' && <SubmissionsPanel />}
             {activeTab === 'quizzes' && <QuizzesPanel />}
+            {activeTab === 'rules' && <RulesPanel />}
             {activeTab === 'audit' && <AuditLogPanel />}
           </>
         )}

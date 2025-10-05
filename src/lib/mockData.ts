@@ -1,5 +1,5 @@
 
-import type { Product, Quiz, QuizSubmission, SubmissionStatus, User, AuditLogEntry, DiscordRole } from '../types';
+import type { Product, Quiz, QuizSubmission, SubmissionStatus, User, AuditLogEntry, DiscordRole, RuleCategory } from '../types';
 import { CONFIG } from './config';
 import { translations } from './translations';
 
@@ -55,6 +55,25 @@ let products: Product[] = [
     price: 14.99,
     imageUrl: 'https://images.unsplash.com/photo-1616788494459-01bce4a4b86a?q=80&w=400&h=300&fit=crop&crop=entropy'
   },
+];
+
+// Mock data for Rules
+let rules: RuleCategory[] = [
+  {
+    id: 'cat_1',
+    titleKey: 'rules_general_title',
+    rules: [
+      { id: 'rule_1_1', textKey: 'rule_general_1' },
+      { id: 'rule_1_2', textKey: 'rule_general_2' },
+    ]
+  },
+  {
+    id: 'cat_2',
+    titleKey: 'rules_rp_title',
+    rules: [
+      { id: 'rule_2_1', textKey: 'rule_rp_1' },
+    ]
+  }
 ];
 
 // Mock data for quizzes/applications
@@ -147,6 +166,14 @@ const deleteQuiz = (quizId: string, admin: User): void => {
     }
 }
 
+// --- RULES API ---
+const getRules = (): RuleCategory[] => JSON.parse(JSON.stringify(rules));
+const saveRules = (newRules: RuleCategory[], admin: User): void => {
+  rules = JSON.parse(JSON.stringify(newRules)); // Deep copy to avoid reference issues
+  addAuditLog(admin, 'Updated server rules');
+};
+
+
 // --- SUBMISSION API ---
 const getSubmissions = (): QuizSubmission[] => {
   return JSON.parse(JSON.stringify(submissions.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())));
@@ -235,4 +262,4 @@ const getMtaServerStatus = async (): Promise<MtaServerStatus> => {
 }
 
 
-export { products, getQuizzes, getQuizById, saveQuiz, deleteQuiz, getSubmissions, getSubmissionsByUserId, addSubmission, updateSubmissionStatus, getMtaServerStatus, getAuditLogs };
+export { products, getQuizzes, getQuizById, saveQuiz, deleteQuiz, getRules, saveRules, getSubmissions, getSubmissionsByUserId, addSubmission, updateSubmissionStatus, getMtaServerStatus, getAuditLogs };

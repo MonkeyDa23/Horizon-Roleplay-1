@@ -17,8 +17,6 @@ import QuizPage from './pages/QuizPage';
 import MyApplicationsPage from './pages/MyApplicationsPage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import ProfilePage from './pages/ProfilePage';
-import ScenarioGeneratorPage from './pages/ScenarioGeneratorPage';
-import LivePage from './pages/LivePage';
 
 const App: React.FC = () => {
   return (
@@ -35,8 +33,6 @@ const App: React.FC = () => {
                   <Route path="/rules" element={<RulesPage />} />
                   <Route path="/applies" element={<AppliesPage />} />
                   <Route path="/applies/:quizId" element={<QuizPage />} />
-                  <Route path="/scenarios" element={<ScenarioGeneratorPage />} />
-                  <Route path="/live" element={<LivePage />} />
                   <Route path="/about" element={<AboutUsPage />} />
                   <Route path="/admin" element={<AdminPage />} />
                   <Route path="/my-applications" element={<MyApplicationsPage />} />

@@ -22,8 +22,6 @@ const Navbar: React.FC = () => {
     { to: '/store', text: t('store') },
     { to: '/rules', text: t('rules') },
     { to: '/applies', text: t('applies') },
-    { to: '/scenarios', text: t('scenarios') },
-    { to: '/live', text: t('live_chat') },
     { to: '/about', text: t('about_us') },
   ];
 

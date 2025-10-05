@@ -11,9 +11,11 @@ import {
     addSubmission as mockAddSubmission,
     updateSubmissionStatus as mockUpdateSubmissionStatus,
     getMtaServerStatus as mockGetMtaServerStatus,
-    getAuditLogs as mockGetAuditLogs
+    getAuditLogs as mockGetAuditLogs,
+    getRules as mockGetRules,
+    saveRules as mockSaveRules
 } from './mockData';
-import type { Product, Quiz, QuizSubmission, SubmissionStatus, User, Answer, AuditLogEntry } from '../types';
+import type { Product, Quiz, QuizSubmission, SubmissionStatus, User, Answer, AuditLogEntry, RuleCategory } from '../types';
 
 /**
  * This file acts as a mock API layer.
@@ -66,6 +68,19 @@ export const deleteQuiz = async (quizId: string, admin: User): Promise<void> => 
   console.log(`API: User ${admin.username} deleting quiz: ${quizId}`);
   await new Promise(resolve => setTimeout(resolve, SIMULATED_DELAY));
   mockDeleteQuiz(quizId, admin);
+};
+
+// --- Rules API ---
+export const getRules = async (): Promise<RuleCategory[]> => {
+  console.log("API: Fetching rules...");
+  await new Promise(resolve => setTimeout(resolve, SIMULATED_DELAY));
+  return mockGetRules();
+};
+
+export const saveRules = async (rules: RuleCategory[], admin: User): Promise<void> => {
+  console.log(`API: User ${admin.username} saving rules...`);
+  await new Promise(resolve => setTimeout(resolve, SIMULATED_DELAY));
+  mockSaveRules(rules, admin);
 };
 
 

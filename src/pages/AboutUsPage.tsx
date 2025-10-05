@@ -3,7 +3,6 @@ import React from 'react';
 import { useLocalization } from '../hooks/useLocalization';
 import { Info } from 'lucide-react';
 import DiscordEmbed from '../components/DiscordEmbed';
-import { CONFIG } from '../lib/config';
 
 const AboutUsPage: React.FC = () => {
   const { t } = useLocalization();
@@ -27,9 +26,7 @@ const AboutUsPage: React.FC = () => {
         </div>
         
         <div className="flex flex-col items-center justify-center">
-           <DiscordEmbed 
-             serverName={CONFIG.COMMUNITY_NAME}
-           />
+           <DiscordEmbed />
         </div>
       </div>
     </div>
