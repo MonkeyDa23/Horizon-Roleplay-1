@@ -23,7 +23,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // This is the crucial fix for HashRouter. The redirect URI must point to
       // the route within the hash.
-      const REDIRECT_URI = `https://horizonroleplay1.vercel.app/#/auth/callback`;
+      const REDIRECT_URI = `https://horizonroleplay1.vercel.app/auth/callback`;
 
       const params = new URLSearchParams({
         client_id: CONFIG.DISCORD_CLIENT_ID,
