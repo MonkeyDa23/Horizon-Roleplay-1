@@ -9,6 +9,11 @@ interface HealthCheckData {
     guild_name: string;
     error: string | null;
   };
+  url_config: {
+    detected_app_url: string;
+    using_vercel_url: boolean;
+    is_localhost: boolean;
+  };
 }
 
 const HealthCheckPage: React.FC = () => {
@@ -49,18 +54,26 @@ const HealthCheckPage: React.FC = () => {
   const StatusIcon = ({ status }: { status: string }) => {
     if (status.startsWith('✅')) return <CheckCircle className="inline-block mr-2 text-green-400" size={20} />;
     if (status.startsWith('❌')) return <XCircle className="inline-block mr-2 text-red-400" size={20} />;
+    if (status.startsWith('⚠️')) return <AlertTriangle className="inline-block mr-2 text-yellow-400" size={20} />;
     return null;
   };
+  
+  const getStatusTextClass = (status: string) => {
+    if (status.startsWith('❌')) return 'text-red-400';
+    if (status.startsWith('⚠️')) return 'text-yellow-400';
+    return 'text-white';
+  };
+
 
   return (
     <div className="container mx-auto px-6 py-16">
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         <h1 className="text-4xl font-bold mb-8 text-center">Server Health Check</h1>
         
         <div className="bg-brand-dark-blue p-6 rounded-lg border-2 border-brand-cyan shadow-glow-cyan-light mb-8">
-            <h2 className="text-2xl font-bold text-brand-cyan mb-3">1. Discord Configuration (Crucial Step)</h2>
+            <h2 className="text-2xl font-bold text-brand-cyan mb-3">1. Discord OAuth2 Redirect URI</h2>
             <p className="text-gray-300 mb-4">
-            For login to work, you must add the correct **OAuth2 Redirect URI** in the Discord Developer Portal. An incorrect URI is the most common cause of login failure.
+            For login to work, you must add the correct Redirect URI in the Discord Developer Portal. An incorrect URI is the most common cause of login failure.
             </p>
             <label className="text-gray-400 mb-2 font-semibold block">Your Required Redirect URI:</label>
             <div className="flex items-center gap-4 bg-brand-dark p-3 rounded-md">
@@ -91,14 +104,31 @@ const HealthCheckPage: React.FC = () => {
         {data && (
           <div className="space-y-6">
             <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
-              <h3 className="text-2xl font-bold text-brand-cyan mb-4">Environment Variables</h3>
+                <h3 className="text-2xl font-bold text-brand-cyan mb-4">Backend URL Configuration</h3>
+                <p className="text-sm text-gray-400 mb-4">
+                  This check verifies the public URL the backend server is using. A mismatch between this and your actual site URL will cause "Invalid redirect_uri" errors.
+                </p>
+                 <div className="bg-brand-dark p-3 rounded-md">
+                    <p className="text-gray-400">Detected Backend URL:</p>
+                    <code className="text-white text-lg break-all">{data.url_config.detected_app_url}</code>
+                </div>
+                 {data.url_config.using_vercel_url && (
+                    <div className="bg-yellow-900/50 border border-yellow-500/30 p-3 rounded-md mt-4 text-yellow-300">
+                        <p className="font-bold">Warning: URL Mismatch Risk</p>
+                        <p className="text-sm">The backend is using an automatic Vercel URL. For your main production site, you **must** set an `APP_URL` environment variable in Vercel to your primary domain (e.g., `https://your-site.com`) to prevent login errors.</p>
+                    </div>
+                )}
+            </div>
+
+            <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
+              <h3 className="text-2xl font-bold text-brand-cyan mb-4">Vercel Environment Variables</h3>
               <p className="text-sm text-gray-400 mb-4">Checks if the required secrets are set in your Vercel project settings.</p>
               <ul className="space-y-2">
                 {Object.entries(data.env).map(([key, value]) => (
-                  <li key={key} className="flex items-center bg-brand-dark p-3 rounded-md">
+                  <li key={key} className={`flex items-center bg-brand-dark p-3 rounded-md ${getStatusTextClass(value)}`}>
                     <StatusIcon status={value} />
                     <code className="text-gray-300">{key}</code>
-                    <span className="ml-auto font-semibold">{value.split(' ')[1]}</span>
+                    <span className="ml-auto font-semibold">{value.substring(2)}</span>
                   </li>
                 ))}
               </ul>
@@ -108,10 +138,10 @@ const HealthCheckPage: React.FC = () => {
               <h3 className="text-2xl font-bold text-brand-cyan mb-4">Discord Bot Connection</h3>
                <p className="text-sm text-gray-400 mb-4">Tests if the server can log in with your bot token and find your guild ID.</p>
               <div className="bg-brand-dark p-4 rounded-md space-y-3">
-                 <div className="flex items-center">
+                 <div className={`flex items-center ${getStatusTextClass(data.bot.status)}`}>
                     <StatusIcon status={data.bot.status} />
                     <span className="font-semibold text-gray-300">Bot Status:</span>
-                    <span className="ml-2">{data.bot.status}</span>
+                    <span className="ml-2 font-bold">{data.bot.status.substring(2)}</span>
                  </div>
                   {data.bot.guild_name !== 'N/A' && (
                      <div className="flex items-center pl-7">
@@ -120,9 +150,9 @@ const HealthCheckPage: React.FC = () => {
                      </div>
                   )}
                   {data.bot.error && (
-                     <div className="bg-red-900/50 p-3 rounded-md mt-2 ml-7">
+                     <div className="bg-red-900/50 border border-red-500/30 p-3 rounded-md mt-2 ml-7">
                         <p className="font-bold text-red-300">Error Details:</p>
-                        <p className="text-red-300 mt-1">{data.bot.error}</p>
+                        <p className="text-red-300 mt-1 text-sm">{data.bot.error}</p>
                      </div>
                   )}
               </div>
@@ -131,12 +161,12 @@ const HealthCheckPage: React.FC = () => {
             {error ? (
                  <div className="bg-red-500/10 border border-red-500/30 text-red-300 p-6 rounded-lg">
                     <h2 className="text-xl font-bold mb-2 flex items-center"><XCircle className="mr-2"/> Overall Status: Configuration Error</h2>
-                    <p>One or more checks failed. Please review the errors above and follow the troubleshooting steps to resolve the issue. The login will not work until all checks pass.</p>
+                    <p>One or more checks failed. Please review the errors above and follow the troubleshooting steps. **Login will not work until all checks are green.**</p>
                 </div>
             ) : (
                  <div className="bg-green-500/10 border border-green-500/30 text-green-300 p-6 rounded-lg">
                     <h2 className="text-xl font-bold mb-2 flex items-center"><CheckCircle className="mr-2"/> Overall Status: All Systems Operational</h2>
-                    <p>The server is configured correctly. If login still fails after setting the Redirect URI from Step 1, the issue may be with your Discord Application settings.</p>
+                    <p>The server is configured correctly. If you have completed Step 1 (Redirect URI) and Step 2 (Vercel Environment Variables), the login should now work perfectly.</p>
                 </div>
             )}
           </div>

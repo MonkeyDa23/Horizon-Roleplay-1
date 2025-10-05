@@ -13,8 +13,24 @@ const requiredEnvVars = [
   'DISCORD_GUILD_ID',
   'ADMIN_ROLE_IDS',
 ];
+const recommendedEnvVars = ['APP_URL'];
+
 
 const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+const getAppUrl = () => {
+  // 1. Prioritize the user-set APP_URL. This is essential for production to avoid redirect_uri mismatch.
+  if (process.env.APP_URL) {
+    return process.env.APP_URL.replace(/\/$/, ''); // Remove trailing slash if present
+  }
+  // 2. Fallback for Vercel's automatic preview URLs.
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  // 3. Fallback for local development.
+  return 'http://localhost:5173';
+};
+
 
 const config = {
   DISCORD_CLIENT_ID: process.env.DISCORD_CLIENT_ID,
@@ -24,7 +40,7 @@ const config = {
   ADMIN_ROLE_IDS: (process.env.ADMIN_ROLE_IDS || '').split(','),
   DISCORD_ADMIN_NOTIFY_CHANNEL_ID: process.env.DISCORD_ADMIN_NOTIFY_CHANNEL_ID,
   DISCORD_LOG_CHANNEL_ID: process.env.DISCORD_LOG_CHANNEL_ID,
-  APP_URL: process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:5173',
+  APP_URL: getAppUrl(),
 };
 
 // --- Discord Bot Singleton Pattern for Serverless ---
@@ -115,14 +131,26 @@ app.get('/api/health', async (req, res) => {
       guild_name: 'N/A',
       error: null,
     },
+    url_config: {
+        detected_app_url: config.APP_URL,
+        using_vercel_url: !process.env.APP_URL && !!process.env.VERCEL_URL,
+        is_localhost: config.APP_URL.includes('localhost'),
+    }
   };
 
   // 1. Check Environment Variables
   requiredEnvVars.forEach(varName => {
     checks.env[varName] = process.env[varName] ? '✅ Set' : '❌ MISSING';
   });
-  const currentMissing = Object.values(checks.env).some(v => v.includes('MISSING'));
+  recommendedEnvVars.forEach(varName => {
+    if (process.env[varName]) {
+      checks.env[varName] = '✅ Set';
+    } else {
+      checks.env[varName] = '⚠️ Not Set (Required for production login)';
+    }
+  });
 
+  const currentMissing = Object.values(checks.env).some(v => v.includes('MISSING'));
 
   // 2. Check Discord Bot Token and Guild ID
   if (currentMissing) {
@@ -159,8 +187,10 @@ app.get('/api/health', async (req, res) => {
     console.error(`[HEALTH_CHECK] Bot FAILED: ${checks.bot.error}`);
   }
   
+  const hasErrors = currentMissing || checks.bot.status !== '✅ OK' || !process.env.APP_URL;
+
   console.log('[HEALTH_CHECK] Result:', checks);
-  res.status(checks.bot.status === '✅ OK' && !currentMissing ? 200 : 500).json(checks);
+  res.status(hasErrors ? 500 : 200).json(checks);
 });
 
 
