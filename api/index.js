@@ -1,3 +1,4 @@
+
 // api/index.js
 import express from 'express';
 import axios from 'axios';
@@ -253,10 +254,14 @@ app.post('/api/products', verifyAdmin, async (req, res) => {
         product.id = `prod_${Date.now()}`;
         products.push(product);
         addAuditLog(adminUser, `Created product: "${product.nameKey}"`);
+        const logEmbed = (await createBaseEmbed()).setColor(0x2ECC71).setTitle('🛍️ Product Created').setDescription(`**${adminUser.username}** created a new product: **${product.nameKey}**`).setAuthor({ name: adminUser.username, iconURL: adminUser.avatar });
+        await sendMessageToChannel(config.DISCORD_LOG_CHANNEL_ID, logEmbed);
     } else {
         const index = products.findIndex(p => p.id === product.id);
         products[index] = product;
         addAuditLog(adminUser, `Updated product: "${product.nameKey}"`);
+        const logEmbed = (await createBaseEmbed()).setColor(0x3498DB).setTitle('🛍️ Product Updated').setDescription(`**${adminUser.username}** updated the product: **${product.nameKey}**`).setAuthor({ name: adminUser.username, iconURL: adminUser.avatar });
+        await sendMessageToChannel(config.DISCORD_LOG_CHANNEL_ID, logEmbed);
     }
     res.status(200).json(product);
   } catch (error) {
@@ -271,6 +276,8 @@ app.delete('/api/products/:id', verifyAdmin, async (req, res) => {
     const product = products.find(p => p.id === id);
     if (product) {
         addAuditLog(adminUser, `Deleted product: "${product.nameKey}"`);
+        const logEmbed = (await createBaseEmbed()).setColor(0xE74C3C).setTitle('🛍️ Product Deleted').setDescription(`**${adminUser.username}** deleted the product: **${product.nameKey}**`).setAuthor({ name: adminUser.username, iconURL: adminUser.avatar });
+        await sendMessageToChannel(config.DISCORD_LOG_CHANNEL_ID, logEmbed);
     }
     products = products.filter(p => p.id !== id);
     res.status(204).send();
@@ -283,7 +290,10 @@ app.delete('/api/products/:id', verifyAdmin, async (req, res) => {
 app.post('/api/rules', verifyAdmin, async (req, res) => {
   try {
     rules = req.body.rules;
-    addAuditLog(req.adminUser, 'Updated the server rules.');
+    const { adminUser } = req;
+    addAuditLog(adminUser, 'Updated the server rules.');
+    const logEmbed = (await createBaseEmbed()).setColor(0x9B59B6).setTitle('📚 Rules Updated').setDescription(`**${adminUser.username}** updated the server rules.`).setAuthor({ name: adminUser.username, iconURL: adminUser.avatar });
+    await sendMessageToChannel(config.DISCORD_LOG_CHANNEL_ID, logEmbed);
     res.status(200).json(rules);
   } catch (error) {
     console.error(`[API][Rules] Failed to save rules:`, error);
@@ -299,12 +309,16 @@ app.post('/api/quizzes', verifyAdmin, async (req, res) => {
     if (isNew) {
       quiz.id = `quiz_${Date.now()}`;
       quizzes.push(quiz);
-      addAuditLog(adminUser, `Created quiz: "${quiz.titleKey}"`);
+      addAuditLog(adminUser, `Created quiz form: "${quiz.titleKey}"`);
+      const logEmbed = (await createBaseEmbed()).setColor(0x2ECC71).setTitle('📝 Quiz Form Created').setDescription(`**${adminUser.username}** created a new quiz form: **${quiz.titleKey}**`).setAuthor({ name: adminUser.username, iconURL: adminUser.avatar });
+      await sendMessageToChannel(config.DISCORD_LOG_CHANNEL_ID, logEmbed);
     } else {
       const index = quizzes.findIndex(q => q.id === quiz.id);
       if (index > -1) {
         quizzes[index] = quiz;
-        addAuditLog(adminUser, `Updated quiz: "${quiz.titleKey}"`);
+        addAuditLog(adminUser, `Updated quiz form: "${quiz.titleKey}"`);
+        const logEmbed = (await createBaseEmbed()).setColor(0x3498DB).setTitle('📝 Quiz Form Updated').setDescription(`**${adminUser.username}** updated the quiz form: **${quiz.titleKey}**`).setAuthor({ name: adminUser.username, iconURL: adminUser.avatar });
+        await sendMessageToChannel(config.DISCORD_LOG_CHANNEL_ID, logEmbed);
       } else {
          return res.status(404).json({ message: "Quiz not found for update."});
       }
@@ -322,7 +336,9 @@ app.delete('/api/quizzes/:id', verifyAdmin, async (req, res) => {
     const { id } = req.params;
     const quiz = quizzes.find(q => q.id === id);
     if (quiz) {
-      addAuditLog(adminUser, `Deleted quiz: "${quiz.titleKey}"`);
+      addAuditLog(adminUser, `Deleted quiz form: "${quiz.titleKey}"`);
+      const logEmbed = (await createBaseEmbed()).setColor(0xE74C3C).setTitle('📝 Quiz Form Deleted').setDescription(`**${adminUser.username}** deleted the quiz form: **${quiz.titleKey}**`).setAuthor({ name: adminUser.username, iconURL: adminUser.avatar });
+      await sendMessageToChannel(config.DISCORD_LOG_CHANNEL_ID, logEmbed);
     }
     quizzes = quizzes.filter(q => q.id !== id);
     res.status(204).send();
@@ -515,5 +531,27 @@ app.get('/api/auth/callback', async (req, res) => {
     res.redirect(`${frontendCallbackUrl}?error=${encodeURIComponent(errorMessage)}&state=${state}`);
   }
 });
+
+// --- MTA Server Status Mock Endpoint ---
+app.get('/api/mta-status', async (req, res) => {
+    // This is a mock implementation. For a real server, you would query
+    // the MTA:SA server's HTTP or UDP endpoint here.
+    try {
+        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+        if (Math.random() < 0.1) {
+            throw new Error("Server is offline");
+        }
+        const players = 80 + Math.floor(Math.random() * 40);
+        const maxPlayers = 200;
+        res.json({
+            name: `Horizon VRoleplay | Your Story Begins`,
+            players,
+            maxPlayers,
+        });
+    } catch (e) {
+        res.status(503).json({ message: 'Server is offline' });
+    }
+});
+
 
 export default app;

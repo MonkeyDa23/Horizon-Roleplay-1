@@ -57,7 +57,6 @@ export interface CartContextType {
   totalPrice: number;
 }
 
-// FIX: Added MtaServerStatus interface for shared use.
 // MTA Server
 export interface MtaServerStatus {
   name: string;

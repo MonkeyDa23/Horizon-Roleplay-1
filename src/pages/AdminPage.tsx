@@ -66,7 +66,7 @@ const AdminPage: React.FC = () => {
         console.error("Failed to fetch admin data", error);
         showToast("Failed to load some or all admin data.", "error");
     }
-  }, []);
+  }, [showToast]);
   
   // CRITICAL: This effect is the gatekeeper for the admin page.
   useEffect(() => {
@@ -105,12 +105,12 @@ const AdminPage: React.FC = () => {
             console.error("Admin access check failed", error);
 
             if (error instanceof ApiError && (error.status === 401 || error.status === 403 || error.status === 404)) {
-                showToast("Your session is invalid or you lack permissions.", "error");
+                showToast(t('admin_permissions_error'), "error");
                 logout(); // Definitive failure, log out.
             } else {
                 // KEY CHANGE: For temporary errors (5xx, network, rate limits),
                 // show a warning but DO NOT navigate away. Allow the user to see cached data.
-                showToast("Could not verify session with the server. Displaying cached data and some actions may fail.", "warning");
+                showToast(t('admin_session_error_warning'), "warning");
                 await fetchAllData(); // Attempt to load data anyway, it might be stale but is better than a blank page.
             }
         } finally {
@@ -175,6 +175,7 @@ const AdminPage: React.FC = () => {
         try {
             await apiSaveRules(editableRules, user);
             showToast(t('rules_updated_success'), 'success');
+             await fetchAllData();
         } catch(e) {
             console.error(e);
             showToast('Failed to save rules', 'error');
@@ -273,7 +274,35 @@ const AdminPage: React.FC = () => {
   );
   
   const RulesPanel = () => {
-    // ... handlers for editing rules
+      if (!editableRules) return null;
+
+    const handleCategoryChange = (catIndex: number, value: string) => {
+        const newRules = [...editableRules];
+        newRules[catIndex].titleKey = value;
+        setEditableRules(newRules);
+    };
+
+    const handleRuleChange = (catIndex: number, ruleIndex: number, value: string) => {
+        const newRules = [...editableRules];
+        newRules[catIndex].rules[ruleIndex].textKey = value;
+        setEditableRules(newRules);
+    };
+    
+    const handleAddCategory = () => setEditableRules([...editableRules, {id: `cat_${Date.now()}`, titleKey: '', rules: [{id: `rule_${Date.now()}`, textKey: ''}]}]);
+    const handleAddRule = (catIndex: number) => {
+        const newRules = [...editableRules];
+        newRules[catIndex].rules.push({id: `rule_${Date.now()}`, textKey: ''});
+        setEditableRules(newRules);
+    };
+    const handleDeleteCategory = (catIndex: number) => { if(window.confirm(t('delete_category_confirm'))) setEditableRules(editableRules.filter((_, i) => i !== catIndex)); };
+    const handleDeleteRule = (catIndex: number, ruleIndex: number) => {
+        const newRules = [...editableRules];
+        if (newRules[catIndex].rules.length > 1) {
+            newRules[catIndex].rules = newRules[catIndex].rules.filter((_, i) => i !== ruleIndex);
+            setEditableRules(newRules);
+        }
+    };
+    
     return (
         <div>
             <div className="flex justify-between items-center my-6">
@@ -282,7 +311,28 @@ const AdminPage: React.FC = () => {
                     {isSaving ? <Loader2 className="animate-spin" /> : t('save_rules')}
                 </button>
             </div>
-            {/* ... rest of the component */}
+            <div className="space-y-6">
+                {editableRules.map((cat, catIndex) => (
+                    <div key={cat.id} className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
+                        <div className="flex justify-between items-center mb-4">
+                             <input type="text" placeholder={t('category_title')} value={cat.titleKey} onChange={(e) => handleCategoryChange(catIndex, e.target.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 text-xl font-bold text-brand-cyan" />
+                            <button onClick={() => handleDeleteCategory(catIndex)} className="ml-4 text-red-500 hover:text-red-400"><Trash2/></button>
+                        </div>
+                        <div className="space-y-3">
+                           {cat.rules.map((rule, ruleIndex) => (
+                               <div key={rule.id} className="flex items-center gap-2">
+                                   <input type="text" placeholder={t('rule_text')} value={rule.textKey} onChange={(e) => handleRuleChange(catIndex, ruleIndex, e.target.value)} className="w-full bg-brand-dark p-2 rounded border border-gray-700" />
+                                   <button onClick={() => handleDeleteRule(catIndex, ruleIndex)} disabled={cat.rules.length <= 1} className="text-red-500 hover:text-red-400 disabled:opacity-30"><X/></button>
+                               </div>
+                           ))}
+                        </div>
+                        <button onClick={() => handleAddRule(catIndex)} className="mt-4 flex items-center gap-2 text-brand-cyan font-semibold"><Plus size={18} /> {t('add_rule')}</button>
+                    </div>
+                ))}
+                <button onClick={handleAddCategory} className="w-full p-4 border-2 border-dashed border-brand-light-blue/50 rounded-lg text-gray-400 hover:bg-brand-light-blue/50 hover:text-white transition-colors flex items-center justify-center gap-2">
+                    <Plus/> {t('add_category')}
+                </button>
+            </div>
         </div>
     )
   };

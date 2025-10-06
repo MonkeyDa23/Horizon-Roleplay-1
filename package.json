@@ -9,15 +9,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@google/genai": "^0.14.0",
-    "lucide-react": "^0.544.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-router-dom": "^6.23.0",
     "axios": "^1.7.2",
     "cors": "^2.8.5",
     "discord.js": "^14.15.3",
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "lucide-react": "^0.378.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.23.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.79",
