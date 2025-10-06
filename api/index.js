@@ -265,7 +265,7 @@ app.post('/api/submissions', async (req, res) => {
     const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
 
     const userDM = createBaseEmbed(guild)
-      .setColor(0x3498DB)
+      .setColor(0x3498DB) // Blue
       .setTitle(`Application Received: ${newSubmission.quizTitle}`)
       .setDescription(`Thank you for your application, **${newSubmission.username}**! We have received it and our administration team will review it shortly. You will be notified here of any status updates.\n\n[You can track the status here.](${config.APP_URL}/my-applications)`)
       .setThumbnail(guild.iconURL());
@@ -273,10 +273,10 @@ app.post('/api/submissions', async (req, res) => {
     
     const applicant = await guild.members.fetch(newSubmission.userId).catch(() => null);
     const adminEmbed = createBaseEmbed(guild)
-      .setColor(0x3498DB)
+      .setColor(0x3498DB) // Blue
       .setTitle('New Application Submitted')
       .setURL(`${config.APP_URL}/admin`)
-      .setAuthor({ name: newSubmission.username, iconURL: applicant?.displayAvatarURL() || null })
+      .setAuthor({ name: newSubmission.username, iconURL: applicant?.displayAvatarURL() || undefined })
       .setDescription(`A new application has been submitted and is awaiting review.`)
       .addFields(
         { name: 'Applicant', value: `<@${newSubmission.userId}>`, inline: true },
@@ -295,11 +295,13 @@ app.post('/api/submissions', async (req, res) => {
 app.put('/api/submissions/:id/status', verifyAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, admin } = req.body; // admin comes from the request body
+    const { status, admin } = req.body;
     const submission = submissions.find(s => s.id === id);
     if (!submission) return res.status(404).json({ message: 'Submission not found' });
     
     const oldStatus = submission.status;
+    if (oldStatus === status) return res.json(submission); // No change
+    
     submission.status = status;
     submission.adminId = admin.id;
     submission.adminUsername = admin.username;
@@ -322,7 +324,7 @@ app.put('/api/submissions/:id/status', verifyAdmin, async (req, res) => {
       userDM = createBaseEmbed(guild)
         .setColor(0xF1C40F) // Yellow
         .setTitle('Application Under Review')
-        .setDescription(`Good news, **${submission.username}**! An admin, **${admin.username}**, has started reviewing your application for **"${submission.quizTitle}"**.\n\n[You can check the status here.](${config.APP_URL}/my-applications)`)
+        .setDescription(`Good news, **${submission.username}**! An admin, **${admin.username}**, has started reviewing your application for **"${submission.quizTitle}"**.\n\nWe will notify you again once a final decision has been made.`)
         .setThumbnail(guild.iconURL());
       sendDm(submission.userId, userDM);
 
