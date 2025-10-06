@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Logo from './Logo';
 import { useLocalization } from '../hooks/useLocalization';
-import { CONFIG } from '../lib/config';
+import { useConfig } from '../hooks/useConfig';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import DiscordLogo from './icons/DiscordLogo';
 
@@ -19,23 +19,26 @@ interface DiscordWidgetError {
 
 const DiscordEmbed: React.FC = () => {
   const { t } = useLocalization();
+  const { config, configLoading } = useConfig();
   const [widgetData, setWidgetData] = useState<DiscordWidgetData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (configLoading) return;
+
     const fetchWidgetData = async () => {
       setIsLoading(true);
       setError(null);
 
-      if (!CONFIG.DISCORD_GUILD_ID || CONFIG.DISCORD_GUILD_ID === 'YOUR_GUILD_ID_HERE') {
+      if (!config.DISCORD_GUILD_ID || config.DISCORD_GUILD_ID === 'YOUR_GUILD_ID_HERE') {
           setError(t('discord_widget_error_misconfigured'));
           setIsLoading(false);
           return;
       }
 
       try {
-        const response = await fetch(`https://discord.com/api/guilds/${CONFIG.DISCORD_GUILD_ID}/widget.json`);
+        const response = await fetch(`https://discord.com/api/guilds/${config.DISCORD_GUILD_ID}/widget.json`);
         const data: DiscordWidgetData | DiscordWidgetError = await response.json();
 
         if ('code' in data) {
@@ -60,10 +63,10 @@ const DiscordEmbed: React.FC = () => {
     };
 
     fetchWidgetData();
-  }, [t]);
+  }, [t, config.DISCORD_GUILD_ID, configLoading]);
 
   const renderContent = () => {
-    if (isLoading) {
+    if (isLoading || configLoading) {
       return (
         <div className="flex justify-center items-center h-16">
           <Loader2 className="animate-spin text-gray-400" />
@@ -111,7 +114,7 @@ const DiscordEmbed: React.FC = () => {
           <Logo className="w-10 h-10" />
         </div>
         <div>
-          <h3 className="font-bold text-white text-lg">{widgetData?.name || CONFIG.COMMUNITY_NAME}</h3>
+          <h3 className="font-bold text-white text-lg">{widgetData?.name || config.COMMUNITY_NAME}</h3>
           <p className="text-xs text-gray-400">
             {t('join_community')}
           </p>
@@ -121,7 +124,7 @@ const DiscordEmbed: React.FC = () => {
       {renderContent()}
 
       <a
-        href={widgetData?.instant_invite || CONFIG.DISCORD_INVITE_URL}
+        href={widgetData?.instant_invite || config.DISCORD_INVITE_URL}
         target="_blank"
         rel="noopener noreferrer"
         className="flex items-center justify-center gap-2 w-full text-center bg-[#5865F2] text-white font-bold py-2.5 rounded-md hover:bg-[#4f5bda] transition-all duration-300 shadow-glow-cyan-light mt-2"

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLocalization } from '../hooks/useLocalization';
-import { CONFIG } from '../lib/config';
+import { useConfig } from '../hooks/useConfig';
 import Modal from '../components/Modal';
 import Logo from '../components/Logo';
 import { Gamepad2 } from 'lucide-react';
@@ -9,6 +9,7 @@ import DiscordLogo from '../components/icons/DiscordLogo';
 
 const HomePage: React.FC = () => {
   const { t } = useLocalization();
+  const { config } = useConfig();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
@@ -26,7 +27,7 @@ const HomePage: React.FC = () => {
         
         <div className="text-center z-10 p-6 animate-slide-up">
           <h1 className="text-5xl md:text-7xl font-extrabold text-white" style={{ textShadow: '0 0 20px rgba(0, 242, 234, 0.4)' }}>
-            {t('hero_title', { communityName: CONFIG.COMMUNITY_NAME })}
+            {t('hero_title', { communityName: config.COMMUNITY_NAME })}
           </h1>
           <p className="mt-6 text-lg md:text-xl text-gray-300 max-w-3xl mx-auto">
             {t('hero_subtitle')}
@@ -47,7 +48,7 @@ const HomePage: React.FC = () => {
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={t('join_modal_title')}>
         <div className="space-y-6">
           <a
-            href={CONFIG.DISCORD_INVITE_URL}
+            href={config.DISCORD_INVITE_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-4 w-full p-4 bg-[#5865F2] text-white font-bold rounded-lg hover:bg-[#4f5bda] transition-colors duration-300"
@@ -56,7 +57,7 @@ const HomePage: React.FC = () => {
             <span>{t('join_discord')}</span>
           </a>
           <a
-            href={CONFIG.MTA_SERVER_URL}
+            href={config.MTA_SERVER_URL}
             className="flex items-center justify-center gap-4 w-full p-4 bg-gray-700 text-white font-bold rounded-lg hover:bg-gray-600 transition-colors duration-300"
           >
             <Gamepad2 size={24} />

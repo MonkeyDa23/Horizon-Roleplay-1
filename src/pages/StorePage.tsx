@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useLocalization } from '../hooks/useLocalization';
 import { useCart } from '../hooks/useCart';
+import { useConfig } from '../hooks/useConfig';
 import { getProducts } from '../lib/api';
 import type { Product } from '../types';
 import { ShoppingCart, PlusCircle } from 'lucide-react';
-import { CONFIG } from '../lib/config';
 
 const StorePage: React.FC = () => {
   const { t } = useLocalization();
   const { addToCart } = useCart();
+  const { config } = useConfig();
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -52,7 +53,7 @@ const StorePage: React.FC = () => {
         <div className="inline-block p-4 bg-brand-light-blue rounded-full mb-4">
           <ShoppingCart className="text-brand-cyan" size={48} />
         </div>
-        <h1 className="text-4xl md:text-5xl font-bold">{t('page_title_store', { communityName: CONFIG.COMMUNITY_NAME })}</h1>
+        <h1 className="text-4xl md:text-5xl font-bold">{t('page_title_store', { communityName: config.COMMUNITY_NAME })}</h1>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">

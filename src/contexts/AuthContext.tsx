@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect } from 'react';
 import type { User, AuthContextType } from '../types';
-import { CONFIG } from '../lib/config';
+import { useConfig } from '../hooks/useConfig';
 
 // Define a new AuthContextType that includes the updateUser function
 interface AppAuthContextType extends AuthContextType {
@@ -10,6 +10,7 @@ interface AppAuthContextType extends AuthContextType {
 export const AuthContext = createContext<AppAuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { config } = useConfig();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true); // Start loading until we check localStorage
 
@@ -38,7 +39,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const REDIRECT_URI = new URL('/api/auth/callback', window.location.origin).href;
 
       const params = new URLSearchParams({
-        client_id: CONFIG.DISCORD_CLIENT_ID,
+        client_id: config.DISCORD_CLIENT_ID,
         redirect_uri: REDIRECT_URI,
         response_type: 'code',
         scope: 'identify guilds.members.read',

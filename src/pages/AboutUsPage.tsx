@@ -1,11 +1,12 @@
 import React from 'react';
 import { useLocalization } from '../hooks/useLocalization';
+import { useConfig } from '../hooks/useConfig';
 import { Info } from 'lucide-react';
 import DiscordEmbed from '../components/DiscordEmbed';
-import { CONFIG } from '../lib/config';
 
 const AboutUsPage: React.FC = () => {
   const { t } = useLocalization();
+  const { config } = useConfig();
 
   return (
     <div className="container mx-auto px-6 py-16">
@@ -13,8 +14,8 @@ const AboutUsPage: React.FC = () => {
         <div className="inline-block p-4 bg-brand-light-blue rounded-full mb-4">
           <Info className="text-brand-cyan" size={48} />
         </div>
-        <h1 className="text-4xl md:text-5xl font-bold mb-4">{t('page_title_about', { communityName: CONFIG.COMMUNITY_NAME })}</h1>
-        <p className="text-lg text-gray-300 max-w-3xl mx-auto">{t('about_intro', { communityName: CONFIG.COMMUNITY_NAME })}</p>
+        <h1 className="text-4xl md:text-5xl font-bold mb-4">{t('page_title_about', { communityName: config.COMMUNITY_NAME })}</h1>
+        <p className="text-lg text-gray-300 max-w-3xl mx-auto">{t('about_intro', { communityName: config.COMMUNITY_NAME })}</p>
       </div>
 
       <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-8 items-center">

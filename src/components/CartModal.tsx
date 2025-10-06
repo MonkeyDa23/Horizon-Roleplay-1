@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { useLocalization } from '../hooks/useLocalization';
 import { useCart } from '../hooks/useCart';
+import { useConfig } from '../hooks/useConfig';
 import Modal from './Modal';
 import { X, Trash2, ShoppingBag } from 'lucide-react';
-import { CONFIG } from '../lib/config';
 import DiscordLogo from './icons/DiscordLogo';
 
 
@@ -15,6 +15,7 @@ interface CartModalProps {
 const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
   const { t } = useLocalization();
   const { cartItems, removeFromCart, updateQuantity, totalItems, totalPrice, clearCart } = useCart();
+  const { config } = useConfig();
   const [isCheckoutModalOpen, setCheckoutModalOpen] = useState(false);
   
   if (!isOpen) return null;
@@ -29,7 +30,7 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
   };
   
   const handleOpenTicket = () => {
-    window.open(CONFIG.DISCORD_INVITE_URL, '_blank');
+    window.open(config.DISCORD_INVITE_URL, '_blank');
     clearCart();
     closeAllModals();
   };

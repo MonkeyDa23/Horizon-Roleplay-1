@@ -3,15 +3,16 @@ import { NavLink, Link } from 'react-router-dom';
 import { useLocalization } from '../hooks/useLocalization';
 import { useAuth } from '../hooks/useAuth';
 import { useCart } from '../hooks/useCart';
+import { useConfig } from '../hooks/useConfig';
 import Logo from './Logo';
 import CartModal from './CartModal';
 import { Globe, ChevronDown, LogIn, LogOut, Loader, ShoppingCart, UserCog, FileText, User as UserIcon } from 'lucide-react';
-import { CONFIG } from '../lib/config';
 
 const Navbar: React.FC = () => {
   const { language, setLanguage, t, dir } = useLocalization();
   const { user, login, logout, loading } = useAuth();
   const { totalItems } = useCart();
+  const { config, configLoading } = useConfig();
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [isCartOpen, setCartOpen] = useState(false);
@@ -35,7 +36,9 @@ const Navbar: React.FC = () => {
         <div className="container mx-auto px-6 py-3 flex justify-between items-center">
           <Link to="/" className="flex items-center gap-4">
             <Logo className="h-10 w-10" />
-            <h1 className="text-xl font-bold text-white tracking-wider hidden md:block">{CONFIG.COMMUNITY_NAME.toUpperCase()}</h1>
+            <h1 className="text-xl font-bold text-white tracking-wider hidden md:block">
+              {!configLoading && config.COMMUNITY_NAME.toUpperCase()}
+            </h1>
           </Link>
           <div className="hidden md:flex items-center gap-8">
             {navLinks.map((link) => (

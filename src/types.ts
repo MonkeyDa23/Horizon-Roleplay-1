@@ -118,3 +118,13 @@ export interface AuditLogEntry {
   timestamp: string;
   action: string;
 }
+
+// FIX: Augment global types to include Vite's `import.meta.env` for TypeScript.
+// This resolves TS errors about 'env' not existing on 'ImportMeta' without needing a separate .d.ts file.
+declare global {
+  interface ImportMeta {
+    readonly env: {
+      readonly VITE_EDGE_CONFIG: string;
+    };
+  }
+}

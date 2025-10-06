@@ -4,7 +4,8 @@
 // It can be kept for future frontend-only mock data or removed entirely.
 
 // The getMtaServerStatus mock can remain if a real MTA API is not yet implemented.
-import { CONFIG } from './config';
+// FIX: The config file was renamed and its export changed. Updated the import to match the new structure.
+import { staticConfig as CONFIG } from './staticConfig';
 
 export const getMtaServerStatus = async () => {
     await new Promise(resolve => setTimeout(resolve, 1500));
