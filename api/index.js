@@ -2,13 +2,44 @@ import express from 'express';
 import axios from 'axios';
 import cors from 'cors';
 import { URLSearchParams } from 'url';
-import { kv } from '@vercel/kv';
+import { get } from '@vercel/edge-config';
+
+const updateEdgeConfigItems = async (items) => {
+    const configId = process.env.EDGE_CONFIG_ID;
+    const apiToken = process.env.VERCEL_API_TOKEN;
+    const teamId = process.env.VERCEL_TEAM_ID;
+
+    if (!configId || !apiToken) {
+        throw new Error('Edge Config ID or Vercel API Token is not configured for write operations.');
+    }
+    
+    let apiUrl = `https://api.vercel.com/v1/edge-config/${configId}/items`;
+    if (teamId) {
+        apiUrl += `?teamId=${teamId}`;
+    }
+
+    const response = await fetch(apiUrl, {
+        method: 'PATCH',
+        headers: {
+            'Authorization': `Bearer ${apiToken}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ items }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        console.error("Edge Config API Error:", errorData);
+        throw new Error(`Failed to update Edge Config: ${errorData.error.message}`);
+    }
+};
+
 
 const seedInitialData = async () => {
-  const isSeeded = await kv.get('db_seeded_v3'); // Increment version to allow reseeding if schema changes
+  const isSeeded = await get('edge_config_seeded_v1');
   if (isSeeded) return;
 
-  console.log("Database not seeded or old version. Seeding initial data...");
+  console.log("Edge Config not seeded. Seeding initial data...");
 
   const initialProducts = [
     { id: 'prod_001', nameKey: 'product_vip_bronze_name', descriptionKey: 'product_vip_bronze_desc', price: 9.99, imageUrl: 'https://picsum.photos/seed/vip_bronze/400/300' },
@@ -22,15 +53,16 @@ const seedInitialData = async () => {
     { id: 'quiz_police_dept', titleKey: 'quiz_police_name', descriptionKey: 'quiz_police_desc', isOpen: true, questions: [{ id: 'q1_police', textKey: 'q_police_1', timeLimit: 60 }, { id: 'q2_police', textKey: 'q_police_2', timeLimit: 90 }], allowedTakeRoles: [] },
   ];
 
-  await Promise.all([
-    kv.set('products', initialProducts),
-    kv.set('rules', initialRules),
-    kv.set('quizzes', initialQuizzes),
-    kv.set('submissions', []),
-    kv.set('auditLogs', []),
-    kv.set('db_seeded_v3', true)
+  await updateEdgeConfigItems([
+    { operation: 'upsert', key: 'products', value: initialProducts },
+    { operation: 'upsert', key: 'rules', value: initialRules },
+    { operation: 'upsert', key: 'quizzes', value: initialQuizzes },
+    { operation: 'upsert', key: 'submissions', value: [] },
+    { operation: 'upsert', key: 'auditLogs', value: [] },
+    { operation: 'upsert', key: 'edge_config_seeded_v1', value: true }
   ]);
-  console.log('Database seeded successfully.');
+  
+  console.log('Edge Config seeded successfully.');
 };
 
 const getAppUrl = () => {
@@ -91,9 +123,10 @@ async function getGuildMember(userId, config) {
 }
 
 const addAuditLog = async (admin, action) => {
-  const logs = await kv.get('auditLogs') || [];
+  const logs = await get('auditLogs') || [];
   logs.unshift({ id: `log_${Date.now()}`, adminId: admin.id, adminUsername: admin.username, timestamp: new Date().toISOString(), action });
-  await kv.set('auditLogs', logs.slice(0, 100));
+  const newLogs = logs.slice(0, 100);
+  await updateEdgeConfigItems([{ operation: 'update', key: 'auditLogs', value: newLogs }]);
 };
 
 const app = express();
@@ -207,25 +240,22 @@ app.post('/api/auth/session', async (req, res) => {
 });
 
 // GENERAL READ API
-app.get('/api/products', async (_, res) => res.json(await kv.get('products') ?? []));
-app.get('/api/rules', async (_, res) => res.json(await kv.get('rules') ?? []));
-app.get('/api/quizzes', async (_, res) => res.json(await kv.get('quizzes') ?? []));
+app.get('/api/products', async (_, res) => res.json(await get('products') ?? []));
+app.get('/api/rules', async (_, res) => res.json(await get('rules') ?? []));
+app.get('/api/quizzes', async (_, res) => res.json(await get('quizzes') ?? []));
 app.get('/api/quizzes/:id', async (req, res) => {
-    const quizzes = await kv.get('quizzes') ?? [];
+    const quizzes = await get('quizzes') ?? [];
     const quiz = quizzes.find(q => q.id === req.params.id);
     if (quiz) res.json(quiz);
     else res.status(404).json({ message: "Quiz not found" });
 });
 
 app.get('/api/mta-status', async (_, res) => {
-    // This is a mock implementation. For a real server, you would query
-    // the MTA-SA server query port (usually UDP port `your_server_port + 123`).
-    // Libraries like 'gamedig' for Node.js can do this.
     try {
-        if (Math.random() < 0.1) { // 10% chance of being offline for simulation
+        if (Math.random() < 0.1) {
           throw new Error("Server is offline");
         }
-        const players = 80 + Math.floor(Math.random() * 40); // 80-120 players
+        const players = 80 + Math.floor(Math.random() * 40);
         const maxPlayers = 200;
         const config = await getRuntimeConfig();
 
@@ -240,13 +270,13 @@ app.get('/api/mta-status', async (_, res) => {
 });
 
 
-app.get('/api/submissions', async (_, res) => res.json((await kv.get('submissions') ?? []).sort((a,b) => new Date(b.submittedAt) - new Date(a.submittedAt))));
-app.get('/api/users/:userId/submissions', async (req, res) => res.json((await kv.get('submissions') ?? []).filter(s => s.userId === req.params.userId).sort((a,b) => new Date(b.submittedAt) - new Date(a.submittedAt))));
+app.get('/api/submissions', async (_, res) => res.json((await get('submissions') ?? []).sort((a,b) => new Date(b.submittedAt) - new Date(a.submittedAt))));
+app.get('/api/users/:userId/submissions', async (req, res) => res.json((await get('submissions') ?? []).filter(s => s.userId === req.params.userId).sort((a,b) => new Date(b.submittedAt) - new Date(a.submittedAt))));
 
 app.post('/api/submissions', async (req, res) => {
   const newSubmission = { ...req.body, id: `sub_${Date.now()}`, status: 'pending' };
-  const submissions = await kv.get('submissions') ?? [];
-  await kv.set('submissions', [...submissions, newSubmission]);
+  const submissions = await get('submissions') ?? [];
+  await updateEdgeConfigItems([{ operation: 'update', key: 'submissions', value: [...submissions, newSubmission] }]);
   res.status(201).json(newSubmission);
 });
 
@@ -259,16 +289,15 @@ adminRouter.post('/log-access', async(req, res) => {
     res.status(204).send();
 });
 
-adminRouter.get('/audit-logs', verifySuperAdmin, async (_, res) => res.json(await kv.get('auditLogs') ?? []));
+adminRouter.get('/audit-logs', verifySuperAdmin, async (_, res) => res.json(await get('auditLogs') ?? []));
 
 adminRouter.put('/submissions/:id/status', async (req, res) => {
-    const submissions = await kv.get('submissions') ?? [];
+    const submissions = await get('submissions') ?? [];
     const subIndex = submissions.findIndex(s => s.id === req.params.id);
     if (subIndex === -1) return res.status(404).json({ message: 'Submission not found' });
     
-    // Permission check for 'take' action
     if (req.body.status === 'taken') {
-        const quizzes = await kv.get('quizzes') ?? [];
+        const quizzes = await get('quizzes') ?? [];
         const quiz = quizzes.find(q => q.id === submissions[subIndex].quizId);
         const allowedRoles = quiz?.allowedTakeRoles;
         if (allowedRoles && allowedRoles.length > 0 && !req.adminUser.roles.some(r => allowedRoles.includes(r))) {
@@ -280,7 +309,7 @@ adminRouter.put('/submissions/:id/status', async (req, res) => {
     submissions[subIndex].adminId = req.adminUser.id;
     submissions[subIndex].adminUsername = req.adminUser.username;
     
-    await kv.set('submissions', submissions);
+    await updateEdgeConfigItems([{ operation: 'update', key: 'submissions', value: submissions }]);
     await addAuditLog(req.adminUser, `Updated submission ${submissions[subIndex].id} for ${submissions[subIndex].username} to "${req.body.status}"`);
     res.json(submissions[subIndex]);
 });
@@ -288,7 +317,7 @@ adminRouter.put('/submissions/:id/status', async (req, res) => {
 // SUPER-ADMIN ONLY ROUTES
 adminRouter.post('/products', verifySuperAdmin, async (req, res) => {
     const { product } = req.body;
-    const products = await kv.get('products') ?? [];
+    const products = await get('products') ?? [];
     const existingIndex = products.findIndex(p => p.id === product.id);
 
     if (existingIndex !== -1) {
@@ -299,22 +328,26 @@ adminRouter.post('/products', verifySuperAdmin, async (req, res) => {
         products.push(product);
         await addAuditLog(req.adminUser, `Created product: "${product.nameKey}"`);
     }
-    await kv.set('products', products);
+    await updateEdgeConfigItems([{ operation: 'update', key: 'products', value: products }]);
     res.status(200).json(product);
 });
 adminRouter.delete('/products/:id', verifySuperAdmin, async (req, res) => {
-    let products = await kv.get('products') ?? [];
+    let products = await get('products') ?? [];
     const product = products.find(p => p.id === req.params.id);
     if (product) {
         await addAuditLog(req.adminUser, `Deleted product: "${product.nameKey}"`);
-        await kv.set('products', products.filter(p => p.id !== req.params.id));
+        await updateEdgeConfigItems([{ operation: 'update', key: 'products', value: products.filter(p => p.id !== req.params.id) }]);
     }
     res.status(204).send();
 });
-adminRouter.post('/rules', verifySuperAdmin, async (req, res) => { await kv.set('rules', req.body.rules); await addAuditLog(req.adminUser, `Updated the server rules.`); res.status(200).json(req.body.rules); });
+adminRouter.post('/rules', verifySuperAdmin, async (req, res) => { 
+    await updateEdgeConfigItems([{ operation: 'update', key: 'rules', value: req.body.rules }]);
+    await addAuditLog(req.adminUser, `Updated the server rules.`); 
+    res.status(200).json(req.body.rules); 
+});
 adminRouter.post('/quizzes', verifySuperAdmin, async (req, res) => {
     const { quiz } = req.body;
-    const quizzes = await kv.get('quizzes') ?? [];
+    const quizzes = await get('quizzes') ?? [];
     const existingIndex = quizzes.findIndex(q => q.id === quiz.id);
 
     if (existingIndex !== -1) {
@@ -325,15 +358,15 @@ adminRouter.post('/quizzes', verifySuperAdmin, async (req, res) => {
         quizzes.push(quiz);
         await addAuditLog(req.adminUser, `Created quiz: "${quiz.titleKey}"`);
     }
-    await kv.set('quizzes', quizzes);
+    await updateEdgeConfigItems([{ operation: 'update', key: 'quizzes', value: quizzes }]);
     res.status(200).json(quiz);
 });
 adminRouter.delete('/quizzes/:id', verifySuperAdmin, async (req, res) => {
-    const quizzes = await kv.get('quizzes') ?? [];
+    const quizzes = await get('quizzes') ?? [];
     const quiz = quizzes.find(q => q.id === req.params.id);
     if(quiz) {
         await addAuditLog(req.adminUser, `Deleted quiz: "${quiz.titleKey}"`);
-        await kv.set('quizzes', quizzes.filter(q => q.id !== req.params.id));
+        await updateEdgeConfigItems([{ operation: 'update', key: 'quizzes', value: quizzes.filter(q => q.id !== req.params.id) }]);
     }
     res.status(204).send();
 });
@@ -346,11 +379,12 @@ app.get('/api/health', async (_, res) => {
     const checks = {
         env: {
             DISCORD_CLIENT_ID: config.DISCORD_CLIENT_ID ? '✅ Set' : '❌ Missing',
-            DISCORD_CLIENT_SECRET: config.DISCORD_CLIENT_SECRET ? '✅ Set' : '❌ Missing',
-            DISCORD_BOT_TOKEN: config.DISCORD_BOT_TOKEN ? '✅ Set' : '❌ Missing',
-            DISCORD_GUILD_ID: config.DISCORD_GUILD_ID ? '✅ Set' : '❌ Missing',
+            DISCORD_CLIENT_SECRET: process.env.DISCORD_CLIENT_SECRET ? '✅ Set' : '❌ Missing',
+            DISCORD_BOT_TOKEN: process.env.DISCORD_BOT_TOKEN ? '✅ Set' : '❌ Missing',
+            EDGE_CONFIG_ID: process.env.EDGE_CONFIG_ID ? '✅ Set' : '❌ Missing (Vercel Integration needed)',
+            VERCEL_API_TOKEN: process.env.VERCEL_API_TOKEN ? '✅ Set' : '❌ Missing (Needed for saving data)',
+            DISCORD_GUILD_ID: config.DISCORD_GUILD_ID ? '✅ Set' : '⚠️ Not Set (Discord Widget/Roles will not work)',
             SUPER_ADMIN_ROLE_IDS: config.SUPER_ADMIN_ROLE_IDS.length > 0 ? '✅ Set' : '⚠️ Not Set (No one can manage quizzes/rules)',
-            HANDLER_ROLE_IDS: config.HANDLER_ROLE_IDS.length > 0 ? '✅ Set' : '⚠️ Not Set (Only Super Admins can handle submissions)',
         },
         bot: { status: 'Not Checked', error: null, guild_found: false, guild_name: null },
         urls: { app_url: config.APP_URL, redirect_uri: `${config.APP_URL}/api/auth/callback` },
@@ -366,8 +400,7 @@ app.get('/api/health', async (_, res) => {
                 checks.bot.guild_found = true;
                 checks.bot.guild_name = guild.name;
             } else {
-                 checks.bot.guild_name = '❌ Guild ID not set';
-                 hasError = true;
+                 checks.bot.guild_name = '⚠️ Guild ID not set';
             }
         } catch(e) {
             checks.bot.status = '❌ Login Failed';

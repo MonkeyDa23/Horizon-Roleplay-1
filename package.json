@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@vercel/edge-config": "^1.1.0",
-    "@vercel/kv": "^2.0.0",
     "axios": "^1.7.2",
     "cors": "^2.8.5",
     "discord.js": "^14.15.3",
