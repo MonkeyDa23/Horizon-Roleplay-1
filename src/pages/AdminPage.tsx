@@ -312,16 +312,65 @@ const AdminPage: React.FC = () => {
       </div>
   );
 
-  const RulesPanel = () => (
-    <div>
-        <div className="flex justify-between items-center my-6">
-            <h2 className="text-2xl font-bold">{t('rules_management')}</h2>
-            <button onClick={handleSaveRules} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white transition-colors min-w-[9rem] flex justify-center">{isSaving ? <Loader2 className="animate-spin" /> : t('save_rules')}</button>
+  const RulesPanel = () => {
+    const handleCategoryChange = (categoryId: string, value: string) => {
+        setEditableRules(prev => prev?.map(cat => cat.id === categoryId ? { ...cat, titleKey: value } : cat) || null);
+    };
+    const handleRuleChange = (categoryId: string, ruleId: string, value: string) => {
+        setEditableRules(prev => prev?.map(cat => cat.id === categoryId ? { ...cat, rules: cat.rules.map(rule => rule.id === ruleId ? { ...rule, textKey: value } : rule) } : cat) || null);
+    };
+    const handleAddRule = (categoryId: string) => {
+        const newRule: Rule = { id: `rule_${Date.now()}`, textKey: '' };
+        setEditableRules(prev => prev?.map(cat => cat.id === categoryId ? { ...cat, rules: [...cat.rules, newRule] } : cat) || null);
+    };
+    const handleDeleteRule = (categoryId: string, ruleId: string) => {
+        setEditableRules(prev => prev?.map(cat => cat.id === categoryId ? { ...cat, rules: cat.rules.filter(rule => rule.id !== ruleId) } : cat) || null);
+    };
+    const handleAddCategory = () => {
+        const newCategory: RuleCategory = { id: `cat_${Date.now()}`, titleKey: '', rules: [] };
+        setEditableRules(prev => [...(prev || []), newCategory]);
+    };
+    const handleDeleteCategory = (categoryId: string) => {
+        if (window.confirm(t('delete_category_confirm'))) {
+            setEditableRules(prev => prev?.filter(cat => cat.id !== categoryId) || null);
+        }
+    };
+    return (
+        <div>
+            <div className="flex justify-between items-center my-6">
+                <h2 className="text-2xl font-bold">{t('rules_management')}</h2>
+                <button onClick={handleSaveRules} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white transition-colors min-w-[9rem] flex justify-center">{isSaving ? <Loader2 className="animate-spin" /> : t('save_rules')}</button>
+            </div>
+            <div className="space-y-6">
+                {(editableRules || []).map((category, catIndex) => (
+                    <div key={category.id} className="bg-brand-dark-blue border border-brand-light-blue/50 rounded-lg p-6">
+                        <div className="flex items-center gap-4 mb-4">
+                            <label className="font-bold text-gray-400 text-sm flex-shrink-0">{t('category_title')}</label>
+                            <input type="text" value={category.titleKey} onChange={(e) => handleCategoryChange(category.id, e.target.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 font-semibold text-lg" placeholder="e.g. rules_general_title" />
+                            <button onClick={() => handleDeleteCategory(category.id)} className="text-gray-400 hover:text-red-500 p-2"><Trash2 size={20} /></button>
+                        </div>
+                        <div className="space-y-3 pl-6 border-l-2 border-brand-light-blue">
+                            {category.rules.map((rule, ruleIndex) => (
+                                <div key={rule.id} className="flex items-center gap-2">
+                                    <span className="text-brand-cyan font-bold">{catIndex + 1}.{ruleIndex + 1}</span>
+                                    <input type="text" value={rule.textKey} onChange={(e) => handleRuleChange(category.id, rule.id, e.target.value)} className="w-full bg-brand-dark p-2 rounded border border-gray-700" placeholder="e.g. rule_general_1" />
+                                    <button onClick={() => handleDeleteRule(category.id, rule.id)} className="text-gray-500 hover:text-red-500 p-1"><X size={18} /></button>
+                                </div>
+                            ))}
+                            <button onClick={() => handleAddRule(category.id)} className="text-brand-cyan font-semibold hover:text-white transition-colors flex items-center gap-2 text-sm pt-2">
+                                <Plus size={16} />{t('add_rule')}
+                            </button>
+                        </div>
+                    </div>
+                ))}
+                <button onClick={handleAddCategory} className="w-full bg-brand-dark-blue/50 border-2 border-dashed border-brand-light-blue hover:bg-brand-light-blue/50 text-gray-300 font-bold py-4 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <Plus size={20} />{t('add_category')}
+                </button>
+            </div>
         </div>
-        {/* Rules editor UI would go here */}
-        <p className="text-center text-gray-400 py-10">Rules management UI is coming soon.</p>
-    </div>
-  );
+    );
+  };
+
 
   const StorePanel = () => (
     <div>

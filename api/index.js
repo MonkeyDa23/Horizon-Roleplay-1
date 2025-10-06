@@ -2,37 +2,7 @@ import express from 'express';
 import axios from 'axios';
 import cors from 'cors';
 import { URLSearchParams } from 'url';
-import { get } from '@vercel/edge-config';
-
-const updateEdgeConfigItems = async (items) => {
-    const configId = process.env.EDGE_CONFIG_ID;
-    const apiToken = process.env.VERCEL_API_TOKEN;
-    const teamId = process.env.VERCEL_TEAM_ID;
-
-    if (!configId || !apiToken) {
-        throw new Error('Edge Config ID or Vercel API Token is not configured for write operations.');
-    }
-    
-    let apiUrl = `https://api.vercel.com/v1/edge-config/${configId}/items`;
-    if (teamId) {
-        apiUrl += `?teamId=${teamId}`;
-    }
-
-    const response = await fetch(apiUrl, {
-        method: 'PATCH',
-        headers: {
-            'Authorization': `Bearer ${apiToken}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ items }),
-    });
-
-    if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Edge Config API Error:", errorData);
-        throw new Error(`Failed to update Edge Config: ${errorData.error.message}`);
-    }
-};
+import { supabase } from './supabaseClient.js';
 
 const getAppUrl = () => {
   if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, ''); 
@@ -92,10 +62,12 @@ async function getGuildMember(userId, config) {
 }
 
 const addAuditLog = async (admin, action) => {
-  const logs = await get('auditLogs') || [];
-  logs.unshift({ id: `log_${Date.now()}`, adminId: admin.id, adminUsername: admin.username, timestamp: new Date().toISOString(), action });
-  const newLogs = logs.slice(0, 100);
-  await updateEdgeConfigItems([{ operation: 'update', key: 'auditLogs', value: newLogs }]);
+  const { error } = await supabase.from('audit_logs').insert({
+    adminId: admin.id,
+    adminUsername: admin.username,
+    action,
+  });
+  if (error) console.error('Failed to add audit log:', error);
 };
 
 const app = express();
@@ -207,30 +179,43 @@ app.post('/api/auth/session', async (req, res) => {
 });
 
 // GENERAL READ API
-app.get('/api/products', async (_, res) => res.json(await get('products') ?? []));
-app.get('/api/rules', async (_, res) => res.json(await get('rules') ?? []));
-app.get('/api/quizzes', async (_, res) => res.json(await get('quizzes') ?? []));
+app.get('/api/products', async (_, res) => {
+    const { data, error } = await supabase.from('products').select('*');
+    if (error) return res.status(500).json({ message: error.message });
+    res.json(data ?? []);
+});
+
+app.get('/api/rules', async (_, res) => {
+    // Assumes tables `rules_categories` and `rules` with a foreign key.
+    const { data, error } = await supabase.from('rules_categories').select('*, rules(*)');
+    if (error) return res.status(500).json({ message: error.message });
+    res.json(data ?? []);
+});
+
+app.get('/api/quizzes', async (_, res) => {
+    // Assumes tables `quizzes` and `quiz_questions` with a foreign key.
+    const { data, error } = await supabase.from('quizzes').select('*, quiz_questions(*)');
+    if (error) return res.status(500).json({ message: error.message });
+    // Rename `quiz_questions` to `questions` for frontend compatibility
+    const quizzes = data.map(q => ({ ...q, questions: q.quiz_questions, quiz_questions: undefined }));
+    res.json(quizzes ?? []);
+});
+
 app.get('/api/quizzes/:id', async (req, res) => {
-    const quizzes = await get('quizzes') ?? [];
-    const quiz = quizzes.find(q => q.id === req.params.id);
-    if (quiz) res.json(quiz);
-    else res.status(404).json({ message: "Quiz not found" });
+    const { data, error } = await supabase.from('quizzes').select('*, quiz_questions(*)').eq('id', req.params.id).single();
+    if (error || !data) return res.status(404).json({ message: "Quiz not found" });
+    const quiz = { ...data, questions: data.quiz_questions, quiz_questions: undefined };
+    res.json(quiz);
 });
 
 app.get('/api/mta-status', async (_, res) => {
     try {
-        // This is still a mock. Replace with actual query library if needed.
-        if (Math.random() < 0.1) { // 10% chance to simulate offline
-          throw new Error("Server is offline");
-        }
-        const players = 80 + Math.floor(Math.random() * 40);
-        const maxPlayers = 200;
+        if (Math.random() < 0.1) throw new Error("Server is offline"); // Mock
         const config = await getRuntimeConfig();
-
         res.json({
-            name: `${config.COMMUNITY_NAME} Roleplay | Your Story Begins`,
-            players,
-            maxPlayers,
+            name: `${config.COMMUNITY_NAME} Roleplay Server`,
+            players: 80 + Math.floor(Math.random() * 40),
+            maxPlayers: 200,
         });
     } catch(e) {
         res.status(503).json({ message: e.message });
@@ -239,17 +224,17 @@ app.get('/api/mta-status', async (_, res) => {
 
 
 app.get('/api/users/:userId/submissions', async (req, res) => {
-    const allSubmissions = await get('submissions') ?? [];
-    const userSubmissions = allSubmissions.filter(s => s.userId === req.params.userId).sort((a,b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
-    res.json(userSubmissions);
+    const { data, error } = await supabase.from('submissions').select('*').eq('userId', req.params.userId).order('submittedAt', { ascending: false });
+    if (error) return res.status(500).json({ message: error.message });
+    res.json(data ?? []);
 });
 
 
 app.post('/api/submissions', async (req, res) => {
-  const newSubmission = { ...req.body, id: `sub_${Date.now()}`, status: 'pending' };
-  const submissions = await get('submissions') ?? [];
-  await updateEdgeConfigItems([{ operation: 'update', key: 'submissions', value: [...submissions, newSubmission] }]);
-  res.status(201).json(newSubmission);
+    const submissionData = { ...req.body, status: 'pending' };
+    const { data, error } = await supabase.from('submissions').insert(submissionData).select().single();
+    if (error) return res.status(500).json({ message: error.message });
+    res.status(201).json(data);
 });
 
 // ADMIN-ONLY ROUTES
@@ -257,8 +242,9 @@ const adminRouter = express.Router();
 adminRouter.use(verifyAdmin);
 
 adminRouter.get('/submissions', async (req, res) => {
-    const allSubmissions = await get('submissions') ?? [];
-    res.json(allSubmissions.sort((a,b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()));
+    const { data, error } = await supabase.from('submissions').select('*').order('submittedAt', { ascending: false });
+    if (error) return res.status(500).json({ message: error.message });
+    res.json(data ?? []);
 });
 
 adminRouter.post('/log-access', async(req, res) => {
@@ -266,85 +252,90 @@ adminRouter.post('/log-access', async(req, res) => {
     res.status(204).send();
 });
 
-adminRouter.get('/audit-logs', verifySuperAdmin, async (_, res) => res.json(await get('auditLogs') ?? []));
+adminRouter.get('/audit-logs', verifySuperAdmin, async (_, res) => {
+    const { data, error } = await supabase.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(100);
+    if (error) return res.status(500).json({ message: error.message });
+    res.json(data ?? []);
+});
 
 adminRouter.put('/submissions/:id/status', async (req, res) => {
-    const submissions = await get('submissions') ?? [];
-    const subIndex = submissions.findIndex(s => s.id === req.params.id);
-    if (subIndex === -1) return res.status(404).json({ message: 'Submission not found' });
+    const { data: submission, error: subError } = await supabase.from('submissions').select('*, quizzes(allowedTakeRoles)').eq('id', req.params.id).single();
+    if (subError || !submission) return res.status(404).json({ message: 'Submission not found' });
     
     if (req.body.status === 'taken') {
-        const quizzes = await get('quizzes') ?? [];
-        const quiz = quizzes.find(q => q.id === submissions[subIndex].quizId);
-        const allowedRoles = quiz?.allowedTakeRoles;
-        if (allowedRoles && allowedRoles.length > 0 && !req.adminUser.roles.some(r => allowedRoles.includes(r))) {
+        const allowedRoles = submission.quizzes?.allowedTakeRoles;
+        if (Array.isArray(allowedRoles) && allowedRoles.length > 0 && !req.adminUser.roles.some(r => allowedRoles.includes(r))) {
             return res.status(403).json({ message: "You don't have the required role to take this submission." });
         }
     }
 
-    submissions[subIndex].status = req.body.status;
-    submissions[subIndex].adminId = req.adminUser.id;
-    submissions[subIndex].adminUsername = req.adminUser.username;
+    const { data: updatedSubmission, error: updateError } = await supabase
+        .from('submissions')
+        .update({ status: req.body.status, adminId: req.adminUser.id, adminUsername: req.adminUser.username })
+        .eq('id', req.params.id)
+        .select()
+        .single();
     
-    await updateEdgeConfigItems([{ operation: 'update', key: 'submissions', value: submissions }]);
-    await addAuditLog(req.adminUser, `Updated submission ${submissions[subIndex].id} for ${submissions[subIndex].username} to "${req.body.status}"`);
-    res.json(submissions[subIndex]);
+    if (updateError) return res.status(500).json({ message: updateError.message });
+    await addAuditLog(req.adminUser, `Updated submission ${updatedSubmission.id} for ${updatedSubmission.username} to "${req.body.status}"`);
+    res.json(updatedSubmission);
 });
 
 // SUPER-ADMIN ONLY ROUTES
 adminRouter.post('/products', verifySuperAdmin, async (req, res) => {
     const { product } = req.body;
-    const products = await get('products') ?? [];
-    const existingIndex = products.findIndex(p => p.id === product.id);
-
-    if (existingIndex !== -1) {
-        products[existingIndex] = product;
-        await addAuditLog(req.adminUser, `Updated product: "${product.nameKey}"`);
-    } else {
-        product.id = `prod_${Date.now()}`;
-        products.push(product);
-        await addAuditLog(req.adminUser, `Created product: "${product.nameKey}"`);
-    }
-    await updateEdgeConfigItems([{ operation: 'update', key: 'products', value: products }]);
-    res.status(200).json(product);
+    const { data, error } = await supabase.from('products').upsert(product).select().single();
+    if (error) return res.status(500).json({ message: error.message });
+    await addAuditLog(req.adminUser, product.id ? `Updated product: "${product.nameKey}"` : `Created product: "${product.nameKey}"`);
+    res.status(200).json(data);
 });
+
 adminRouter.delete('/products/:id', verifySuperAdmin, async (req, res) => {
-    let products = await get('products') ?? [];
-    const product = products.find(p => p.id === req.params.id);
-    if (product) {
-        await addAuditLog(req.adminUser, `Deleted product: "${product.nameKey}"`);
-        await updateEdgeConfigItems([{ operation: 'update', key: 'products', value: products.filter(p => p.id !== req.params.id) }]);
-    }
+    const { data: product } = await supabase.from('products').select('nameKey').eq('id', req.params.id).single();
+    const { error } = await supabase.from('products').delete().eq('id', req.params.id);
+    if (error) return res.status(500).json({ message: error.message });
+    if (product) await addAuditLog(req.adminUser, `Deleted product: "${product.nameKey}"`);
     res.status(204).send();
 });
+
 adminRouter.post('/rules', verifySuperAdmin, async (req, res) => { 
-    await updateEdgeConfigItems([{ operation: 'update', key: 'rules', value: req.body.rules }]);
+    // This is a destructive operation: clear and re-insert. Use DB functions for transactions in production.
+    await supabase.from('rules').delete().neq('id', '0');
+    await supabase.from('rules_categories').delete().neq('id', '0');
+    
+    const categories = req.body.rules.map(c => ({ id: c.id, titleKey: c.titleKey }));
+    await supabase.from('rules_categories').insert(categories);
+    
+    const rules = req.body.rules.flatMap(c => c.rules.map(r => ({ id: r.id, textKey: r.textKey, category_id: c.id })));
+    await supabase.from('rules').insert(rules);
+    
     await addAuditLog(req.adminUser, `Updated the server rules.`); 
     res.status(200).json(req.body.rules); 
 });
+
 adminRouter.post('/quizzes', verifySuperAdmin, async (req, res) => {
     const { quiz } = req.body;
-    const quizzes = await get('quizzes') ?? [];
-    const existingIndex = quizzes.findIndex(q => q.id === quiz.id);
+    const { questions, ...quizData } = quiz;
+    const { data: savedQuiz, error } = await supabase.from('quizzes').upsert(quizData).select().single();
+    if (error) return res.status(500).json({ message: error.message });
 
-    if (existingIndex !== -1) {
-        quizzes[existingIndex] = quiz;
-        await addAuditLog(req.adminUser, `Updated quiz: "${quiz.titleKey}"`);
-    } else {
-        quiz.id = `quiz_${Date.now()}`;
-        quizzes.push(quiz);
-        await addAuditLog(req.adminUser, `Created quiz: "${quiz.titleKey}"`);
+    await supabase.from('quiz_questions').delete().eq('quiz_id', savedQuiz.id);
+    if (questions && questions.length > 0) {
+        const questionInserts = questions.map(q => ({ ...q, quiz_id: savedQuiz.id }));
+        const { error: qError } = await supabase.from('quiz_questions').insert(questionInserts);
+        if (qError) return res.status(500).json({ message: qError.message });
     }
-    await updateEdgeConfigItems([{ operation: 'update', key: 'quizzes', value: quizzes }]);
-    res.status(200).json(quiz);
+    
+    await addAuditLog(req.adminUser, quiz.id ? `Updated quiz: "${quiz.titleKey}"` : `Created quiz: "${quiz.titleKey}"`);
+    res.status(200).json({ ...savedQuiz, questions });
 });
+
 adminRouter.delete('/quizzes/:id', verifySuperAdmin, async (req, res) => {
-    const quizzes = await get('quizzes') ?? [];
-    const quiz = quizzes.find(q => q.id === req.params.id);
-    if(quiz) {
-        await addAuditLog(req.adminUser, `Deleted quiz: "${quiz.titleKey}"`);
-        await updateEdgeConfigItems([{ operation: 'update', key: 'quizzes', value: quizzes.filter(q => q.id !== req.params.id) }]);
-    }
+    const { data: quiz } = await supabase.from('quizzes').select('titleKey').eq('id', req.params.id).single();
+    // Assuming cascade delete is set up in Supabase for quiz_questions
+    const { error } = await supabase.from('quizzes').delete().eq('id', req.params.id);
+    if (error) return res.status(500).json({ message: error.message });
+    if (quiz) await addAuditLog(req.adminUser, `Deleted quiz: "${quiz.titleKey}"`);
     res.status(204).send();
 });
 
@@ -358,16 +349,18 @@ app.get('/api/health', async (_, res) => {
             DISCORD_CLIENT_ID: config.DISCORD_CLIENT_ID ? '✅ Set' : '❌ Missing',
             DISCORD_CLIENT_SECRET: process.env.DISCORD_CLIENT_SECRET ? '✅ Set' : '❌ Missing',
             DISCORD_BOT_TOKEN: process.env.DISCORD_BOT_TOKEN ? '✅ Set' : '❌ Missing',
-            EDGE_CONFIG_ID: process.env.EDGE_CONFIG_ID ? '✅ Set' : '❌ Missing (Vercel Integration needed)',
-            VERCEL_API_TOKEN: process.env.VERCEL_API_TOKEN ? '✅ Set' : '❌ Missing (Needed for saving data)',
+            SUPABASE_URL: process.env.SUPABASE_URL ? '✅ Set' : '❌ Missing',
+            SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? '✅ Set' : '❌ Missing',
             DISCORD_GUILD_ID: config.DISCORD_GUILD_ID ? '✅ Set' : '⚠️ Not Set (Discord Widget/Roles will not work)',
             SUPER_ADMIN_ROLE_IDS: config.SUPER_ADMIN_ROLE_IDS.length > 0 ? '✅ Set' : '⚠️ Not Set (No one can manage quizzes/rules)',
         },
         bot: { status: 'Not Checked', error: null, guild_found: false, guild_name: null },
+        supabase: { status: 'Not Checked', error: null },
         urls: { app_url: config.APP_URL, redirect_uri: `${config.APP_URL}/api/auth/callback` },
     };
     let hasError = !Object.values(checks.env).every(v => v.startsWith('✅'));
 
+    // Check Bot
     if (config.DISCORD_BOT_TOKEN) {
         try {
             const { data: botUser } = await getDiscordApi(config.DISCORD_BOT_TOKEN).get('/users/@me');
@@ -382,13 +375,24 @@ app.get('/api/health', async (_, res) => {
         } catch(e) {
             checks.bot.status = '❌ Login Failed';
             checks.bot.error = e.response?.data?.message || e.message;
-            if(e.response?.data?.message.includes("Missing Access")) checks.bot.error += " (Ensure bot has 'applications.commands' scope and is invited to the server)";
             hasError = true;
         }
     } else {
         checks.bot.status = '❌ Token Missing';
         hasError = true;
     }
+
+    // Check Supabase
+    try {
+        const { error } = await supabase.from('products').select('id').limit(1); // a simple query to test connection
+        if (error) throw error;
+        checks.supabase.status = '✅ Connection successful';
+    } catch(e) {
+        checks.supabase.status = '❌ Connection Failed';
+        checks.supabase.error = e.message;
+        hasError = true;
+    }
+
     res.status(hasError ? 500 : 200).json(checks);
 });
 

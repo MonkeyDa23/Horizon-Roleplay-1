@@ -9,6 +9,10 @@ interface HealthCheckData {
     guild_name: string;
     error: string | null;
   };
+  supabase: {
+    status: string;
+    error: string | null;
+  };
   urls: {
     app_url: string;
     redirect_uri: string;
@@ -108,7 +112,7 @@ const HealthCheckPage: React.FC = () => {
                     <p className="text-gray-400">Detected Backend URL (APP_URL):</p>
                     <code className="text-white text-lg break-all">{data.urls.app_url}</code>
                 </div>
-                 {data.urls.app_url.includes('vercel.app') && !process.env.APP_URL && (
+                 {data.urls.app_url.includes('vercel.app') && (
                     <div className="bg-yellow-900/50 border border-yellow-500/30 p-3 rounded-md mt-4 text-yellow-300">
                         <p className="font-bold">Warning: URL Mismatch Risk</p>
                         <p className="text-sm">The backend is using an automatic Vercel URL. For your main production site, you **must** set an `APP_URL` environment variable in Vercel to your primary domain (e.g., `https://your-site.com`) to prevent login errors.</p>
@@ -128,6 +132,24 @@ const HealthCheckPage: React.FC = () => {
                   </li>
                 ))}
               </ul>
+            </div>
+            
+            <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
+              <h3 className="text-2xl font-bold text-brand-cyan mb-4">Supabase Connection</h3>
+               <p className="text-sm text-gray-400 mb-4">Tests if the server can connect to your Supabase database.</p>
+               <div className="bg-brand-dark p-4 rounded-md space-y-3">
+                 <div className={`flex items-center ${getStatusTextClass(data.supabase.status)}`}>
+                    <StatusIcon status={data.supabase.status} />
+                    <span className="font-semibold text-gray-300">DB Status:</span>
+                    <span className="ml-2 font-bold">{data.supabase.status.substring(2)}</span>
+                 </div>
+                 {data.supabase.error && (
+                     <div className="bg-red-900/50 border border-red-500/30 p-3 rounded-md mt-2 ml-7">
+                        <p className="font-bold text-red-300">Error Details:</p>
+                        <p className="text-red-300 mt-1 text-sm">{data.supabase.error}</p>
+                     </div>
+                 )}
+               </div>
             </div>
 
             <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
