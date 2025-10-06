@@ -5,7 +5,7 @@
 
 // The getMtaServerStatus mock can remain if a real MTA API is not yet implemented.
 // FIX: The config file was renamed and its export changed. Updated the import to match the new structure.
-import { staticConfig as CONFIG } from './staticConfig';
+import { staticConfig as CONFIG } from './config';
 
 export const getMtaServerStatus = async () => {
     await new Promise(resolve => setTimeout(resolve, 1500));

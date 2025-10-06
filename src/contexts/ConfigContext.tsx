@@ -1,6 +1,6 @@
 import React, { createContext, useState, useEffect, useMemo } from 'react';
 import { createClient } from '@vercel/edge-config';
-import { staticConfig, AppConfig } from '../lib/staticConfig';
+import { staticConfig, AppConfig } from '../lib/config';
 
 interface ConfigContextType {
   config: AppConfig;
