@@ -26,7 +26,7 @@ import Modal from '../components/Modal';
 type AdminTab = 'submissions' | 'quizzes' | 'rules' | 'store' | 'audit';
 
 const AdminPage: React.FC = () => {
-  const { user, logout, updateUser } = useAuth();
+  const { user, logout, updateUser, loading: authLoading } = useAuth();
   const { t } = useLocalization();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -53,70 +53,73 @@ const AdminPage: React.FC = () => {
 
   const fetchAllData = useCallback(async () => {
     try {
+      // Fetch all data in parallel for efficiency
       const [quizzesData, submissionsData, logsData, rulesData, productsData] = await Promise.all([
         getQuizzes(), getSubmissions(), getAuditLogs(), getRules(), getProducts()
       ]);
       setQuizzes(quizzesData);
       setSubmissions(submissionsData);
       setAuditLogs(logsData);
-      setEditableRules(JSON.parse(JSON.stringify(rulesData)));
+      setEditableRules(JSON.parse(JSON.stringify(rulesData))); // Deep copy for safe editing
       setProducts(productsData);
     } catch (error) {
         console.error("Failed to fetch admin data", error);
+        showToast("Failed to load some or all admin data.", "error");
     }
   }, []);
   
-  // CRITICAL: Gatekeeper effect to verify permissions on every load.
+  // CRITICAL: This effect is the gatekeeper for the admin page.
   useEffect(() => {
     const gateCheck = async () => {
-      if (!user) {
-        navigate('/');
-        return;
-      }
+        if (authLoading) return; // Wait until the auth state is confirmed
 
-      setIsLoading(true);
-      try {
-        const freshUser = await revalidateSession(user);
-        if (!freshUser.isAdmin) {
-          updateUser(freshUser);
-          navigate('/');
-          return;
+        if (!user || !user.isAdmin) {
+            navigate('/');
+            return;
         }
-        
-        if(JSON.stringify(freshUser) !== JSON.stringify(user)) {
-          updateUser(freshUser);
-        }
+
+        // Optimistically authorize to render the UI shell immediately.
         setIsAuthorized(true);
+        setIsLoading(true);
 
-        if (!accessLoggedRef.current) {
-            await logAdminAccess(freshUser);
-            accessLoggedRef.current = true;
+        try {
+            const freshUser = await revalidateSession(user);
+
+            if (!freshUser.isAdmin) {
+                showToast(t('admin_revoked'), 'error');
+                updateUser(freshUser); // This will trigger a re-render and the guard clauses will redirect.
+                return;
+            }
+
+            if (JSON.stringify(freshUser) !== JSON.stringify(user)) {
+                updateUser(freshUser);
+            }
+            
+            if (!accessLoggedRef.current) {
+                await logAdminAccess(freshUser);
+                accessLoggedRef.current = true;
+            }
+
+            await fetchAllData();
+        } catch (error) {
+            console.error("Admin access check failed", error);
+
+            if (error instanceof ApiError && (error.status === 401 || error.status === 403 || error.status === 404)) {
+                showToast("Your session is invalid or you lack permissions.", "error");
+                logout(); // Definitive failure, log out.
+            } else {
+                // KEY CHANGE: For temporary errors (5xx, network, rate limits),
+                // show a warning but DO NOT navigate away. Allow the user to see cached data.
+                showToast("Could not verify session with the server. Displaying cached data and some actions may fail.", "warning");
+                await fetchAllData(); // Attempt to load data anyway, it might be stale but is better than a blank page.
+            }
+        } finally {
+            setIsLoading(false);
         }
-
-        await fetchAllData();
-
-      } catch (error) {
-        console.error("Admin access check failed", error);
-        
-        // New granular error handling
-        if (error instanceof ApiError && (error.status === 401 || error.status === 403 || error.status === 404)) {
-            // Definitive authorization/not-found failure. User should be logged out.
-            showToast("Your session is invalid or you lack permissions.", "error");
-            logout();
-        } else {
-            // Temporary server error or network issue. Don't log out.
-            showToast("Could not verify admin session. Please try again later.", "error");
-        }
-        // Always navigate away on any error to prevent interaction with a broken page.
-        navigate('/');
-        
-      } finally {
-        setIsLoading(false);
-      }
     };
 
     gateCheck();
-  }, [user?.id]);
+  }, [user, authLoading, navigate, fetchAllData, logout, showToast, t, updateUser]);
 
 
   // --- Quiz Management Functions ---
@@ -181,14 +184,11 @@ const AdminPage: React.FC = () => {
     }
   };
 
-  if (isLoading) {
+  // Render a full-page loader until we can confirm the user *should* be here.
+  if (!isAuthorized) {
     return <div className="flex justify-center items-center h-screen w-screen"><Loader2 size={48} className="text-brand-cyan animate-spin" /></div>;
   }
   
-  if (!isAuthorized) {
-      return null;
-  }
-
   const renderStatusBadge = (status: SubmissionStatus) => {
     const statusMap = {
       pending: { text: t('status_pending'), color: 'bg-yellow-500/20 text-yellow-400' },
@@ -228,7 +228,7 @@ const AdminPage: React.FC = () => {
         <td className="p-4 text-right">
           <div className="inline-flex gap-4 items-center">
             {sub.status === 'pending' && <button onClick={() => handleTakeOrder(sub.id)} className="bg-brand-cyan/20 text-brand-cyan font-bold py-1 px-3 rounded-md hover:bg-brand-cyan/40 text-sm">{t('take_order')}</button>}
-            {sub.status === 'taken' && <span className="text-xs text-gray-400 italic">{t('taken_by')} {sub.adminUsername === user.username ? 'You' : sub.adminUsername}</span>}
+            {sub.status === 'taken' && user && <span className="text-xs text-gray-400 italic">{t('taken_by')} {sub.adminUsername === user.username ? 'You' : sub.adminUsername}</span>}
             <button onClick={() => setViewingSubmission(sub)} className="text-gray-300 hover:text-brand-cyan" title={t('view_submission')}><Eye size={20}/></button>
           </div>
         </td>
@@ -313,7 +313,9 @@ const AdminPage: React.FC = () => {
             <button onClick={() => setActiveTab('audit')} className={`py-3 px-6 font-bold flex-shrink-0 flex items-center gap-2 ${activeTab === 'audit' ? 'text-brand-cyan border-b-2 border-brand-cyan' : 'text-gray-400'}`}><ShieldCheck size={18}/> {t('audit_log')}</button>
         </div>
         
-        {
+        {isLoading ? (
+          <div className="flex justify-center items-center py-20"><Loader2 size={40} className="text-brand-cyan animate-spin" /></div>
+        ) : (
           <>
             {activeTab === 'submissions' && <SubmissionsPanel />}
             {activeTab === 'quizzes' && <QuizzesPanel />}
@@ -321,7 +323,7 @@ const AdminPage: React.FC = () => {
             {activeTab === 'audit' && <AuditLogPanel />}
             {activeTab === 'store' && <StorePanel />}
           </>
-        }
+        )}
       </div>
       
       {/* Modals */}

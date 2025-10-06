@@ -119,6 +119,8 @@ export const translations: Translations = {
   save_rules: { ar: 'حفظ القوانين', en: 'Save Rules' },
   delete_category_confirm: { ar: 'هل أنت متأكد من حذف هذه الفئة وجميع قوانينها؟', en: 'Are you sure you want to delete this category and all its rules?' },
   rules_updated_success: { ar: 'تم تحديث القوانين بنجاح!', en: 'Rules updated successfully!' },
+  admin_session_error_warning: { ar: 'تعذر التحقق من الجلسة مع الخادم. يتم عرض البيانات المحلية وقد تفشل بعض الإجراءات.', en: 'Could not verify session with the server. Displaying cached data and some actions may fail.'},
+  admin_permissions_error: { ar: 'جلستك غير صالحة أو أنك لا تملك الصلاحيات.', en: 'Your session is invalid or you lack permissions.' },
   
   // Submission Statuses
   status_pending: { ar: 'قيد الانتظار', en: 'Pending' },

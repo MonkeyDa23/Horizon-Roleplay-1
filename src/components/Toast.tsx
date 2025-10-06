@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { X, CheckCircle, Info, AlertTriangle } from 'lucide-react';
 
-export type ToastType = 'success' | 'info' | 'error';
+export type ToastType = 'success' | 'info' | 'error' | 'warning';
 
 interface ToastProps {
   id: number;
@@ -14,12 +14,14 @@ const icons = {
   success: <CheckCircle />,
   info: <Info />,
   error: <AlertTriangle />,
+  warning: <AlertTriangle />,
 };
 
 const colors = {
   success: 'bg-green-500/20 border-green-500/50 text-green-300',
   info: 'bg-blue-500/20 border-blue-500/50 text-blue-300',
   error: 'bg-red-500/20 border-red-500/50 text-red-300',
+  warning: 'bg-yellow-500/20 border-yellow-500/50 text-yellow-300',
 };
 
 export const Toast: React.FC<ToastProps> = ({ id, message, type, onClose }) => {

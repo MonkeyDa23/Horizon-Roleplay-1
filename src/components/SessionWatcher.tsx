@@ -50,9 +50,9 @@ const SessionWatcher = () => {
             }
         };
         
-        // Note: A 3-second interval is very frequent and may lead to API rate-limiting
-        // from Discord under heavy load. This is set per user request.
-        const intervalId = setInterval(validateSession, 3000); // Check every 3 seconds
+        // A 10-second interval is a stable compromise that avoids Discord API rate limits
+        // while still providing reasonably fast role updates for users.
+        const intervalId = setInterval(validateSession, 10000); // Check every 10 seconds
 
         return () => clearInterval(intervalId);
 
