@@ -23,6 +23,8 @@ async function getRuntimeConfig() {
         DISCORD_CLIENT_SECRET: process.env.DISCORD_CLIENT_SECRET,
         DISCORD_BOT_TOKEN: process.env.DISCORD_BOT_TOKEN,
         DISCORD_GUILD_ID: process.env.DISCORD_GUILD_ID,
+        SUBMISSIONS_CHANNEL_ID: process.env.SUBMISSIONS_CHANNEL_ID,
+        AUDIT_LOG_CHANNEL_ID: process.env.AUDIT_LOG_CHANNEL_ID,
         SUPER_ADMIN_ROLE_IDS: superAdminRoles,
         HANDLER_ROLE_IDS: handlerRoles,
         ALL_ADMIN_ROLE_IDS: [...new Set([...superAdminRoles, ...handlerRoles])], // Combined for general access
@@ -38,6 +40,43 @@ const getDiscordApi = (token) => axios.create({
     baseURL: 'https://discord.com/api/v10',
     headers: { 'Authorization': `Bot ${token}` }
 });
+
+// --- Discord Messaging Helpers ---
+const sendDiscordMessage = async (channelId, messagePayload) => {
+    try {
+        const config = await getRuntimeConfig();
+        if (!config.DISCORD_BOT_TOKEN || !channelId) return;
+        await getDiscordApi(config.DISCORD_BOT_TOKEN).post(`/channels/${channelId}/messages`, messagePayload);
+    } catch (error) {
+        console.error(`Failed to send message to channel ${channelId}:`, error.response?.data || error.message);
+    }
+};
+
+const sendDm = async (userId, messagePayload) => {
+    try {
+        const config = await getRuntimeConfig();
+        if (!config.DISCORD_BOT_TOKEN) return;
+        const { data: dmChannel } = await getDiscordApi(config.DISCORD_BOT_TOKEN).post('/users/@me/channels', { recipient_id: userId });
+        await sendDiscordMessage(dmChannel.id, messagePayload);
+    } catch (error) {
+        console.error(`Failed to send DM to user ${userId}:`, error.response?.data || error.message);
+    }
+};
+
+const logToDiscord = async (action, admin, details = '') => {
+    const config = await getRuntimeConfig();
+    if (!config.AUDIT_LOG_CHANNEL_ID) return;
+    
+    const embed = {
+        title: 'Audit Log Event',
+        description: `**Action:** ${action}\n**Admin:** ${admin.username} (${admin.id}) ${details ? `\n**Details:** ${details}` : ''}`,
+        color: 0x00f2ea, // Cyan
+        timestamp: new Date().toISOString(),
+        footer: { text: config.COMMUNITY_NAME },
+    };
+    await sendDiscordMessage(config.AUDIT_LOG_CHANNEL_ID, { embeds: [embed] });
+};
+
 
 async function getGuildRoles(config) {
     if (!config.DISCORD_GUILD_ID) return [];
@@ -68,6 +107,8 @@ const addAuditLog = async (admin, action) => {
     action,
   });
   if (error) console.error('Failed to add audit log:', error);
+  // Also log to discord
+  await logToDiscord(action.split('.')[0], admin, action);
 };
 
 const app = express();
@@ -186,17 +227,14 @@ app.get('/api/products', async (_, res) => {
 });
 
 app.get('/api/rules', async (_, res) => {
-    // Assumes tables `rules_categories` and `rules` with a foreign key.
     const { data, error } = await supabase.from('rules_categories').select('*, rules(*)');
     if (error) return res.status(500).json({ message: error.message });
     res.json(data ?? []);
 });
 
 app.get('/api/quizzes', async (_, res) => {
-    // Assumes tables `quizzes` and `quiz_questions` with a foreign key.
     const { data, error } = await supabase.from('quizzes').select('*, quiz_questions(*)');
     if (error) return res.status(500).json({ message: error.message });
-    // Rename `quiz_questions` to `questions` for frontend compatibility
     const quizzes = data.map(q => ({ ...q, questions: q.quiz_questions, quiz_questions: undefined }));
     res.json(quizzes ?? []);
 });
@@ -232,16 +270,48 @@ app.get('/api/users/:userId/submissions', async (req, res) => {
 
 app.post('/api/submissions', async (req, res) => {
     const submissionData = { ...req.body, status: 'pending' };
-    const { data, error } = await supabase.from('submissions').insert(submissionData).select().single();
+    const { data: newSubmission, error } = await supabase.from('submissions').insert(submissionData).select().single();
     if (error) return res.status(500).json({ message: error.message });
-    res.status(201).json(data);
+    
+    // --- Discord Notifications ---
+    const config = await getRuntimeConfig();
+    
+    // 1. DM to user
+    await sendDm(newSubmission.userId, {
+        embeds: [{
+            title: '✅ تم استلام تقديمك بنجاح!',
+            description: `شكرًا لك **${newSubmission.username}** على تقديمك لـ **${newSubmission.quizTitle}**. \nستتم مراجعته من قبل الإدارة في أقرب وقت ممكن.`,
+            color: 0x2ECC71, // Green
+            footer: { text: config.COMMUNITY_NAME }
+        }]
+    });
+
+    // 2. Notification to admin channel
+    if (config.SUBMISSIONS_CHANNEL_ID) {
+        await sendDiscordMessage(config.SUBMISSIONS_CHANNEL_ID, {
+            content: `<@&${(await getGuildRoles(config)).find(r => config.ALL_ADMIN_ROLE_IDS.includes(r.id))?.id || ''}>`,
+            embeds: [{
+                title: '📬 تقديم جديد',
+                description: `تم استلام تقديم جديد من المستخدم **${newSubmission.username}**.`,
+                fields: [
+                    { name: 'نوع التقديم', value: newSubmission.quizTitle, inline: true },
+                    { name: 'ID المستخدم', value: newSubmission.userId, inline: true }
+                ],
+                color: 0x3498DB, // Blue
+                timestamp: new Date().toISOString(),
+                footer: { text: `انتقل إلى لوحة التحكم للمراجعة` }
+            }]
+        });
+    }
+
+    res.status(201).json(newSubmission);
 });
 
 // ADMIN-ONLY ROUTES
 const adminRouter = express.Router();
 adminRouter.use(verifyAdmin);
 
-adminRouter.get('/submissions', async (req, res) => {
+adminRouter.post('/submissions', async (req, res) => {
     const { data, error } = await supabase.from('submissions').select('*').order('submittedAt', { ascending: false });
     if (error) return res.status(500).json({ message: error.message });
     res.json(data ?? []);
@@ -252,7 +322,7 @@ adminRouter.post('/log-access', async(req, res) => {
     res.status(204).send();
 });
 
-adminRouter.get('/audit-logs', verifySuperAdmin, async (_, res) => {
+adminRouter.post('/audit-logs', verifySuperAdmin, async (_, res) => {
     const { data, error } = await supabase.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(100);
     if (error) return res.status(500).json({ message: error.message });
     res.json(data ?? []);
@@ -262,22 +332,40 @@ adminRouter.put('/submissions/:id/status', async (req, res) => {
     const { data: submission, error: subError } = await supabase.from('submissions').select('*, quizzes(allowedTakeRoles)').eq('id', req.params.id).single();
     if (subError || !submission) return res.status(404).json({ message: 'Submission not found' });
     
-    if (req.body.status === 'taken') {
+    const admin = req.adminUser;
+    const newStatus = req.body.status;
+
+    if (newStatus === 'taken') {
         const allowedRoles = submission.quizzes?.allowedTakeRoles;
-        if (Array.isArray(allowedRoles) && allowedRoles.length > 0 && !req.adminUser.roles.some(r => allowedRoles.includes(r))) {
+        if (Array.isArray(allowedRoles) && allowedRoles.length > 0 && !admin.roles.some(r => allowedRoles.includes(r))) {
             return res.status(403).json({ message: "You don't have the required role to take this submission." });
         }
     }
 
     const { data: updatedSubmission, error: updateError } = await supabase
         .from('submissions')
-        .update({ status: req.body.status, adminId: req.adminUser.id, adminUsername: req.adminUser.username })
+        .update({ status: newStatus, adminId: admin.id, adminUsername: admin.username })
         .eq('id', req.params.id)
         .select()
         .single();
     
     if (updateError) return res.status(500).json({ message: updateError.message });
-    await addAuditLog(req.adminUser, `Updated submission ${updatedSubmission.id} for ${updatedSubmission.username} to "${req.body.status}"`);
+    await addAuditLog(admin, `Updated submission ${updatedSubmission.id} for ${updatedSubmission.username} to "${newStatus}"`);
+    
+    // --- Discord DM Notifications for status change ---
+    const config = await getRuntimeConfig();
+    let dmPayload = {};
+    if (newStatus === 'taken') {
+        dmPayload = { embeds: [{ title: '📝 تقديمك قيد المراجعة', description: `أهلاً ${submission.username}،\n\nيتم الآن مراجعة تقديمك لـ **${submission.quizTitle}** من قبل المشرف **${admin.username}**.`, color: 0xF1C40F, footer: { text: config.COMMUNITY_NAME } }]};
+    } else if (newStatus === 'accepted') {
+        dmPayload = { embeds: [{ title: '🎉 تهانينا! تم قبول تقديمك', description: `أهلاً ${submission.username}،\n\nيسعدنا إخبارك بأنه تم **قبول** تقديمك لـ **${submission.quizTitle}**.`, color: 0x2ECC71, footer: { text: config.COMMUNITY_NAME } }]};
+    } else if (newStatus === 'refused') {
+        dmPayload = { embeds: [{ title: '❌ نأسف، تم رفض تقديمك', description: `أهلاً ${submission.username}،\n\nنأسف لإبلاغك بأنه تم **رفض** تقديمك لـ **${submission.quizTitle}**. حظ أوفر في المرة القادمة.`, color: 0xE74C3C, footer: { text: config.COMMUNITY_NAME } }]};
+    }
+    if (Object.keys(dmPayload).length > 0) {
+        await sendDm(submission.userId, dmPayload);
+    }
+
     res.json(updatedSubmission);
 });
 
@@ -299,7 +387,6 @@ adminRouter.delete('/products/:id', verifySuperAdmin, async (req, res) => {
 });
 
 adminRouter.post('/rules', verifySuperAdmin, async (req, res) => { 
-    // This is a destructive operation: clear and re-insert. Use DB functions for transactions in production.
     await supabase.from('rules').delete().neq('id', '0');
     await supabase.from('rules_categories').delete().neq('id', '0');
     
@@ -332,7 +419,6 @@ adminRouter.post('/quizzes', verifySuperAdmin, async (req, res) => {
 
 adminRouter.delete('/quizzes/:id', verifySuperAdmin, async (req, res) => {
     const { data: quiz } = await supabase.from('quizzes').select('titleKey').eq('id', req.params.id).single();
-    // Assuming cascade delete is set up in Supabase for quiz_questions
     const { error } = await supabase.from('quizzes').delete().eq('id', req.params.id);
     if (error) return res.status(500).json({ message: error.message });
     if (quiz) await addAuditLog(req.adminUser, `Deleted quiz: "${quiz.titleKey}"`);
@@ -353,6 +439,9 @@ app.get('/api/health', async (_, res) => {
             SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ? '✅ Set' : '❌ Missing',
             DISCORD_GUILD_ID: config.DISCORD_GUILD_ID ? '✅ Set' : '⚠️ Not Set (Discord Widget/Roles will not work)',
             SUPER_ADMIN_ROLE_IDS: config.SUPER_ADMIN_ROLE_IDS.length > 0 ? '✅ Set' : '⚠️ Not Set (No one can manage quizzes/rules)',
+            HANDLER_ROLE_IDS: config.HANDLER_ROLE_IDS.length > 0 ? '✅ Set' : '⚠️ Not Set (No one can handle submissions)',
+            SUBMISSIONS_CHANNEL_ID: config.SUBMISSIONS_CHANNEL_ID ? '✅ Set' : '⚠️ Not Set (No new submission notifications)',
+            AUDIT_LOG_CHANNEL_ID: config.AUDIT_LOG_CHANNEL_ID ? '✅ Set' : '⚠️ Not Set (No audit logs in Discord)',
         },
         bot: { status: 'Not Checked', error: null, guild_found: false, guild_name: null },
         supabase: { status: 'Not Checked', error: null },
@@ -360,7 +449,6 @@ app.get('/api/health', async (_, res) => {
     };
     let hasError = !Object.values(checks.env).every(v => v.startsWith('✅'));
 
-    // Check Bot
     if (config.DISCORD_BOT_TOKEN) {
         try {
             const { data: botUser } = await getDiscordApi(config.DISCORD_BOT_TOKEN).get('/users/@me');
@@ -382,9 +470,8 @@ app.get('/api/health', async (_, res) => {
         hasError = true;
     }
 
-    // Check Supabase
     try {
-        const { error } = await supabase.from('products').select('id').limit(1); // a simple query to test connection
+        const { error } = await supabase.from('products').select('id').limit(1);
         if (error) throw error;
         checks.supabase.status = '✅ Connection successful';
     } catch(e) {

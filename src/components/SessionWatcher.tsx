@@ -50,9 +50,9 @@ const SessionWatcher = () => {
             }
         };
         
-        // A 10-second interval is a stable compromise that avoids Discord API rate limits
+        // A 7-second interval is a stable compromise that avoids Discord API rate limits
         // while still providing reasonably fast role updates for users.
-        const intervalId = setInterval(validateSession, 10000); // Check every 10 seconds
+        const intervalId = setInterval(validateSession, 7000); // Check every 7 seconds
 
         return () => clearInterval(intervalId);
 

@@ -19,7 +19,7 @@ import {
   deleteProduct,
   logAdminAccess,
 } from '../lib/api';
-import type { Quiz, QuizQuestion, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule, Product } from '../types';
+import type { Quiz, QuizQuestion, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule, Product, User } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store, AlertTriangle } from 'lucide-react';
 import Modal from '../components/Modal';
@@ -47,6 +47,7 @@ const AdminPage: React.FC = () => {
   const [editingQuiz, setEditingQuiz] = useState<Quiz | null>(null);
 
   const [submissions, setSubmissions] = useState<QuizSubmission[]>([]);
+  const submissionsRef = useRef<QuizSubmission[]>([]);
   const [viewingSubmission, setViewingSubmission] = useState<QuizSubmission | null>(null);
   
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
@@ -62,6 +63,10 @@ const AdminPage: React.FC = () => {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const accessLoggedRef = useRef(false);
+
+  useEffect(() => {
+    submissionsRef.current = submissions;
+  }, [submissions]);
 
   // Gatekeeper effect to check authorization on page load
   useEffect(() => {
@@ -118,19 +123,26 @@ const AdminPage: React.FC = () => {
   }, [user, authLoading, navigate, logout, showToast, t, updateUser, config.SUPER_ADMIN_ROLE_IDS]);
 
 
-  // Effect for lazy-loading data based on the active tab
+  // Effect for lazy-loading data based on the active tab and polling for new submissions
   useEffect(() => {
-    if (!isAuthorized) return;
+    if (!isAuthorized || !user) return;
 
-    const fetchDataForTab = async () => {
+    let pollInterval: number | undefined;
+    
+    const fetchDataForTab = async (currentUser: User) => {
         setIsTabLoading(true);
         try {
             switch (activeTab) {
-                case 'submissions': setSubmissions(await getSubmissions()); break;
+                case 'submissions':
+                    // Fetch both submissions and quizzes to ensure 'Take Order' logic has role data
+                    const [fetchedSubmissions, fetchedQuizzes] = await Promise.all([getSubmissions(currentUser), getQuizzes()]);
+                    setSubmissions(fetchedSubmissions);
+                    setQuizzes(fetchedQuizzes);
+                    break;
                 case 'quizzes': if (isSuperAdmin) setQuizzes(await getQuizzes()); break;
                 case 'rules': if (isSuperAdmin) setEditableRules(JSON.parse(JSON.stringify(await getRules()))); break;
                 case 'store': if (isSuperAdmin) setProducts(await getProducts()); break;
-                case 'audit': if (isSuperAdmin) setAuditLogs(await getAuditLogs()); break;
+                case 'audit': if (isSuperAdmin) setAuditLogs(await getAuditLogs(currentUser)); break;
             }
         } catch (error) {
             console.error(`Failed to fetch data for tab: ${activeTab}`, error);
@@ -140,12 +152,45 @@ const AdminPage: React.FC = () => {
         }
     };
 
-    fetchDataForTab();
-  }, [activeTab, isAuthorized, isSuperAdmin, showToast]);
+    fetchDataForTab(user);
+
+    if (activeTab === 'submissions') {
+        pollInterval = window.setInterval(async () => {
+            const currentUser = user; // Capture user at interval creation
+            if (!currentUser) return;
+            try {
+                const latestSubmissions = await getSubmissions(currentUser);
+                const currentPendingIds = new Set(submissionsRef.current.filter(s => s.status === 'pending').map(s => s.id));
+                
+                let newSubmissionFound = false;
+                latestSubmissions.forEach(sub => {
+                    if (sub.status === 'pending' && !currentPendingIds.has(sub.id)) {
+                        showToast(t('new_submission_toast', { username: sub.username }), 'info');
+                        newSubmissionFound = true;
+                    }
+                });
+                
+                // Only update state if there's a change to avoid re-renders
+                if (newSubmissionFound || JSON.stringify(latestSubmissions) !== JSON.stringify(submissionsRef.current)) {
+                    setSubmissions(latestSubmissions);
+                }
+
+            } catch (e) {
+                console.error("Polling for submissions failed", e);
+            }
+        }, 15000); // Poll every 15 seconds
+    }
+
+    return () => {
+        if (pollInterval) clearInterval(pollInterval);
+    };
+
+  }, [activeTab, isAuthorized, isSuperAdmin, showToast, user, t]);
 
   const refreshSubmissions = async () => {
+      if (!user) return;
       setIsTabLoading(true);
-      setSubmissions(await getSubmissions());
+      setSubmissions(await getSubmissions(user));
       setIsTabLoading(false);
   }
 
@@ -410,11 +455,11 @@ const AdminPage: React.FC = () => {
           <div className="flex border-b border-brand-light-blue/50 mb-6 overflow-x-auto">
               {TABS.map((tab) => {
                   const isDisabled = tab.superAdminOnly && !isSuperAdmin;
+                  if (isDisabled) return null; // Completely hide tab if not super admin
+
                   const isActive = activeTab === tab.id;
-                  const buttonClasses = `py-3 px-6 font-bold flex-shrink-0 flex items-center gap-2 transition-colors ${isDisabled ? 'text-gray-600 cursor-not-allowed' : isActive ? 'text-brand-cyan border-b-2 border-brand-cyan' : 'text-gray-400 hover:text-brand-cyan'}`;
-                  const button = (<button key={tab.id} disabled={isDisabled} onClick={() => !isDisabled && setActiveTab(tab.id)} className={buttonClasses}><tab.icon size={18}/> {t(tab.labelKey)}</button>);
-                  if (isDisabled) return <div key={tab.id} title="Super Admin access required">{button}</div>;
-                  return button;
+                  const buttonClasses = `py-3 px-6 font-bold flex-shrink-0 flex items-center gap-2 transition-colors ${isActive ? 'text-brand-cyan border-b-2 border-brand-cyan' : 'text-gray-400 hover:text-brand-cyan'}`;
+                  return <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={buttonClasses}><tab.icon size={18}/> {t(tab.labelKey)}</button>;
               })}
           </div>
           <TabContent>
@@ -430,7 +475,6 @@ const AdminPage: React.FC = () => {
       
       {editingQuiz && <Modal isOpen={!!editingQuiz} onClose={() => setEditingQuiz(null)} title={editingQuiz.id ? t('edit_quiz') : t('create_new_quiz')}>
         <div className="space-y-4 text-white">
-            {/* Full quiz editor form would go here, simplified for brevity */}
              <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_title')}</label><input type="text" value={editingQuiz.titleKey} onChange={(e) => setEditingQuiz({...editingQuiz, titleKey: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
              <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_handler_roles')}</label><input type="text" placeholder="e.g. 123,456" value={(editingQuiz.allowedTakeRoles || []).join(',')} onChange={(e) => setEditingQuiz({...editingQuiz, allowedTakeRoles: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /><p className="text-xs text-gray-400 mt-1">{t('quiz_handler_roles_desc')}</p></div>
              <div className="flex items-center gap-4 pt-2">

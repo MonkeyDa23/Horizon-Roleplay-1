@@ -123,17 +123,18 @@ const AdminPage: React.FC = () => {
 
   // Effect for lazy-loading data based on the active tab
   useEffect(() => {
-    if (!isAuthorized) return;
+    // FIX: Add user check and pass user to API calls
+    if (!isAuthorized || !user) return;
 
     const fetchDataForTab = async () => {
         setIsTabLoading(true);
         try {
             switch (activeTab) {
-                case 'submissions': setSubmissions(await getSubmissions()); break;
+                case 'submissions': setSubmissions(await getSubmissions(user)); break;
                 case 'quizzes': if (isSuperAdmin) setQuizzes(await getQuizzes()); break;
                 case 'rules': if (isSuperAdmin) setEditableRules(JSON.parse(JSON.stringify(await getRules()))); break;
                 case 'store': if (isSuperAdmin) setProducts(await getProducts()); break;
-                case 'audit': if (isSuperAdmin) setAuditLogs(await getAuditLogs()); break;
+                case 'audit': if (isSuperAdmin) setAuditLogs(await getAuditLogs(user)); break;
             }
         } catch (error) {
             console.error(`Failed to fetch data for tab: ${activeTab}`, error);
@@ -144,11 +145,14 @@ const AdminPage: React.FC = () => {
     };
 
     fetchDataForTab();
-  }, [activeTab, isAuthorized, isSuperAdmin, showToast]);
+    // FIX: Add user to dependency array
+  }, [activeTab, isAuthorized, isSuperAdmin, showToast, user]);
 
   const refreshSubmissions = async () => {
+      // FIX: Add user check and pass user to API call
+      if (!user) return;
       setIsTabLoading(true);
-      setSubmissions(await getSubmissions());
+      setSubmissions(await getSubmissions(user));
       setIsTabLoading(false);
   }
 

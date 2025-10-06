@@ -42,9 +42,15 @@ export const getQuizById = (id: string): Promise<Quiz | undefined> => get(`/api/
 export const getMtaServerStatus = (): Promise<MtaServerStatus> => get('/api/mta-status');
 
 // Submissions
-export const getSubmissions = (): Promise<QuizSubmission[]> => get('/api/admin/submissions');
 export const getSubmissionsByUserId = (userId: string): Promise<QuizSubmission[]> => get(`/api/users/${userId}/submissions`);
 export const addSubmission = (submissionData: Omit<QuizSubmission, 'id' | 'status'>): Promise<void> => post('/api/submissions', submissionData);
+
+// Admin-only data fetching
+export const getSubmissions = (user: User): Promise<QuizSubmission[]> => post('/api/admin/submissions', { user });
+export const getAuditLogs = (user: User): Promise<AuditLogEntry[]> => post('/api/admin/audit-logs', { user });
+
+
+// Admin actions
 export const updateSubmissionStatus = (submissionId: string, status: SubmissionStatus, admin: User): Promise<QuizSubmission> => {
     return put(`/api/admin/submissions/${submissionId}/status`, { status, admin });
 }
@@ -61,6 +67,5 @@ export const saveProduct = (product: Product, admin: User): Promise<Product> => 
 export const deleteProduct = (productId: string, admin: User): Promise<void> => del(`/api/admin/products/${productId}`, { admin });
 
 // Admin - General
-export const getAuditLogs = (): Promise<AuditLogEntry[]> => get('/api/admin/audit-logs');
 export const revalidateSession = (user: User): Promise<User> => post('/api/auth/session', { user });
 export const logAdminAccess = (admin: User): Promise<void> => post('/api/admin/log-access', { admin });

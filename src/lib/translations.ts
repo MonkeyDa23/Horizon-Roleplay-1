@@ -125,7 +125,8 @@ export const translations: Translations = {
   rules_updated_success: { ar: 'تم تحديث القوانين بنجاح!', en: 'Rules updated successfully!' },
   admin_session_error_warning: { ar: 'تعذر التحقق من الجلسة مع الخادم. يتم عرض البيانات المحلية وقد تفشل بعض الإجراءات.', en: 'Could not verify session with the server. Displaying cached data and some actions may fail.'},
   admin_permissions_error: { ar: 'جلستك غير صالحة أو أنك لا تملك الصلاحيات.', en: 'Your session is invalid or you lack permissions.' },
-  
+  new_submission_toast: { ar: 'تم استلام طلب تقديم جديد من {username}!', en: 'New application received from {username}!' },
+
   // Submission Statuses
   status_pending: { ar: 'قيد الانتظار', en: 'Pending' },
   status_taken: { ar: 'قيد المراجعة', en: 'Under Review' },
