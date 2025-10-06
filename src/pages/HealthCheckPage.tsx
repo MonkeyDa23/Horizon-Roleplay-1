@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2, CheckCircle, XCircle, AlertTriangle, Copy } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 
 interface HealthCheckData {
   env: Record<string, string>;
@@ -9,10 +9,9 @@ interface HealthCheckData {
     guild_name: string;
     error: string | null;
   };
-  url_config: {
-    detected_app_url: string;
-    using_vercel_url: boolean;
-    is_localhost: boolean;
+  urls: {
+    app_url: string;
+    redirect_uri: string;
   };
 }
 
@@ -22,7 +21,7 @@ const HealthCheckPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   
-  const redirectUri = `${window.location.origin}/api/auth/callback`;
+  const redirectUri = data ? data.urls.redirect_uri : `${window.location.origin}/api/auth/callback`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(redirectUri).then(() => {
@@ -105,14 +104,11 @@ const HealthCheckPage: React.FC = () => {
           <div className="space-y-6">
             <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
                 <h3 className="text-2xl font-bold text-brand-cyan mb-4">Backend URL Configuration</h3>
-                <p className="text-sm text-gray-400 mb-4">
-                  This check verifies the public URL the backend server is using. A mismatch between this and your actual site URL will cause "Invalid redirect_uri" errors.
-                </p>
                  <div className="bg-brand-dark p-3 rounded-md">
-                    <p className="text-gray-400">Detected Backend URL:</p>
-                    <code className="text-white text-lg break-all">{data.url_config.detected_app_url}</code>
+                    <p className="text-gray-400">Detected Backend URL (APP_URL):</p>
+                    <code className="text-white text-lg break-all">{data.urls.app_url}</code>
                 </div>
-                 {data.url_config.using_vercel_url && (
+                 {data.urls.app_url.includes('vercel.app') && !process.env.APP_URL && (
                     <div className="bg-yellow-900/50 border border-yellow-500/30 p-3 rounded-md mt-4 text-yellow-300">
                         <p className="font-bold">Warning: URL Mismatch Risk</p>
                         <p className="text-sm">The backend is using an automatic Vercel URL. For your main production site, you **must** set an `APP_URL` environment variable in Vercel to your primary domain (e.g., `https://your-site.com`) to prevent login errors.</p>
@@ -143,10 +139,11 @@ const HealthCheckPage: React.FC = () => {
                     <span className="font-semibold text-gray-300">Bot Status:</span>
                     <span className="ml-2 font-bold">{data.bot.status.substring(2)}</span>
                  </div>
-                  {data.bot.guild_name !== 'N/A' && (
-                     <div className="flex items-center pl-7">
-                        <span className="font-semibold text-gray-300">Found Guild:</span>
-                        <span className="ml-2 text-white font-bold">{data.bot.guild_name}</span>
+                  {data.bot.guild_name && (
+                     <div className="flex items-center pl-7 text-white">
+                        <StatusIcon status={data.bot.guild_found ? '✅' : '❌'} />
+                        <span className="font-semibold text-gray-300">Guild Found:</span>
+                        <span className="ml-2 font-bold">{data.bot.guild_name}</span>
                      </div>
                   )}
                   {data.bot.error && (

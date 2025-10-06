@@ -29,6 +29,7 @@ const AuthCallbackPage: React.FC = () => {
         }
         
         const userJson = atob(userDataB64);
+        // This localStorage event will be picked up by the AuthProvider in the main window.
         localStorage.setItem('horizon_user_session', userJson);
         
         setStatus('success');

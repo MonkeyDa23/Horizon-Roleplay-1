@@ -130,10 +130,10 @@ const Navbar: React.FC = () => {
             ) : (
               <button
                 onClick={login}
-                disabled={loading}
+                disabled={loading || configLoading}
                 className="bg-brand-cyan text-brand-dark font-bold py-2 px-4 rounded-md hover:bg-white hover:shadow-glow-cyan transition-all duration-300 flex items-center gap-2 disabled:opacity-50 disabled:cursor-wait"
               >
-                {loading ? (
+                {loading || configLoading ? (
                     <Loader size={20} className="animate-spin" />
                 ) : (
                   <>

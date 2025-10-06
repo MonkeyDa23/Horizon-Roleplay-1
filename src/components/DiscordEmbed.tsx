@@ -31,7 +31,7 @@ const DiscordEmbed: React.FC = () => {
       setIsLoading(true);
       setError(null);
 
-      if (!config.DISCORD_GUILD_ID || config.DISCORD_GUILD_ID === 'YOUR_GUILD_ID_HERE') {
+      if (!config.DISCORD_GUILD_ID) {
           setError(t('discord_widget_error_misconfigured'));
           setIsLoading(false);
           return;
@@ -39,20 +39,20 @@ const DiscordEmbed: React.FC = () => {
 
       try {
         const response = await fetch(`https://discord.com/api/guilds/${config.DISCORD_GUILD_ID}/widget.json`);
-        const data: DiscordWidgetData | DiscordWidgetError = await response.json();
-
-        if ('code' in data) {
-           switch (data.code) {
+        if (!response.ok) {
+            const errorData: DiscordWidgetError = await response.json();
+            switch (errorData.code) {
                case 10004: // Unknown Guild
                    throw new Error(t('discord_widget_error_invalid_id'));
-               case 50027: // Widget Disabled in Discord Server Settings
+               case 50027: // This is a community server that has not opted into server listings.
                    throw new Error(t('discord_widget_error_disabled'));
                default:
-                   throw new Error(data.message || t('discord_widget_error'));
+                   throw new Error(errorData.message || t('discord_widget_error'));
            }
         }
         
-        setWidgetData(data as DiscordWidgetData);
+        const data: DiscordWidgetData = await response.json();
+        setWidgetData(data);
       } catch (err) {
         console.error("Discord Widget Error:", err);
         setError(err instanceof Error ? err.message : String(err));
@@ -90,12 +90,7 @@ const DiscordEmbed: React.FC = () => {
                 {widgetData.presence_count.toLocaleString()} {t('discord_online')}
               </span>
             </div>
-            <div className="flex items-center gap-2 text-sm">
-              <span className="w-2.5 h-2.5 bg-gray-500 rounded-full"></span>
-              <span>
-                {widgetData.members.length.toLocaleString()} {t('discord_members')}
-              </span>
-            </div>
+            {/* The member list from the widget is often incomplete for large servers, so presence_count is more reliable */}
           </div>
       );
     }

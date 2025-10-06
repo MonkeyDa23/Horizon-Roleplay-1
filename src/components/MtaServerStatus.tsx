@@ -43,7 +43,7 @@ const MtaServerStatus: React.FC = () => {
     </div>
   );
 
-  if (isLoading && !status) {
+  if (isLoading && !status && !error) {
     return <SkeletonLoader />;
   }
 

@@ -1,8 +1,13 @@
 import React, { createContext, useState, useEffect, useMemo } from 'react';
 import { staticConfig, AppConfig } from '../lib/config';
+import { getPublicConfig } from '../lib/api';
+
+interface ExtendedAppConfig extends AppConfig {
+    SUPER_ADMIN_ROLE_IDS?: string[];
+}
 
 interface ConfigContextType {
-  config: AppConfig;
+  config: ExtendedAppConfig;
   configLoading: boolean;
 }
 
@@ -12,17 +17,13 @@ export const ConfigContext = createContext<ConfigContextType>({
 });
 
 export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [remoteConfig, setRemoteConfig] = useState<Partial<AppConfig>>({});
+  const [remoteConfig, setRemoteConfig] = useState<Partial<ExtendedAppConfig>>({});
   const [configLoading, setConfigLoading] = useState(true);
 
   useEffect(() => {
     const fetchConfig = async () => {
       try {
-        const response = await fetch('/api/config');
-        if (!response.ok) {
-          throw new Error('Failed to fetch remote config');
-        }
-        const configData = await response.json();
+        const configData = await getPublicConfig();
         setRemoteConfig(configData);
       } catch (error) {
         console.warn("Could not fetch remote config, using static fallback.", error);

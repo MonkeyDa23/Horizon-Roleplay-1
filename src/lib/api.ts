@@ -1,5 +1,4 @@
 // src/lib/api.ts
-// FIX: Corrected import path for AppConfig. It is exported from './config'.
 import type { Product, Quiz, QuizSubmission, SubmissionStatus, User, AuditLogEntry, RuleCategory, MtaServerStatus } from '../types';
 import type { AppConfig } from './config';
 
@@ -32,7 +31,8 @@ const del = <T>(endpoint: string, body?: any): Promise<T> => fetch(endpoint, { m
 // --- Public API Functions ---
 
 // Config
-export const getPublicConfig = (): Promise<Partial<AppConfig>> => get('/api/config');
+export const getPublicConfig = (): Promise<Partial<AppConfig> & { SUPER_ADMIN_ROLE_IDS?: string[] }> => get('/api/config');
+
 
 // Read-only data
 export const getProducts = (): Promise<Product[]> => get('/api/products');
@@ -42,25 +42,25 @@ export const getQuizById = (id: string): Promise<Quiz | undefined> => get(`/api/
 export const getMtaServerStatus = (): Promise<MtaServerStatus> => get('/api/mta-status');
 
 // Submissions
-export const getSubmissions = (): Promise<QuizSubmission[]> => get('/api/submissions');
+export const getSubmissions = (): Promise<QuizSubmission[]> => get('/api/admin/submissions');
 export const getSubmissionsByUserId = (userId: string): Promise<QuizSubmission[]> => get(`/api/users/${userId}/submissions`);
 export const addSubmission = (submissionData: Omit<QuizSubmission, 'id' | 'status'>): Promise<void> => post('/api/submissions', submissionData);
 export const updateSubmissionStatus = (submissionId: string, status: SubmissionStatus, admin: User): Promise<QuizSubmission> => {
-    return put(`/api/submissions/${submissionId}/status`, { status, admin });
+    return put(`/api/admin/submissions/${submissionId}/status`, { status, admin });
 }
 
 // Admin - Quizzes
-export const saveQuiz = (quiz: Quiz, admin: User): Promise<Quiz> => post('/api/quizzes', { quiz, admin });
-export const deleteQuiz = (quizId: string, admin: User): Promise<void> => del(`/api/quizzes/${quizId}`, { admin });
+export const saveQuiz = (quiz: Quiz, admin: User): Promise<Quiz> => post('/api/admin/quizzes', { quiz, admin });
+export const deleteQuiz = (quizId: string, admin: User): Promise<void> => del(`/api/admin/quizzes/${quizId}`, { admin });
 
 // Admin - Rules
-export const saveRules = (rules: RuleCategory[], admin: User): Promise<RuleCategory[]> => post('/api/rules', { rules, admin });
+export const saveRules = (rules: RuleCategory[], admin: User): Promise<RuleCategory[]> => post('/api/admin/rules', { rules, admin });
 
 // Admin - Products
-export const saveProduct = (product: Product, admin: User): Promise<Product> => post('/api/products', { product, admin });
-export const deleteProduct = (productId: string, admin: User): Promise<void> => del(`/api/products/${productId}`, { admin });
+export const saveProduct = (product: Product, admin: User): Promise<Product> => post('/api/admin/products', { product, admin });
+export const deleteProduct = (productId: string, admin: User): Promise<void> => del(`/api/admin/products/${productId}`, { admin });
 
 // Admin - General
-export const getAuditLogs = (): Promise<AuditLogEntry[]> => get('/api/audit-logs');
+export const getAuditLogs = (): Promise<AuditLogEntry[]> => get('/api/admin/audit-logs');
 export const revalidateSession = (user: User): Promise<User> => post('/api/auth/session', { user });
 export const logAdminAccess = (admin: User): Promise<void> => post('/api/admin/log-access', { admin });

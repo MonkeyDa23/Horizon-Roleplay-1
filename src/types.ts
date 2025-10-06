@@ -23,7 +23,8 @@ export interface User {
   id: string;
   username: string;
   avatar: string;
-  isAdmin: boolean;
+  isAdmin: boolean; // True if user has ANY admin role (super or handler)
+  roles: string[]; // Array of Discord Role IDs
   primaryRole?: DiscordRole | null;
 }
 
@@ -88,6 +89,7 @@ export interface Quiz {
   descriptionKey: string; // These are the rules shown before starting
   questions: QuizQuestion[];
   isOpen: boolean;
+  allowedTakeRoles?: string[]; // Role IDs that can process this quiz's submissions
 }
 
 export interface Answer {
@@ -117,14 +119,4 @@ export interface AuditLogEntry {
   adminUsername: string;
   timestamp: string;
   action: string;
-}
-
-// FIX: Augment global types to include Vite's `import.meta.env` for TypeScript.
-// This resolves TS errors about 'env' not existing on 'ImportMeta' without needing a separate .d.ts file.
-declare global {
-  interface ImportMeta {
-    readonly env: {
-      readonly VITE_EDGE_CONFIG: string;
-    };
-  }
 }

@@ -41,9 +41,9 @@ const SessionWatcher = () => {
                 }
             } catch (error) {
                 console.error("Background session validation failed:", error);
-                const errorString = error instanceof Error ? error.message : '';
-                // If user is not found in guild or forbidden, log them out.
-                if (errorString.includes('404') || errorString.includes('403')) {
+                const errorStatus = (error as any)?.status;
+                // If user is not found in guild or unauthorized, log them out.
+                if (errorStatus === 404 || errorStatus === 403) {
                     showToast('Your session has expired as you are no longer in the Discord server.', 'error');
                     logout();
                 }

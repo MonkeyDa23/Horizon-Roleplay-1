@@ -10,7 +10,7 @@ interface AppAuthContextType extends AuthContextType {
 export const AuthContext = createContext<AppAuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { config } = useConfig();
+  const { config, configLoading } = useConfig();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true); // Start loading until we check localStorage
 
@@ -31,6 +31,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = () => {
+    if (configLoading) return; // Prevent login if config isn't loaded
     setLoading(true);
     try {
       const state = Math.random().toString(36).substring(7);
@@ -91,7 +92,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
+      // This listener syncs auth state across multiple tabs.
       if (event.key === 'horizon_user_session') {
+        setLoading(true);
         if (event.newValue) {
           try {
             const updatedUser = JSON.parse(event.newValue);
@@ -101,6 +104,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(null);
           }
         } else {
+          // A null newValue means the session was cleared (logged out in another tab).
           setUser(null);
         }
         setLoading(false);
