@@ -20,7 +20,7 @@ import {
 } from '../lib/api';
 import type { Quiz, QuizQuestion, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule, Product } from '../types';
 import { useNavigate } from 'react-router-dom';
-import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, ArrowUp, ArrowDown, Store } from 'lucide-react';
+import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store } from 'lucide-react';
 import Modal from '../components/Modal';
 
 type AdminTab = 'submissions' | 'quizzes' | 'rules' | 'store' | 'audit';
@@ -87,7 +87,7 @@ const AdminPage: React.FC = () => {
 
             if (!freshUser.isAdmin) {
                 showToast(t('admin_revoked'), 'error');
-                updateUser(freshUser); // This will trigger a re-render and the guard clauses will redirect.
+                updateUser(freshUser);
                 return;
             }
 
@@ -108,10 +108,8 @@ const AdminPage: React.FC = () => {
                 showToast(t('admin_permissions_error'), "error");
                 logout(); // Definitive failure, log out.
             } else {
-                // KEY CHANGE: For temporary errors (5xx, network, rate limits),
-                // show a warning but DO NOT navigate away. Allow the user to see cached data.
                 showToast(t('admin_session_error_warning'), "warning");
-                await fetchAllData(); // Attempt to load data anyway, it might be stale but is better than a blank page.
+                await fetchAllData(); 
             }
         } finally {
             setIsLoading(false);
@@ -185,7 +183,6 @@ const AdminPage: React.FC = () => {
     }
   };
 
-  // Render a full-page loader until we can confirm the user *should* be here.
   if (!isAuthorized) {
     return <div className="flex justify-center items-center h-screen w-screen"><Loader2 size={48} className="text-brand-cyan animate-spin" /></div>;
   }
@@ -201,7 +198,6 @@ const AdminPage: React.FC = () => {
     return <span className={`px-3 py-1 text-sm font-bold rounded-full ${color}`}>{text}</span>;
   };
   
-  // --- RENDER METHODS ---
   const renderSharedPanel = (title:string, data: any[], columns: any[], renderRow: (item: any, index: number) => React.ReactNode, emptyMessage: string) => (
      <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50 mt-6">
       <div className="overflow-x-auto">
@@ -220,7 +216,7 @@ const AdminPage: React.FC = () => {
   );
 
   const SubmissionsPanel = () => renderSharedPanel('submissions', submissions,
-    [{key:'applicant', label:t('applicant')}, {key:'quiz_title', label:t('quiz_title')}, {key:'date', label:t('submitted_on')}, {key:'status', label:t('status')}, {key:'actions', label:t('actions'), className:'text-right'}],
+    [{key:'applicant', label:t('applicant')}, {key:'quiz_title', label:t('application_type')}, {key:'date', label:t('submitted_on')}, {key:'status', label:t('status')}, {key:'actions', label:t('actions'), className:'text-right'}],
     (sub, i) => (
       <tr key={sub.id} className={`border-b border-brand-light-blue/50 ${i === submissions.length - 1 ? 'border-none' : ''}`}>
         <td className="p-4 font-semibold">{sub.username}</td> <td className="p-4">{sub.quizTitle}</td>
@@ -346,7 +342,7 @@ const AdminPage: React.FC = () => {
                 {t('create_new_quiz')}
             </button>
         </div>
-        {/* ... rest of the component */}
+        {/* Quiz Editor Modal would go here, simplified for brevity */}
       </div>
   );
 
@@ -376,7 +372,6 @@ const AdminPage: React.FC = () => {
         )}
       </div>
       
-      {/* Modals */}
       {viewingSubmission && (<Modal isOpen={!!viewingSubmission} onClose={() => setViewingSubmission(null)} title={t('submission_details')}>
           <div className="space-y-4 text-gray-200">
               <p><strong>{t('applicant')}:</strong> {viewingSubmission.username}</p>

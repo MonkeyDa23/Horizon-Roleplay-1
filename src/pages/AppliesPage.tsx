@@ -90,8 +90,6 @@ const AppliesPage: React.FC = () => {
       );
   };
 
-  const openQuizzes = quizzes.filter(q => q.isOpen);
-
   return (
     <div className="container mx-auto px-6 py-16">
       <div className="text-center mb-12">

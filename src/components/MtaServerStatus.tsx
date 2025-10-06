@@ -26,7 +26,6 @@ const MtaServerStatus: React.FC = () => {
       }
     };
     fetchStatus();
-    // Optional: Refresh status periodically
     const interval = setInterval(fetchStatus, 30000); // every 30 seconds
     return () => clearInterval(interval);
   }, []);

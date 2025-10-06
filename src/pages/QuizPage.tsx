@@ -76,7 +76,6 @@ const QuizPage: React.FC = () => {
     }
   }, [quiz, user, t, isSubmitting]);
 
-  // Timer logic
   const handleNextQuestion = useCallback(() => {
     if (!quiz) return;
     
@@ -104,7 +103,6 @@ const QuizPage: React.FC = () => {
     return () => clearInterval(timerId);
   }, [timeLeft, quizState, quiz, handleNextQuestion]);
   
-  // Prevent leaving page during quiz
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (quizState === 'taking') {
@@ -116,7 +114,6 @@ const QuizPage: React.FC = () => {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [quizState]);
 
-  // Security: Reset quiz if user switches tabs
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden' && quizState === 'taking') {
@@ -144,7 +141,7 @@ const QuizPage: React.FC = () => {
   }
 
   if (!quiz) {
-    return null; // Should have been redirected
+    return null;
   }
   
   if (quizState === 'submitted') {

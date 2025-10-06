@@ -8,6 +8,7 @@ import { ConfigProvider } from './contexts/ConfigContext';
 
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import SessionWatcher from './components/SessionWatcher';
 import HomePage from './pages/HomePage';
 import StorePage from './pages/StorePage';
 import RulesPage from './pages/RulesPage';
@@ -16,10 +17,9 @@ import AboutUsPage from './pages/AboutUsPage';
 import AdminPage from './pages/AdminPage';
 import QuizPage from './pages/QuizPage';
 import MyApplicationsPage from './pages/MyApplicationsPage';
-import AuthCallbackPage from './pages/AuthCallbackPage';
 import ProfilePage from './pages/ProfilePage';
+import AuthCallbackPage from './pages/AuthCallbackPage';
 import HealthCheckPage from './pages/HealthCheckPage';
-import SessionWatcher from './components/SessionWatcher';
 
 const App: React.FC = () => {
   return (

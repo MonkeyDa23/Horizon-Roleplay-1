@@ -1,5 +1,4 @@
 import React, { createContext, useState, useEffect, useMemo } from 'react';
-import { createClient } from '@vercel/edge-config';
 import { staticConfig, AppConfig } from '../lib/config';
 
 interface ConfigContextType {
@@ -13,26 +12,20 @@ export const ConfigContext = createContext<ConfigContextType>({
 });
 
 export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [edgeConfig, setEdgeConfig] = useState<Partial<AppConfig>>({});
+  const [remoteConfig, setRemoteConfig] = useState<Partial<AppConfig>>({});
   const [configLoading, setConfigLoading] = useState(true);
 
   useEffect(() => {
-    const connectionString = import.meta.env.VITE_EDGE_CONFIG;
-    if (!connectionString) {
-      console.warn("VITE_EDGE_CONFIG is not set. Using static fallback configuration.");
-      setConfigLoading(false);
-      return;
-    }
-
     const fetchConfig = async () => {
       try {
-        const configClient = createClient(connectionString);
-        // We cast the result to be compatible with our AppConfig type.
-        // It's up to the user to ensure keys in Edge Config match.
-        const allConfig = await configClient.getAll() as Partial<AppConfig>;
-        setEdgeConfig(allConfig);
+        const response = await fetch('/api/config');
+        if (!response.ok) {
+          throw new Error('Failed to fetch remote config');
+        }
+        const configData = await response.json();
+        setRemoteConfig(configData);
       } catch (error) {
-        console.error("Failed to fetch from Edge Config, using static fallbacks:", error);
+        console.warn("Could not fetch remote config, using static fallback.", error);
       } finally {
         setConfigLoading(false);
       }
@@ -42,9 +35,9 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const mergedConfig = useMemo(() => {
-    // Edge Config values will override static config values if they exist
-    return { ...staticConfig, ...edgeConfig };
-  }, [edgeConfig]);
+    // Remote config from the API overrides the local static fallback values.
+    return { ...staticConfig, ...remoteConfig };
+  }, [remoteConfig]);
 
   return (
     <ConfigContext.Provider value={{ config: mergedConfig, configLoading }}>

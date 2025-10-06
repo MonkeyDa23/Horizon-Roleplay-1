@@ -1,7 +1,8 @@
 // src/lib/api.ts
+// FIX: Corrected import path for AppConfig. It is exported from './config'.
 import type { Product, Quiz, QuizSubmission, SubmissionStatus, User, AuditLogEntry, RuleCategory, MtaServerStatus } from '../types';
+import type { AppConfig } from './config';
 
-// Custom Error class to propagate detailed error information from the API
 export class ApiError extends Error {
     status: number;
     data: any;
@@ -14,64 +15,24 @@ export class ApiError extends Error {
     }
 }
 
-
-// --- API HELPER FUNCTIONS ---
-const handleResponse = async (response: Response, endpoint: string) => {
+const handleResponse = async (response: Response) => {
     if (!response.ok) {
-        let errorData;
-        try {
-            // Try to parse a JSON error body from the server
-            errorData = await response.json();
-        } catch (e) {
-            // Fallback if the body isn't JSON
-            errorData = { message: response.statusText };
-        }
-        throw new ApiError(
-            errorData.message || `Request to ${endpoint} failed`, 
-            response.status, 
-            errorData
-        );
+        const errorData = await response.json().catch(() => ({ message: response.statusText }));
+        throw new ApiError(errorData.message || 'An unknown API error occurred', response.status, errorData);
     }
-    // For 204 No Content responses
-    if (response.status === 204) {
-        return;
-    }
-    return response.json();
-}
-
-const get = async <T>(endpoint: string): Promise<T> => {
-    const response = await fetch(endpoint);
-    return handleResponse(response, endpoint);
+    return response.status === 204 ? null : response.json();
 };
 
-const post = async <T>(endpoint: string, body: any): Promise<T> => {
-    const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-    });
-    return handleResponse(response, endpoint);
-};
+const get = <T>(endpoint: string): Promise<T> => fetch(endpoint).then(res => handleResponse(res));
+const post = <T>(endpoint: string, body: any): Promise<T> => fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(res => handleResponse(res));
+const put = <T>(endpoint: string, body: any): Promise<T> => fetch(endpoint, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(res => handleResponse(res));
+const del = <T>(endpoint: string, body?: any): Promise<T> => fetch(endpoint, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }).then(res => handleResponse(res));
 
-const put = async <T>(endpoint: string, body: any): Promise<T> => {
-    const response = await fetch(endpoint, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-    });
-    return handleResponse(response, endpoint);
-};
 
-const del = async (endpoint: string, body: any): Promise<void> => {
-    const response = await fetch(endpoint, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-    });
-    await handleResponse(response, endpoint);
-};
+// --- Public API Functions ---
 
-// --- PUBLIC API FUNCTIONS ---
+// Config
+export const getPublicConfig = (): Promise<Partial<AppConfig>> => get('/api/config');
 
 // Read-only data
 export const getProducts = (): Promise<Product[]> => get('/api/products');
