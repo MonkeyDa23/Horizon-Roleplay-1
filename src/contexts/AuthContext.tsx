@@ -1,86 +1,120 @@
-import React, { createContext, useState, useEffect } from 'react';
-import type { User, AuthContextType as BaseAuthContextType } from '../types';
+import React, { createContext, useState, useEffect, useCallback } from 'react';
+import type { User } from '../types';
+import { useConfig } from '../hooks/useConfig';
 
-// The context type must include `updateUser` for components like SessionWatcher and AdminPage.
-interface AuthContextType extends BaseAuthContextType {
+// This matches the type expected by useAuth hook
+interface AuthContextType {
+  user: User | null;
+  login: () => void;
+  logout: () => void;
+  loading: boolean;
   updateUser: (user: User) => void;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// A predefined, hardcoded admin user. This guarantees access to the admin panel.
-const MOCK_ADMIN_USER: User = {
-  id: '123456789012345678', // A valid Discord Snowflake format ID
-  username: 'Admin (Mock)',
-  avatar: 'https://cdn.discordapp.com/embed/avatars/1.png', // A generic default avatar
-  isAdmin: true,
-  // This is a placeholder role ID. The AdminPage checks if a user has a role from the SUPER_ADMIN_ROLE_IDS list.
-  roles: ['00001_MOCK_SUPER_ADMIN_ROLE'], 
-  primaryRole: { id: '00001_MOCK_SUPER_ADMIN_ROLE', name: 'Super Admin', color: '#E62565' }
-};
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const { config, configLoading } = useConfig();
 
-  // On initial app load, check for a user session in localStorage.
+  // On initial load, check for a user in localStorage.
   useEffect(() => {
     try {
       setLoading(true);
-      const storedUserJSON = localStorage.getItem('horizon_user_session');
-      if (storedUserJSON) {
-        setUser(JSON.parse(storedUserJSON));
+      const storedUser = localStorage.getItem('horizon_user_session');
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
       }
-    } catch (error) {
-      console.error("Failed to load user from localStorage", error);
+    } catch (e) {
+      console.error("Failed to parse user from localStorage", e);
       localStorage.removeItem('horizon_user_session');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const login = () => {
-    // REPLACED: The complex Discord OAuth popup is removed.
-    // This function now performs a simple, client-side "mock" login.
-    // It bypasses Discord and the backend entirely to guarantee access.
+  const login = useCallback(() => {
+    if (configLoading || !config.DISCORD_CLIENT_ID) {
+      alert("Configuration is not loaded yet or Client ID is missing. Please check the Health Check page or try again in a moment.");
+      return;
+    }
     setLoading(true);
-    setUser(MOCK_ADMIN_USER);
-    localStorage.setItem('horizon_user_session', JSON.stringify(MOCK_ADMIN_USER));
-    setLoading(false);
-  };
 
-  const logout = () => {
+    const state = Math.random().toString(36).substring(2, 15);
+    localStorage.setItem('oauth_state', state);
+
+    const OAUTH_SCOPES = 'identify'; // We get guild info from the bot, so only 'identify' is needed here.
+    const REDIRECT_URI = `${window.location.origin}/api/auth/callback`;
+
+    const params = new URLSearchParams({
+      client_id: config.DISCORD_CLIENT_ID,
+      redirect_uri: REDIRECT_URI,
+      response_type: 'code',
+      scope: OAUTH_SCOPES,
+      state: state,
+      prompt: 'consent',
+    });
+
+    const discordAuthUrl = `https://discord.com/oauth2/authorize?${params.toString()}`;
+    const width = 500, height = 800;
+    const left = window.screen.width / 2 - width / 2;
+    const top = window.screen.height / 2 - height / 2;
+
+    const popup = window.open(
+      discordAuthUrl,
+      'DiscordAuth',
+      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
+    );
+
+    if (popup) {
+      const timer = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(timer);
+          // The storage event handler will set the user, but we should stop loading here.
+          setLoading(false);
+        }
+      }, 500);
+    } else {
+      alert("Popup blocked. Please allow popups for this site to log in.");
+      setLoading(false);
+    }
+  }, [config.DISCORD_CLIENT_ID, configLoading]);
+
+  const logout = useCallback(() => {
     setUser(null);
     localStorage.removeItem('horizon_user_session');
-  };
-  
-  // This function is kept so that SessionWatcher can still update user details.
-  const updateUser = (updatedUser: User) => {
+  }, []);
+
+  const updateUser = useCallback((updatedUser: User) => {
     setUser(updatedUser);
     localStorage.setItem('horizon_user_session', JSON.stringify(updatedUser));
-  };
+  }, []);
 
-  // This listener allows cross-tab logout/login syncing.
+  // Listen for login/logout events from other tabs (the popup).
   useEffect(() => {
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === 'horizon_user_session') {
+        setLoading(true);
         if (event.newValue) {
           try {
-            const updatedUser = JSON.parse(event.newValue);
-            setUser(updatedUser);
-          } catch(e) {
+            setUser(JSON.parse(event.newValue));
+          } catch (e) {
             console.error("Failed to parse user from storage event", e);
-            setUser(null);
+            logout();
           }
         } else {
+          // If newValue is null, it means the item was removed (logout).
           setUser(null);
         }
+        setLoading(false);
       }
     };
+    
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
-
+  }, [logout]);
+  
   const value = { user, login, logout, loading, updateUser };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
