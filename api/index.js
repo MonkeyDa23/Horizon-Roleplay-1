@@ -59,7 +59,19 @@ let submissions = [];
 let auditLogs = [];
 let nextLogId = 1;
 
-// --- Discord API Helpers (NEW STATELESS IMPLEMENTATION) ---
+// --- Caching Layer ---
+const memberCache = new Map();
+const rolesCache = { roles: null, timestamp: 0 };
+const guildInfoCache = { data: null, timestamp: 0 };
+
+const CACHE_TTL = {
+    MEMBER: 60 * 1000, // 60 seconds
+    ROLES: 5 * 60 * 1000, // 5 minutes
+    GUILD_INFO: 10 * 60 * 1000, // 10 minutes
+};
+
+
+// --- Discord API Helpers (NEW STATELESS & CACHED IMPLEMENTATION) ---
 const discordApiBot = axios.create({
   baseURL: 'https://discord.com/api/v10',
   headers: {
@@ -67,18 +79,48 @@ const discordApiBot = axios.create({
   }
 });
 
-let guildInfoCache = null;
+async function getGuildRoles() {
+    const now = Date.now();
+    if (rolesCache.roles && (now - rolesCache.timestamp < CACHE_TTL.ROLES)) {
+        return rolesCache.roles;
+    }
+    console.log('[CACHE] Roles cache miss or expired. Fetching from Discord.');
+    const { data } = await discordApiBot.get(`/guilds/${config.DISCORD_GUILD_ID}/roles`);
+    const sortedRoles = data.sort((a, b) => b.position - a.position);
+    rolesCache.roles = sortedRoles;
+    rolesCache.timestamp = now;
+    return sortedRoles;
+}
+
+async function getGuildMember(userId) {
+    const now = Date.now();
+    if (memberCache.has(userId)) {
+        const cached = memberCache.get(userId);
+        if (now - cached.timestamp < CACHE_TTL.MEMBER) {
+            return cached.data;
+        }
+    }
+    console.log(`[CACHE] Member cache miss or expired for user ${userId}. Fetching from Discord.`);
+    const { data } = await discordApiBot.get(`/guilds/${config.DISCORD_GUILD_ID}/members/${userId}`);
+    memberCache.set(userId, { data, timestamp: now });
+    return data;
+}
+
 async function getGuildInfo() {
-    if (guildInfoCache) return guildInfoCache;
+    const now = Date.now();
+    if (guildInfoCache.data && (now - guildInfoCache.timestamp < CACHE_TTL.GUILD_INFO)) {
+        return guildInfoCache.data;
+    }
+    console.log('[CACHE] Guild Info cache miss or expired. Fetching from Discord.');
     try {
         const { data: guild } = await discordApiBot.get(`/guilds/${config.DISCORD_GUILD_ID}`);
-        guildInfoCache = {
+        const info = {
             name: guild.name,
             iconURL: guild.icon ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png` : null
         };
-        // Cache for 5 minutes
-        setTimeout(() => { guildInfoCache = null; }, 5 * 60 * 1000);
-        return guildInfoCache;
+        guildInfoCache.data = info;
+        guildInfoCache.timestamp = now;
+        return info;
     } catch (e) {
         console.error("CRITICAL: Failed to fetch guild info.", e.response?.data || e.message);
         // Return a fallback to prevent crashes
@@ -155,7 +197,7 @@ const verifyAdmin = async (req, res, next) => {
   const admin = req.body.admin || req.body.user;
   if (!admin || !admin.id) return res.status(401).json({ message: 'Unauthorized: Admin user not provided.' });
   try {
-    const { data: member } = await discordApiBot.get(`/guilds/${config.DISCORD_GUILD_ID}/members/${admin.id}`);
+    const member = await getGuildMember(admin.id);
     const isAdmin = member.roles.some(roleId => config.ADMIN_ROLE_IDS.includes(roleId));
     if (!isAdmin) return res.status(403).json({ message: 'Forbidden: User is not an admin.' });
     
@@ -167,7 +209,10 @@ const verifyAdmin = async (req, res, next) => {
     next();
   } catch (error) {
     console.error('Admin verification failed:', error.response?.data || error.message);
-    if (error.response?.status === 404) return res.status(403).json({ message: 'Forbidden: User not found in guild.' });
+    if (error.response?.status === 404) {
+      memberCache.delete(admin.id); // Invalidate cache if user not found
+      return res.status(403).json({ message: 'Forbidden: User not found in guild.' });
+    }
     return res.status(503).json({ message: 'Service Unavailable: Could not verify admin status.' });
   }
 };
@@ -397,13 +442,10 @@ app.post('/api/auth/session', async (req, res) => {
     const { user } = req.body;
     if (!user || !user.id) return res.status(400).json({ message: 'User ID is required.' });
 
-    const [memberRes, rolesRes] = await Promise.all([
-      discordApiBot.get(`/guilds/${config.DISCORD_GUILD_ID}/members/${user.id}`),
-      discordApiBot.get(`/guilds/${config.DISCORD_GUILD_ID}/roles`)
+    const [member, guildRoles] = await Promise.all([
+      getGuildMember(user.id),
+      getGuildRoles()
     ]);
-
-    const member = memberRes.data;
-    const guildRoles = rolesRes.data.sort((a, b) => b.position - a.position);
     
     const userRolesIds = member.roles;
     const primaryRoleObject = guildRoles.find(gr => userRolesIds.includes(gr.id)) || null;
@@ -419,6 +461,7 @@ app.post('/api/auth/session', async (req, res) => {
   } catch (error) {
       console.error('Session revalidation failed:', error.response?.data || error.message);
       if (error.response?.status === 404) {
+        memberCache.delete(req.body.user.id); // Invalidate cache if user not found
         return res.status(404).json({ message: 'User not found in the Discord server.' });
       }
       res.status(500).json({ message: 'A server error occurred during session validation.' });
@@ -449,10 +492,8 @@ app.get('/api/auth/callback', async (req, res) => {
     const memberData = memberResponse.data;
     const userRolesIds = memberData.roles;
     
-    const guildRolesResponse = await discordApi.get(`/guilds/${config.DISCORD_GUILD_ID}/roles`, { 
-        headers: { Authorization: `Bot ${config.DISCORD_BOT_TOKEN}` } 
-    });
-    const guildRoles = guildRolesResponse.data.sort((a, b) => b.position - a.position);
+    // Use the cached function to get roles, ensuring consistency and performance
+    const guildRoles = await getGuildRoles();
     
     const primaryRoleObject = guildRoles.find(guildRole => userRolesIds.includes(guildRole.id)) || null;
     const isAdmin = userRolesIds.some(roleId => config.ADMIN_ROLE_IDS.includes(roleId));
