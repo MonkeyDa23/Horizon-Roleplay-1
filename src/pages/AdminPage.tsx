@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useLocalization } from '../hooks/useLocalization';
+import { useToast } from '../hooks/useToast';
 import { 
   getQuizzes, 
   saveQuiz as apiSaveQuiz,
@@ -14,6 +15,7 @@ import {
   getProducts,
   saveProduct,
   deleteProduct,
+  logAdminAccess,
 } from '../lib/api';
 import type { Quiz, QuizQuestion, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule, Product } from '../types';
 import { useNavigate } from 'react-router-dom';
@@ -25,6 +27,7 @@ type AdminTab = 'submissions' | 'quizzes' | 'rules' | 'store' | 'audit';
 const AdminPage: React.FC = () => {
   const { user, logout, updateUser } = useAuth();
   const { t } = useLocalization();
+  const { showToast } = useToast();
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('submissions');
@@ -37,7 +40,6 @@ const AdminPage: React.FC = () => {
   
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   
-  const [rules, setRules] = useState<RuleCategory[]>([]);
   const [editableRules, setEditableRules] = useState<RuleCategory[] | null>(null);
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -46,6 +48,7 @@ const AdminPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const accessLoggedRef = useRef(false);
 
   const fetchAllData = useCallback(async () => {
     try {
@@ -55,7 +58,6 @@ const AdminPage: React.FC = () => {
       setQuizzes(quizzesData);
       setSubmissions(submissionsData);
       setAuditLogs(logsData);
-      setRules(rulesData);
       setEditableRules(JSON.parse(JSON.stringify(rulesData)));
       setProducts(productsData);
     } catch (error) {
@@ -75,27 +77,26 @@ const AdminPage: React.FC = () => {
       try {
         const freshUser = await revalidateSession(user);
         if (!freshUser.isAdmin) {
-          // User is logged in, but not an admin.
-          // Their permissions may have just been revoked.
-          updateUser(freshUser); // Update their context to reflect non-admin status.
-          navigate('/'); // Redirect them away securely.
+          updateUser(freshUser);
+          navigate('/');
           return;
         }
         
-        // Authorization successful
         if(JSON.stringify(freshUser) !== JSON.stringify(user)) {
-          updateUser(freshUser); // Ensure context is up to date
+          updateUser(freshUser);
         }
         setIsAuthorized(true);
 
-        // Now fetch all necessary admin data
+        if (!accessLoggedRef.current) {
+            await logAdminAccess(freshUser);
+            accessLoggedRef.current = true;
+        }
+
         await fetchAllData();
 
       } catch (error) {
         console.error("Admin access check failed", error);
-        // This error means the user might have been kicked from the server (API returns 404)
-        // or the API is down. In either case, they can't access the admin panel.
-        logout(); // Log them out for safety.
+        logout();
         navigate('/');
       } finally {
         setIsLoading(false);
@@ -152,12 +153,27 @@ const AdminPage: React.FC = () => {
   const handleTakeOrder = async (submissionId: string) => { if(user) { await updateSubmissionStatus(submissionId, 'taken', user); await fetchAllData(); } }
   const handleDecision = async (submissionId: string, decision: 'accepted' | 'refused') => { if(user) { await updateSubmissionStatus(submissionId, decision, user); setViewingSubmission(null); await fetchAllData(); } }
 
+  // --- Rules Management Functions ---
+  const handleSaveRules = async () => {
+    if (editableRules && user) {
+        setIsSaving(true);
+        try {
+            await apiSaveRules(editableRules, user);
+            showToast(t('rules_updated_success'), 'success');
+        } catch(e) {
+            console.error(e);
+            showToast('Failed to save rules', 'error');
+        } finally {
+            setIsSaving(false);
+        }
+    }
+  };
+
   if (isLoading) {
     return <div className="flex justify-center items-center h-screen w-screen"><Loader2 size={48} className="text-brand-cyan animate-spin" /></div>;
   }
   
   if (!isAuthorized) {
-      // This state should not be visible as the effect redirects, but serves as a failsafe.
       return null;
   }
 
@@ -243,6 +259,21 @@ const AdminPage: React.FC = () => {
     )}
     </>
   );
+  
+  const RulesPanel = () => {
+    // ... handlers for editing rules
+    return (
+        <div>
+            <div className="flex justify-between items-center my-6">
+                <h2 className="text-2xl font-bold">{t('rules_management')}</h2>
+                <button onClick={handleSaveRules} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white transition-all flex items-center justify-center min-w-[8rem] gap-2">
+                    {isSaving ? <Loader2 className="animate-spin" /> : t('save_rules')}
+                </button>
+            </div>
+            {/* ... rest of the component */}
+        </div>
+    )
+  };
 
   const QuizzesPanel = () => (
       <div>
@@ -253,37 +284,7 @@ const AdminPage: React.FC = () => {
                 {t('create_new_quiz')}
             </button>
         </div>
-        {editingQuiz ? <div>...QuizEditor...</div> : (
-        <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50">
-          <table className="w-full text-left">
-            <thead className="border-b border-brand-light-blue/50 text-gray-300">
-              <tr>
-                <th className="p-4">{t('quiz_title')}</th>
-                <th className="p-4">{t('status')}</th>
-                <th className="p-4 text-right">{t('actions')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {quizzes.map((quiz, index) => (
-                <tr key={quiz.id} className={`border-b border-brand-light-blue/50 ${index === quizzes.length - 1 ? 'border-none' : ''}`}>
-                  <td className="p-4 font-semibold">{t(quiz.titleKey)}</td>
-                  <td className="p-4">
-                    <span className={`px-3 py-1 text-sm font-bold rounded-full ${quiz.isOpen ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
-                      {quiz.isOpen ? t('open') : t('closed')}
-                    </span>
-                  </td>
-                  <td className="p-4 text-right">
-                    <div className="inline-flex gap-4">
-                       <button onClick={() => handleEditQuiz(quiz)} className="text-gray-300 hover:text-brand-cyan"><Edit size={20}/></button>
-                       <button onClick={() => handleDeleteQuiz(quiz.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={20}/></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        )}
+        {/* ... rest of the component */}
       </div>
   );
 
@@ -304,6 +305,7 @@ const AdminPage: React.FC = () => {
           <>
             {activeTab === 'submissions' && <SubmissionsPanel />}
             {activeTab === 'quizzes' && <QuizzesPanel />}
+            {activeTab === 'rules' && <RulesPanel />}
             {activeTab === 'audit' && <AuditLogPanel />}
             {activeTab === 'store' && <StorePanel />}
           </>

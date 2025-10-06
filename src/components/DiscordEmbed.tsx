@@ -3,6 +3,7 @@ import Logo from './Logo';
 import { useLocalization } from '../hooks/useLocalization';
 import { CONFIG } from '../lib/config';
 import { Loader2, AlertTriangle } from 'lucide-react';
+import DiscordLogo from './icons/DiscordLogo';
 
 interface DiscordWidgetData {
   name: string;
@@ -34,9 +35,6 @@ const DiscordEmbed: React.FC = () => {
       }
 
       try {
-        // Use a proxy or serverless function in production if CORS is an issue.
-        // For Vercel, a simple fetch might be blocked. A rewrite rule or API route is better.
-        // For simplicity here, we'll try a direct fetch.
         const response = await fetch(`https://discord.com/api/guilds/${CONFIG.DISCORD_GUILD_ID}/widget.json`);
         const data: DiscordWidgetData | DiscordWidgetError = await response.json();
 
@@ -126,8 +124,9 @@ const DiscordEmbed: React.FC = () => {
         href={widgetData?.instant_invite || CONFIG.DISCORD_INVITE_URL}
         target="_blank"
         rel="noopener noreferrer"
-        className="block w-full text-center bg-brand-cyan text-brand-dark font-bold py-2.5 rounded-md hover:bg-white transition-all duration-300 shadow-glow-cyan-light mt-2"
+        className="flex items-center justify-center gap-2 w-full text-center bg-[#5865F2] text-white font-bold py-2.5 rounded-md hover:bg-[#4f5bda] transition-all duration-300 shadow-glow-cyan-light mt-2"
       >
+        <DiscordLogo className="w-6 h-5" />
         {t('join_us')}
       </a>
       <style>{`

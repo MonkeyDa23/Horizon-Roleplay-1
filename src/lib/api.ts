@@ -28,7 +28,6 @@ const put = async <T>(endpoint: string, body: any): Promise<T> => {
     return response.json();
 };
 
-// FIX: Changed return type from Promise<Response> to Promise<void> to match usage.
 const del = async (endpoint: string, body: any): Promise<void> => {
     const response = await fetch(endpoint, {
         method: 'DELETE',
@@ -45,7 +44,7 @@ export const getProducts = (): Promise<Product[]> => get('/api/products');
 export const getRules = (): Promise<RuleCategory[]> => get('/api/rules');
 export const getQuizzes = (): Promise<Quiz[]> => get('/api/quizzes');
 export const getQuizById = (id: string): Promise<Quiz | undefined> => get(`/api/quizzes/${id}`);
-export const getMtaServerStatus = (): Promise<MtaServerStatus> => get('/api/mta-status'); // Assuming you'll create this endpoint
+export const getMtaServerStatus = (): Promise<MtaServerStatus> => get('/api/mta-status');
 
 // Submissions
 export const getSubmissions = (): Promise<QuizSubmission[]> => get('/api/submissions');
@@ -69,3 +68,4 @@ export const deleteProduct = (productId: string, admin: User): Promise<void> => 
 // Admin - General
 export const getAuditLogs = (): Promise<AuditLogEntry[]> => get('/api/audit-logs');
 export const revalidateSession = (user: User): Promise<User> => post('/api/auth/session', { user });
+export const logAdminAccess = (admin: User): Promise<void> => post('/api/admin/log-access', { admin });

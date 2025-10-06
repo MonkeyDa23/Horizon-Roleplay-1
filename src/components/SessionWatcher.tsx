@@ -19,20 +19,21 @@ const SessionWatcher = () => {
 
         const validateSession = async () => {
             try {
-                // Ensure there is a user to validate before making an API call
-                if (!previousUser.current) return;
+                // The user object from context might be stale, so use the ref which is updated more frequently.
+                const userToValidate = previousUser.current;
+                if (!userToValidate) return;
 
-                const freshUser = await revalidateSession(previousUser.current);
+                const freshUser = await revalidateSession(userToValidate);
                 
                 // Only proceed if there's an actual change
-                if (JSON.stringify(freshUser) !== JSON.stringify(previousUser.current)) {
+                if (JSON.stringify(freshUser) !== JSON.stringify(userToValidate)) {
                     
                     // Check for specific changes to show toasts
-                    if (freshUser.isAdmin && !previousUser.current?.isAdmin) {
+                    if (freshUser.isAdmin && !userToValidate?.isAdmin) {
                         showToast(t('admin_granted'), 'success');
-                    } else if (!freshUser.isAdmin && previousUser.current?.isAdmin) {
+                    } else if (!freshUser.isAdmin && userToValidate?.isAdmin) {
                         showToast(t('admin_revoked'), 'info');
-                    } else if (freshUser.primaryRole?.id !== previousUser.current?.primaryRole?.id) {
+                    } else if (freshUser.primaryRole?.id !== userToValidate?.primaryRole?.id) {
                         showToast(t('role_updated', { roleName: freshUser.primaryRole?.name || 'Member' }), 'info');
                     }
 
@@ -49,7 +50,7 @@ const SessionWatcher = () => {
             }
         };
         
-        const intervalId = setInterval(validateSession, 30000); // Check every 30 seconds
+        const intervalId = setInterval(validateSession, 15000); // Check every 15 seconds
 
         return () => clearInterval(intervalId);
 

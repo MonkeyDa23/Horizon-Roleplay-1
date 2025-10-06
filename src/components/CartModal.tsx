@@ -1,8 +1,11 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { useLocalization } from '../hooks/useLocalization';
 import { useCart } from '../hooks/useCart';
+import Modal from './Modal';
 import { X, Trash2, ShoppingBag } from 'lucide-react';
+import { CONFIG } from '../lib/config';
+import DiscordLogo from './icons/DiscordLogo';
+
 
 interface CartModalProps {
   isOpen: boolean;
@@ -11,11 +14,28 @@ interface CartModalProps {
 
 const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
   const { t } = useLocalization();
-  const { cartItems, removeFromCart, updateQuantity, totalItems, totalPrice } = useCart();
+  const { cartItems, removeFromCart, updateQuantity, totalItems, totalPrice, clearCart } = useCart();
+  const [isCheckoutModalOpen, setCheckoutModalOpen] = useState(false);
   
   if (!isOpen) return null;
 
+  const handleCheckout = () => {
+    setCheckoutModalOpen(true);
+  };
+
+  const closeAllModals = () => {
+    setCheckoutModalOpen(false);
+    onClose();
+  };
+  
+  const handleOpenTicket = () => {
+    window.open(CONFIG.DISCORD_INVITE_URL, '_blank');
+    clearCart();
+    closeAllModals();
+  };
+
   return (
+    <>
     <div 
       className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex justify-end"
       onClick={onClose}
@@ -70,7 +90,7 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
               <span className="text-gray-300">{t('subtotal')}:</span>
               <span className="font-bold text-white">${totalPrice.toFixed(2)}</span>
             </div>
-            <button className="w-full bg-brand-cyan text-brand-dark font-bold py-4 rounded-lg shadow-glow-cyan hover:bg-white transition-all duration-300">
+            <button onClick={handleCheckout} className="w-full bg-brand-cyan text-brand-dark font-bold py-4 rounded-lg shadow-glow-cyan hover:bg-white transition-all duration-300">
               {t('checkout')}
             </button>
           </div>
@@ -86,6 +106,22 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
         }
       `}</style>
     </div>
+    
+    <Modal isOpen={isCheckoutModalOpen} onClose={closeAllModals} title={t('checkout_via_discord')}>
+        <div className="text-center">
+            <p className="text-gray-300 mb-6 leading-relaxed">
+                {t('checkout_instructions')}
+            </p>
+            <button
+                onClick={handleOpenTicket}
+                className="flex items-center justify-center gap-3 w-full p-4 bg-[#5865F2] text-white font-bold rounded-lg hover:bg-[#4f5bda] transition-colors duration-300 text-lg"
+            >
+                <DiscordLogo className="w-7 h-7" />
+                <span>{t('open_ticket')}</span>
+            </button>
+        </div>
+    </Modal>
+    </>
   );
 };
 

@@ -57,6 +57,9 @@ export const translations: Translations = {
   subtotal: { ar: 'المجموع الفرعي', en: 'Subtotal' },
   checkout: { ar: 'الدفع', en: 'Checkout' },
   remove: { ar: 'إزالة', en: 'Remove' },
+  checkout_via_discord: { ar: 'الدفع عبر ديسكورد', en: 'Checkout via Discord' },
+  checkout_instructions: { ar: 'لإتمام عملية الشراء، يرجى الانضمام إلى سيرفر الديسكورد الخاص بنا وفتح تذكرة في قناة الدعم. سيقوم أحد أعضاء فريقنا بمساعدتك في أسرع وقت ممكن.', en: 'To complete your purchase, please join our Discord server and open a ticket in the support channel. A team member will assist you shortly.' },
+  open_ticket: { ar: 'افتح تذكرة', en: 'Open a Ticket' },
   
   // Applies & Quiz
   apply_now: { ar: 'قدم الآن', en: 'Apply Now' },

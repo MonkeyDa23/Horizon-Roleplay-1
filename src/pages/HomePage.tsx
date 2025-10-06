@@ -3,8 +3,9 @@ import { useLocalization } from '../hooks/useLocalization';
 import { CONFIG } from '../lib/config';
 import Modal from '../components/Modal';
 import Logo from '../components/Logo';
-import { Disc3, Gamepad2 } from 'lucide-react';
+import { Gamepad2 } from 'lucide-react';
 import MtaServerStatus from '../components/MtaServerStatus';
+import DiscordLogo from '../components/icons/DiscordLogo';
 
 const HomePage: React.FC = () => {
   const { t } = useLocalization();
@@ -49,9 +50,9 @@ const HomePage: React.FC = () => {
             href={CONFIG.DISCORD_INVITE_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-4 w-full p-4 bg-blue-500/80 text-white font-bold rounded-lg hover:bg-blue-500 transition-colors duration-300"
+            className="flex items-center justify-center gap-4 w-full p-4 bg-[#5865F2] text-white font-bold rounded-lg hover:bg-[#4f5bda] transition-colors duration-300"
           >
-            <Disc3 size={24} />
+            <DiscordLogo className="w-6 h-6" />
             <span>{t('join_discord')}</span>
           </a>
           <a

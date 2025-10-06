@@ -144,10 +144,15 @@ const verifyAdmin = async (req, res, next) => {
     const client = await getReadyBotClient();
     const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
     const member = await guild.members.fetch({ user: admin.id, force: true });
-    // Add admin avatar to the request object for logging
-    admin.avatar = member.displayAvatarURL();
+    
+    // Use the actual user object for consistent naming
+    const adminUser = member.user;
+    admin.username = adminUser.username;
+    admin.avatar = adminUser.displayAvatarURL();
+
     const isAdmin = member.roles.cache.some(role => config.ADMIN_ROLE_IDS.includes(role.id));
     if (!isAdmin) return res.status(403).json({ message: 'Forbidden: User is not an admin.' });
+    
     req.adminUser = admin;
     next();
   } catch (error) {
@@ -167,18 +172,40 @@ app.get('/api/submissions', (req, res) => res.json(submissions.sort((a, b) => ne
 app.get('/api/users/:userId/submissions', (req, res) => res.json(submissions.filter(s => s.userId === req.params.userId)));
 
 // --- ADMIN API ENDPOINTS ---
+app.post('/api/admin/log-access', verifyAdmin, async (req, res) => {
+    try {
+        const { adminUser } = req;
+        const client = await getReadyBotClient();
+        const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
+        
+        const logEmbed = createBaseEmbed(guild)
+            .setColor(0x3498DB) // Blue
+            .setTitle('🔑 Admin Panel Accessed')
+            .setDescription(`Admin **${adminUser.username}** has accessed the control panel.`)
+            .setAuthor({ name: adminUser.username, iconURL: adminUser.avatar });
+
+        await sendMessageToChannel(config.DISCORD_LOG_CHANNEL_ID, logEmbed);
+        res.status(200).send();
+    } catch (error) {
+        console.error('[API][log-access] Failed to log admin access:', error);
+        // Do not block the user, just log the error
+        res.status(200).send();
+    }
+});
+
 app.post('/api/products', verifyAdmin, async (req, res) => {
   try {
-    const { product, admin } = req.body;
+    const { product } = req.body;
+    const { adminUser } = req;
     const isNew = !product.id || !products.some(p => p.id === product.id);
     if (isNew) {
         product.id = `prod_${Date.now()}`;
         products.push(product);
-        addAuditLog(admin, `Created product: "${product.nameKey}"`);
+        addAuditLog(adminUser, `Created product: "${product.nameKey}"`);
     } else {
         const index = products.findIndex(p => p.id === product.id);
         products[index] = product;
-        addAuditLog(admin, `Updated product: "${product.nameKey}"`);
+        addAuditLog(adminUser, `Updated product: "${product.nameKey}"`);
     }
     res.status(200).json(product);
   } catch (error) {
@@ -188,11 +215,11 @@ app.post('/api/products', verifyAdmin, async (req, res) => {
 });
 app.delete('/api/products/:id', verifyAdmin, async (req, res) => {
   try {
-    const { admin } = req.body;
+    const { adminUser } = req;
     const { id } = req.params;
     const product = products.find(p => p.id === id);
     if (product) {
-        addAuditLog(admin, `Deleted product: "${product.nameKey}"`);
+        addAuditLog(adminUser, `Deleted product: "${product.nameKey}"`);
     }
     products = products.filter(p => p.id !== id);
     res.status(204).send();
@@ -215,17 +242,18 @@ app.post('/api/rules', verifyAdmin, async (req, res) => {
 
 app.post('/api/quizzes', verifyAdmin, async (req, res) => {
   try {
-    const { quiz, admin } = req.body;
+    const { quiz } = req.body;
+    const { adminUser } = req;
     const isNew = !quiz.id || !quizzes.some(q => q.id === quiz.id);
     if (isNew) {
       quiz.id = `quiz_${Date.now()}`;
       quizzes.push(quiz);
-      addAuditLog(admin, `Created quiz: "${quiz.titleKey}"`);
+      addAuditLog(adminUser, `Created quiz: "${quiz.titleKey}"`);
     } else {
       const index = quizzes.findIndex(q => q.id === quiz.id);
       if (index > -1) {
         quizzes[index] = quiz;
-        addAuditLog(admin, `Updated quiz: "${quiz.titleKey}"`);
+        addAuditLog(adminUser, `Updated quiz: "${quiz.titleKey}"`);
       } else {
          return res.status(404).json({ message: "Quiz not found for update."});
       }
@@ -239,11 +267,11 @@ app.post('/api/quizzes', verifyAdmin, async (req, res) => {
 
 app.delete('/api/quizzes/:id', verifyAdmin, async (req, res) => {
   try {
-    const { admin } = req.body;
+    const { adminUser } = req;
     const { id } = req.params;
     const quiz = quizzes.find(q => q.id === id);
     if (quiz) {
-      addAuditLog(admin, `Deleted quiz: "${quiz.titleKey}"`);
+      addAuditLog(adminUser, `Deleted quiz: "${quiz.titleKey}"`);
     }
     quizzes = quizzes.filter(q => q.id !== id);
     res.status(204).send();
@@ -263,25 +291,24 @@ app.post('/api/submissions', async (req, res) => {
 
     const client = await getReadyBotClient();
     const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
+    const applicantUser = await client.users.fetch(submissionData.userId);
 
     const userDM = createBaseEmbed(guild)
       .setColor(0x3498DB) // Blue
-      .setTitle(`Application Received: ${newSubmission.quizTitle}`)
-      .setDescription(`Thank you for your application, **${newSubmission.username}**! We have received it and our administration team will review it shortly. You will be notified here of any status updates.\n\n[You can track the status here.](${config.APP_URL}/my-applications)`)
+      .setTitle(`✅ Application Received: ${newSubmission.quizTitle}`)
+      .setDescription(`Thank you for your application, **${applicantUser.username}**! We have received it and our administration team will review it shortly. You will be notified here of any status updates.\n\n[You can track the status here.](${config.APP_URL}/my-applications)`)
       .setThumbnail(guild.iconURL());
     sendDm(newSubmission.userId, userDM);
     
-    const applicant = await guild.members.fetch(newSubmission.userId).catch(() => null);
     const adminEmbed = createBaseEmbed(guild)
       .setColor(0x3498DB) // Blue
       .setTitle('New Application Submitted')
       .setURL(`${config.APP_URL}/admin`)
-      .setAuthor({ name: newSubmission.username, iconURL: applicant?.displayAvatarURL() || undefined })
-      .setDescription(`A new application has been submitted and is awaiting review.`)
+      .setAuthor({ name: applicantUser.username, iconURL: applicantUser.displayAvatarURL() })
+      .setDescription(`A new application for **${newSubmission.quizTitle}** is awaiting review.`)
       .addFields(
         { name: 'Applicant', value: `<@${newSubmission.userId}>`, inline: true },
-        { name: 'Application Type', value: newSubmission.quizTitle, inline: true },
-        { name: 'Action', value: `[Click here to view submissions](${config.APP_URL}/admin)` }
+        { name: 'Action', value: `[Click here to view submissions](${config.APP_URL}/admin)`, inline: true }
       );
     sendMessageToChannel(config.DISCORD_ADMIN_NOTIFY_CHANNEL_ID, adminEmbed);
     
@@ -295,7 +322,8 @@ app.post('/api/submissions', async (req, res) => {
 app.put('/api/submissions/:id/status', verifyAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, admin } = req.body;
+    const { status } = req.body;
+    const { adminUser } = req;
     const submission = submissions.find(s => s.id === id);
     if (!submission) return res.status(404).json({ message: 'Submission not found' });
     
@@ -303,12 +331,12 @@ app.put('/api/submissions/:id/status', verifyAdmin, async (req, res) => {
     if (oldStatus === status) return res.json(submission); // No change
     
     submission.status = status;
-    submission.adminId = admin.id;
-    submission.adminUsername = admin.username;
+    submission.adminId = adminUser.id;
+    submission.adminUsername = adminUser.username;
 
     const client = await getReadyBotClient();
     const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
-    const applicant = await guild.members.fetch(submission.userId).catch(() => null);
+    const applicantUser = await client.users.fetch(submission.userId);
 
     let logEmbed; 
     let userDM;
@@ -317,15 +345,15 @@ app.put('/api/submissions/:id/status', verifyAdmin, async (req, res) => {
       logEmbed = createBaseEmbed(guild)
         .setColor(0xF1C40F) // Yellow
         .setTitle(`📝 Application Claimed`)
-        .setAuthor({ name: admin.username, iconURL: admin.avatar })
-        .setDescription(`**${admin.username}** claimed the application from **${submission.username}** for review.`)
-        .setThumbnail(applicant?.displayAvatarURL() || null);
+        .setDescription(`**${submission.quizTitle}** application from **${applicantUser.username}** claimed for review.`)
+        .setAuthor({ name: adminUser.username, iconURL: adminUser.avatar })
+        .setThumbnail(applicantUser.displayAvatarURL());
 
       userDM = createBaseEmbed(guild)
         .setColor(0xF1C40F) // Yellow
-        .setTitle('Application Under Review')
-        .setDescription(`Good news, **${submission.username}**! An admin, **${admin.username}**, has started reviewing your application for **"${submission.quizTitle}"**.\n\nWe will notify you again once a final decision has been made.`)
-        .setThumbnail(guild.iconURL());
+        .setTitle('⏳ Application Under Review')
+        .setDescription(`Good news, **${applicantUser.username}**! An admin, **${adminUser.username}**, has started reviewing your application for **"${submission.quizTitle}"**.\n\nWe will notify you again once a final decision has been made.`)
+        .setThumbnail(adminUser.avatar);
       sendDm(submission.userId, userDM);
 
     } else if (status === 'accepted' || status === 'refused') {
@@ -336,25 +364,20 @@ app.put('/api/submissions/:id/status', verifyAdmin, async (req, res) => {
       userDM = createBaseEmbed(guild)
         .setColor(decisionColor)
         .setTitle(`Application Update: ${submission.quizTitle}`)
-        .setDescription(`Hello **${submission.username}**, your application has been **${decisionText}**.\n\n[View all your applications here.](${config.APP_URL}/my-applications)`)
-        .addFields({ name: 'Reviewed By', value: admin.username, inline: true })
+        .setDescription(`Hello **${applicantUser.username}**, your application has been **${decisionText}**.`)
+        .addFields({ name: 'Reviewed By', value: adminUser.username })
         .setThumbnail(guild.iconURL());
-      if (isAccepted) userDM.addFields({ name: 'Next Steps', value: 'You may now have new roles/permissions in our Discord server.', inline: false });
-      else userDM.addFields({ name: 'Next Steps', value: 'Please review our server rules before considering a re-application in the future.', inline: false });
       sendDm(submission.userId, userDM);
       
       logEmbed = createBaseEmbed(guild)
         .setColor(decisionColor)
-        .setTitle(`✅ Application ${decisionText}`)
-        .setAuthor({ name: admin.username, iconURL: admin.avatar })
-        .setDescription(`**${admin.username}** ${decisionText.toLowerCase()} the application from **${submission.username}**.`)
-        .setThumbnail(applicant?.displayAvatarURL() || null)
-        .addFields(
-            { name: 'Applicant', value: `<@${submission.userId}>`, inline: true },
-            { name: 'Admin', value: `<@${admin.id}>`, inline: true }
-        );
+        .setTitle(`Application ${decisionText}`)
+        .setDescription(`**${submission.quizTitle}** application from **${applicantUser.username}** was **${decisionText.toLowerCase()}**.`)
+        .setAuthor({ name: adminUser.username, iconURL: adminUser.avatar })
+        .setThumbnail(applicantUser.displayAvatarURL());
     }
-    if (logEmbed) sendMessageToChannel(config.DISCORD_LOG_CHANNEL_ID, logEmbed);
+
+    if (logEmbed) await sendMessageToChannel(config.DISCORD_LOG_CHANNEL_ID, logEmbed);
     res.json(submission);
   } catch (error) {
     console.error(`[SUBMISSION STATUS] Failed to update status for submission ${req.params.id}:`, error);
@@ -378,8 +401,8 @@ app.post('/api/auth/session', async (req, res) => {
     const primaryRoleObject = guildRoles.find(gr => userRolesIds.includes(gr.id)) || null;
 
     const freshUser = {
-        ...user,
-        username: member.displayName,
+        id: member.id,
+        username: member.user.username,
         avatar: member.displayAvatarURL(),
         isAdmin: userRolesIds.some(roleId => config.ADMIN_ROLE_IDS.includes(roleId)),
         primaryRole: primaryRoleObject ? { id: primaryRoleObject.id, name: primaryRoleObject.name, color: primaryRoleObject.hexColor } : null,
@@ -428,7 +451,7 @@ app.get('/api/auth/callback', async (req, res) => {
 
     const finalUser = {
       id: memberData.user.id,
-      username: memberData.nick || memberData.user.global_name || memberData.user.username,
+      username: memberData.user.username,
       avatar: memberData.avatar ? `https://cdn.discordapp.com/guilds/${config.DISCORD_GUILD_ID}/users/${memberData.user.id}/avatars/${memberData.avatar}.png` : (memberData.user.avatar ? `https://cdn.discordapp.com/avatars/${memberData.user.id}/${memberData.user.avatar}.png` : `https://cdn.discordapp.com/embed/avatars/${(parseInt(memberData.user.id.slice(-1))) % 5}.png`),
       isAdmin,
       primaryRole: primaryRoleObject ? { id: primaryRoleObject.id, name: primaryRoleObject.name, color: `#${primaryRoleObject.color.toString(16).padStart(6, '0')}` } : null,
