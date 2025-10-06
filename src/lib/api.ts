@@ -1,11 +1,47 @@
 // src/lib/api.ts
 import type { Product, Quiz, QuizSubmission, SubmissionStatus, User, AuditLogEntry, RuleCategory, MtaServerStatus } from '../types';
 
+// Custom Error class to propagate detailed error information from the API
+export class ApiError extends Error {
+    status: number;
+    data: any;
+
+    constructor(message: string, status: number, data: any) {
+        super(message);
+        this.name = 'ApiError';
+        this.status = status;
+        this.data = data;
+    }
+}
+
+
 // --- API HELPER FUNCTIONS ---
+const handleResponse = async (response: Response, endpoint: string) => {
+    if (!response.ok) {
+        let errorData;
+        try {
+            // Try to parse a JSON error body from the server
+            errorData = await response.json();
+        } catch (e) {
+            // Fallback if the body isn't JSON
+            errorData = { message: response.statusText };
+        }
+        throw new ApiError(
+            errorData.message || `Request to ${endpoint} failed`, 
+            response.status, 
+            errorData
+        );
+    }
+    // For 204 No Content responses
+    if (response.status === 204) {
+        return;
+    }
+    return response.json();
+}
+
 const get = async <T>(endpoint: string): Promise<T> => {
     const response = await fetch(endpoint);
-    if (!response.ok) throw new Error(`Failed to fetch from ${endpoint}: ${response.statusText}`);
-    return response.json();
+    return handleResponse(response, endpoint);
 };
 
 const post = async <T>(endpoint: string, body: any): Promise<T> => {
@@ -14,8 +50,7 @@ const post = async <T>(endpoint: string, body: any): Promise<T> => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
     });
-    if (!response.ok) throw new Error(`Failed to POST to ${endpoint}: ${response.statusText}`);
-    return response.json();
+    return handleResponse(response, endpoint);
 };
 
 const put = async <T>(endpoint: string, body: any): Promise<T> => {
@@ -24,8 +59,7 @@ const put = async <T>(endpoint: string, body: any): Promise<T> => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
     });
-    if (!response.ok) throw new Error(`Failed to PUT to ${endpoint}: ${response.statusText}`);
-    return response.json();
+    return handleResponse(response, endpoint);
 };
 
 const del = async (endpoint: string, body: any): Promise<void> => {
@@ -34,7 +68,7 @@ const del = async (endpoint: string, body: any): Promise<void> => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
     });
-    if (!response.ok) throw new Error(`Failed to DELETE from ${endpoint}: ${response.statusText}`);
+    await handleResponse(response, endpoint);
 };
 
 // --- PUBLIC API FUNCTIONS ---

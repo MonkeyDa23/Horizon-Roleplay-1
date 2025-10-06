@@ -50,7 +50,9 @@ const SessionWatcher = () => {
             }
         };
         
-        const intervalId = setInterval(validateSession, 15000); // Check every 15 seconds
+        // Note: A 3-second interval is very frequent and may lead to API rate-limiting
+        // from Discord under heavy load. This is set per user request.
+        const intervalId = setInterval(validateSession, 3000); // Check every 3 seconds
 
         return () => clearInterval(intervalId);
 

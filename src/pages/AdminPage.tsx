@@ -3,6 +3,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useLocalization } from '../hooks/useLocalization';
 import { useToast } from '../hooks/useToast';
 import { 
+  ApiError,
   getQuizzes, 
   saveQuiz as apiSaveQuiz,
   deleteQuiz as apiDeleteQuiz,
@@ -96,15 +97,26 @@ const AdminPage: React.FC = () => {
 
       } catch (error) {
         console.error("Admin access check failed", error);
-        logout();
+        
+        // New granular error handling
+        if (error instanceof ApiError && (error.status === 401 || error.status === 403 || error.status === 404)) {
+            // Definitive authorization/not-found failure. User should be logged out.
+            showToast("Your session is invalid or you lack permissions.", "error");
+            logout();
+        } else {
+            // Temporary server error or network issue. Don't log out.
+            showToast("Could not verify admin session. Please try again later.", "error");
+        }
+        // Always navigate away on any error to prevent interaction with a broken page.
         navigate('/');
+        
       } finally {
         setIsLoading(false);
       }
     };
 
     gateCheck();
-  }, [user?.id, navigate, logout, updateUser, fetchAllData]);
+  }, [user?.id]);
 
 
   // --- Quiz Management Functions ---
