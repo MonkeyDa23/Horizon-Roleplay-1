@@ -54,6 +54,10 @@ export const getAuditLogs = (user: User): Promise<AuditLogEntry[]> => post('/api
 export const updateSubmissionStatus = (submissionId: string, status: SubmissionStatus, admin: User): Promise<QuizSubmission> => {
     return put(`/api/admin/submissions/${submissionId}/status`, { status, admin });
 }
+export const resetUserSubmission = (quizId: string, userId: string, admin: User): Promise<void> => {
+    return del('/api/admin/submissions/reset', { quizId, userId, admin });
+}
+
 
 // Admin - Quizzes
 export const saveQuiz = (quiz: Quiz, admin: User): Promise<Quiz> => post('/api/admin/quizzes', { quiz, admin });

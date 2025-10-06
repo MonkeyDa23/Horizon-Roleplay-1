@@ -126,6 +126,14 @@ export const translations: Translations = {
   admin_session_error_warning: { ar: 'تعذر التحقق من الجلسة مع الخادم. يتم عرض البيانات المحلية وقد تفشل بعض الإجراءات.', en: 'Could not verify session with the server. Displaying cached data and some actions may fail.'},
   admin_permissions_error: { ar: 'جلستك غير صالحة أو أنك لا تملك الصلاحيات.', en: 'Your session is invalid or you lack permissions.' },
   new_submission_toast: { ar: 'تم استلام طلب تقديم جديد من {username}!', en: 'New application received from {username}!' },
+  reset_user_application: { ar: 'إعادة تعيين تقديم مستخدم', en: 'Reset User Application' },
+  reset_user_application_desc: { ar: 'إذا احتاج مستخدم للتقديم مرة أخرى، يمكنك حذف تقديمه القديم من هنا.', en: 'If a user needs to apply again, you can delete their old submission here.' },
+  select_quiz_to_reset: { ar: 'اختر التقديم...', en: 'Select quiz...' },
+  enter_user_id: { ar: 'أدخل معرف المستخدم (Discord ID)', en: 'Enter User ID' },
+  reset_application_button: { ar: 'إعادة تعيين', en: 'Reset' },
+  user_or_quiz_not_selected: { ar: 'الرجاء اختيار تقديم وإدخال معرف مستخدم.', en: 'Please select a quiz and enter a user ID.' },
+  reset_submission_success: { ar: 'تم إعادة تعيين التقديم بنجاح للمستخدم {userId}!', en: 'Successfully reset application for user {userId}!' },
+  reset_submission_error: { ar: 'فشل في إعادة تعيين التقديم. تحقق من المعرف أو أن المستخدم لديه تقديم.', en: 'Failed to reset application. Check the ID or that the user has a submission.' },
 
   // Submission Statuses
   status_pending: { ar: 'قيد الانتظار', en: 'Pending' },

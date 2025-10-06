@@ -18,10 +18,11 @@ import {
   saveProduct,
   deleteProduct,
   logAdminAccess,
+  resetUserSubmission,
 } from '../lib/api';
 import type { Quiz, QuizQuestion, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule, Product, User } from '../types';
 import { useNavigate } from 'react-router-dom';
-import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store, AlertTriangle } from 'lucide-react';
+import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store, AlertTriangle, RefreshCw } from 'lucide-react';
 import Modal from '../components/Modal';
 
 type AdminTab = 'submissions' | 'quizzes' | 'rules' | 'store' | 'audit';
@@ -63,6 +64,11 @@ const AdminPage: React.FC = () => {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const accessLoggedRef = useRef(false);
+
+  // State for the reset submission tool
+  const [resetQuizId, setResetQuizId] = useState('');
+  const [resetUserId, setResetUserId] = useState('');
+  const [isResetting, setIsResetting] = useState(false);
 
   useEffect(() => {
     submissionsRef.current = submissions;
@@ -228,6 +234,24 @@ const AdminPage: React.FC = () => {
   const handleTakeOrder = async (submissionId: string) => { if(user) { try { await updateSubmissionStatus(submissionId, 'taken', user); refreshSubmissions(); } catch (e) { showToast(e instanceof Error ? e.message : 'Failed to take order', 'error'); } } }
   const handleDecision = async (submissionId: string, decision: 'accepted' | 'refused') => { if(user) { try { await updateSubmissionStatus(submissionId, decision, user); setViewingSubmission(null); refreshSubmissions(); } catch(e) { showToast(e instanceof Error ? e.message : 'Failed to process decision', 'error'); } } }
 
+  const handleResetSubmission = async () => {
+    if (!resetQuizId || !resetUserId || !user) {
+        showToast(t('user_or_quiz_not_selected'), 'warning');
+        return;
+    }
+    setIsResetting(true);
+    try {
+        await resetUserSubmission(resetQuizId, resetUserId, user);
+        showToast(t('reset_submission_success', { userId: resetUserId }), 'success');
+        setResetUserId('');
+    } catch (error) {
+        const errorMessage = error instanceof ApiError ? error.data.message : String(error);
+        showToast(t('reset_submission_error') + ` (${errorMessage})`, 'error');
+    } finally {
+        setIsResetting(false);
+    }
+  };
+
   const handleSaveRules = async () => {
       if (editableRules && user) {
           setIsSaving(true);
@@ -291,6 +315,24 @@ const AdminPage: React.FC = () => {
   }
 
   const SubmissionsPanel = () => (
+    <>
+    {isSuperAdmin && (
+        <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50 p-6 my-6">
+            <h3 className="text-xl font-bold text-brand-cyan mb-2">{t('reset_user_application')}</h3>
+            <p className="text-gray-400 text-sm mb-4">{t('reset_user_application_desc')}</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <select value={resetQuizId} onChange={(e) => setResetQuizId(e.target.value)} className="md:col-span-1 bg-brand-light-blue p-2 rounded border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan">
+                    <option value="">{t('select_quiz_to_reset')}</option>
+                    {quizzes.map(q => <option key={q.id} value={q.id}>{t(q.titleKey)}</option>)}
+                </select>
+                <input type="text" value={resetUserId} onChange={(e) => setResetUserId(e.target.value)} placeholder={t('enter_user_id')} className="md:col-span-1 bg-brand-light-blue p-2 rounded border border-gray-600" />
+                <button onClick={handleResetSubmission} disabled={isResetting} className="md:col-span-1 bg-yellow-500/80 text-white font-bold py-2 px-6 rounded-md hover:bg-yellow-500/100 transition-colors flex items-center justify-center gap-2">
+                    {isResetting ? <Loader2 className="animate-spin" /> : <RefreshCw size={18} />}
+                    {t('reset_application_button')}
+                </button>
+            </div>
+        </div>
+    )}
     <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50 mt-6">
       <div className="overflow-x-auto">
         <table className="w-full text-left min-w-[600px]">
@@ -327,6 +369,7 @@ const AdminPage: React.FC = () => {
         </table>
       </div>
     </div>
+    </>
   );
 
   const QuizzesPanel = () => (
