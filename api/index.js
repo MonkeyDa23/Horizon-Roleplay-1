@@ -34,37 +34,6 @@ const updateEdgeConfigItems = async (items) => {
     }
 };
 
-
-const seedInitialData = async () => {
-  const isSeeded = await get('edge_config_seeded_v1');
-  if (isSeeded) return;
-
-  console.log("Edge Config not seeded. Seeding initial data...");
-
-  const initialProducts = [
-    { id: 'prod_001', nameKey: 'product_vip_bronze_name', descriptionKey: 'product_vip_bronze_desc', price: 9.99, imageUrl: 'https://picsum.photos/seed/vip_bronze/400/300' },
-    { id: 'prod_002', nameKey: 'product_vip_silver_name', descriptionKey: 'product_vip_silver_desc', price: 19.99, imageUrl: 'https://picsum.photos/seed/vip_silver/400/300' },
-  ];
-  const initialRules = [
-    { id: 'cat_general', titleKey: 'rules_general_title', rules: [{ id: 'rule_gen_1', textKey: 'rule_general_1' },{ id: 'rule_gen_2', textKey: 'rule_general_2' }] },
-    { id: 'cat_rp', titleKey: 'rules_rp_title', rules: [{ id: 'rule_rp_1', textKey: 'rule_rp_1' }] },
-  ];
-  const initialQuizzes = [
-    { id: 'quiz_police_dept', titleKey: 'quiz_police_name', descriptionKey: 'quiz_police_desc', isOpen: true, questions: [{ id: 'q1_police', textKey: 'q_police_1', timeLimit: 60 }, { id: 'q2_police', textKey: 'q_police_2', timeLimit: 90 }], allowedTakeRoles: [] },
-  ];
-
-  await updateEdgeConfigItems([
-    { operation: 'upsert', key: 'products', value: initialProducts },
-    { operation: 'upsert', key: 'rules', value: initialRules },
-    { operation: 'upsert', key: 'quizzes', value: initialQuizzes },
-    { operation: 'upsert', key: 'submissions', value: [] },
-    { operation: 'upsert', key: 'auditLogs', value: [] },
-    { operation: 'upsert', key: 'edge_config_seeded_v1', value: true }
-  ]);
-  
-  console.log('Edge Config seeded successfully.');
-};
-
 const getAppUrl = () => {
   if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, ''); 
   if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
@@ -132,8 +101,6 @@ const addAuditLog = async (admin, action) => {
 const app = express();
 app.use(cors());
 app.use(express.json());
-
-seedInitialData().catch(console.error);
 
 // Middleware to verify if user has ANY admin role
 const verifyAdmin = async (req, res, next) => {
@@ -252,7 +219,8 @@ app.get('/api/quizzes/:id', async (req, res) => {
 
 app.get('/api/mta-status', async (_, res) => {
     try {
-        if (Math.random() < 0.1) {
+        // This is still a mock. Replace with actual query library if needed.
+        if (Math.random() < 0.1) { // 10% chance to simulate offline
           throw new Error("Server is offline");
         }
         const players = 80 + Math.floor(Math.random() * 40);
