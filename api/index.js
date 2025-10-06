@@ -2,7 +2,7 @@
 import express from 'express';
 import axios from 'axios';
 import cors from 'cors';
-import { Client, GatewayIntentBits, EmbedBuilder } from 'discord.js';
+import { EmbedBuilder } from 'discord.js';
 import { URLSearchParams } from 'url';
 
 // --- Configuration and Sanity Checks ---
@@ -59,47 +59,61 @@ let submissions = [];
 let auditLogs = [];
 let nextLogId = 1;
 
-// --- Discord Bot Singleton Pattern ---
-let clientInstance = null;
-let clientPromise = null;
-async function getReadyBotClient() {
-  if (clientInstance && clientInstance.isReady()) return clientInstance;
-  if (clientPromise) return clientPromise;
-  if (missingEnvVars.length > 0) throw new Error(`Bot cannot start due to missing env vars: ${missingEnvVars.join(', ')}`);
-  
-  const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
-  clientPromise = new Promise((resolve, reject) => {
-    client.once('ready', () => { console.log(`✅ Discord Bot logged in as ${client.user.tag}`); clientInstance = client; resolve(client); });
-    client.login(config.DISCORD_BOT_TOKEN).catch(err => { 
-      console.error("Bot login failed:", err.message); 
-      clientPromise = null; 
-      reject(err); 
-    });
-  });
-  return clientPromise;
-}
-getReadyBotClient().catch(() => {});
+// --- Discord API Helpers (NEW STATELESS IMPLEMENTATION) ---
+const discordApiBot = axios.create({
+  baseURL: 'https://discord.com/api/v10',
+  headers: {
+    'Authorization': `Bot ${config.DISCORD_BOT_TOKEN}`
+  }
+});
 
-// --- Discord Helper Functions ---
-const createBaseEmbed = (guild) => new EmbedBuilder()
-    .setTimestamp()
-    .setFooter({ text: guild.name, iconURL: guild.iconURL() });
+let guildInfoCache = null;
+async function getGuildInfo() {
+    if (guildInfoCache) return guildInfoCache;
+    try {
+        const { data: guild } = await discordApiBot.get(`/guilds/${config.DISCORD_GUILD_ID}`);
+        guildInfoCache = {
+            name: guild.name,
+            iconURL: guild.icon ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png` : null
+        };
+        // Cache for 5 minutes
+        setTimeout(() => { guildInfoCache = null; }, 5 * 60 * 1000);
+        return guildInfoCache;
+    } catch (e) {
+        console.error("CRITICAL: Failed to fetch guild info.", e.response?.data || e.message);
+        // Return a fallback to prevent crashes
+        return { name: "Discord Server", iconURL: null };
+    }
+}
+
+const createBaseEmbed = async () => {
+    const guildInfo = await getGuildInfo();
+    const embed = new EmbedBuilder().setTimestamp();
+    if (guildInfo.name) {
+      embed.setFooter({ text: guildInfo.name, iconURL: guildInfo.iconURL });
+    }
+    return embed;
+};
+
 const sendDm = async (userId, embed) => {
   try {
-    const client = await getReadyBotClient();
-    const user = await client.users.fetch(userId);
-    await user.send({ embeds: [embed] });
+    const { data: channel } = await discordApiBot.post(`/users/@me/channels`, { recipient_id: userId });
+    await discordApiBot.post(`/channels/${channel.id}/messages`, { embeds: [embed.toJSON()] });
     console.log(`Sent DM to user ${userId}`);
-  } catch (error) { console.error(`Failed to send DM to user ${userId}:`, error.message); }
+  } catch (error) { 
+    console.error(`Failed to send DM to user ${userId}:`, error.response?.data || error.message); 
+  }
 };
+
 const sendMessageToChannel = async (channelId, embed) => {
   if (!channelId) return;
   try {
-    const client = await getReadyBotClient();
-    const channel = await client.channels.fetch(channelId);
-    if (channel && channel.isTextBased()) await channel.send({ embeds: [embed] });
-  } catch (error) { console.error(`Failed to send message to channel ${channelId}:`, error.message); }
+    await discordApiBot.post(`/channels/${channelId}/messages`, { embeds: [embed.toJSON()] });
+  } catch (error) { 
+    console.error(`Failed to send message to channel ${channelId}:`, error.response?.data || error.message);
+  }
 };
+
 const addAuditLog = (admin, action) => {
   auditLogs.unshift({ id: `log_${nextLogId++}`, adminId: admin.id, adminUsername: admin.username, timestamp: new Date().toISOString(), action });
 };
@@ -118,19 +132,19 @@ app.get('/api/health', async (req, res) => {
     const currentMissing = Object.values(checks.env).some(v => v.includes('MISSING'));
     if (currentMissing) { checks.bot.status = '❌ Skipped'; checks.bot.error = 'Cannot check bot status due to missing env vars.'; return res.status(500).json(checks); }
 
-    const client = await getReadyBotClient();
-    const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
-    if (guild) { checks.bot.status = '✅ OK'; checks.bot.guild_found = true; checks.bot.guild_name = guild.name; } 
-    else { checks.bot.status = '❌ FAILED'; checks.bot.error = `Could not find Guild with ID: ${config.DISCORD_GUILD_ID}.`; }
+    const { data: guild } = await discordApiBot.get(`/guilds/${config.DISCORD_GUILD_ID}`);
+    checks.bot.status = '✅ OK';
+    checks.bot.guild_found = true;
+    checks.bot.guild_name = guild.name;
   
     const hasErrors = currentMissing || checks.bot.status !== '✅ OK' || (!process.env.APP_URL && process.env.NODE_ENV === 'production');
     res.status(hasErrors ? 500 : 200).json(checks);
   } catch (e) {
-    console.error('[HEALTH CHECK] Unhandled error:', e);
+    console.error('[HEALTH CHECK] Unhandled error:', e.response?.data || e.message);
     checks.bot.status = '❌ FAILED';
-    if (e.code === 10004) checks.bot.error = `Unknown Guild. The DISCORD_GUILD_ID is incorrect.`;
-    else if (e.code === 50001) checks.bot.error = `Missing Access. The bot may not be in the specified guild.`;
-    else if (e.message?.includes('Invalid token')) checks.bot.error = `Invalid Token. The DISCORD_BOT_TOKEN is incorrect.`;
+    if (e.response?.status === 401) checks.bot.error = `Invalid Token. The DISCORD_BOT_TOKEN is incorrect.`;
+    else if (e.response?.status === 404) checks.bot.error = `Unknown Guild. The DISCORD_GUILD_ID is incorrect.`;
+    else if (e.response?.status === 403) checks.bot.error = `Missing Access. The bot may not have permissions to access guild information.`;
     else checks.bot.error = `An unexpected error occurred: ${e.message}`;
     res.status(500).json(checks);
   }
@@ -138,26 +152,22 @@ app.get('/api/health', async (req, res) => {
 
 // --- Security Middleware: Verify Admin ---
 const verifyAdmin = async (req, res, next) => {
-  const admin = req.body.admin || req.body.user; // Allow 'user' for revalidation
+  const admin = req.body.admin || req.body.user;
   if (!admin || !admin.id) return res.status(401).json({ message: 'Unauthorized: Admin user not provided.' });
   try {
-    const client = await getReadyBotClient();
-    const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
-    const member = await guild.members.fetch({ user: admin.id, force: true });
-    
-    // Use the actual user object for consistent naming
-    const adminUser = member.user;
-    admin.username = adminUser.username;
-    admin.avatar = adminUser.displayAvatarURL();
-
-    const isAdmin = member.roles.cache.some(role => config.ADMIN_ROLE_IDS.includes(role.id));
+    const { data: member } = await discordApiBot.get(`/guilds/${config.DISCORD_GUILD_ID}/members/${admin.id}`);
+    const isAdmin = member.roles.some(roleId => config.ADMIN_ROLE_IDS.includes(roleId));
     if (!isAdmin) return res.status(403).json({ message: 'Forbidden: User is not an admin.' });
     
-    req.adminUser = admin;
+    req.adminUser = {
+      id: member.user.id,
+      username: member.user.username,
+      avatar: member.user.avatar ? `https://cdn.discordapp.com/avatars/${member.user.id}/${member.user.avatar}.png` : `https://cdn.discordapp.com/embed/avatars/${(parseInt(member.user.id.slice(-1))) % 5}.png`
+    };
     next();
   } catch (error) {
-    console.error('Admin verification failed:', error.message);
-    if (error.code === 10007) return res.status(403).json({ message: 'Forbidden: User not found in guild.' });
+    console.error('Admin verification failed:', error.response?.data || error.message);
+    if (error.response?.status === 404) return res.status(403).json({ message: 'Forbidden: User not found in guild.' });
     return res.status(503).json({ message: 'Service Unavailable: Could not verify admin status.' });
   }
 };
@@ -175,10 +185,7 @@ app.get('/api/users/:userId/submissions', (req, res) => res.json(submissions.fil
 app.post('/api/admin/log-access', verifyAdmin, async (req, res) => {
     try {
         const { adminUser } = req;
-        const client = await getReadyBotClient();
-        const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
-        
-        const logEmbed = createBaseEmbed(guild)
+        const logEmbed = (await createBaseEmbed())
             .setColor(0x3498DB) // Blue
             .setTitle('🔑 Admin Panel Accessed')
             .setDescription(`Admin **${adminUser.username}** has accessed the control panel.`)
@@ -188,7 +195,6 @@ app.post('/api/admin/log-access', verifyAdmin, async (req, res) => {
         res.status(200).send();
     } catch (error) {
         console.error('[API][log-access] Failed to log admin access:', error);
-        // Do not block the user, just log the error
         res.status(200).send();
     }
 });
@@ -289,32 +295,32 @@ app.post('/api/submissions', async (req, res) => {
     const newSubmission = { ...submissionData, id: `sub_${Date.now()}`, status: 'pending' };
     submissions.push(newSubmission);
 
-    const client = await getReadyBotClient();
-    const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
-    const applicantUser = await client.users.fetch(submissionData.userId);
+    const { data: applicantUser } = await discordApiBot.get(`/users/${submissionData.userId}`);
+    const applicantAvatar = applicantUser.avatar ? `https://cdn.discordapp.com/avatars/${applicantUser.id}/${applicantUser.avatar}.png` : `https://cdn.discordapp.com/embed/avatars/${(parseInt(applicantUser.id.slice(-1))) % 5}.png`;
+    const guildIcon = (await getGuildInfo()).iconURL;
 
-    const userDM = createBaseEmbed(guild)
+    const userDM = (await createBaseEmbed())
       .setColor(0x3498DB) // Blue
       .setTitle(`✅ Application Received: ${newSubmission.quizTitle}`)
       .setDescription(`Thank you for your application, **${applicantUser.username}**! We have received it and our administration team will review it shortly. You will be notified here of any status updates.\n\n[You can track the status here.](${config.APP_URL}/my-applications)`)
-      .setThumbnail(guild.iconURL());
-    sendDm(newSubmission.userId, userDM);
+      .setThumbnail(guildIcon);
+    await sendDm(newSubmission.userId, userDM);
     
-    const adminEmbed = createBaseEmbed(guild)
+    const adminEmbed = (await createBaseEmbed())
       .setColor(0x3498DB) // Blue
       .setTitle('New Application Submitted')
       .setURL(`${config.APP_URL}/admin`)
-      .setAuthor({ name: applicantUser.username, iconURL: applicantUser.displayAvatarURL() })
+      .setAuthor({ name: applicantUser.username, iconURL: applicantAvatar })
       .setDescription(`A new application for **${newSubmission.quizTitle}** is awaiting review.`)
       .addFields(
         { name: 'Applicant', value: `<@${newSubmission.userId}>`, inline: true },
         { name: 'Action', value: `[Click here to view submissions](${config.APP_URL}/admin)`, inline: true }
       );
-    sendMessageToChannel(config.DISCORD_ADMIN_NOTIFY_CHANNEL_ID, adminEmbed);
+    await sendMessageToChannel(config.DISCORD_ADMIN_NOTIFY_CHANNEL_ID, adminEmbed);
     
     res.status(201).json(newSubmission);
   } catch (error) {
-    console.error('[SUBMISSION] Failed to process new submission:', error);
+    console.error('[SUBMISSION] Failed to process new submission:', error.response?.data || error.message);
     res.status(500).json({ message: 'Failed to process submission due to a server error.' });
   }
 });
@@ -334,53 +340,52 @@ app.put('/api/submissions/:id/status', verifyAdmin, async (req, res) => {
     submission.adminId = adminUser.id;
     submission.adminUsername = adminUser.username;
 
-    const client = await getReadyBotClient();
-    const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
-    const applicantUser = await client.users.fetch(submission.userId);
+    const { data: applicantUser } = await discordApiBot.get(`/users/${submission.userId}`);
+    const applicantAvatar = applicantUser.avatar ? `https://cdn.discordapp.com/avatars/${applicantUser.id}/${applicantUser.avatar}.png` : `https://cdn.discordapp.com/embed/avatars/${(parseInt(applicantUser.id.slice(-1))) % 5}.png`;
 
     let logEmbed; 
     let userDM;
 
     if (status === 'taken' && oldStatus === 'pending') {
-      logEmbed = createBaseEmbed(guild)
+      logEmbed = (await createBaseEmbed())
         .setColor(0xF1C40F) // Yellow
         .setTitle(`📝 Application Claimed`)
         .setDescription(`**${submission.quizTitle}** application from **${applicantUser.username}** claimed for review.`)
         .setAuthor({ name: adminUser.username, iconURL: adminUser.avatar })
-        .setThumbnail(applicantUser.displayAvatarURL());
+        .setThumbnail(applicantAvatar);
 
-      userDM = createBaseEmbed(guild)
+      userDM = (await createBaseEmbed())
         .setColor(0xF1C40F) // Yellow
         .setTitle('⏳ Application Under Review')
         .setDescription(`Good news, **${applicantUser.username}**! An admin, **${adminUser.username}**, has started reviewing your application for **"${submission.quizTitle}"**.\n\nWe will notify you again once a final decision has been made.`)
         .setThumbnail(adminUser.avatar);
-      sendDm(submission.userId, userDM);
+      await sendDm(submission.userId, userDM);
 
     } else if (status === 'accepted' || status === 'refused') {
       const isAccepted = status === 'accepted';
       const decisionText = isAccepted ? 'Accepted' : 'Refused';
       const decisionColor = isAccepted ? 0x2ECC71 : 0xE74C3C;
       
-      userDM = createBaseEmbed(guild)
+      userDM = (await createBaseEmbed())
         .setColor(decisionColor)
         .setTitle(`Application Update: ${submission.quizTitle}`)
         .setDescription(`Hello **${applicantUser.username}**, your application has been **${decisionText}**.`)
         .addFields({ name: 'Reviewed By', value: adminUser.username })
-        .setThumbnail(guild.iconURL());
-      sendDm(submission.userId, userDM);
+        .setThumbnail((await getGuildInfo()).iconURL);
+      await sendDm(submission.userId, userDM);
       
-      logEmbed = createBaseEmbed(guild)
+      logEmbed = (await createBaseEmbed())
         .setColor(decisionColor)
         .setTitle(`Application ${decisionText}`)
         .setDescription(`**${submission.quizTitle}** application from **${applicantUser.username}** was **${decisionText.toLowerCase()}**.`)
         .setAuthor({ name: adminUser.username, iconURL: adminUser.avatar })
-        .setThumbnail(applicantUser.displayAvatarURL());
+        .setThumbnail(applicantAvatar);
     }
 
     if (logEmbed) await sendMessageToChannel(config.DISCORD_LOG_CHANNEL_ID, logEmbed);
     res.json(submission);
   } catch (error) {
-    console.error(`[SUBMISSION STATUS] Failed to update status for submission ${req.params.id}:`, error);
+    console.error(`[SUBMISSION STATUS] Failed to update status for submission ${req.params.id}:`, error.response?.data || error.message);
     res.status(500).json({ message: 'Failed to update submission status due to a server error.' });
   }
 });
@@ -392,25 +397,28 @@ app.post('/api/auth/session', async (req, res) => {
     const { user } = req.body;
     if (!user || !user.id) return res.status(400).json({ message: 'User ID is required.' });
 
-    const client = await getReadyBotClient();
-    const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
-    const member = await guild.members.fetch({ user: user.id, force: true });
-    const guildRoles = (await guild.roles.fetch()).sort((a, b) => b.position - a.position);
+    const [memberRes, rolesRes] = await Promise.all([
+      discordApiBot.get(`/guilds/${config.DISCORD_GUILD_ID}/members/${user.id}`),
+      discordApiBot.get(`/guilds/${config.DISCORD_GUILD_ID}/roles`)
+    ]);
+
+    const member = memberRes.data;
+    const guildRoles = rolesRes.data.sort((a, b) => b.position - a.position);
     
-    const userRolesIds = member.roles.cache.map(r => r.id);
+    const userRolesIds = member.roles;
     const primaryRoleObject = guildRoles.find(gr => userRolesIds.includes(gr.id)) || null;
 
     const freshUser = {
-        id: member.id,
+        id: member.user.id,
         username: member.user.username,
-        avatar: member.displayAvatarURL(),
+        avatar: member.avatar ? `https://cdn.discordapp.com/guilds/${config.DISCORD_GUILD_ID}/users/${member.user.id}/avatars/${member.avatar}.png` : (member.user.avatar ? `https://cdn.discordapp.com/avatars/${member.user.id}/${member.user.avatar}.png` : `https://cdn.discordapp.com/embed/avatars/${(parseInt(member.user.id.slice(-1))) % 5}.png`),
         isAdmin: userRolesIds.some(roleId => config.ADMIN_ROLE_IDS.includes(roleId)),
-        primaryRole: primaryRoleObject ? { id: primaryRoleObject.id, name: primaryRoleObject.name, color: primaryRoleObject.hexColor } : null,
+        primaryRole: primaryRoleObject ? { id: primaryRoleObject.id, name: primaryRoleObject.name, color: `#${primaryRoleObject.color.toString(16).padStart(6, '0')}` } : null,
     };
     res.status(200).json(freshUser);
   } catch (error) {
-      console.error('Session revalidation failed:', error.message);
-      if (error.code === 10007) {
+      console.error('Session revalidation failed:', error.response?.data || error.message);
+      if (error.response?.status === 404) {
         return res.status(404).json({ message: 'User not found in the Discord server.' });
       }
       res.status(500).json({ message: 'A server error occurred during session validation.' });
