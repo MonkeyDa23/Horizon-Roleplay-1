@@ -134,6 +134,11 @@ export const translations: Translations = {
   member: { ar: 'عضو', en: 'Member' },
   recent_applications: { ar: 'آخر التقديمات', en: 'Recent Applications' },
 
+  // Role Update Toasts
+  role_updated: { ar: 'تم تحديث رتبتك إلى: {roleName}', en: 'Your role has been updated to: {roleName}' },
+  admin_granted: { ar: 'لقد تم منحك صلاحيات المشرف!', en: 'You have been granted administrator privileges!' },
+  admin_revoked: { ar: 'تم سحب صلاحيات المشرف منك.', en: 'Your administrator privileges have been revoked.' },
+
   // MOCK DATA TRANSLATIONS
   // Products
   product_vip_bronze_name: { ar: 'عضوية VIP برونزية', en: 'Bronze VIP Membership' },

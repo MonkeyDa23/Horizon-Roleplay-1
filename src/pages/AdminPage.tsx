@@ -44,11 +44,10 @@ const AdminPage: React.FC = () => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthorized, setIsAuthorized] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [isValidating, setIsValidating] = useState(true);
 
   const fetchAllData = useCallback(async () => {
-    setIsLoading(true);
     try {
       const [quizzesData, submissionsData, logsData, rulesData, productsData] = await Promise.all([
         getQuizzes(), getSubmissions(), getAuditLogs(), getRules(), getProducts()
@@ -61,54 +60,50 @@ const AdminPage: React.FC = () => {
       setProducts(productsData);
     } catch (error) {
         console.error("Failed to fetch admin data", error);
-    } finally {
-        setIsLoading(false);
     }
   }, []);
   
-  // CRITICAL: Re-validate user's admin status on page load and periodically.
+  // CRITICAL: Gatekeeper effect to verify permissions on every load.
   useEffect(() => {
-    const validate = async (isInitial = false) => {
+    const gateCheck = async () => {
       if (!user) {
-        if (isInitial) navigate('/');
+        navigate('/');
         return;
       }
 
-      if (isInitial) setIsValidating(true);
-      
+      setIsLoading(true);
       try {
         const freshUser = await revalidateSession(user);
-        
         if (!freshUser.isAdmin) {
-          alert("Your admin permissions have been revoked.");
-          logout();
-          navigate('/');
-          return; 
+          // User is logged in, but not an admin.
+          // Their permissions may have just been revoked.
+          updateUser(freshUser); // Update their context to reflect non-admin status.
+          navigate('/'); // Redirect them away securely.
+          return;
         }
         
-        if (JSON.stringify(freshUser) !== JSON.stringify(user)) {
-            updateUser(freshUser); 
+        // Authorization successful
+        if(JSON.stringify(freshUser) !== JSON.stringify(user)) {
+          updateUser(freshUser); // Ensure context is up to date
         }
+        setIsAuthorized(true);
 
-        if (isInitial) await fetchAllData();
+        // Now fetch all necessary admin data
+        await fetchAllData();
 
       } catch (error) {
-        console.error("Session validation failed.", error);
-        alert("Could not verify your admin session. Logging out for security.");
-        logout();
+        console.error("Admin access check failed", error);
+        // This error means the user might have been kicked from the server (API returns 404)
+        // or the API is down. In either case, they can't access the admin panel.
+        logout(); // Log them out for safety.
         navigate('/');
       } finally {
-        if (isInitial) setIsValidating(false);
+        setIsLoading(false);
       }
     };
-    
-    validate(true); // Initial validation on component mount
 
-    // Set up a periodic check every 30 seconds for continuous security
-    const intervalId = setInterval(() => validate(false), 30000); 
-
-    return () => clearInterval(intervalId); // Cleanup interval on unmount
-  }, [user?.id, logout, navigate, updateUser, fetchAllData]); // user object is not a dependency to avoid loop
+    gateCheck();
+  }, [user?.id, navigate, logout, updateUser, fetchAllData]);
 
 
   // --- Quiz Management Functions ---
@@ -157,10 +152,15 @@ const AdminPage: React.FC = () => {
   const handleTakeOrder = async (submissionId: string) => { if(user) { await updateSubmissionStatus(submissionId, 'taken', user); await fetchAllData(); } }
   const handleDecision = async (submissionId: string, decision: 'accepted' | 'refused') => { if(user) { await updateSubmissionStatus(submissionId, decision, user); setViewingSubmission(null); await fetchAllData(); } }
 
-  if (isValidating || !user?.isAdmin) {
+  if (isLoading) {
     return <div className="flex justify-center items-center h-screen w-screen"><Loader2 size={48} className="text-brand-cyan animate-spin" /></div>;
   }
   
+  if (!isAuthorized) {
+      // This state should not be visible as the effect redirects, but serves as a failsafe.
+      return null;
+  }
+
   const renderStatusBadge = (status: SubmissionStatus) => {
     const statusMap = {
       pending: { text: t('status_pending'), color: 'bg-yellow-500/20 text-yellow-400' },
@@ -300,13 +300,14 @@ const AdminPage: React.FC = () => {
             <button onClick={() => setActiveTab('audit')} className={`py-3 px-6 font-bold flex-shrink-0 flex items-center gap-2 ${activeTab === 'audit' ? 'text-brand-cyan border-b-2 border-brand-cyan' : 'text-gray-400'}`}><ShieldCheck size={18}/> {t('audit_log')}</button>
         </div>
         
-        {isLoading ? <div className="flex justify-center items-center py-20"><Loader2 size={40} className="text-brand-cyan animate-spin" /></div>
-        : <>
+        {
+          <>
             {activeTab === 'submissions' && <SubmissionsPanel />}
             {activeTab === 'quizzes' && <QuizzesPanel />}
             {activeTab === 'audit' && <AuditLogPanel />}
             {activeTab === 'store' && <StorePanel />}
-          </>}
+          </>
+        }
       </div>
       
       {/* Modals */}
@@ -319,7 +320,7 @@ const AdminPage: React.FC = () => {
                   <h4 className="text-lg font-bold text-brand-cyan mb-2">{t('quiz_questions')}</h4>
                   <div className="space-y-3 max-h-60 overflow-y-auto pr-2">{viewingSubmission.answers.map((ans, i) => (<div key={ans.questionId}><p className="font-semibold text-gray-300">{i+1}. {ans.questionText}</p><p className="bg-brand-dark p-2 rounded mt-1 text-gray-200 whitespace-pre-wrap">{ans.answer}</p></div>))}</div>
               </div>
-              {viewingSubmission.status === 'taken' && viewingSubmission.adminId === user.id && (
+              {viewingSubmission.status === 'taken' && user && viewingSubmission.adminId === user.id && (
                   <div className="flex justify-end gap-4 pt-6 border-t border-brand-light-blue">
                       <button onClick={() => handleDecision(viewingSubmission.id, 'refused')} className="flex items-center gap-2 bg-red-600 text-white font-bold py-2 px-5 rounded-md hover:bg-red-500 transition-colors"><X size={20}/> {t('refuse')}</button>
                       <button onClick={() => handleDecision(viewingSubmission.id, 'accepted')} className="flex items-center gap-2 bg-green-600 text-white font-bold py-2 px-5 rounded-md hover:bg-green-500 transition-colors"><Check size={20}/> {t('accept')}</button>
