@@ -31,7 +31,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = () => {
-    if (configLoading) return; // Prevent login if config isn't loaded
+    if (configLoading || !config.DISCORD_CLIENT_ID) return; // Prevent login if config isn't loaded
     setLoading(true);
     try {
       const state = Math.random().toString(36).substring(7);

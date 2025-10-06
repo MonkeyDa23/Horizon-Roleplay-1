@@ -1,11 +1,13 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useLocalization } from '../hooks/useLocalization';
-import { useAuth } from '../hooks/useAuth';
-import { getQuizById, addSubmission } from '../lib/mockData';
-import type { Quiz, Answer, QuizSubmission } from '../types';
-import { CheckCircle, Clock } from 'lucide-react';
+// FIX: Updated import paths to point to the 'src' directory
+import { useLocalization } from '../src/hooks/useLocalization';
+import { useAuth } from '../src/hooks/useAuth';
+// FIX: Switched from mockData to asynchronous API calls
+import { getQuizById, addSubmission } from '../src/lib/api';
+import type { Quiz, Answer } from '../src/types';
+import { CheckCircle, Clock, Loader2 } from 'lucide-react';
 
 const QuizPage: React.FC = () => {
   const { quizId } = useParams<{ quizId: string }>();
@@ -14,6 +16,8 @@ const QuizPage: React.FC = () => {
   const { user } = useAuth();
   
   const [quiz, setQuiz] = useState<Quiz | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [currentAnswer, setCurrentAnswer] = useState('');
@@ -22,44 +26,58 @@ const QuizPage: React.FC = () => {
 
   useEffect(() => {
     if (!user) {
-      navigate('/applies'); // Redirect if not logged in
+      navigate('/applies');
       return;
     }
-    const fetchedQuiz = quizId ? getQuizById(quizId) : undefined;
-    if (fetchedQuiz && fetchedQuiz.isOpen) {
-      setQuiz(fetchedQuiz);
-      setTimeLeft(fetchedQuiz.questions[0].timeLimit);
-    } else {
-      navigate('/applies'); // Redirect if quiz not found or closed
+    if (!quizId) {
+        navigate('/applies');
+        return;
     }
+
+    const fetchQuiz = async () => {
+        setIsLoading(true);
+        try {
+          const fetchedQuiz = await getQuizById(quizId);
+          if (fetchedQuiz && fetchedQuiz.isOpen) {
+              setQuiz(fetchedQuiz);
+              setTimeLeft(fetchedQuiz.questions[0].timeLimit);
+              setQuizState('rules');
+          } else {
+              navigate('/applies');
+          }
+        } catch (error) {
+            console.error(`Failed to fetch quiz ${quizId}`, error);
+            navigate('/applies');
+        } finally {
+            setIsLoading(false);
+        }
+    }
+    
+    fetchQuiz();
   }, [quizId, navigate, user]);
   
-  // Timer logic
-  useEffect(() => {
-    if (quizState !== 'taking' || !quiz) return;
-    if (timeLeft <= 0) {
-      handleNextQuestion();
-      return;
-    }
-    const timerId = setInterval(() => setTimeLeft(timeLeft - 1), 1000);
-    return () => clearInterval(timerId);
-  }, [timeLeft, quizState, quiz]);
-  
-  // Prevent leaving page during quiz
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (quizState === 'taking') {
-        e.preventDefault();
-        e.returnValue = 'Are you sure you want to leave? Your progress will be lost.';
-      }
+  const handleSubmit = useCallback(async (finalAnswers: Answer[]) => {
+    if (!quiz || !user || isSubmitting) return;
+
+    setIsSubmitting(true);
+    const submission = {
+        quizId: quiz.id,
+        quizTitle: t(quiz.titleKey),
+        userId: user.id,
+        username: user.username,
+        answers: finalAnswers,
+        submittedAt: new Date().toISOString(),
     };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [quizState]);
-  
-  const handleStartQuiz = () => {
-    setQuizState('taking');
-  };
+    
+    try {
+      await addSubmission(submission);
+      setQuizState('submitted');
+    } catch (error) {
+      console.error("Failed to submit application:", error);
+      alert("An error occurred while submitting your application. Please try again.");
+      setIsSubmitting(false);
+    }
+  }, [quiz, user, t, isSubmitting]);
 
   const handleNextQuestion = useCallback(() => {
     if (!quiz) return;
@@ -74,29 +92,59 @@ const QuizPage: React.FC = () => {
       setCurrentQuestionIndex(nextQuestionIndex);
       setTimeLeft(quiz.questions[nextQuestionIndex].timeLimit);
     } else {
-      // Last question, submit
       handleSubmit(newAnswers);
     }
-  }, [quiz, currentQuestionIndex, answers, currentAnswer, t]);
+  }, [quiz, currentQuestionIndex, answers, currentAnswer, t, handleSubmit]);
+  
+  useEffect(() => {
+    if (quizState !== 'taking' || !quiz) return;
+    if (timeLeft <= 0) {
+      handleNextQuestion();
+      return;
+    }
+    const timerId = setInterval(() => setTimeLeft(prevTime => prevTime - 1), 1000);
+    return () => clearInterval(timerId);
+  }, [timeLeft, quizState, quiz, handleNextQuestion]);
+  
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (quizState === 'taking') {
+        e.preventDefault();
+        e.returnValue = 'Are you sure you want to leave? Your progress will be lost.';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [quizState]);
 
-  const handleSubmit = (finalAnswers: Answer[]) => {
-      if (!quiz || !user) return;
-      const submission = {
-          quizId: quiz.id,
-          quizTitle: t(quiz.titleKey),
-          userId: user.id,
-          username: user.username,
-          answers: finalAnswers,
-          submittedAt: new Date().toISOString(),
-      };
-      
-      addSubmission(submission);
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden' && quizState === 'taking') {
+        alert("You have switched away from the quiz tab. To ensure fairness, your application attempt has been cancelled.");
+        navigate('/applies');
+      }
+    };
 
-      setQuizState('submitted');
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [quizState, navigate]);
+  
+  const handleStartQuiz = () => {
+    setQuizState('taking');
   };
 
+  if (isLoading) {
+    return (
+        <div className="container mx-auto px-6 py-16 flex justify-center items-center h-96">
+            <Loader2 size={48} className="text-brand-cyan animate-spin" />
+        </div>
+    );
+  }
+
   if (!quiz) {
-    return <div className="container mx-auto px-6 py-16 text-center">Loading...</div>;
+    return null;
   }
   
   if (quizState === 'submitted') {
@@ -155,9 +203,16 @@ const QuizPage: React.FC = () => {
         
         <button 
           onClick={handleNextQuestion}
-          className="mt-8 w-full bg-brand-cyan text-brand-dark font-bold py-4 rounded-lg shadow-glow-cyan hover:bg-white transition-all text-lg"
+          disabled={isSubmitting && currentQuestionIndex === quiz.questions.length - 1}
+          className="mt-8 w-full bg-brand-cyan text-brand-dark font-bold py-4 rounded-lg shadow-glow-cyan hover:bg-white transition-all text-lg flex justify-center items-center disabled:opacity-70 disabled:cursor-not-allowed"
         >
-          {currentQuestionIndex < quiz.questions.length - 1 ? t('next_question') : t('submit_application')}
+          {isSubmitting && currentQuestionIndex === quiz.questions.length - 1 ? (
+            <Loader2 size={28} className="animate-spin" />
+          ) : currentQuestionIndex < quiz.questions.length - 1 ? (
+            t('next_question')
+          ) : (
+            t('submit_application')
+          )}
         </button>
       </div>
        <style>{`

@@ -271,7 +271,7 @@ const AdminPage: React.FC = () => {
                   <div className="inline-flex gap-4 items-center">
                     {sub.status === 'pending' && getTakeButton(sub)}
                     {sub.status === 'taken' && (
-                      <span className="text-xs text-gray-400 italic">{t('taken_by')} {sub.adminUsername === user.username ? 'You' : sub.adminUsername}</span>
+                      <span className="text-xs text-gray-400 italic">{t('taken_by')} {sub.adminUsername === user?.username ? 'You' : sub.adminUsername}</span>
                     )}
                      <button onClick={() => setViewingSubmission(sub)} className="text-gray-300 hover:text-brand-cyan" title={t('view_submission')}><Eye size={20}/></button>
                   </div>

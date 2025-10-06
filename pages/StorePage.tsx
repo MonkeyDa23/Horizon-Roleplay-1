@@ -1,23 +1,35 @@
+
 import React, { useState, useEffect } from 'react';
-import { useLocalization } from '../hooks/useLocalization';
-import { useCart } from '../hooks/useCart';
-import { products as mockProducts } from '../lib/mockData';
-import type { Product } from '../types';
+// FIX: Updated import paths to point to the 'src' directory
+import { useLocalization } from '../src/hooks/useLocalization';
+import { useCart } from '../src/hooks/useCart';
+import { useConfig } from '../src/hooks/useConfig';
+// FIX: Switched from mockData to asynchronous API call
+import { getProducts } from '../src/lib/api';
+import type { Product } from '../src/types';
 import { ShoppingCart, PlusCircle } from 'lucide-react';
 
 const StorePage: React.FC = () => {
   const { t } = useLocalization();
   const { addToCart } = useCart();
+  const { config } = useConfig();
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    setIsLoading(true);
-    // Simulate an asynchronous API call to fetch products
-    setTimeout(() => {
-      setProducts(mockProducts);
-      setIsLoading(false);
-    }, 1000); // 1-second delay
+    // FIX: Fetch products from the API
+    const fetchProducts = async () => {
+      setIsLoading(true);
+      try {
+        const fetchedProducts = await getProducts();
+        setProducts(fetchedProducts);
+      } catch (error) {
+        console.error("Failed to fetch products:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchProducts();
   }, []);
 
   const handleAddToCart = (product: Product) => {
@@ -45,7 +57,7 @@ const StorePage: React.FC = () => {
         <div className="inline-block p-4 bg-brand-light-blue rounded-full mb-4">
           <ShoppingCart className="text-brand-cyan" size={48} />
         </div>
-        <h1 className="text-4xl md:text-5xl font-bold">{t('page_title_store')}</h1>
+        <h1 className="text-4xl md:text-5xl font-bold">{t('page_title_store', { communityName: config.COMMUNITY_NAME })}</h1>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">

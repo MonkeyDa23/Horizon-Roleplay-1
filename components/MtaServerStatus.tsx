@@ -1,18 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { useLocalization } from '../hooks/useLocalization';
-import { CONFIG } from '../lib/config';
-import { getMtaServerStatus } from '../lib/mockData';
-import { Server, Users, Wifi, WifiOff, Loader2 } from 'lucide-react';
 
-interface ServerStatus {
-  name: string;
-  players: number;
-  maxPlayers: number;
-}
+import React, { useState, useEffect } from 'react';
+// FIX: Updated import paths to point to the 'src' directory
+import { useLocalization } from '../src/hooks/useLocalization';
+import { useConfig } from '../src/hooks/useConfig';
+// FIX: Switched from mockData to asynchronous API call
+import { getMtaServerStatus } from '../src/lib/api';
+import { Server, Users, Wifi, WifiOff, Loader2 } from 'lucide-react';
+import type { MtaServerStatus as MtaServerStatusType } from '../src/types';
 
 const MtaServerStatus: React.FC = () => {
   const { t } = useLocalization();
-  const [status, setStatus] = useState<ServerStatus | null>(null);
+  const { config } = useConfig();
+  const [status, setStatus] = useState<MtaServerStatusType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,7 +29,6 @@ const MtaServerStatus: React.FC = () => {
       }
     };
     fetchStatus();
-    // Optional: Refresh status periodically
     const interval = setInterval(fetchStatus, 30000); // every 30 seconds
     return () => clearInterval(interval);
   }, []);
@@ -48,7 +46,7 @@ const MtaServerStatus: React.FC = () => {
     </div>
   );
 
-  if (isLoading && !status) {
+  if (isLoading && !status && !error) {
     return <SkeletonLoader />;
   }
 
@@ -57,7 +55,7 @@ const MtaServerStatus: React.FC = () => {
       <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-4">
         <h3 className="text-xl font-bold text-white flex items-center gap-3">
           <Server size={24} className="text-brand-cyan" />
-          <span>{status?.name || 'Horizon Roleplay Server'}</span>
+          <span>{status?.name || `${config.COMMUNITY_NAME} Roleplay Server`}</span>
         </h3>
         {error ? (
           <div className="flex items-center gap-2 text-red-400 font-semibold mt-2 sm:mt-0">
@@ -79,7 +77,7 @@ const MtaServerStatus: React.FC = () => {
           <span>{status?.players ?? '??'} / {status?.maxPlayers ?? '???'}</span>
         </div>
         <a
-          href={CONFIG.MTA_SERVER_URL}
+          href={config.MTA_SERVER_URL}
           className="mt-4 sm:mt-0 bg-brand-cyan text-brand-dark font-bold py-3 px-8 rounded-md hover:bg-white hover:shadow-glow-cyan transition-all duration-300"
         >
           {t('connect_mta')}

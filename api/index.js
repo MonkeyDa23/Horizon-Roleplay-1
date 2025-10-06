@@ -270,8 +270,12 @@ app.get('/api/mta-status', async (_, res) => {
 });
 
 
-app.get('/api/submissions', async (_, res) => res.json((await get('submissions') ?? []).sort((a,b) => new Date(b.submittedAt) - new Date(a.submittedAt))));
-app.get('/api/users/:userId/submissions', async (req, res) => res.json((await get('submissions') ?? []).filter(s => s.userId === req.params.userId).sort((a,b) => new Date(b.submittedAt) - new Date(a.submittedAt))));
+app.get('/api/users/:userId/submissions', async (req, res) => {
+    const allSubmissions = await get('submissions') ?? [];
+    const userSubmissions = allSubmissions.filter(s => s.userId === req.params.userId).sort((a,b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+    res.json(userSubmissions);
+});
+
 
 app.post('/api/submissions', async (req, res) => {
   const newSubmission = { ...req.body, id: `sub_${Date.now()}`, status: 'pending' };
@@ -283,6 +287,11 @@ app.post('/api/submissions', async (req, res) => {
 // ADMIN-ONLY ROUTES
 const adminRouter = express.Router();
 adminRouter.use(verifyAdmin);
+
+adminRouter.get('/submissions', async (req, res) => {
+    const allSubmissions = await get('submissions') ?? [];
+    res.json(allSubmissions.sort((a,b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()));
+});
 
 adminRouter.post('/log-access', async(req, res) => {
     await addAuditLog(req.adminUser, 'Accessed the admin panel.');

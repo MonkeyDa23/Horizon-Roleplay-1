@@ -1,10 +1,13 @@
+
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../hooks/useAuth';
-import { useLocalization } from '../hooks/useLocalization';
-import { getSubmissionsByUserId } from '../lib/mockData';
-import type { QuizSubmission, SubmissionStatus } from '../types';
+// FIX: Updated import paths to point to the 'src' directory
+import { useAuth } from '../src/hooks/useAuth';
+import { useLocalization } from '../src/hooks/useLocalization';
+// FIX: Switched from mockData to asynchronous API call
+import { getSubmissionsByUserId } from '../src/lib/api';
+import type { QuizSubmission, SubmissionStatus } from '../src/types';
 import { useNavigate } from 'react-router-dom';
-import { FileText } from 'lucide-react';
+import { FileText, Loader2 } from 'lucide-react';
 
 const MyApplicationsPage: React.FC = () => {
   const { user } = useAuth();
@@ -16,13 +19,23 @@ const MyApplicationsPage: React.FC = () => {
   useEffect(() => {
     if (!user) {
       navigate('/');
-    } else {
-      // Simulate API call
-      setTimeout(() => {
-        setSubmissions(getSubmissionsByUserId(user.id));
-        setLoading(false);
-      }, 500);
+      return;
     }
+
+    const fetchSubmissions = async () => {
+        setLoading(true);
+        try {
+            const userSubmissions = await getSubmissionsByUserId(user.id);
+            setSubmissions(userSubmissions);
+        } catch(error) {
+            console.error("Failed to fetch user submissions", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    fetchSubmissions();
+    
   }, [user, navigate]);
   
   const renderStatusBadge = (status: SubmissionStatus) => {
@@ -36,10 +49,6 @@ const MyApplicationsPage: React.FC = () => {
     return <span className={`px-3 py-1 text-sm font-bold rounded-full ${color}`}>{text}</span>;
   };
   
-  if (loading) {
-      return <div className="container mx-auto px-6 py-16 text-center">Loading applications...</div>;
-  }
-
   return (
     <div className="container mx-auto px-6 py-16">
       <div className="text-center mb-12">
@@ -51,30 +60,36 @@ const MyApplicationsPage: React.FC = () => {
 
       <div className="max-w-4xl mx-auto bg-brand-dark-blue rounded-lg border border-brand-light-blue/50">
         <div className="overflow-x-auto">
-          <table className="w-full text-left min-w-[600px]">
-            <thead className="border-b border-brand-light-blue/50 text-gray-300">
-              <tr>
-                <th className="p-4">{t('application_type')}</th>
-                <th className="p-4">{t('submitted_on')}</th>
-                <th className="p-4">{t('status')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {submissions.length === 0 ? (
+          {loading ? (
+             <div className="flex justify-center items-center h-48">
+                <Loader2 size={40} className="text-brand-cyan animate-spin" />
+             </div>
+          ) : (
+            <table className="w-full text-left min-w-[600px]">
+              <thead className="border-b border-brand-light-blue/50 text-gray-300">
                 <tr>
-                  <td colSpan={3} className="p-8 text-center text-gray-400 text-lg">
-                    {t('no_applications_submitted')}
-                  </td>
+                  <th className="p-4">{t('application_type')}</th>
+                  <th className="p-4">{t('submitted_on')}</th>
+                  <th className="p-4">{t('status')}</th>
                 </tr>
-              ) : submissions.map((sub, index) => (
-                <tr key={sub.id} className={`border-b border-brand-light-blue/50 ${index === submissions.length - 1 ? 'border-none' : ''}`}>
-                  <td className="p-4 font-semibold">{sub.quizTitle}</td>
-                  <td className="p-4 text-sm text-gray-400">{new Date(sub.submittedAt).toLocaleString()}</td>
-                  <td className="p-4">{renderStatusBadge(sub.status)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {submissions.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="p-8 text-center text-gray-400 text-lg">
+                      {t('no_applications_submitted')}
+                    </td>
+                  </tr>
+                ) : submissions.map((sub, index) => (
+                  <tr key={sub.id} className={`border-b border-brand-light-blue/50 ${index === submissions.length - 1 ? 'border-none' : ''}`}>
+                    <td className="p-4 font-semibold">{sub.quizTitle}</td>
+                    <td className="p-4 text-sm text-gray-400">{new Date(sub.submittedAt).toLocaleString()}</td>
+                    <td className="p-4">{renderStatusBadge(sub.status)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>
