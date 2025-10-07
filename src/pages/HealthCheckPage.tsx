@@ -46,7 +46,6 @@ const HealthCheckPage: React.FC = () => {
       checks.env['VITE_SUPABASE_URL'] = supabaseUrl ? '✅ Set' : '❌ Not Set';
       checks.env['VITE_SUPABASE_ANON_KEY'] = supabaseAnonKey ? '✅ Set' : '❌ Not Set';
       
-      // FIX: Check if the supabase client could be initialized at all.
       if (!supabase) {
         checks.supabase.status = '⚠️ Disabled';
         checks.supabase.error = 'Supabase environment variables (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY) are not set.';

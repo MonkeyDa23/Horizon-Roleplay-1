@@ -21,6 +21,7 @@ import QuizPage from './pages/QuizPage';
 import MyApplicationsPage from './pages/MyApplicationsPage';
 import ProfilePage from './pages/ProfilePage';
 import HealthCheckPage from './pages/HealthCheckPage';
+import AuthCallbackPage from './pages/AuthCallbackPage';
 import { Loader2 } from 'lucide-react';
 
 const AppContent: React.FC = () => {
@@ -65,6 +66,7 @@ const AppContent: React.FC = () => {
               <Route path="/admin" element={user?.isAdmin ? <AdminPage /> : <Navigate to="/" />} />
               <Route path="/my-applications" element={user ? <MyApplicationsPage /> : <Navigate to="/" />} />
               <Route path="/profile" element={user ? <ProfilePage /> : <Navigate to="/" />} />
+              <Route path="/auth/callback" element={<AuthCallbackPage />} />
               
               <Route 
                 path="/health-check" 
