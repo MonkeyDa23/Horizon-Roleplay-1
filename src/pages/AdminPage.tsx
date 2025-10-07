@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useLocalization } from '../hooks/useLocalization';
@@ -21,7 +22,7 @@ import {
   resetUserSubmission,
 } from '../lib/api';
 // FIX: Import 'Product' type to resolve reference error.
-import type { Quiz, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule, User, Product } from '../types';
+import type { Quiz, QuizQuestion, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule, User, Product } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store, AlertTriangle, RefreshCw, Filter, ArrowUp, ArrowDown } from 'lucide-react';
 import Modal from '../components/Modal';
@@ -273,6 +274,37 @@ const AdminPage: React.FC = () => {
           }
       }
   };
+
+  const handleQuizFieldChange = useCallback((field: keyof Omit<Quiz, 'questions'>, value: any) => {
+    setEditingQuiz(prev => prev ? { ...prev, [field]: value } : null);
+  }, []);
+
+  const handleQuestionChange = useCallback((questionId: string, field: keyof QuizQuestion, value: string | number) => {
+    setEditingQuiz(prev => {
+        if (!prev) return null;
+        const updatedQuestions = prev.questions.map(q => {
+            if (q.id === questionId) {
+                return { ...q, [field]: field === 'timeLimit' ? parseInt(String(value), 10) || 0 : value };
+            }
+            return q;
+        });
+        return { ...prev, questions: updatedQuestions };
+    });
+  }, []);
+
+  const handleAddQuestion = useCallback(() => {
+    const newQuestion: QuizQuestion = {
+        id: `q_${Date.now()}`,
+        textKey: '',
+        timeLimit: 60,
+    };
+    setEditingQuiz(prev => prev ? { ...prev, questions: [...prev.questions, newQuestion] } : null);
+  }, []);
+
+  const handleDeleteQuestion = useCallback((questionId: string) => {
+    setEditingQuiz(prev => prev ? { ...prev, questions: prev.questions.filter(q => q.id !== questionId) } : null);
+  }, []);
+
 
   if (isPageLoading) {
     return (
@@ -598,17 +630,66 @@ const AdminPage: React.FC = () => {
       </div>
       
       {editingQuiz && <Modal isOpen={!!editingQuiz} onClose={() => setEditingQuiz(null)} title={editingQuiz.id ? t('edit_quiz') : t('create_new_quiz')}>
-        <div className="space-y-4 text-white">
-             <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_title')}</label><input type="text" value={editingQuiz.titleKey} onChange={(e) => setEditingQuiz({...editingQuiz, titleKey: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
-             <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_handler_roles')}</label><input type="text" placeholder="e.g. 123,456" value={(editingQuiz.allowedTakeRoles || []).join(',')} onChange={(e) => setEditingQuiz({...editingQuiz, allowedTakeRoles: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /><p className="text-xs text-gray-400 mt-1">{t('quiz_handler_roles_desc')}</p></div>
-             <div className="flex items-center gap-4 pt-2">
-                <label className="font-semibold text-gray-300">{t('status')}:</label>
-                <button onClick={() => setEditingQuiz({...editingQuiz, isOpen: !editingQuiz.isOpen})}
-                  className={`px-4 py-1 rounded-full font-bold ${editingQuiz.isOpen ? 'bg-green-500/30 text-green-300' : 'bg-red-500/30 text-red-300'}`}>
-                  {editingQuiz.isOpen ? t('open') : t('closed')}
-                </button>
-             </div>
-            <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4"><button onClick={() => setEditingQuiz(null)} disabled={isSaving} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button><button onClick={handleSaveQuiz} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white min-w-[8rem] flex justify-center">{isSaving ? <Loader2 className="animate-spin"/> : t('save_quiz')}</button></div>
+        <div className="space-y-6 text-white max-h-[80vh] overflow-y-auto pr-4 -mr-4">
+          {/* Basic Quiz Info */}
+          <div className="space-y-4">
+            <div>
+              <label className="block mb-1 font-semibold text-gray-300">{t('quiz_title')}</label>
+              <input type="text" placeholder="e.g. quiz_police_name" value={editingQuiz.titleKey} onChange={(e) => handleQuizFieldChange('titleKey', e.target.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan" />
+            </div>
+            <div>
+              <label className="block mb-1 font-semibold text-gray-300">{t('quiz_description')}</label>
+              <input type="text" placeholder="e.g. quiz_police_desc" value={editingQuiz.descriptionKey} onChange={(e) => handleQuizFieldChange('descriptionKey', e.target.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan" />
+            </div>
+            <div>
+              <label className="block mb-1 font-semibold text-gray-300">{t('quiz_handler_roles')}</label>
+              <input type="text" placeholder="e.g. 123456789,987654321" value={(editingQuiz.allowedTakeRoles || []).join(',')} onChange={(e) => handleQuizFieldChange('allowedTakeRoles', e.target.value.split(',').map(s=>s.trim()).filter(Boolean))} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan" />
+              <p className="text-xs text-gray-400 mt-1">{t('quiz_handler_roles_desc')}</p>
+            </div>
+            <div className="flex items-center gap-4 pt-2">
+              <label className="font-semibold text-gray-300">{t('status')}:</label>
+              <button onClick={() => handleQuizFieldChange('isOpen', !editingQuiz.isOpen)} className={`px-4 py-1 rounded-full font-bold ${editingQuiz.isOpen ? 'bg-green-500/30 text-green-300' : 'bg-red-500/30 text-red-300'}`}>
+                {editingQuiz.isOpen ? t('open') : t('closed')}
+              </button>
+            </div>
+          </div>
+
+          {/* Questions Management */}
+          <div className="border-t border-brand-light-blue/50 pt-6">
+            <h3 className="text-xl font-bold text-brand-cyan mb-4">{t('quiz_questions')}</h3>
+            <div className="space-y-4">
+              {editingQuiz.questions.map((q, index) => (
+                <div key={q.id} className="bg-brand-dark p-4 rounded-lg border border-brand-light-blue/50">
+                  <div className="flex justify-between items-center mb-3">
+                    <label className="font-bold text-gray-300">{t('question')} {index + 1}</label>
+                    <button onClick={() => handleDeleteQuestion(q.id)} className="text-red-500 hover:text-red-400">
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="md:col-span-2">
+                      <label className="block mb-1 text-sm font-semibold text-gray-400">{t('question_text')}</label>
+                      <input type="text" placeholder="e.g. q_police_1" value={q.textKey} onChange={(e) => handleQuestionChange(q.id, 'textKey', e.target.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan" />
+                    </div>
+                    <div>
+                      <label className="block mb-1 text-sm font-semibold text-gray-400">{t('time_limit_seconds')}</label>
+                      <input type="number" value={q.timeLimit} onChange={(e) => handleQuestionChange(q.id, 'timeLimit', e.target.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button onClick={handleAddQuestion} className="mt-4 w-full flex items-center justify-center gap-2 bg-brand-dark-blue/80 hover:bg-brand-light-blue/50 border-2 border-dashed border-brand-light-blue text-gray-300 font-bold py-2 px-4 rounded-md transition-colors">
+              <Plus size={20} />
+              {t('add_question')}
+            </button>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-4 pt-6 border-t border-brand-light-blue/50">
+            <button onClick={() => setEditingQuiz(null)} disabled={isSaving} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button>
+            <button onClick={handleSaveQuiz} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white min-w-[8rem] flex justify-center">{isSaving ? <Loader2 className="animate-spin"/> : t('save_quiz')}</button>
+          </div>
         </div>
       </Modal>}
 
