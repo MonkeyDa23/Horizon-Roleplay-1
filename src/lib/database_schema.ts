@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS public.config (
     id bigint PRIMARY KEY DEFAULT 1,
     "COMMUNITY_NAME" text,
     "LOGO_URL" text,
+    "DISCORD_GUILD_ID" text,
     "DISCORD_INVITE_URL" text,
     "MTA_SERVER_URL" text,
     "BACKGROUND_IMAGE_URL" text,
@@ -88,9 +89,13 @@ CREATE POLICY "Allow super admin update access" ON public.config
   );
 
 -- Insert a default config row if it doesn't exist
-INSERT INTO public.config (id, "COMMUNITY_NAME", "SHOW_HEALTH_CHECK", "SUPER_ADMIN_ROLE_IDS") 
-VALUES (1, 'Horizon RP', true, '{}')
-ON CONFLICT (id) DO NOTHING;
+INSERT INTO public.config (id, "COMMUNITY_NAME", "DISCORD_GUILD_ID", "SHOW_HEALTH_CHECK", "SUPER_ADMIN_ROLE_IDS") 
+VALUES (1, 'Horizon RP', 'YOUR_DISCORD_GUILD_ID_HERE', true, '{}')
+ON CONFLICT (id) DO UPDATE SET
+    "COMMUNITY_NAME" = COALESCE(public.config."COMMUNITY_NAME", 'Horizon RP'),
+    "DISCORD_GUILD_ID" = COALESCE(public.config."DISCORD_GUILD_ID", 'YOUR_DISCORD_GUILD_ID_HERE'),
+    "SHOW_HEALTH_CHECK" = COALESCE(public.config."SHOW_HEALTH_CHECK", true),
+    "SUPER_ADMIN_ROLE_IDS" = COALESCE(public.config."SUPER_ADMIN_ROLE_IDS", '{}');
 
 
 -- =============================================================================

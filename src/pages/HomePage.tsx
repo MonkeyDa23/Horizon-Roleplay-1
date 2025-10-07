@@ -45,7 +45,7 @@ const HomePage: React.FC = () => {
 
       <div className="container mx-auto px-6 py-16 space-y-20">
         <MtaServerStatus />
-        <DiscordAnnouncements />
+        {/* Removed DiscordAnnouncements to avoid showing mock data */}
       </div>
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={t('join_modal_title')}>

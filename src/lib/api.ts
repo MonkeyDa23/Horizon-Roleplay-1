@@ -12,10 +12,6 @@ export class ApiError extends Error {
   }
 }
 
-// In a real app, this would be a server-side configuration.
-// For the demo, we need it client-side for the Discord API call.
-const DISCORD_GUILD_ID = '1422936346233933980'; 
-
 // --- PUBLIC READ-ONLY FUNCTIONS ---
 
 export const getConfig = async (): Promise<AppConfig> => {
@@ -186,8 +182,11 @@ export const logAdminAccess = async (user: User): Promise<void> => {
  * access token in network requests. For production, this logic should be moved
  * to a secure backend (e.g., a Supabase Edge Function) that uses a bot token.
  */
-const fetchDiscordMember = async (providerToken: string): Promise<{ roles: string[], discordRoles: DiscordRole[] }> => {
-    const url = `https://discord.com/api/users/@me/guilds/${DISCORD_GUILD_ID}/member`;
+const fetchDiscordMember = async (providerToken: string, guildId: string): Promise<{ roles: string[], discordRoles: DiscordRole[] }> => {
+    if (!guildId) {
+        throw new ApiError("Discord Guild ID is not configured in the database.", 500);
+    }
+    const url = `https://discord.com/api/users/@me/guilds/${guildId}/member`;
     const response = await fetch(url, {
         headers: { 'Authorization': `Bearer ${providerToken}` }
     });
@@ -199,7 +198,7 @@ const fetchDiscordMember = async (providerToken: string): Promise<{ roles: strin
 
     // Fetch all guild roles to get color/name info
     // This part would ideally be cached in a real app
-    const guildRolesResponse = await fetch(`https://discord.com/api/guilds/${DISCORD_GUILD_ID}/roles`, {
+    const guildRolesResponse = await fetch(`https://discord.com/api/guilds/${guildId}/roles`, {
       headers: { 'Authorization': `Bearer ${providerToken}` }
     });
     // FIX: Explicitly type the response from the Discord API to resolve errors with properties on 'unknown' type.
@@ -222,9 +221,9 @@ export const fetchUserProfile = async (session: Session): Promise<User> => {
     const providerToken = session.provider_token;
     if (!providerToken) throw new ApiError("Discord provider token not found.", 401);
 
-    const { roles, discordRoles } = await fetchDiscordMember(providerToken);
-    
     const config = await getConfig();
+    const { roles, discordRoles } = await fetchDiscordMember(providerToken, config.DISCORD_GUILD_ID);
+    
     const superAdminRoles = config.SUPER_ADMIN_ROLE_IDS || [];
 
     const isSuperAdmin = roles.some(roleId => superAdminRoles.includes(roleId));

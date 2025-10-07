@@ -21,7 +21,7 @@ export interface DiscordRole {
 }
 
 export interface User {
-  id: string;
+  id:string;
   username: string;
   avatar: string;
   isAdmin: boolean;
@@ -163,6 +163,7 @@ export interface MtaLogEntry {
 export interface AppConfig {
     COMMUNITY_NAME: string;
     LOGO_URL: string;
+    DISCORD_GUILD_ID: string;
     DISCORD_INVITE_URL: string;
     MTA_SERVER_URL: string;
     BACKGROUND_IMAGE_URL: string;

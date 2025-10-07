@@ -46,24 +46,15 @@ const HealthCheckPage: React.FC = () => {
       checks.env['VITE_SUPABASE_URL'] = supabaseUrl ? '✅ Set' : '❌ Not Set';
       checks.env['VITE_SUPABASE_ANON_KEY'] = supabaseAnonKey ? '✅ Set' : '❌ Not Set';
       
+      // 2. Set Redirect URL for Supabase settings. This must be the origin of the app.
+      checks.urls.redirect_uri = window.location.origin;
+      
       if (!supabase) {
         checks.supabase.status = '⚠️ Disabled';
         checks.supabase.error = 'Supabase environment variables (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY) are not set.';
-        checks.urls.redirect_uri = 'N/A (Supabase not configured)';
         setData(checks);
         setLoading(false);
         return;
-      }
-
-      // 2. Set URLs (can assume supabaseUrl exists if supabase client does)
-      try {
-        const url = new URL(supabaseUrl);
-        const projectRef = url.hostname.split('.')[0];
-        checks.urls.redirect_uri = projectRef 
-          ? `https://{your-supabase-project-ref}.supabase.co/auth/v1/callback`.replace('{your-supabase-project-ref}', projectRef)
-          : "Could not determine project ref from URL.";
-      } catch (e) {
-          checks.urls.redirect_uri = "Invalid Supabase URL format in .env file."
       }
 
       // 3. Check Supabase Connection

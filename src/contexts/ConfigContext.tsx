@@ -11,6 +11,7 @@ interface ConfigContextType {
 const defaultConfig: AppConfig = {
     COMMUNITY_NAME: 'Horizon',
     LOGO_URL: '',
+    DISCORD_GUILD_ID: '',
     DISCORD_INVITE_URL: '',
     MTA_SERVER_URL: '',
     BACKGROUND_IMAGE_URL: '',

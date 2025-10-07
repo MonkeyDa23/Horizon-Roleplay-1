@@ -90,11 +90,7 @@ const AppContent: React.FC = () => {
               
               <Route 
                 path="/health-check" 
-                element={
-                  (config.SHOW_HEALTH_CHECK || user?.isAdmin) 
-                  ? <HealthCheckPage /> 
-                  : <Navigate to="/" />
-                } 
+                element={<HealthCheckPage />} 
               />
             </Routes>
           </main>
