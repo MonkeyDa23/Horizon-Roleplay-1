@@ -124,7 +124,6 @@ const HealthCheckPage: React.FC = () => {
               <h3 className="text-2xl font-bold text-brand-cyan mb-4">Vercel Environment Variables</h3>
               <p className="text-sm text-gray-400 mb-4">Checks if the required secrets are set in your Vercel project settings.</p>
               <ul className="space-y-2">
-                {/* FIX: Cast value from Object.entries to string to resolve type errors. */}
                 {Object.entries(data.env).map(([key, value]) => {
                   const strValue = value as string;
                   return (

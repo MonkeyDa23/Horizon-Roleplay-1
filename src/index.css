@@ -1,4 +1,49 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.app-container {
+    position: relative;
+    overflow: hidden;
+}
+
+.app-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 0;
+    background: radial-gradient(circle at 25% 25%, rgba(0, 242, 234, 0.05), transparent 30%),
+                radial-gradient(circle at 75% 75%, rgba(0, 242, 234, 0.05), transparent 30%);
+    animation: move-glow 20s linear infinite;
+}
+
+@keyframes move-glow {
+    0% {
+        background-position: 0% 0%;
+    }
+    50% {
+        background-position: 100% 100%;
+    }
+    100% {
+        background-position: 0% 0%;
+    }
+}
+
+
+@keyframes question-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-question-fade-in {
+  animation: question-fade-in 0.5s ease-out forwards;
+}

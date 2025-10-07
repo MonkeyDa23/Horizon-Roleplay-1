@@ -1,3 +1,5 @@
+import { staticConfig } from "./lib/config";
+
 export type Language = 'ar' | 'en';
 
 export interface Translations {
@@ -13,19 +15,18 @@ export interface LocalizationContextType {
   dir: 'rtl' | 'ltr';
 }
 
-export interface DiscordRole {
-  id: string;
-  name: string;
-  color: string;
-}
-
 export interface User {
   id: string;
   username: string;
   avatar: string;
-  isAdmin: boolean; // True if user has ANY admin role (super or handler)
-  roles: string[]; // Array of Discord Role IDs
-  primaryRole?: DiscordRole | null;
+  isAdmin: boolean;
+  roles: string[];
+  primaryRole?: {
+    id: string;
+    name: string;
+    color: string;
+  };
+  ipAddress?: string;
 }
 
 export interface AuthContextType {
@@ -33,13 +34,23 @@ export interface AuthContextType {
   login: () => void;
   logout: () => void;
   loading: boolean;
+  updateUser: (user: User) => void;
 }
+
+export interface AppConfig extends Omit<typeof staticConfig, 'LOGO_URL'> {
+  LOGO_URL: string;
+  SUPER_ADMIN_ROLE_IDS: string[];
+  DISCORD_CLIENT_ID: string;
+  DISCORD_GUILD_ID: string;
+  BACKGROUND_IMAGE_URL?: string;
+}
+
 
 // Store & Cart
 export interface Product {
   id: string;
-  nameKey: string; // Key for translation
-  descriptionKey: string; // Key for translation
+  nameKey: string;
+  descriptionKey: string;
   price: number;
   imageUrl: string;
 }
@@ -58,39 +69,23 @@ export interface CartContextType {
   totalPrice: number;
 }
 
-// MTA Server
-export interface MtaServerStatus {
-  name: string;
-  players: number;
-  maxPlayers: number;
-}
-
-export interface Rule {
-  id: string;
-  textKey: string;
-}
-
-export interface RuleCategory {
-  id: string;
-  titleKey: string;
-  rules: Rule[];
-}
-
 // Quiz & Application System
 export interface QuizQuestion {
   id: string;
-  textKey: string; // Key for translation
+  textKey: string;
   timeLimit: number; // in seconds
 }
 
 export interface Quiz {
   id: string;
-  titleKey: string; // Key for translation
-  descriptionKey: string; // These are the rules shown before starting
+  titleKey: string;
+  descriptionKey: string;
   questions: QuizQuestion[];
   isOpen: boolean;
-  allowedTakeRoles?: string[]; // Role IDs that can process this quiz's submissions
-  lastOpenedAt?: string; // Timestamp for when the quiz was last opened
+  logoUrl?: string;
+  bannerUrl?: string;
+  allowedTakeRoles?: string[];
+  lastOpenedAt?: string;
 }
 
 export interface Answer {
@@ -101,6 +96,11 @@ export interface Answer {
 
 export type SubmissionStatus = 'pending' | 'taken' | 'accepted' | 'refused';
 
+export interface CheatAttempt {
+    method: string;
+    timestamp: string;
+}
+
 export interface QuizSubmission {
   id: string;
   quizId: string;
@@ -110,14 +110,35 @@ export interface QuizSubmission {
   answers: Answer[];
   submittedAt: string;
   status: SubmissionStatus;
-  adminId?: string; // ID of the admin who claimed/handled it
-  adminUsername?: string; // Username of the admin
+  adminId?: string;
+  adminUsername?: string;
+  cheatAttempts?: CheatAttempt[];
 }
 
+// Admin & Rules
 export interface AuditLogEntry {
-  id:string;
-  adminId: string;
-  adminUsername: string;
-  timestamp: string;
-  action: string;
+    id: string;
+    timestamp: string;
+    adminId: string;
+    adminUsername: string;
+    action: string;
+    ipAddress?: string;
+}
+
+export interface Rule {
+    id: string;
+    textKey: string;
+}
+
+export interface RuleCategory {
+    id: string;
+    titleKey: string;
+    rules: Rule[];
+}
+
+// MTA Server
+export interface MtaServerStatus {
+    name: string;
+    players: number;
+    maxPlayers: number;
 }

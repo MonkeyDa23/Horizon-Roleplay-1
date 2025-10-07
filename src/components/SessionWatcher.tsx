@@ -44,7 +44,7 @@ const SessionWatcher = () => {
                 const errorStatus = (error as any)?.status;
                 // If user is not found in guild or unauthorized, log them out.
                 if (errorStatus === 404 || errorStatus === 403) {
-                    showToast('Your session has expired as you are no longer in the Discord server.', 'error');
+                    showToast(t('session_expired_not_in_guild'), 'error');
                     logout();
                 }
             }

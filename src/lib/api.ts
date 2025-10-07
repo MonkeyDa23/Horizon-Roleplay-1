@@ -1,75 +1,127 @@
-// src/lib/api.ts
-import type { Product, Quiz, QuizSubmission, SubmissionStatus, User, AuditLogEntry, RuleCategory, MtaServerStatus } from '../types';
-import type { AppConfig } from './config';
+import type { Quiz, QuizSubmission, User, RuleCategory, Product, AuditLogEntry, MtaServerStatus, SubmissionStatus, AppConfig } from '../types';
 
+// --- API Error Handling ---
 export class ApiError extends Error {
-    status: number;
-    data: any;
-
-    constructor(message: string, status: number, data: any) {
-        super(message);
-        this.name = 'ApiError';
-        this.status = status;
-        this.data = data;
-    }
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
 }
 
-const handleResponse = async (response: Response) => {
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: response.statusText }));
-        throw new ApiError(errorData.message || 'An unknown API error occurred', response.status, errorData);
-    }
-    return response.status === 204 ? null : response.json();
+async function fetchApi<T>(url: string, options: RequestInit = {}): Promise<T> {
+  const response = await fetch(url, options);
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({ message: response.statusText }));
+    throw new ApiError(errorData.message || 'An unknown API error occurred', response.status);
+  }
+  const contentType = response.headers.get("content-type");
+  if (contentType && contentType.indexOf("application/json") !== -1) {
+    return response.json();
+  } else {
+    return Promise.resolve(null as T);
+  }
+}
+
+// --- Public Routes ---
+export const getPublicConfig = (): Promise<AppConfig> => fetchApi('/api/config');
+export const getMtaServerStatus = (): Promise<MtaServerStatus> => fetchApi('/api/mta/status');
+export const getDiscordStats = (): Promise<{ onlineCount: number, totalCount: number }> => fetchApi('/api/discord/stats');
+export const getProducts = (): Promise<Product[]> => fetchApi('/api/products');
+export const getQuizzes = (): Promise<Quiz[]> => fetchApi('/api/quizzes');
+export const getQuizById = (id: string): Promise<Quiz> => fetchApi(`/api/quizzes/${id}`);
+export const getRules = (): Promise<RuleCategory[]> => fetchApi('/api/rules');
+
+// --- User/Submission Routes ---
+export const addSubmission = (submission: Partial<QuizSubmission>): Promise<QuizSubmission> => {
+    return fetchApi('/api/submissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(submission),
+    });
 };
 
-const get = <T>(endpoint: string): Promise<T> => fetch(endpoint).then(res => handleResponse(res));
-const post = <T>(endpoint: string, body: any): Promise<T> => fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(res => handleResponse(res));
-const put = <T>(endpoint: string, body: any): Promise<T> => fetch(endpoint, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(res => handleResponse(res));
-const del = <T>(endpoint: string, body?: any): Promise<T> => fetch(endpoint, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }).then(res => handleResponse(res));
+export const getSubmissionsByUserId = (userId: string): Promise<QuizSubmission[]> => fetchApi(`/api/submissions/user/${userId}`);
 
+// --- Authenticated Routes ---
+export const revalidateSession = (user: User): Promise<User> => {
+    return fetchApi('/api/session/revalidate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user }),
+    });
+};
 
-// --- Public API Functions ---
+// --- Admin Routes ---
 
-// Config
-export const getPublicConfig = (): Promise<Partial<AppConfig> & { SUPER_ADMIN_ROLE_IDS?: string[] }> => get('/api/config');
+const getAuthHeaders = (user: User) => ({
+    'Content-Type': 'application/json',
+    'x-user-id': user.id,
+    'x-user-roles': user.roles.join(','),
+});
 
+export const logAdminAccess = (user: User): Promise<void> => {
+    return fetchApi('/api/admin/access-log', {
+        method: 'POST',
+        headers: getAuthHeaders(user),
+    });
+};
 
-// Read-only data
-export const getProducts = (): Promise<Product[]> => get('/api/products');
-export const getRules = (): Promise<RuleCategory[]> => get('/api/rules');
-export const getQuizzes = (): Promise<Quiz[]> => get('/api/quizzes');
-export const getQuizById = (id: string): Promise<Quiz | undefined> => get(`/api/quizzes/${id}`);
-export const getMtaServerStatus = (): Promise<MtaServerStatus> => get('/api/mta-status');
+export const getSubmissions = (user: User): Promise<QuizSubmission[]> => fetchApi('/api/submissions', { headers: getAuthHeaders(user) });
 
-// Submissions
-export const getSubmissionsByUserId = (userId: string): Promise<QuizSubmission[]> => get(`/api/users/${userId}/submissions`);
-export const addSubmission = (submissionData: Omit<QuizSubmission, 'id' | 'status'>): Promise<void> => post('/api/submissions', submissionData);
+export const updateSubmissionStatus = (submissionId: string, status: SubmissionStatus, user: User): Promise<QuizSubmission> => {
+    return fetchApi(`/api/submissions/${submissionId}/status`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(user),
+        body: JSON.stringify({ status, adminId: user.id, adminUsername: user.username }),
+    });
+};
 
-// Admin-only data fetching
-export const getSubmissions = (user: User): Promise<QuizSubmission[]> => post('/api/admin/submissions', { user });
-export const getAuditLogs = (user: User): Promise<AuditLogEntry[]> => post('/api/admin/audit-logs', { user });
+export const saveQuiz = (quiz: Quiz, user: User): Promise<Quiz> => {
+    return fetchApi('/api/quizzes', {
+        method: 'POST',
+        headers: getAuthHeaders(user),
+        body: JSON.stringify(quiz),
+    });
+};
 
+export const deleteQuiz = (quizId: string, user: User): Promise<void> => {
+    return fetchApi(`/api/quizzes/${quizId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(user),
+    });
+};
 
-// Admin actions
-export const updateSubmissionStatus = (submissionId: string, status: SubmissionStatus, admin: User): Promise<QuizSubmission> => {
-    return put(`/api/admin/submissions/${submissionId}/status`, { status, admin });
-}
-export const resetUserSubmission = (quizId: string, userId: string, admin: User): Promise<void> => {
-    return del('/api/admin/submissions/reset', { quizId, userId, admin });
-}
+export const getAuditLogs = (user: User): Promise<AuditLogEntry[]> => fetchApi('/api/audit-logs', { headers: getAuthHeaders(user) });
 
+export const saveRules = (rules: RuleCategory[], user: User): Promise<void> => {
+    return fetchApi('/api/rules', {
+        method: 'POST',
+        headers: getAuthHeaders(user),
+        body: JSON.stringify({ rules }),
+    });
+};
 
-// Admin - Quizzes
-export const saveQuiz = (quiz: Quiz, admin: User): Promise<Quiz> => post('/api/admin/quizzes', { quiz, admin });
-export const deleteQuiz = (quizId: string, admin: User): Promise<void> => del(`/api/admin/quizzes/${quizId}`, { admin });
+export const saveProduct = (product: Product, user: User): Promise<Product> => {
+    return fetchApi('/api/products', {
+        method: 'POST',
+        headers: getAuthHeaders(user),
+        body: JSON.stringify(product),
+    });
+};
 
-// Admin - Rules
-export const saveRules = (rules: RuleCategory[], admin: User): Promise<RuleCategory[]> => post('/api/admin/rules', { rules, admin });
+export const deleteProduct = (productId: string, user: User): Promise<void> => {
+    return fetchApi(`/api/products/${productId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(user),
+    });
+};
 
-// Admin - Products
-export const saveProduct = (product: Product, admin: User): Promise<Product> => post('/api/admin/products', { product, admin });
-export const deleteProduct = (productId: string, admin: User): Promise<void> => del(`/api/admin/products/${productId}`, { admin });
-
-// Admin - General
-export const revalidateSession = (user: User): Promise<User> => post('/api/auth/session', { user });
-export const logAdminAccess = (admin: User): Promise<void> => post('/api/admin/log-access', { admin });
+export const updatePublicConfig = (config: Partial<AppConfig>, user: User): Promise<void> => {
+    return fetchApi('/api/admin/config', {
+        method: 'POST',
+        headers: getAuthHeaders(user),
+        body: JSON.stringify(config)
+    });
+};

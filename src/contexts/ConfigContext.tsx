@@ -1,23 +1,26 @@
 import React, { createContext, useState, useEffect, useMemo } from 'react';
-import { staticConfig, AppConfig } from '../lib/config';
+import { staticConfig } from '../lib/config';
 import { getPublicConfig } from '../lib/api';
-
-interface ExtendedAppConfig extends AppConfig {
-    SUPER_ADMIN_ROLE_IDS?: string[];
-}
+import type { AppConfig } from '../types';
 
 interface ConfigContextType {
-  config: ExtendedAppConfig;
+  config: AppConfig;
   configLoading: boolean;
 }
 
 export const ConfigContext = createContext<ConfigContextType>({
-  config: staticConfig,
+  config: { 
+    ...staticConfig, 
+    SUPER_ADMIN_ROLE_IDS: [], 
+    DISCORD_CLIENT_ID: '', 
+    DISCORD_GUILD_ID: '',
+    LOGO_URL: staticConfig.LOGO_URL,
+  },
   configLoading: true,
 });
 
 export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [remoteConfig, setRemoteConfig] = useState<Partial<ExtendedAppConfig>>({});
+  const [remoteConfig, setRemoteConfig] = useState<Partial<AppConfig>>({});
   const [configLoading, setConfigLoading] = useState(true);
 
   useEffect(() => {
@@ -37,7 +40,7 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const mergedConfig = useMemo(() => {
     // Remote config from the API overrides the local static fallback values.
-    return { ...staticConfig, ...remoteConfig };
+    return { ...staticConfig, ...remoteConfig } as AppConfig;
   }, [remoteConfig]);
 
   return (

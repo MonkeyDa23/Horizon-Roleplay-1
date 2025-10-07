@@ -1,15 +1,6 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
-import type { User } from '../types';
+import type { User, AuthContextType } from '../types';
 import { useConfig } from '../hooks/useConfig';
-
-// This matches the type expected by useAuth hook
-interface AuthContextType {
-  user: User | null;
-  login: () => void;
-  logout: () => void;
-  loading: boolean;
-  updateUser: (user: User) => void;
-}
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
