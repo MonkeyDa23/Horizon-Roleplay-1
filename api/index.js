@@ -1,3 +1,4 @@
+
 import express from 'express';
 import axios from 'axios';
 import cors from 'cors';
@@ -63,17 +64,37 @@ const sendDm = async (userId, messagePayload) => {
     }
 };
 
-const logToDiscord = async (action, admin, details = '') => {
+const logToDiscord = async (action, admin, details) => {
     const config = await getRuntimeConfig();
     if (!config.AUDIT_LOG_CHANNEL_ID) return;
-    
+
+    let color = 0x3498DB; // Default blue for updates/info
+    const lowerCaseAction = action.toLowerCase();
+    if (lowerCaseAction.includes('delete') || lowerCaseAction.includes('reset') || lowerCaseAction.includes('refuse')) color = 0xE74C3C; // Red
+    if (lowerCaseAction.includes('create') || lowerCaseAction.includes('accept') || lowerCaseAction.includes('open')) color = 0x2ECC71; // Green
+    if (lowerCaseAction.includes('access')) color = 0x95A5A6; // Gray
+
     const embed = {
-        title: 'Audit Log Event',
-        description: `**Action:** ${action}\n**Admin:** ${admin.username} (${admin.id}) ${details ? `\n**Details:** ${details}` : ''}`,
-        color: 0x00f2ea, // Cyan
+        title: `Audit Log: ${action}`,
+        author: {
+            name: `${admin.username} (${admin.id})`,
+            icon_url: admin.avatar,
+        },
+        fields: [],
+        color: color,
         timestamp: new Date().toISOString(),
-        footer: { text: config.COMMUNITY_NAME },
+        footer: { text: config.COMMUNITY_NAME, icon_url: config.LOGO_URL },
     };
+
+    if (details) {
+        for (const [key, value] of Object.entries(details)) {
+            if (value) { // Only add fields that have a value
+                const fieldName = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+                embed.fields.push({ name: fieldName, value: `\`${String(value)}\``, inline: String(value).length < 25 });
+            }
+        }
+    }
+
     await sendDiscordMessage(config.AUDIT_LOG_CHANNEL_ID, { embeds: [embed] });
 };
 
@@ -100,8 +121,8 @@ async function getGuildMember(userId, config) {
     return data;
 }
 
-function getUserAvatar(member) {
-    const config = getRuntimeConfig();
+async function getUserAvatar(member) {
+    const config = await getRuntimeConfig();
     if (member.avatar) {
         return `https://cdn.discordapp.com/guilds/${config.DISCORD_GUILD_ID}/users/${member.user.id}/avatars/${member.avatar}.png`;
     }
@@ -111,14 +132,17 @@ function getUserAvatar(member) {
     return `https://cdn.discordapp.com/embed/avatars/${(parseInt(member.user.id.slice(-1))) % 5}.png`;
 }
 
-const addAuditLog = async (admin, action) => {
+const addAuditLog = async (admin, action, details = {}) => {
+  const simplifiedAction = `${action}${Object.values(details).length > 0 ? `: ${Object.values(details).join(', ')}` : ''}`;
+
   const { error } = await supabase.from('audit_logs').insert({
     adminId: admin.id,
     adminUsername: admin.username,
-    action,
+    action: simplifiedAction,
   });
-  if (error) console.error('Failed to add audit log:', error);
-  await logToDiscord(action.split('.')[0], admin, action);
+  if (error) console.error('Failed to add audit log to Supabase:', error);
+
+  await logToDiscord(action, admin, details);
 };
 
 const app = express();
@@ -140,7 +164,7 @@ const verifyAdmin = async (req, res, next) => {
         return res.status(403).json({ message: 'Forbidden: You do not have an admin role.' });
     }
     
-    req.adminUser = { id: member.user.id, username: member.user.global_name || member.user.username, roles: userRoles };
+    req.adminUser = { id: member.user.id, username: member.user.global_name || member.user.username, roles: userRoles, avatar: await getUserAvatar(member) };
     next();
   } catch (error) {
     console.error("Admin verification failed:", error.response?.data || error.message);
@@ -215,7 +239,7 @@ app.post('/api/auth/session', async (req, res) => {
     const freshUser = {
         id: member.user.id,
         username: member.user.global_name || member.user.username,
-        avatar: getUserAvatar(member),
+        avatar: await getUserAvatar(member),
         isAdmin: userRoles.some(roleId => config.ALL_ADMIN_ROLE_IDS.includes(roleId)),
         roles: userRoles,
         primaryRole: primaryRole ? { id: primaryRole.id, name: primaryRole.name, color: `#${parseInt(primaryRole.color).toString(16).padStart(6, '0')}` } : null,
@@ -284,7 +308,7 @@ app.post('/api/submissions', async (req, res) => {
     
     const config = await getRuntimeConfig();
     const member = await getGuildMember(newSubmission.userId, config);
-    const avatarUrl = getUserAvatar(member);
+    const avatarUrl = await getUserAvatar(member);
 
     // 1. DM to user
     await sendDm(newSubmission.userId, {
@@ -303,17 +327,23 @@ app.post('/api/submissions', async (req, res) => {
 
     // 2. Notification to admin channel
     if (config.SUBMISSIONS_CHANNEL_ID) {
-        const handlerRole = (await getGuildRoles(config)).find(r => config.ALL_ADMIN_ROLE_IDS.includes(r.id));
+        const handlerRoles = config.HANDLER_ROLE_IDS;
+        const mention = handlerRoles.length > 0 ? handlerRoles.map(id => `<@&${id}>`).join(' ') : '';
+        
         await sendDiscordMessage(config.SUBMISSIONS_CHANNEL_ID, {
-            content: handlerRole ? `<@&${handlerRole.id}>` : '',
+            content: mention,
             embeds: [{
-                title: '📬 تقديم جديد',
-                description: `**${newSubmission.username}** (<@${newSubmission.userId}>) قدم طلبًا جديدًا.`,
+                author: {
+                    name: newSubmission.username,
+                    icon_url: avatarUrl,
+                },
+                title: '📬 تقديم جديد مستلم',
+                description: `تم استلام طلب تقديم جديد من <@${newSubmission.userId}> وهو جاهز للمراجعة.`,
+                url: `${config.APP_URL}/admin`,
                 color: 0x3498DB,
-                thumbnail: { url: avatarUrl },
                 fields: [
-                    { name: 'نوع التقديم', value: newSubmission.quizTitle, inline: true },
-                    { name: 'ID المستخدم', value: `\`${newSubmission.userId}\``, inline: true }
+                    { name: 'نوع التقديم', value: `**${newSubmission.quizTitle}**`, inline: true },
+                    { name: 'معرف المستخدم', value: `\`${newSubmission.userId}\``, inline: true }
                 ],
                 footer: { text: config.COMMUNITY_NAME, icon_url: config.LOGO_URL },
                 timestamp: new Date().toISOString(),
@@ -344,7 +374,7 @@ adminRouter.post('/submissions', async (req, res) => {
 });
 
 adminRouter.post('/log-access', async(req, res) => {
-    await addAuditLog(req.adminUser, 'Accessed the admin panel.');
+    await addAuditLog(req.adminUser, 'Accessed Admin Panel');
     res.status(204).send();
 });
 
@@ -376,21 +406,23 @@ adminRouter.put('/submissions/:id/status', async (req, res) => {
         .single();
     
     if (updateError) return res.status(500).json({ message: updateError.message });
-    await addAuditLog(admin, `Updated submission ${updatedSubmission.id} for ${updatedSubmission.username} to "${newStatus}"`);
+    
+    await addAuditLog(admin, 'Updated Submission Status', { applicant: updatedSubmission.username, quiz: updatedSubmission.quizTitle, newStatus: newStatus });
     
     const config = await getRuntimeConfig();
     const member = await getGuildMember(submission.userId, config);
-    const avatarUrl = getUserAvatar(member);
+    const avatarUrl = await getUserAvatar(member);
     
     const baseEmbed = {
         author: { name: submission.username, icon_url: avatarUrl },
         footer: { text: config.COMMUNITY_NAME, icon_url: config.LOGO_URL },
         timestamp: new Date().toISOString(),
+        fields: [{ name: 'تمت المراجعة بواسطة', value: admin.username, inline: false }]
     };
 
     let dmPayload = {};
     if (newStatus === 'taken') {
-        dmPayload = { embeds: [{ ...baseEmbed, title: '📝 تقديمك قيد المراجعة', description: `أهلاً ${submission.username}،\n\nيتم الآن مراجعة تقديمك لـ **${submission.quizTitle}** من قبل المشرف **${admin.username}**.`, color: 0xF1C40F }]};
+        dmPayload = { embeds: [{ ...baseEmbed, title: '📝 تقديمك قيد المراجعة', description: `أهلاً ${submission.username}،\n\nيتم الآن مراجعة تقديمك لـ **${submission.quizTitle}**.`, color: 0xF1C40F }]};
     } else if (newStatus === 'accepted') {
         dmPayload = { embeds: [{ ...baseEmbed, title: '🎉 تهانينا! تم قبول تقديمك', description: `أهلاً ${submission.username}،\n\nيسعدنا إخبارك بأنه تم **قبول** تقديمك لـ **${submission.quizTitle}**. مرحبًا بك!`, color: 0x2ECC71 }]};
     } else if (newStatus === 'refused') {
@@ -409,7 +441,7 @@ adminRouter.post('/products', verifySuperAdmin, async (req, res) => {
     const { product } = req.body;
     const { data, error } = await supabase.from('products').upsert(product).select().single();
     if (error) return res.status(500).json({ message: error.message });
-    await addAuditLog(req.adminUser, product.id ? `Updated product: "${product.nameKey}"` : `Created product: "${product.nameKey}"`);
+    await addAuditLog(req.adminUser, product.id ? 'Updated Product' : 'Created Product', { name: product.nameKey });
     res.status(200).json(data);
 });
 
@@ -417,7 +449,7 @@ adminRouter.delete('/products/:id', verifySuperAdmin, async (req, res) => {
     const { data: product } = await supabase.from('products').select('nameKey').eq('id', req.params.id).single();
     const { error } = await supabase.from('products').delete().eq('id', req.params.id);
     if (error) return res.status(500).json({ message: error.message });
-    if (product) await addAuditLog(req.adminUser, `Deleted product: "${product.nameKey}"`);
+    if (product) await addAuditLog(req.adminUser, 'Deleted Product', { name: product.nameKey });
     res.status(204).send();
 });
 
@@ -431,38 +463,40 @@ adminRouter.post('/rules', verifySuperAdmin, async (req, res) => {
     const rules = req.body.rules.flatMap(c => c.rules.map(r => ({ id: r.id, textKey: r.textKey, category_id: c.id })));
     await supabase.from('rules').insert(rules);
     
-    await addAuditLog(req.adminUser, `Updated the server rules.`); 
+    await addAuditLog(req.adminUser, 'Updated Server Rules'); 
     res.status(200).json(req.body.rules); 
 });
 
 adminRouter.post('/quizzes', verifySuperAdmin, async (req, res) => {
     const { quiz } = req.body;
     const { questions, ...quizData } = quiz;
+    let wasReopened = false;
 
-    // --- Automatic Submission Reset Logic ---
-    if (quiz.id) {
+    if (quiz.id) { // Existing quiz
         const { data: currentQuiz } = await supabase.from('quizzes').select('isOpen, titleKey').eq('id', quiz.id).single();
         if (currentQuiz && !currentQuiz.isOpen && quiz.isOpen) {
-            // The quiz is being re-opened. Delete all old submissions.
-            await supabase.from('submissions').delete().eq('quizId', quiz.id);
-            await addAuditLog(req.adminUser, `Re-opened quiz "${quiz.titleKey}", resetting all previous submissions.`);
+            wasReopened = true;
+            quizData.lastOpenedAt = new Date().toISOString();
             
-            // Announce re-opening
             const config = await getRuntimeConfig();
             if(config.SUBMISSIONS_CHANNEL_ID) {
+                const handlerRoles = config.HANDLER_ROLE_IDS;
+                const mention = handlerRoles.length > 0 ? handlerRoles.map(id => `<@&${id}>`).join(' ') : '@here';
+
                 await sendDiscordMessage(config.SUBMISSIONS_CHANNEL_ID, {
+                    content: mention,
                     embeds: [{
                         title: `📢 التقديمات مفتوحة الآن!`,
                         description: `تم فتح باب التقديم لـ **${quiz.titleKey}**.\n\nيمكن للجميع الآن التوجه للموقع وتقديم طلباتهم.`,
-                        color: 0x00f2ea, // Cyan
+                        color: 0x2ECC71,
                         footer: { text: config.COMMUNITY_NAME, icon_url: config.LOGO_URL },
                         timestamp: new Date().toISOString()
                     }],
                      components: [{
-                        type: 1, // Action Row
+                        type: 1,
                         components: [{
-                            type: 2, // Button
-                            style: 5, // Link
+                            type: 2,
+                            style: 5,
                             label: 'قدم الآن',
                             url: `${config.APP_URL}/applies`
                         }]
@@ -470,6 +504,9 @@ adminRouter.post('/quizzes', verifySuperAdmin, async (req, res) => {
                 });
             }
         }
+    } else if (quiz.isOpen) {
+        // It's a new quiz being created as open. Set timestamp for its first "season".
+        quizData.lastOpenedAt = new Date().toISOString();
     }
 
     const { data: savedQuiz, error } = await supabase.from('quizzes').upsert(quizData).select().single();
@@ -482,7 +519,12 @@ adminRouter.post('/quizzes', verifySuperAdmin, async (req, res) => {
         if (qError) return res.status(500).json({ message: qError.message });
     }
     
-    await addAuditLog(req.adminUser, quiz.id ? `Updated quiz: "${quiz.titleKey}"` : `Created quiz: "${quiz.titleKey}"`);
+    if (wasReopened) {
+        await addAuditLog(req.adminUser, 'Re-opened Quiz', { quiz: quiz.titleKey });
+    } else {
+        await addAuditLog(req.adminUser, quiz.id ? 'Updated Quiz' : 'Created Quiz', { name: quiz.titleKey });
+    }
+    
     res.status(200).json({ ...savedQuiz, questions });
 });
 
@@ -490,7 +532,7 @@ adminRouter.delete('/quizzes/:id', verifySuperAdmin, async (req, res) => {
     const { data: quiz } = await supabase.from('quizzes').select('titleKey').eq('id', req.params.id).single();
     const { error } = await supabase.from('quizzes').delete().eq('id', req.params.id);
     if (error) return res.status(500).json({ message: error.message });
-    if (quiz) await addAuditLog(req.adminUser, `Deleted quiz: "${quiz.titleKey}"`);
+    if (quiz) await addAuditLog(req.adminUser, 'Deleted Quiz', { name: quiz.titleKey });
     res.status(204).send();
 });
 
@@ -515,11 +557,11 @@ adminRouter.delete('/submissions/reset', verifySuperAdmin, async (req, res) => {
 
     if (deleteError) return res.status(500).json({ message: deleteError.message });
 
-    await addAuditLog(req.adminUser, `Reset application for user ${userId} on quiz ${submission.quizTitle} (${quizId})`);
+    await addAuditLog(req.adminUser, 'Reset User Application', { user: `${submission.username} (${userId})`, quiz: submission.quizTitle });
 
     const config = await getRuntimeConfig();
     const member = await getGuildMember(userId, config);
-    const avatarUrl = getUserAvatar(member);
+    const avatarUrl = await getUserAvatar(member);
 
     await sendDm(userId, {
         embeds: [{

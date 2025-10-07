@@ -90,6 +90,7 @@ export interface Quiz {
   questions: QuizQuestion[];
   isOpen: boolean;
   allowedTakeRoles?: string[]; // Role IDs that can process this quiz's submissions
+  lastOpenedAt?: string; // Timestamp for when the quiz was last opened
 }
 
 export interface Answer {

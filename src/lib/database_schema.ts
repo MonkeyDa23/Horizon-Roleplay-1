@@ -33,6 +33,7 @@ CREATE TABLE quizzes (
     "descriptionKey" TEXT,
     "isOpen" BOOLEAN DEFAULT FALSE,
     "allowedTakeRoles" TEXT[],
+    "lastOpenedAt" TIMESTAMPTZ DEFAULT NULL,
     "created_at" TIMESTAMPTZ DEFAULT NOW()
 );
 

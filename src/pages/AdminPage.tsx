@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useLocalization } from '../hooks/useLocalization';
 import { useToast } from '../hooks/useToast';
@@ -20,12 +20,15 @@ import {
   logAdminAccess,
   resetUserSubmission,
 } from '../lib/api';
-import type { Quiz, QuizQuestion, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule, Product, User } from '../types';
+// FIX: Import 'Product' type to resolve reference error.
+import type { Quiz, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule, User, Product } from '../types';
 import { useNavigate } from 'react-router-dom';
-import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store, AlertTriangle, RefreshCw } from 'lucide-react';
+import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store, AlertTriangle, RefreshCw, Filter, ArrowUp, ArrowDown } from 'lucide-react';
 import Modal from '../components/Modal';
 
 type AdminTab = 'submissions' | 'quizzes' | 'rules' | 'store' | 'audit';
+type SortableSubmissionKeys = keyof Pick<QuizSubmission, 'username' | 'quizTitle' | 'submittedAt' | 'status'>;
+
 
 const TABS: { id: AdminTab; labelKey: string; icon: React.ElementType; superAdminOnly: boolean }[] = [
   { id: 'submissions', labelKey: 'submission_management', icon: FileText, superAdminOnly: false },
@@ -64,6 +67,13 @@ const AdminPage: React.FC = () => {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const accessLoggedRef = useRef(false);
+
+  // State for submissions panel tools
+  const [currentPage, setCurrentPage] = useState(1);
+  const [filterStatus, setFilterStatus] = useState<SubmissionStatus | 'all'>('all');
+  const [sortConfig, setSortConfig] = useState<{ key: SortableSubmissionKeys; direction: 'asc' | 'desc' }>({ key: 'submittedAt', direction: 'desc' });
+  const ITEMS_PER_PAGE = 15;
+
 
   // State for the reset submission tool
   const [resetQuizId, setResetQuizId] = useState('');
@@ -140,7 +150,6 @@ const AdminPage: React.FC = () => {
         try {
             switch (activeTab) {
                 case 'submissions':
-                    // Fetch both submissions and quizzes to ensure 'Take Order' logic has role data
                     const [fetchedSubmissions, fetchedQuizzes] = await Promise.all([getSubmissions(currentUser), getQuizzes()]);
                     setSubmissions(fetchedSubmissions);
                     setQuizzes(fetchedQuizzes);
@@ -176,7 +185,6 @@ const AdminPage: React.FC = () => {
                     }
                 });
                 
-                // Only update state if there's a change to avoid re-renders
                 if (newSubmissionFound || JSON.stringify(latestSubmissions) !== JSON.stringify(submissionsRef.current)) {
                     setSubmissions(latestSubmissions);
                 }
@@ -274,7 +282,7 @@ const AdminPage: React.FC = () => {
         </div>
     );
   }
-  if (!user?.isAdmin) return null; // Should be handled by gatekeeper, but as a fallback.
+  if (!user?.isAdmin) return null;
 
   const renderStatusBadge = (status: SubmissionStatus) => {
     const statusMap = {
@@ -285,21 +293,6 @@ const AdminPage: React.FC = () => {
     };
     const { text, color } = statusMap[status];
     return <span className={`px-3 py-1 text-sm font-bold rounded-full ${color}`}>{text}</span>;
-  };
-
-  const getTakeButton = (submission: QuizSubmission) => {
-      if (submission.status !== 'pending' || !user) return null;
-
-      const quizForSubmission = quizzes.find(q => q.id === submission.quizId);
-      const allowedRoles = quizForSubmission?.allowedTakeRoles;
-
-      const isAllowed = !allowedRoles || allowedRoles.length === 0 || user.roles.some(userRole => allowedRoles.includes(userRole));
-      
-      if (!isAllowed) {
-          return <div title={t('take_order_forbidden')}><button disabled className="bg-gray-600/50 text-gray-400 font-bold py-1 px-3 rounded-md text-sm cursor-not-allowed">{t('take_order_forbidden')}</button></div>
-      }
-
-      return <button onClick={() => handleTakeOrder(submission.id)} className="bg-brand-cyan/20 text-brand-cyan font-bold py-1 px-3 rounded-md hover:bg-brand-cyan/40 text-sm">{t('take_order')}</button>;
   };
   
   const TabContent: React.FC<{children: React.ReactNode}> = ({ children }) => {
@@ -314,63 +307,151 @@ const AdminPage: React.FC = () => {
       return <>{children}</>;
   }
 
-  const SubmissionsPanel = () => (
-    <>
-    {isSuperAdmin && (
-        <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50 p-6 my-6">
-            <h3 className="text-xl font-bold text-brand-cyan mb-2">{t('reset_user_application')}</h3>
-            <p className="text-gray-400 text-sm mb-4">{t('reset_user_application_desc')}</p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <select value={resetQuizId} onChange={(e) => setResetQuizId(e.target.value)} className="md:col-span-1 bg-brand-light-blue p-2 rounded border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan">
-                    <option value="">{t('select_quiz_to_reset')}</option>
-                    {quizzes.map(q => <option key={q.id} value={q.id}>{t(q.titleKey)}</option>)}
-                </select>
-                <input type="text" value={resetUserId} onChange={(e) => setResetUserId(e.target.value)} placeholder={t('enter_user_id')} className="md:col-span-1 bg-brand-light-blue p-2 rounded border border-gray-600" />
-                <button onClick={handleResetSubmission} disabled={isResetting} className="md:col-span-1 bg-yellow-500/80 text-white font-bold py-2 px-6 rounded-md hover:bg-yellow-500/100 transition-colors flex items-center justify-center gap-2">
-                    {isResetting ? <Loader2 className="animate-spin" /> : <RefreshCw size={18} />}
-                    {t('reset_application_button')}
-                </button>
+  const SubmissionsPanel = () => {
+    const processedSubmissions = useMemo(() => {
+        let processableSubmissions = [...submissions];
+
+        if (filterStatus !== 'all') {
+            processableSubmissions = processableSubmissions.filter(s => s.status === filterStatus);
+        }
+
+        processableSubmissions.sort((a, b) => {
+            const aValue = a[sortConfig.key];
+            const bValue = b[sortConfig.key];
+            
+            if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+
+        return processableSubmissions;
+    }, [submissions, filterStatus, sortConfig]);
+
+    const totalPages = Math.ceil(processedSubmissions.length / ITEMS_PER_PAGE);
+    const paginatedSubmissions = processedSubmissions.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+    
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [filterStatus, sortConfig]);
+
+    const handleSort = (key: SortableSubmissionKeys) => {
+        setSortConfig(current => {
+            if (current.key === key && current.direction === 'desc') {
+                return { key, direction: 'asc' };
+            }
+            return { key, direction: 'desc' };
+        });
+    };
+    
+    const SortableHeader: React.FC<{ labelKey: string, sortKey: SortableSubmissionKeys }> = ({ labelKey, sortKey }) => {
+        const isActive = sortConfig.key === sortKey;
+        const Icon = sortConfig.direction === 'asc' ? ArrowUp : ArrowDown;
+        return (
+            <th className="p-4 cursor-pointer hover:bg-brand-light-blue/50 transition-colors" onClick={() => handleSort(sortKey)}>
+                <div className="flex items-center gap-2">
+                    {t(labelKey)}
+                    {isActive && <Icon size={16} />}
+                </div>
+            </th>
+        );
+    };
+
+    const getTakeButton = (submission: QuizSubmission) => {
+        if (submission.status !== 'pending' || !user) return null;
+        const quizForSubmission = quizzes.find(q => q.id === submission.quizId);
+        const allowedRoles = quizForSubmission?.allowedTakeRoles;
+        const isAllowed = !allowedRoles || allowedRoles.length === 0 || user.roles.some(userRole => allowedRoles.includes(userRole));
+        
+        if (!isAllowed) {
+            return <div title={t('take_order_forbidden')}><button disabled className="bg-gray-600/50 text-gray-400 font-bold py-1 px-3 rounded-md text-sm cursor-not-allowed">{t('take_order_forbidden')}</button></div>
+        }
+        return <button onClick={() => handleTakeOrder(submission.id)} className="bg-brand-cyan/20 text-brand-cyan font-bold py-1 px-3 rounded-md hover:bg-brand-cyan/40 text-sm">{t('take_order')}</button>;
+    };
+
+    return (
+        <>
+        {isSuperAdmin && (
+            <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50 p-6 my-6">
+                <h3 className="text-xl font-bold text-brand-cyan mb-2">{t('reset_user_application')}</h3>
+                <p className="text-gray-400 text-sm mb-4">{t('reset_user_application_desc')}</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <select value={resetQuizId} onChange={(e) => setResetQuizId(e.target.value)} className="md:col-span-1 bg-brand-light-blue p-2 rounded border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan">
+                        <option value="">{t('select_quiz_to_reset')}</option>
+                        {quizzes.map(q => <option key={q.id} value={q.id}>{t(q.titleKey)}</option>)}
+                    </select>
+                    <input type="text" value={resetUserId} onChange={(e) => setResetUserId(e.target.value)} placeholder={t('enter_user_id')} className="md:col-span-1 bg-brand-light-blue p-2 rounded border border-gray-600" />
+                    <button onClick={handleResetSubmission} disabled={isResetting} className="md:col-span-1 bg-yellow-500/80 text-white font-bold py-2 px-6 rounded-md hover:bg-yellow-500/100 transition-colors flex items-center justify-center gap-2">
+                        {isResetting ? <Loader2 className="animate-spin" /> : <RefreshCw size={18} />}
+                        {t('reset_application_button')}
+                    </button>
+                </div>
             </div>
+        )}
+        <div className="flex justify-end items-center gap-3 mb-4">
+            <Filter size={18} className="text-gray-400" />
+            <label htmlFor="status-filter" className="sr-only">{t('filter_by_status')}</label>
+            <select id="status-filter" value={filterStatus} onChange={e => setFilterStatus(e.target.value as SubmissionStatus | 'all')} className="bg-brand-light-blue p-2 rounded border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan">
+                <option value="all">{t('all')}</option>
+                <option value="pending">{t('status_pending')}</option>
+                <option value="taken">{t('status_taken')}</option>
+                <option value="accepted">{t('status_accepted')}</option>
+                <option value="refused">{t('status_refused')}</option>
+            </select>
         </div>
-    )}
-    <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50 mt-6">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left min-w-[600px]">
-          <thead className="border-b border-brand-light-blue/50 text-gray-300">
-            <tr>
-              <th className="p-4">{t('applicant')}</th>
-              <th className="p-4">{t('quiz_title')}</th>
-              <th className="p-4">{t('submitted_on')}</th>
-              <th className="p-4">{t('status')}</th>
-              <th className="p-4 text-right">{t('actions')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {submissions.length === 0 ? (
-              <tr><td colSpan={5} className="p-8 text-center text-gray-400">{t('no_pending_submissions')}</td></tr>
-            ) : submissions.map((sub, index) => (
-              <tr key={sub.id} className={`border-b border-brand-light-blue/50 ${index === submissions.length - 1 ? 'border-none' : ''}`}>
-                <td className="p-4 font-semibold">{sub.username}</td>
-                <td className="p-4">{sub.quizTitle}</td>
-                <td className="p-4 text-sm text-gray-400">{new Date(sub.submittedAt).toLocaleDateString()}</td>
-                <td className="p-4">{renderStatusBadge(sub.status)}</td>
-                <td className="p-4 text-right">
-                  <div className="inline-flex gap-4 items-center">
-                    {sub.status === 'pending' && getTakeButton(sub)}
-                    {sub.status === 'taken' && (
-                      <span className="text-xs text-gray-400 italic">{t('taken_by')} {sub.adminUsername === user?.username ? 'You' : sub.adminUsername}</span>
-                    )}
-                     <button onClick={() => setViewingSubmission(sub)} className="text-gray-300 hover:text-brand-cyan" title={t('view_submission')}><Eye size={20}/></button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-    </>
-  );
+        <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left min-w-[700px]">
+              <thead className="border-b border-brand-light-blue/50 text-gray-300">
+                <tr>
+                  <SortableHeader labelKey="applicant" sortKey="username" />
+                  <SortableHeader labelKey="quiz_title" sortKey="quizTitle" />
+                  <SortableHeader labelKey="submitted_on" sortKey="submittedAt" />
+                  <SortableHeader labelKey="status" sortKey="status" />
+                  <th className="p-4 text-right">{t('actions')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedSubmissions.length === 0 ? (
+                  <tr><td colSpan={5} className="p-8 text-center text-gray-400">{t('no_pending_submissions')}</td></tr>
+                ) : paginatedSubmissions.map((sub) => (
+                  <tr key={sub.id} className="border-b border-brand-light-blue/50 last:border-none">
+                    <td className="p-4 font-semibold">{sub.username}</td>
+                    <td className="p-4">{sub.quizTitle}</td>
+                    <td className="p-4 text-sm text-gray-400">{new Date(sub.submittedAt).toLocaleString()}</td>
+                    <td className="p-4">{renderStatusBadge(sub.status)}</td>
+                    <td className="p-4 text-right">
+                      <div className="inline-flex gap-4 items-center">
+                        {sub.status === 'pending' && getTakeButton(sub)}
+                        {sub.status === 'taken' && (
+                          <span className="text-xs text-gray-400 italic">{t('taken_by')} {sub.adminUsername === user?.username ? 'You' : sub.adminUsername}</span>
+                        )}
+                        <button onClick={() => setViewingSubmission(sub)} className="text-gray-300 hover:text-brand-cyan" title={t('view_submission')}><Eye size={20}/></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {totalPages > 1 && (
+            <div className="flex justify-between items-center p-4 border-t border-brand-light-blue/50">
+                <span className="text-sm text-gray-400">
+                    {t('page_of', { currentPage, totalPages })}
+                </span>
+                <div className="flex gap-2">
+                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="bg-brand-light-blue px-3 py-1 rounded-md text-sm hover:bg-brand-cyan/20 disabled:opacity-50 disabled:cursor-not-allowed">
+                        {t('previous')}
+                    </button>
+                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="bg-brand-light-blue px-3 py-1 rounded-md text-sm hover:bg-brand-cyan/20 disabled:opacity-50 disabled:cursor-not-allowed">
+                        {t('next')}
+                    </button>
+                </div>
+            </div>
+          )}
+        </div>
+        </>
+    );
+  }
 
   const QuizzesPanel = () => (
       <div>
@@ -498,7 +579,7 @@ const AdminPage: React.FC = () => {
           <div className="flex border-b border-brand-light-blue/50 mb-6 overflow-x-auto">
               {TABS.map((tab) => {
                   const isDisabled = tab.superAdminOnly && !isSuperAdmin;
-                  if (isDisabled) return null; // Completely hide tab if not super admin
+                  if (isDisabled) return null;
 
                   const isActive = activeTab === tab.id;
                   const buttonClasses = `py-3 px-6 font-bold flex-shrink-0 flex items-center gap-2 transition-colors ${isActive ? 'text-brand-cyan border-b-2 border-brand-cyan' : 'text-gray-400 hover:text-brand-cyan'}`;
@@ -534,18 +615,21 @@ const AdminPage: React.FC = () => {
       {viewingSubmission && user && (
         <Modal isOpen={!!viewingSubmission} onClose={() => setViewingSubmission(null)} title={t('submission_details')}>
             <div className="space-y-4 text-gray-200">
-                <p><strong>{t('applicant')}:</strong> {viewingSubmission.username}</p>
-                <p><strong>{t('quiz_title')}:</strong> {viewingSubmission.quizTitle}</p>
-                <p><strong>{t('submitted_on')}:</strong> {new Date(viewingSubmission.submittedAt).toLocaleString()}</p>
-                <p><strong>{t('status')}:</strong> {renderStatusBadge(viewingSubmission.status)}</p>
-                {viewingSubmission.adminUsername && <p><strong>{t('taken_by')}:</strong> {viewingSubmission.adminUsername}</p>}
+                <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                    <p><strong>{t('applicant')}:</strong> {viewingSubmission.username}</p>
+                    <p><strong>{t('quiz_title')}:</strong> {viewingSubmission.quizTitle}</p>
+                    <p><strong>{t('submitted_on')}:</strong> {new Date(viewingSubmission.submittedAt).toLocaleString()}</p>
+                    <p><strong>{t('status')}:</strong> {renderStatusBadge(viewingSubmission.status)}</p>
+                    {viewingSubmission.adminUsername && <p className="col-span-2"><strong>{t('taken_by')}:</strong> {viewingSubmission.adminUsername}</p>}
+                </div>
+
                 <div className="border-t border-brand-light-blue pt-4 mt-4">
-                    <h4 className="text-lg font-bold text-brand-cyan mb-2">{t('quiz_questions')}</h4>
-                    <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                    <h4 className="text-lg font-bold text-brand-cyan mb-3">{t('quiz_questions')}</h4>
+                    <div className="space-y-4 max-h-[50vh] overflow-y-auto pr-2">
                         {viewingSubmission.answers.map((ans, i) => (
-                            <div key={ans.questionId}>
-                                <p className="font-semibold text-gray-300">{i+1}. {ans.questionText}</p>
-                                <p className="bg-brand-dark p-2 rounded mt-1 text-gray-200 whitespace-pre-wrap">{ans.answer}</p>
+                            <div key={ans.questionId} className="bg-brand-dark p-4 rounded-lg border-l-4 border-brand-cyan/50">
+                                <p className="font-bold text-gray-300 mb-2">{i+1}. {ans.questionText}</p>
+                                <p className="text-gray-100 whitespace-pre-wrap leading-relaxed">{ans.answer}</p>
                             </div>
                         ))}
                     </div>

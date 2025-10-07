@@ -38,9 +38,12 @@ const DiscordEmbed: React.FC = () => {
       }
 
       try {
+        // Discord's widget.json endpoint is public and doesn't require auth
         const response = await fetch(`https://discord.com/api/guilds/${config.DISCORD_GUILD_ID}/widget.json`);
+        
         if (!response.ok) {
             const errorData: DiscordWidgetError = await response.json();
+            // Handle common, specific errors from Discord API
             switch (errorData.code) {
                case 10004: // Unknown Guild
                    throw new Error(t('discord_widget_error_invalid_id'));
@@ -94,6 +97,7 @@ const DiscordEmbed: React.FC = () => {
           </div>
       );
     }
+    // Fallback if data is null but no error was caught
     return (
        <div className="text-center text-gray-400 text-sm py-2 h-16 flex items-center justify-center">
          {t('discord_widget_error')}

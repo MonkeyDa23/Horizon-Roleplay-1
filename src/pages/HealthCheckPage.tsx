@@ -124,13 +124,17 @@ const HealthCheckPage: React.FC = () => {
               <h3 className="text-2xl font-bold text-brand-cyan mb-4">Vercel Environment Variables</h3>
               <p className="text-sm text-gray-400 mb-4">Checks if the required secrets are set in your Vercel project settings.</p>
               <ul className="space-y-2">
-                {Object.entries(data.env).map(([key, value]) => (
-                  <li key={key} className={`flex items-center bg-brand-dark p-3 rounded-md ${getStatusTextClass(value)}`}>
-                    <StatusIcon status={value} />
-                    <code className="text-gray-300">{key}</code>
-                    <span className="ml-auto font-semibold">{value.substring(2)}</span>
-                  </li>
-                ))}
+                {/* FIX: Cast value from Object.entries to string to resolve type errors. */}
+                {Object.entries(data.env).map(([key, value]) => {
+                  const strValue = value as string;
+                  return (
+                    <li key={key} className={`flex items-center bg-brand-dark p-3 rounded-md ${getStatusTextClass(strValue)}`}>
+                      <StatusIcon status={strValue} />
+                      <code className="text-gray-300">{key}</code>
+                      <span className="ml-auto font-semibold">{strValue.substring(2)}</span>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
             

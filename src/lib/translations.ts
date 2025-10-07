@@ -86,7 +86,7 @@ export const translations: Translations = {
   audit_log: { ar: 'سجل الإجراءات', en: 'Audit Log' },
   create_new_quiz: { ar: 'إنشاء تقديم جديد', en: 'Create New Quiz' },
   edit_quiz: { ar: 'تعديل التقديم', en: 'Edit Quiz' },
-  quiz_title: { ar: 'عنوان التقديم (مفتاح الترجمة)', en: 'Quiz Title (Translation Key)' },
+  quiz_title: { ar: 'عنوان التقديم', en: 'Quiz Title' },
   quiz_description: { ar: 'وصف التقديم (مفتاح الترجمة)', en: 'Quiz Description (Translation Key)' },
   quiz_questions: { ar: 'أسئلة التقديم', en: 'Quiz Questions' },
   quiz_handler_roles: { ar: 'معرفات الرتب التي يمكنها الاستلام', en: 'Role IDs that can handle' },
@@ -134,6 +134,11 @@ export const translations: Translations = {
   user_or_quiz_not_selected: { ar: 'الرجاء اختيار تقديم وإدخال معرف مستخدم.', en: 'Please select a quiz and enter a user ID.' },
   reset_submission_success: { ar: 'تم إعادة تعيين التقديم بنجاح للمستخدم {userId}!', en: 'Successfully reset application for user {userId}!' },
   reset_submission_error: { ar: 'فشل في إعادة تعيين التقديم. تحقق من المعرف أو أن المستخدم لديه تقديم.', en: 'Failed to reset application. Check the ID or that the user has a submission.' },
+  filter_by_status: { ar: 'تصفية حسب الحالة', en: 'Filter by Status' },
+  all: { ar: 'الكل', en: 'All' },
+  page_of: { ar: 'صفحة {currentPage} من {totalPages}', en: 'Page {currentPage} of {totalPages}' },
+  previous: { ar: 'السابق', en: 'Previous' },
+  next: { ar: 'التالي', en: 'Next' },
 
   // Submission Statuses
   status_pending: { ar: 'قيد الانتظار', en: 'Pending' },

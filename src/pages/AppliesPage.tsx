@@ -51,9 +51,16 @@ const AppliesPage: React.FC = () => {
   );
 
   const getApplyButton = (quiz: Quiz) => {
-      const hasApplied = userSubmissions.some(sub => sub.quizId === quiz.id);
+      // A user has applied in the current "season" if they have a submission for this quiz
+      // that was created *after* the quiz was last opened.
+      const hasAppliedInCurrentSeason = quiz.lastOpenedAt
+        ? userSubmissions.some(sub => 
+            sub.quizId === quiz.id && 
+            new Date(sub.submittedAt) >= new Date(quiz.lastOpenedAt)
+          )
+        : userSubmissions.some(sub => sub.quizId === quiz.id); // Fallback for old quizzes without a timestamp.
 
-      if (hasApplied) {
+      if (hasAppliedInCurrentSeason) {
         return (
           <button disabled className="bg-green-500/20 text-green-300 font-bold py-3 px-8 rounded-md flex items-center gap-2 cursor-not-allowed">
             <Check size={16} />
