@@ -12,16 +12,12 @@ import {
   getAuditLogs,
   getRules,
   saveRules as apiSaveRules,
-  getProducts,
-  saveProduct as apiSaveProduct,
-  deleteProduct as apiDeleteProduct,
   saveConfig,
   getSubmissionsByUserId,
 } from '../lib/api';
-// FIX: Added AppConfig to the import.
 import type { Quiz, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule, Product, AppConfig } from '../types';
 import { useNavigate } from 'react-router-dom';
-import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store, AlertTriangle, Palette, Search } from 'lucide-react';
+import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store, Palette, Search } from 'lucide-react';
 import Modal from '../components/Modal';
 
 
@@ -55,16 +51,12 @@ const AdminPage: React.FC = () => {
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   
   const [editableRules, setEditableRules] = useState<RuleCategory[] | null>(null);
-
-  const [products, setProducts] = useState<Product[]>([]);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   
   const [editableConfig, setEditableConfig] = useState<Partial<AppConfig>>({});
 
   const [isTabLoading, setIsTabLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   
-  // State for User Lookup
   const [lookupUserId, setLookupUserId] = useState('');
   const [lookupResult, setLookupResult] = useState<{ submissions: QuizSubmission[], searchedId: string } | null>(null);
   const [isLookupLoading, setIsLookupLoading] = useState(false);
@@ -76,10 +68,9 @@ const AdminPage: React.FC = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // Effect for lazy-loading data based on the active tab
   useEffect(() => {
     if (!user?.isAdmin) return;
-    setLookupResult(null); // Clear lookup results when changing tabs
+    setLookupResult(null);
 
     const fetchDataForTab = async () => {
         setIsTabLoading(true);
@@ -89,11 +80,10 @@ const AdminPage: React.FC = () => {
                     setSubmissions(await getSubmissions());
                     if(quizzes.length === 0) setQuizzes(await getQuizzes());
                     break;
-                // FIX: Use user.isSuperAdmin for authorization checks.
                 case 'quizzes': if (user.isSuperAdmin) setQuizzes(await getQuizzes()); break;
-                case 'lookup': break; // No initial data to load for lookup
+                case 'lookup': break;
                 case 'rules': if (user.isSuperAdmin) setEditableRules(JSON.parse(JSON.stringify(await getRules()))); break;
-                case 'store': if (user.isSuperAdmin) setProducts(await getProducts()); break;
+                case 'store': if (user.isSuperAdmin) { /* setProducts(await getProducts()); */ } break;
                 case 'appearance': if (user.isSuperAdmin) setEditableConfig({ ...config }); break;
                 case 'audit': if (user.isSuperAdmin) setAuditLogs(await getAuditLogs()); break;
             }
@@ -146,7 +136,6 @@ const AdminPage: React.FC = () => {
         try {
             await saveConfig(editableConfig);
             showToast(t('config_updated_success'), 'success');
-            // Force a reload to see changes like background image
             setTimeout(() => window.location.reload(), 1000);
         } catch(e) {
             showToast(`Error saving settings: ${e instanceof Error ? e.message : 'Unknown error'}`, 'error');
@@ -193,10 +182,9 @@ const AdminPage: React.FC = () => {
   };
 
   const getTakeButton = (submission: QuizSubmission) => {
-      if (submission.status !== 'pending') return null;
+      if (submission.status !== 'pending' || !user) return null;
       const quizForSubmission = quizzes.find(q => q.id === submission.quizId);
       const allowedRoles = quizForSubmission?.allowedTakeRoles;
-      // FIX: Use user.roles (string array of IDs) for permission check.
       const isAllowed = !allowedRoles || allowedRoles.length === 0 || user.roles.some(userRole => allowedRoles.includes(userRole));
       if (!isAllowed) return <div title={t('take_order_forbidden')}><button disabled className="bg-gray-600/50 text-gray-400 font-bold py-1 px-3 rounded-md text-sm cursor-not-allowed">{t('take_order_forbidden')}</button></div>
       return <button onClick={() => handleTakeOrder(submission.id)} className="bg-brand-cyan/20 text-brand-cyan font-bold py-1 px-3 rounded-md hover:bg-brand-cyan/40 text-sm">{t('take_order')}</button>;
@@ -228,7 +216,7 @@ const AdminPage: React.FC = () => {
       <div className="flex justify-between items-center my-6"><h2 className="text-2xl font-bold">{t('quiz_management')}</h2><button onClick={() => setEditingQuiz({ id: '', titleKey: '', descriptionKey: '', isOpen: false, questions: [], allowedTakeRoles: [] })} className="bg-brand-cyan text-brand-dark font-bold py-2 px-4 rounded-md hover:bg-white transition-all flex items-center gap-2"><Plus size={20} />{t('create_new_quiz')}</button></div>
       <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50"><table className="w-full text-left">
         <thead className="border-b border-brand-light-blue/50 text-gray-300"><tr><th className="p-4">{t('quiz_title')}</th><th className="p-4">{t('status')}</th><th className="p-4 text-right">{t('actions')}</th></tr></thead>
-        <tbody>{quizzes.map((quiz, i) => (<tr key={quiz.id} className={`border-b border-brand-light-blue/50 ${i === quizzes.length - 1 ? 'border-none' : ''}`}><td className="p-4 font-semibold">{t(quiz.titleKey)}</td><td className="p-4"><span className={`px-3 py-1 text-sm font-bold rounded-full ${quiz.isOpen ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>{quiz.isOpen ? t('open') : t('closed')}</span></td><td className="p-4 text-right"><div className="inline-flex gap-4"><button onClick={() => setEditingQuiz(quiz)} className="text-gray-300 hover:text-brand-cyan"><Edit size={20}/></button><button onClick={() => handleDeleteQuiz(quiz.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={20}/></button></div></td></tr>))}</tbody>
+        <tbody>{quizzes.map((quiz, i) => (<tr key={quiz.id} className={`border-b border-brand-light-blue/50 ${i === quizzes.length - 1 ? 'border-none' : ''}`}><td className="p-4 font-semibold">{t(quiz.titleKey)}</td><td className="p-4"><span className={`px-3 py-1 text-sm font-bold rounded-full ${quiz.isOpen ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>{quiz.isOpen ? t('open') : t('closed')}</span></td><td className="p-4 text-right"><div className="inline-flex gap-4"><button onClick={() => setEditingQuiz(JSON.parse(JSON.stringify(quiz)))} className="text-gray-300 hover:text-brand-cyan"><Edit size={20}/></button><button onClick={() => handleDeleteQuiz(quiz.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={20}/></button></div></td></tr>))}</tbody>
       </table></div>
     </div>
   );
@@ -300,7 +288,6 @@ const AdminPage: React.FC = () => {
                         <td className="p-4 font-semibold">{sub.quizTitle}</td>
                         <td className="p-4 text-sm text-gray-400">{new Date(sub.submittedAt).toLocaleDateString()}</td>
                         <td className="p-4 text-sm text-gray-400">
-                            {/* FIX: Check for sub.updatedAt before rendering. */}
                             {(sub.status === 'accepted' || sub.status === 'refused') && sub.updatedAt ? new Date(sub.updatedAt).toLocaleDateString() : 'N/A'}
                         </td>
                         <td className="p-4">{renderStatusBadge(sub.status)}</td>
@@ -322,7 +309,6 @@ const AdminPage: React.FC = () => {
       <div className="max-w-6xl mx-auto">
           <div className="flex border-b border-brand-light-blue/50 mb-6 overflow-x-auto">
               {TABS.map((tab) => {
-                  // FIX: Use user.isSuperAdmin for authorization checks.
                   const isDisabled = tab.superAdminOnly && !user.isSuperAdmin;
                   const isActive = activeTab === tab.id;
                   const buttonClasses = `py-3 px-6 font-bold flex-shrink-0 flex items-center gap-2 transition-colors ${isDisabled ? 'text-gray-600 cursor-not-allowed' : isActive ? 'text-brand-cyan border-b-2 border-brand-cyan' : 'text-gray-400 hover:text-brand-cyan'}`;
@@ -341,6 +327,50 @@ const AdminPage: React.FC = () => {
             {activeTab === 'audit' && user.isSuperAdmin && <AuditLogPanel />}
           </TabContent>
       </div>
+       
+      {editingQuiz && <Modal isOpen={!!editingQuiz} onClose={() => setEditingQuiz(null)} title={editingQuiz.id ? t('edit_quiz') : t('create_new_quiz')}>
+        <div className="space-y-4 text-white">
+             <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_title')}</label><input type="text" value={editingQuiz.titleKey} onChange={(e) => setEditingQuiz({...editingQuiz, titleKey: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
+             <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_handler_roles')}</label><input type="text" placeholder="e.g. 123,456" value={(editingQuiz.allowedTakeRoles || []).join(',')} onChange={(e) => setEditingQuiz({...editingQuiz, allowedTakeRoles: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /><p className="text-xs text-gray-400 mt-1">{t('quiz_handler_roles_desc')}</p></div>
+             <div className="flex items-center gap-4 pt-2">
+                <label className="font-semibold text-gray-300">{t('status')}:</label>
+                <button onClick={() => setEditingQuiz({...editingQuiz, isOpen: !editingQuiz.isOpen})}
+                  className={`px-4 py-1 rounded-full font-bold ${editingQuiz.isOpen ? 'bg-green-500/30 text-green-300' : 'bg-red-500/30 text-red-300'}`}>
+                  {editingQuiz.isOpen ? t('open') : t('closed')}
+                </button>
+             </div>
+            <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4"><button onClick={() => setEditingQuiz(null)} disabled={isSaving} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button><button onClick={handleSaveQuiz} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white min-w-[8rem] flex justify-center">{isSaving ? <Loader2 className="animate-spin"/> : t('save_quiz')}</button></div>
+        </div>
+      </Modal>}
+
+      {viewingSubmission && user && (
+        <Modal isOpen={!!viewingSubmission} onClose={() => setViewingSubmission(null)} title={t('submission_details')}>
+            <div className="space-y-4 text-gray-200">
+                <p><strong>{t('applicant')}:</strong> {viewingSubmission.username}</p>
+                <p><strong>{t('quiz_title')}:</strong> {viewingSubmission.quizTitle}</p>
+                <p><strong>{t('submitted_on')}:</strong> {new Date(viewingSubmission.submittedAt).toLocaleString()}</p>
+                <p><strong>{t('status')}:</strong> {renderStatusBadge(viewingSubmission.status)}</p>
+                {viewingSubmission.adminUsername && <p><strong>{t('taken_by')}:</strong> {viewingSubmission.adminUsername}</p>}
+                <div className="border-t border-brand-light-blue pt-4 mt-4">
+                    <h4 className="text-lg font-bold text-brand-cyan mb-2">{t('quiz_questions')}</h4>
+                    <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                        {viewingSubmission.answers.map((ans, i) => (
+                            <div key={ans.questionId}>
+                                <p className="font-semibold text-gray-300">{i+1}. {ans.questionText}</p>
+                                <p className="bg-brand-dark p-2 rounded mt-1 text-gray-200 whitespace-pre-wrap">{ans.answer}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                {viewingSubmission.status === 'taken' && viewingSubmission.adminId === user.id && (
+                    <div className="flex justify-end gap-4 pt-6 border-t border-brand-light-blue">
+                        <button onClick={() => handleDecision(viewingSubmission.id, 'refused')} className="flex items-center gap-2 bg-red-600 text-white font-bold py-2 px-5 rounded-md hover:bg-red-500 transition-colors"><X size={20}/> {t('refuse')}</button>
+                        <button onClick={() => handleDecision(viewingSubmission.id, 'accepted')} className="flex items-center gap-2 bg-green-600 text-white font-bold py-2 px-5 rounded-md hover:bg-green-500 transition-colors"><Check size={20}/> {t('accept')}</button>
+                    </div>
+                )}
+            </div>
+        </Modal>
+      )}
     </div>
   );
 };

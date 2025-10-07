@@ -10,6 +10,7 @@ import { useAuth } from './hooks/useAuth';
 
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import SessionWatcher from './components/SessionWatcher';
 
 import HomePage from './pages/HomePage';
 import StorePage from './pages/StorePage';
@@ -21,7 +22,6 @@ import QuizPage from './pages/QuizPage';
 import MyApplicationsPage from './pages/MyApplicationsPage';
 import ProfilePage from './pages/ProfilePage';
 import HealthCheckPage from './pages/HealthCheckPage';
-import AuthCallbackPage from './pages/AuthCallbackPage';
 import { Loader2 } from 'lucide-react';
 
 const AppContent: React.FC = () => {
@@ -66,7 +66,6 @@ const AppContent: React.FC = () => {
               <Route path="/admin" element={user?.isAdmin ? <AdminPage /> : <Navigate to="/" />} />
               <Route path="/my-applications" element={user ? <MyApplicationsPage /> : <Navigate to="/" />} />
               <Route path="/profile" element={user ? <ProfilePage /> : <Navigate to="/" />} />
-              <Route path="/auth/callback" element={<AuthCallbackPage />} />
               
               <Route 
                 path="/health-check" 
@@ -94,6 +93,7 @@ function App() {
           <AuthProvider>
             <CartProvider>
               <AppContent />
+              <SessionWatcher />
             </CartProvider>
           </AuthProvider>
         </ConfigProvider>

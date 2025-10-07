@@ -1,7 +1,8 @@
-import type { User, Product, Quiz, QuizSubmission, SubmissionStatus, DiscordRole, DiscordAnnouncement, MtaServerStatus, AuditLogEntry, RuleCategory, AppConfig, MtaLogEntry } from '../types';
+import { supabase } from './supabaseClient';
+import type { Session } from '@supabase/supabase-js';
+import type { User, Product, Quiz, QuizSubmission, SubmissionStatus, DiscordRole, DiscordAnnouncement, MtaServerStatus, AuditLogEntry, RuleCategory, AppConfig, Rule, MtaLogEntry } from '../types';
 
 // --- API Error Handling ---
-// FIX: Updated ApiError to include a status code for better error handling.
 export class ApiError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -11,226 +12,291 @@ export class ApiError extends Error {
   }
 }
 
-// --- MOCK DATABASE ---
-// FIX: Add an interface for the mock database to ensure type consistency and prevent inference errors.
-interface MockDb {
-    products: Product[];
-    quizzes: Quiz[];
-    submissions: QuizSubmission[];
-    audit_logs: AuditLogEntry[];
-    rules: RuleCategory[];
-}
+// In a real app, this would be a server-side configuration.
+// For the demo, we need it client-side for the Discord API call.
+const DISCORD_GUILD_ID = '1422936346233933980'; 
 
-let MOCK_CONFIG: AppConfig = {
-    COMMUNITY_NAME: 'Horizon',
-    LOGO_URL: 'https://l.top4top.io/p_356271n1v1.png',
-    DISCORD_INVITE_URL: 'https://discord.gg/u3CazwhxVa',
-    MTA_SERVER_URL: 'mtasa://134.255.216.22:22041',
-    BACKGROUND_IMAGE_URL: '',
-    SHOW_HEALTH_CHECK: false,
-    SUPER_ADMIN_ROLE_IDS: ["role_admin"],
-};
+// --- PUBLIC READ-ONLY FUNCTIONS ---
 
-let MOCK_DB: MockDb = {
-  products: [
-    { id: 'prod_1', nameKey: 'product_vip_bronze_name', descriptionKey: 'product_vip_bronze_desc', price: 10.00, imageUrl: 'https://i.imgur.com/S8wO2G6.png' },
-    { id: 'prod_2', nameKey: 'product_vip_silver_name', descriptionKey: 'product_vip_silver_desc', price: 20.00, imageUrl: 'https://i.imgur.com/S8wO2G6.png' },
-    { id: 'prod_3', nameKey: 'product_cash_1_name', descriptionKey: 'product_cash_1_desc', price: 5.00, imageUrl: 'https://i.imgur.com/S8wO2G6.png' },
-    { id: 'prod_4', nameKey: 'product_custom_plate_name', descriptionKey: 'product_custom_plate_desc', price: 15.00, imageUrl: 'https://i.imgur.com/S8wO2G6.png' },
-  ],
-  quizzes: [
-    { id: 'quiz_1', titleKey: 'quiz_police_name', descriptionKey: 'quiz_police_desc', isOpen: true, questions: [
-      { id: 'q_1_1', textKey: 'q_police_1', timeLimit: 60 },
-      { id: 'q_1_2', textKey: 'q_police_2', timeLimit: 90 },
-    ], logoUrl: 'https://i.imgur.com/your_logo.png', bannerUrl: 'https://i.imgur.com/your_banner.png', lastOpenedAt: new Date().toISOString() },
-    { id: 'quiz_2', titleKey: 'quiz_medic_name', descriptionKey: 'quiz_medic_desc', isOpen: false, questions: [
-      { id: 'q_2_1', textKey: 'q_medic_1', timeLimit: 75 },
-    ]},
-  ],
-  submissions: [],
-  audit_logs: [],
-  rules: [],
-};
-
-const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
-
-
-// --- Public Functions ---
-
-// FIX: Added getConfig to fetch dynamic configuration.
 export const getConfig = async (): Promise<AppConfig> => {
-    await delay(200);
-    return MOCK_CONFIG;
-}
+  if (!supabase) throw new ApiError("Supabase not configured", 500);
+  const { data, error } = await supabase.from('config').select('*').single();
+  if (error) throw new ApiError(error.message, 500);
+  return data as AppConfig;
+};
 
 export const getProducts = async (): Promise<Product[]> => {
-  await delay(500);
-  return MOCK_DB.products;
+  if (!supabase) return [];
+  const { data, error } = await supabase.from('products').select('*');
+  if (error) throw new ApiError(error.message, 500);
+  return data;
 };
 
 export const getQuizzes = async (): Promise<Quiz[]> => {
-  await delay(500);
-  return MOCK_DB.quizzes;
+  if (!supabase) return [];
+  const { data, error } = await supabase.from('quizzes').select('*');
+  if (error) throw new ApiError(error.message, 500);
+  return data;
 };
 
 export const getQuizById = async (id: string): Promise<Quiz | undefined> => {
-  await delay(300);
-  return MOCK_DB.quizzes.find(q => q.id === id);
+  if (!supabase) return undefined;
+  const { data, error } = await supabase.from('quizzes').select('*').eq('id', id).single();
+  if (error) {
+      if (error.code === 'PGRST116') return undefined; // Not found
+      throw new ApiError(error.message, 500);
+  }
+  return data;
+};
+
+export const getRules = async (): Promise<RuleCategory[]> => {
+    if (!supabase) return [];
+    const { data, error } = await supabase.from('rule_categories').select(`*, rules (*)`).order('order');
+    if (error) throw new ApiError(error.message, 500);
+    return data;
 }
 
-export const getMtaServerStatus = async (): Promise<MtaServerStatus> => {
-    await delay(800);
+
+// --- USER-SPECIFIC FUNCTIONS ---
+
+export const getSubmissionsByUserId = async (userId: string): Promise<QuizSubmission[]> => {
+    if (!supabase) return [];
+    const { data, error } = await supabase.from('submissions').select('*').eq('user_id', userId);
+    if (error) throw new ApiError(error.message, 500);
+    return data;
+}
+
+export const addSubmission = async (submissionData: Partial<QuizSubmission>): Promise<QuizSubmission> => {
+    if (!supabase) throw new ApiError("Database not configured", 500);
+    const { data, error } = await supabase.from('submissions').insert([submissionData]).select().single();
+    if (error) throw new ApiError(error.message, 500);
+    return data;
+};
+
+
+// --- ADMIN FUNCTIONS ---
+
+export const getSubmissions = async (): Promise<QuizSubmission[]> => {
+    if (!supabase) return [];
+    const { data, error } = await supabase.from('submissions').select('*').order('created_at', { ascending: false });
+    if (error) throw new ApiError(error.message, 500);
+    return data;
+}
+
+export const updateSubmissionStatus = async (submissionId: string, status: SubmissionStatus): Promise<void> => {
+    if (!supabase) throw new ApiError("Database not configured", 500);
+    const { error } = await supabase.rpc('update_submission_status', {
+        p_submission_id: submissionId,
+        p_status: status
+    });
+    if (error) throw new ApiError(error.message, 500);
+}
+
+export const saveQuiz = async (quiz: Quiz): Promise<Quiz> => {
+    if (!supabase) throw new ApiError("Database not configured", 500);
+    const { id, questions, ...quizData } = quiz;
+    const { data, error } = await supabase.from('quizzes').upsert({ id: id || undefined, ...quizData }).select().single();
+    if (error) throw new ApiError(error.message, 500);
+    return data;
+}
+
+export const deleteQuiz = async (quizId: string): Promise<void> => {
+    if (!supabase) throw new ApiError("Database not configured", 500);
+    const { error } = await supabase.from('quizzes').delete().eq('id', quizId);
+    if (error) throw new ApiError(error.message, 500);
+}
+
+// FIX: Implement saveRules function for admin panel
+export const saveRules = async (rulesData: RuleCategory[]): Promise<void> => {
+    if (!supabase) throw new ApiError("Database not configured", 500);
+    // This should ideally be a single RPC call to ensure atomicity.
+    // This client-side implementation is a simplification.
+    
+    // 1. Get all category IDs
+    const categoryIds = rulesData.map(cat => cat.id);
+
+    // 2. Delete all existing rules for these categories
+    if (categoryIds.length > 0) {
+        const { error: deleteError } = await supabase.from('rules').delete().in('category_id', categoryIds);
+        if (deleteError) throw new ApiError(`Failed to delete old rules: ${deleteError.message}`, 500);
+    }
+    
+    // 3. Upsert categories
+    const categoriesToUpsert = rulesData.map(({ rules, ...cat }) => cat);
+    if (categoriesToUpsert.length > 0) {
+        const { error: catError } = await supabase.from('rule_categories').upsert(categoriesToUpsert);
+        if (catError) throw new ApiError(`Failed to save rule categories: ${catError.message}`, 500);
+    }
+
+    // 4. Insert new rules
+    const allRules = rulesData.flatMap(cat => cat.rules.map(rule => ({ ...rule, category_id: cat.id })));
+    if (allRules.length > 0) {
+        const { error: ruleError } = await supabase.from('rules').insert(allRules);
+        if (ruleError) throw new ApiError(`Failed to save new rules: ${ruleError.message}`, 500);
+    }
+}
+
+// FIX: Implement saveProduct function for admin panel
+export const saveProduct = async (product: Product): Promise<Product> => {
+    if (!supabase) throw new ApiError("Database not configured", 500);
+    const { data, error } = await supabase.from('products').upsert(product).select().single();
+    if (error) throw new ApiError(error.message, 500);
+    return data;
+};
+
+// FIX: Implement deleteProduct function for admin panel
+export const deleteProduct = async (productId: string): Promise<void> => {
+    if (!supabase) throw new ApiError("Database not configured", 500);
+    const { error } = await supabase.from('products').delete().eq('id', productId);
+    if (error) throw new ApiError(error.message, 500);
+};
+
+export const saveConfig = async (config: Partial<AppConfig>): Promise<void> => {
+    if (!supabase) throw new ApiError("Database not configured", 500);
+    const { error } = await supabase.from('config').update(config).eq('id', 1);
+    if (error) throw new ApiError(error.message, 500);
+}
+
+export const getAuditLogs = async (): Promise<AuditLogEntry[]> => {
+    if (!supabase) return [];
+    const { data, error } = await supabase.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(100);
+    if (error) throw new ApiError(error.message, 500);
+    return data;
+}
+
+// FIX: Implement logAdminAccess function for admin panel
+export const logAdminAccess = async (user: User): Promise<void> => {
+    if (!supabase) return; // Gracefully fail if supabase isn't configured
+    const { error } = await supabase.from('audit_logs').insert({
+        action: 'Admin Panel Accessed',
+        admin_id: user.id,
+        admin_username: user.username,
+    });
+    if (error) {
+        console.error("Failed to log admin access:", error);
+    }
+};
+
+// --- AUTH & SESSION MANAGEMENT ---
+
+/**
+ * Fetches Discord member data using the user's provider token.
+ * WARNING: This makes a client-side API call to Discord, exposing the user's
+ * access token in network requests. For production, this logic should be moved
+ * to a secure backend (e.g., a Supabase Edge Function) that uses a bot token.
+ */
+const fetchDiscordMember = async (providerToken: string): Promise<{ roles: string[], discordRoles: DiscordRole[] }> => {
+    const url = `https://discord.com/api/users/@me/guilds/${DISCORD_GUILD_ID}/member`;
+    const response = await fetch(url, {
+        headers: { 'Authorization': `Bearer ${providerToken}` }
+    });
+    if (!response.ok) {
+        if (response.status === 404) throw new ApiError("User not found in Discord server.", 404);
+        throw new ApiError(`Failed to fetch Discord member data: ${response.statusText}`, response.status);
+    }
+    const memberData = await response.json();
+
+    // Fetch all guild roles to get color/name info
+    // This part would ideally be cached in a real app
+    const guildRolesResponse = await fetch(`https://discord.com/api/guilds/${DISCORD_GUILD_ID}/roles`, {
+      headers: { 'Authorization': `Bearer ${providerToken}` }
+    });
+    // FIX: Explicitly type the response from the Discord API to resolve errors with properties on 'unknown' type.
+    const allGuildRoles = await guildRolesResponse.json() as { id: string; name: string; color: number }[];
+    const rolesMap = new Map(allGuildRoles.map((r) => [r.id, { name: r.name, color: `#${r.color.toString(16).padStart(6, '0')}` }]));
+
+    const discordRoles: DiscordRole[] = memberData.roles.map((roleId: string) => ({
+        id: roleId,
+        name: rolesMap.get(roleId)?.name || 'Unknown Role',
+        color: rolesMap.get(roleId)?.color || '#99aab5',
+    }));
+
+    return { roles: memberData.roles, discordRoles };
+};
+
+
+export const fetchUserProfile = async (session: Session): Promise<User> => {
+    if (!supabase) throw new ApiError("Supabase not configured", 500);
+
+    const providerToken = session.provider_token;
+    if (!providerToken) throw new ApiError("Discord provider token not found.", 401);
+
+    const { roles, discordRoles } = await fetchDiscordMember(providerToken);
+    
+    const config = await getConfig();
+    const superAdminRoles = config.SUPER_ADMIN_ROLE_IDS || [];
+
+    const isSuperAdmin = roles.some(roleId => superAdminRoles.includes(roleId));
+
+    // Check for an existing profile and update it if needed
+    const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('is_admin, is_super_admin')
+        .eq('id', session.user.id)
+        .single();
+    
+    if (profileError && profileError.code !== 'PGRST116') throw new ApiError(profileError.message, 500);
+
+    // If profile exists and permissions mismatch, update them
+    if (profile && (profile.is_super_admin !== isSuperAdmin)) {
+        await supabase
+            .from('profiles')
+            .update({ is_super_admin: isSuperAdmin, is_admin: isSuperAdmin || profile.is_admin })
+            .eq('id', session.user.id);
+    }
+    
     return {
-        name: `${MOCK_CONFIG.COMMUNITY_NAME} Roleplay`,
+      id: session.user.id,
+      username: session.user.user_metadata.full_name,
+      avatar: session.user.user_metadata.avatar_url,
+      isAdmin: isSuperAdmin || (profile?.is_admin ?? false),
+      isSuperAdmin: isSuperAdmin,
+      discordRoles: discordRoles,
+      roles: roles,
+    };
+};
+
+export const revalidateSession = async (): Promise<User> => {
+    if (!supabase) throw new ApiError("Supabase not configured", 500);
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error || !session) throw new ApiError("No active session.", 401);
+    return fetchUserProfile(session);
+}
+
+
+// --- MOCKED FUNCTIONS (to be replaced by real backend/API calls if needed) ---
+
+export const getMtaServerStatus = async (): Promise<MtaServerStatus> => {
+    // This would typically hit a game server query API. We'll keep it mocked for now.
+    const config = await getConfig();
+    return {
+        name: `${config.COMMUNITY_NAME} Roleplay`,
         players: Math.floor(Math.random() * 100),
         maxPlayers: 128,
     };
 }
 
-// --- User-Specific Functions ---
-
-export const getSubmissionsByUserId = async (userId: string): Promise<QuizSubmission[]> => {
-    await delay(600);
-    return MOCK_DB.submissions.filter(s => s.userId === userId);
-}
-
-export const addSubmission = async (submissionData: Partial<QuizSubmission>): Promise<QuizSubmission> => {
-    await delay(1000);
-    const newSubmission: QuizSubmission = {
-        id: `sub_${Date.now()}`,
-        status: 'pending',
-        submittedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        ...submissionData,
-    } as QuizSubmission;
-    MOCK_DB.submissions.push(newSubmission);
-    return newSubmission;
-};
-
-
-// --- Admin Functions ---
-
-export const getSubmissions = async (): Promise<QuizSubmission[]> => {
-    await delay(700);
-    return MOCK_DB.submissions.sort((a,b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
-}
-
-export const updateSubmissionStatus = async (submissionId: string, status: SubmissionStatus): Promise<void> => {
-    await delay(400);
-    const submission = MOCK_DB.submissions.find(s => s.id === submissionId);
-    if(submission) {
-        submission.status = status;
-        // FIX: Added updatedAt timestamp on status change.
-        submission.updatedAt = new Date().toISOString();
-        // In a real scenario, admin details would be taken from the session
-        submission.adminId = "1423683069893673050";
-        submission.adminUsername = "AdminUser";
-    } else {
-        // FIX: Throw ApiError with a status code.
-        throw new ApiError("Submission not found", 404);
-    }
-}
-
-export const saveQuiz = async (quiz: Quiz): Promise<Quiz> => {
-    await delay(500);
-    if(quiz.id) { // update
-        const index = MOCK_DB.quizzes.findIndex(q => q.id === quiz.id);
-        if(index > -1) MOCK_DB.quizzes[index] = quiz;
-    } else { // create
-        const newQuiz = { ...quiz, id: `quiz_${Date.now()}`};
-        MOCK_DB.quizzes.push(newQuiz);
-        return newQuiz;
-    }
-    return quiz;
-}
-
-export const deleteQuiz = async (quizId: string): Promise<void> => {
-    await delay(500);
-    MOCK_DB.quizzes = MOCK_DB.quizzes.filter(q => q.id !== quizId);
-}
-
-// FIX: Added saveConfig to allow admins to update settings.
-export const saveConfig = async (config: Partial<AppConfig>): Promise<void> => {
-    await delay(500);
-    MOCK_CONFIG = { ...MOCK_CONFIG, ...config };
-}
-
-export const revalidateSession = async (currentUser: User): Promise<User> => {
-    await delay(200);
-    // FIX: This mock function now simulates fetching a primary role.
-    const primaryRole = currentUser.discordRoles.find(r => r.id === 'role_admin') || currentUser.discordRoles[0];
-    return { ...currentUser, primaryRole };
-}
-
-export const logAdminAccess = async (user: User): Promise<void> => {
-    console.log(`Admin access by ${user.username}`);
-}
-export const getAuditLogs = async (): Promise<AuditLogEntry[]> => { return []; }
-export const getRules = async (): Promise<RuleCategory[]> => { return MOCK_DB.rules; }
-export const saveRules = async (rules: RuleCategory[]): Promise<void> => { MOCK_DB.rules = rules; }
-export const saveProduct = async (product: Product): Promise<Product> => { return product; }
-export const deleteProduct = async (productId: string): Promise<void> => {}
-
-
-// --- NEW MOCK DISCORD FUNCTIONS ---
-
-export const getDiscordRoles = async (userId: string): Promise<DiscordRole[]> => {
-    await delay(300);
-    // Mock roles based on user ID. The mock admin ID gets special roles.
-    const isAdmin = userId === "1423683069893673050";
-    
-    let roles = [
-      { id: 'role_member', name: 'Member', color: '#8a95a3' },
-      { id: 'role_level10', name: 'Level 10+', color: '#f1c40f' },
-    ];
-
-    if (isAdmin) {
-      roles.unshift({ id: 'role_admin', name: 'Server Admin', color: '#00f2ea' });
-      roles.push({ id: 'role_booster', name: 'Server Booster', color: '#f47fff' });
-    }
-
-    return roles;
+// FIX: Implement getMtaPlayerLogs function for user lookup panel
+export const getMtaPlayerLogs = async (userId: string): Promise<MtaLogEntry[]> => {
+    console.warn(`getMtaPlayerLogs is mocked for user ID: ${userId}`);
+    // This is a mocked function. A real implementation would query an MTA logs database or API.
+    // Returning an empty array to simulate a "no logs found" state.
+    return Promise.resolve([]);
 };
 
 export const getDiscordAnnouncements = async (): Promise<DiscordAnnouncement[]> => {
-    await delay(1200);
+    // This requires a Discord Bot and a backend. Mocking is the only client-side option.
     return [
         {
             id: '1',
             title: '🎉 Community Event: Summer Drift King!',
             content: 'Get your engines ready! This Saturday, we are hosting the annual Summer Drift King competition. Sign-ups are open now in the #events channel. Amazing prizes to be won, including exclusive custom vehicles!',
             author: {
-                name: 'AdminUser',
+                name: 'Community Bot',
                 avatarUrl: 'https://cdn.discordapp.com/embed/avatars/0.png'
             },
-            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
+            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
             url: '#'
         },
-        {
-            id: '2',
-            title: '🔧 Server Maintenance & Update v2.5',
-            content: 'Please be advised that the server will be down for scheduled maintenance tonight at 2 AM for approximately one hour. We will be deploying update v2.5 which includes new police vehicles, bug fixes, and performance improvements.',
-            author: {
-                name: 'AdminUser',
-                avatarUrl: 'https://cdn.discordapp.com/embed/avatars/1.png'
-            },
-            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(), // 3 days ago
-            url: '#'
-        }
     ];
-};
-
-// FIX: Added mock function to get player logs for the admin panel.
-export const getMtaPlayerLogs = async (userId: string): Promise<MtaLogEntry[]> => {
-    await delay(800);
-    if (userId === "1423683069893673050" || userId === "AdminUser") { // Allow lookup by name for mock
-        return [
-            { timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), text: "Player connected with IP 127.0.0.1" },
-            { timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(), text: "Purchased a 'Sultan' from the dealership." },
-            { timestamp: new Date(Date.now() - 1000 * 60 * 20).toISOString(), text: "Was jailed for 10 minutes by Admin 'AnotherAdmin' for Reckless Driving." },
-            { timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(), text: "Sent a private message to 'PlayerTwo'." },
-            { timestamp: new Date(Date.now() - 1000 * 60 * 1).toISOString(), text: "Player disconnected." },
-        ];
-    }
-    return [];
 };

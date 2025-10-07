@@ -1,93 +1,84 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useCallback } from 'react';
+import { supabase } from '../lib/supabaseClient';
+import { fetchUserProfile } from '../lib/api';
 import type { User, AuthContextType } from '../types';
-import { useConfig } from '../hooks/useConfig';
+import type { Session } from '@supabase/supabase-js';
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// --- Discord OAuth2 Configuration ---
-const DISCORD_CLIENT_ID = '1423341328355295394';
-// FIX: Use a dedicated callback path for the redirect URI.
-// This URL must be added to the "Redirects" list in your Discord Developer Portal application.
-const REDIRECT_URI = `${window.location.origin}/auth/callback`;
-const OAUTH_SCOPES = 'identify guilds.members.read';
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { config } = useConfig();
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  const login = () => {
-    setLoading(true);
-    try {
-      const state = Math.random().toString(36).substring(7);
-      sessionStorage.setItem('oauth_state', state);
-
-      const params = new URLSearchParams({
-        client_id: DISCORD_CLIENT_ID,
-        redirect_uri: REDIRECT_URI, // Use the updated, fixed URI
-        response_type: 'code',
-        scope: OAUTH_SCOPES,
-        state: state,
-        prompt: 'consent' 
-      });
-      
-      const discordAuthUrl = `https://discord.com/oauth2/authorize?${params.toString()}`;
-      const width = 500;
-      const height = 800;
-      const left = window.screen.width / 2 - width / 2;
-      const top = window.screen.height / 2 - height / 2;
-      
-      const popup = window.open(
-        discordAuthUrl,
-        'DiscordAuth',
-        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
-      );
-
-      if (popup) {
-        const timer = setInterval(() => {
-          if (popup.closed) {
-            clearInterval(timer);
-            setLoading(false); // Stop loading when popup is closed, regardless of result
-          }
-        }, 500);
-      } else {
-        alert("Popup was blocked. Please allow popups for this site to log in.");
-        setLoading(false);
+  const handleSession = useCallback(async (session: Session | null) => {
+    if (session) {
+      try {
+        const fullUserProfile = await fetchUserProfile(session);
+        setUser(fullUserProfile);
+      } catch (error) {
+        console.error("Error fetching user profile:", error);
+        // If profile fetch fails, sign out to prevent being in a broken login state
+        await supabase?.auth.signOut();
+        setUser(null);
       }
-    } catch (error) {
-      console.error("Session Storage is not available.", error);
-      alert("Login failed: Session Storage is disabled in your browser.");
-      setLoading(false);
+    } else {
+      setUser(null);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    if (!supabase) {
+        setLoading(false);
+        // If Supabase isn't configured, the app runs in a "logged out" state with mock data.
+        return;
+    }
+
+    // Handle initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+        handleSession(session);
+    });
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        handleSession(session);
+    });
+
+    return () => {
+        subscription?.unsubscribe();
+    };
+  }, [handleSession]);
+  
+  const login = async () => {
+    if (!supabase) {
+        alert("Login is not configured. Please add Supabase environment variables.");
+        return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'discord',
+      options: {
+        scopes: 'identify guilds.members.read',
+      },
+    });
+    if (error) {
+        console.error("Error logging in:", error.message);
+        alert(`Login failed: ${error.message}`);
+        setLoading(false);
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    if (!supabase) return;
     setUser(null);
+    await supabase.auth.signOut();
   };
   
   const updateUser = (newUser: User) => {
     setUser(newUser);
   };
 
-  useEffect(() => {
-    const handleAuthMessage = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
-      const { type, user, error } = event.data;
-
-      if (type === 'auth-success' && user) {
-        setUser(user);
-        setLoading(false);
-      } else if (type === 'auth-error') {
-        console.error("Discord OAuth Error:", error);
-        alert(`Login failed: ${error}`);
-        setLoading(false);
-      }
-    };
-
-    window.addEventListener('message', handleAuthMessage);
-    return () => window.removeEventListener('message', handleAuthMessage);
-  }, []);
-  
   const value = { user, login, logout, loading, updateUser };
+
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

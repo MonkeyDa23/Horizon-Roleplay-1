@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 // FIX: Updated import paths to point to the 'src' directory
 import { useAuth } from '../src/hooks/useAuth';
@@ -80,7 +81,8 @@ const AdminPage: React.FC = () => {
         setIsPageLoading(true);
 
         try {
-            const freshUser = await revalidateSession(user);
+            // FIX: The revalidateSession function does not take any arguments.
+            const freshUser = await revalidateSession();
             
             if (!freshUser.isAdmin) {
                 showToast(t('admin_revoked'), 'error');
