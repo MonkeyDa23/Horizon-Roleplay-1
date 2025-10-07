@@ -1,7 +1,7 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { getProfileById, getDiscordRoles } from '../lib/api';
-import type { User, AuthContextType } from '../types';
+import type { User, AuthContextType, DiscordRole } from '../types';
 import { useConfig } from '../hooks/useConfig';
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -18,14 +18,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!profile) return null; // User may exist in Auth but not have a profile yet
     
     // Fetch user's Discord roles from your backend to determine primary role and permissions
-    const discordRoles = await getDiscordRoles(supabaseUser.id);
+    const discordRolesApi = await getDiscordRoles(supabaseUser.id);
+    const discordRoles: DiscordRole[] = discordRolesApi.map(r => ({
+        id: r.id,
+        name: r.name,
+        color: `#${r.color.toString(16).padStart(6, '0')}`
+    }));
+
     const superAdminRoles = config.SUPER_ADMIN_ROLE_IDS || [];
 
-    const primaryRole = discordRoles.length > 0 ? {
-        id: discordRoles[0].id,
-        name: discordRoles[0].name,
-        color: `#${discordRoles[0].color.toString(16).padStart(6, '0')}`
-    } : undefined;
+    const primaryRole = discordRoles.length > 0 ? discordRoles[0] : undefined;
 
     return {
       id: supabaseUser.id,
@@ -35,6 +37,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isSuperAdmin: profile.is_super_admin || discordRoles.some(r => superAdminRoles.includes(r.id)),
       roles: discordRoles.map(r => r.id),
       primaryRole: primaryRole,
+      discordRoles: discordRoles,
     };
   }, [config.SUPER_ADMIN_ROLE_IDS]);
 

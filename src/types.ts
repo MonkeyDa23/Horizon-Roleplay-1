@@ -1,6 +1,7 @@
 
 
 
+
 export type Language = 'ar' | 'en';
 
 export interface Translations {
@@ -16,6 +17,12 @@ export interface LocalizationContextType {
   dir: 'rtl' | 'ltr';
 }
 
+export interface DiscordRole {
+  id: string;
+  name: string;
+  color: string;
+}
+
 export interface User {
   id: string; // From Supabase Auth
   username: string; // From Discord provider
@@ -23,11 +30,8 @@ export interface User {
   isAdmin: boolean; // From our `profiles` table
   isSuperAdmin: boolean; // From our `profiles` table
   roles: string[]; // Discord role IDs from our `profiles` table
-  primaryRole?: {
-    id: string;
-    name: string;
-    color: string;
-  };
+  primaryRole?: DiscordRole;
+  discordRoles: DiscordRole[];
 }
 
 export interface AuthContextType {
@@ -152,4 +156,16 @@ export interface MtaServerStatus {
 export interface MtaLogEntry {
     timestamp: string;
     text: string;
+}
+
+export interface DiscordAnnouncement {
+  id: string;
+  title: string;
+  content: string;
+  author: {
+    name: string;
+    avatarUrl: string;
+  };
+  timestamp: string;
+  url: string;
 }

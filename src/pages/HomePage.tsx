@@ -6,6 +6,7 @@ import Logo from '../components/Logo';
 import { Gamepad2 } from 'lucide-react';
 import MtaServerStatus from '../components/MtaServerStatus';
 import DiscordLogo from '../components/icons/DiscordLogo';
+import DiscordAnnouncements from '../components/DiscordAnnouncements';
 
 const HomePage: React.FC = () => {
   const { t } = useLocalization();
@@ -41,8 +42,9 @@ const HomePage: React.FC = () => {
         </div>
       </div>
 
-      <div className="container mx-auto px-6 py-16">
+      <div className="container mx-auto px-6 py-16 space-y-20">
         <MtaServerStatus />
+        <DiscordAnnouncements />
       </div>
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={t('join_modal_title')}>

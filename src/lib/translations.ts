@@ -155,6 +155,8 @@ export const translations: Translations = {
   admin: { ar: 'مشرف', en: 'Admin' },
   member: { ar: 'عضو', en: 'Member' },
   recent_applications: { ar: 'التقديمات الأخيرة', en: 'Recent Applications' },
+  discord_roles: { ar: 'رتب الديسكورد', en: 'Discord Roles' },
+  view_on_discord: { ar: 'عرض في ديسكورد', en: 'View on Discord' },
   
   // Session Management
   session_expired_not_in_guild: { ar: 'انتهت صلاحية جلستك أو لم تعد عضواً في السيرفر. تم تسجيل خروجك.', en: 'Your session has expired or you are no longer in the server. You have been logged out.'},
@@ -196,6 +198,10 @@ export const translations: Translations = {
   loading_logs: { ar: 'جاري تحميل السجلات...', en: 'Loading logs...' },
   error_loading_logs: { ar: 'خطأ في تحميل السجلات.', en: 'Error loading logs.' },
   no_logs_found_for_player: { ar: 'لم يتم العثور على سجلات لهذا اللاعب.', en: 'No logs found for this player.' },
+
+  // Homepage Announcements
+  community_announcements: { ar: 'إعلانات المجتمع', en: 'Community Announcements' },
+  posted_by: { ar: 'نشر بواسطة', en: 'Posted by' },
 
   // MOCK DATA TRANSLATIONS
   // Products

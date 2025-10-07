@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient';
 // FIX: Import MtaLogEntry type.
-import type { Quiz, QuizSubmission, User, RuleCategory, Product, AuditLogEntry, MtaServerStatus, SubmissionStatus, AppConfig, MtaLogEntry } from '../types';
+import type { Quiz, QuizSubmission, User, RuleCategory, Product, AuditLogEntry, MtaServerStatus, SubmissionStatus, AppConfig, MtaLogEntry, DiscordAnnouncement } from '../types';
 
 // --- API Error Handling ---
 // FIX: Add optional status property to ApiError to carry over HTTP status codes.
@@ -100,11 +100,44 @@ export const getProfileById = async (userId: string) => {
 export const getDiscordRoles = async (userId: string): Promise<{id: string, name: string, color: number}[]> => {
     // In a real implementation, this would be an edge function call:
     // const { data, error } = await supabase.functions.invoke('get-discord-roles', { body: { userId } });
-    // For now, return a mock response.
     console.warn("Using mock Discord roles. Create a 'get-discord-roles' edge function for production.");
+    // Return a more detailed list for the profile page
     return [
         { id: '1', name: 'Server Booster', color: 0xf47fff },
-        { id: '2', name: 'Member', color: 0xffffff }
+        { id: '2', name: 'Police Department', color: 0x3498db },
+        { id: '3', name: 'Emergency Medical Services', color: 0xe74c3c },
+        { id: '4', name: 'Level 10+', color: 0x9b59b6 },
+        { id: '5', name: 'Member', color: 0x99aab5 }
+    ];
+};
+
+export const getDiscordAnnouncements = async (): Promise<DiscordAnnouncement[]> => {
+    // This would be a serverless function. We'll mock it for now.
+    console.warn("Using mock Discord announcements. Create a 'get-discord-announcements' edge function for production.");
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
+    return [
+        {
+            id: '1',
+            title: '🎉 Community Event: Summer Drift King!',
+            content: 'Get your engines ready! This Saturday, we are hosting the annual Summer Drift King competition. Sign-ups are open now in the #events channel. Amazing prizes to be won, including exclusive custom vehicles!',
+            author: {
+                name: 'AdminUser',
+                avatarUrl: 'https://cdn.discordapp.com/embed/avatars/0.png'
+            },
+            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
+            url: '#'
+        },
+        {
+            id: '2',
+            title: '🔧 Server Maintenance & Update v2.5',
+            content: 'Please be advised that the server will be down for scheduled maintenance tonight at 2 AM for approximately one hour. We will be deploying update v2.5 which includes new police vehicles, bug fixes, and performance improvements.',
+            author: {
+                name: 'AdminUser',
+                avatarUrl: 'https://cdn.discordapp.com/embed/avatars/1.png'
+            },
+            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 3).toISOString(), // 3 days ago
+            url: '#'
+        }
     ];
 };
 
@@ -144,13 +177,15 @@ export const revalidateSession = async (currentUser: User): Promise<User> => {
     const { data: configData } = await supabase.from('config').select('SUPER_ADMIN_ROLE_IDS').single();
     const superAdminRoles = configData?.SUPER_ADMIN_ROLE_IDS || [];
     
-    const discordRoles = await getDiscordRoles(supabaseUser.id);
+    const discordRolesApi = await getDiscordRoles(supabaseUser.id);
+    const discordRoles = discordRolesApi.map(r => ({
+        id: r.id,
+        name: r.name,
+        color: `#${r.color.toString(16).padStart(6, '0')}`
+    }));
 
-    const primaryRole = discordRoles.length > 0 ? {
-        id: discordRoles[0].id,
-        name: discordRoles[0].name,
-        color: `#${discordRoles[0].color.toString(16).padStart(6, '0')}`
-    } : undefined;
+
+    const primaryRole = discordRoles.length > 0 ? discordRoles[0] : undefined;
 
     return {
       id: supabaseUser.id,
@@ -160,6 +195,7 @@ export const revalidateSession = async (currentUser: User): Promise<User> => {
       isSuperAdmin: profile.is_super_admin || discordRoles.some(r => superAdminRoles.includes(r.id)),
       roles: discordRoles.map(r => r.id),
       primaryRole: primaryRole,
+      discordRoles: discordRoles,
     };
 };
 

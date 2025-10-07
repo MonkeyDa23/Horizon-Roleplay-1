@@ -4,7 +4,7 @@ import { useLocalization } from '../hooks/useLocalization';
 import { getSubmissionsByUserId } from '../lib/api';
 import type { QuizSubmission, SubmissionStatus } from '../types';
 import { useNavigate } from 'react-router-dom';
-import { User as UserIcon, Loader2, FileText } from 'lucide-react';
+import { User as UserIcon, Loader2, FileText, ExternalLink } from 'lucide-react';
 
 const ProfilePage: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
@@ -76,6 +76,15 @@ const ProfilePage: React.FC = () => {
                 {user.primaryRole && (
                     <p className="font-bold mt-1" style={{color: user.primaryRole.color}}>{user.primaryRole.name}</p>
                 )}
+                 <a 
+                    href={`https://discord.com/users/${user.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-4 inline-flex items-center gap-2 bg-[#5865F2] text-white font-bold py-2 px-4 rounded-md hover:bg-[#4f5bda] transition-colors"
+                    >
+                    <ExternalLink size={16} />
+                    {t('view_on_discord')}
+                </a>
                 <div className="mt-6 space-y-3 text-gray-300 text-sm">
                     <div className="flex flex-col items-center">
                         <span className="font-semibold text-gray-400">{t('user_id')}</span>
@@ -86,6 +95,17 @@ const ProfilePage: React.FC = () => {
                         <span className={`px-3 py-1 text-sm font-bold rounded-full mt-1 ${user.isAdmin ? 'bg-brand-cyan/20 text-brand-cyan' : 'bg-gray-500/20 text-gray-300'}`}>
                           {user.isAdmin ? t('admin') : t('member')}
                         </span>
+                    </div>
+                </div>
+                <div className="mt-6 pt-4 border-t border-brand-light-blue/50">
+                    <h3 className="text-lg font-bold text-brand-cyan mb-3">{t('discord_roles')}</h3>
+                    <div className="flex flex-wrap justify-center gap-2">
+                        {user.discordRoles.map(role => (
+                            <span key={role.id} className="text-xs font-semibold px-2.5 py-1 rounded-full flex items-center gap-1.5" style={{ backgroundColor: `${role.color}20`}}>
+                                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: role.color }}></span>
+                                <span style={{ color: role.color }}>{role.name}</span>
+                            </span>
+                        ))}
                     </div>
                 </div>
             </div>
