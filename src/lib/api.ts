@@ -12,6 +12,15 @@ export class ApiError extends Error {
 }
 
 // --- MOCK DATABASE ---
+// FIX: Add an interface for the mock database to ensure type consistency and prevent inference errors.
+interface MockDb {
+    products: Product[];
+    quizzes: Quiz[];
+    submissions: QuizSubmission[];
+    audit_logs: AuditLogEntry[];
+    rules: RuleCategory[];
+}
+
 let MOCK_CONFIG: AppConfig = {
     COMMUNITY_NAME: 'Horizon',
     LOGO_URL: 'https://l.top4top.io/p_356271n1v1.png',
@@ -22,7 +31,7 @@ let MOCK_CONFIG: AppConfig = {
     SUPER_ADMIN_ROLE_IDS: ["role_admin"],
 };
 
-let MOCK_DB = {
+let MOCK_DB: MockDb = {
   products: [
     { id: 'prod_1', nameKey: 'product_vip_bronze_name', descriptionKey: 'product_vip_bronze_desc', price: 10.00, imageUrl: 'https://i.imgur.com/S8wO2G6.png' },
     { id: 'prod_2', nameKey: 'product_vip_silver_name', descriptionKey: 'product_vip_silver_desc', price: 20.00, imageUrl: 'https://i.imgur.com/S8wO2G6.png' },
