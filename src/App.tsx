@@ -1,15 +1,15 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { LocalizationProvider } from './contexts/LocalizationContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import { ConfigProvider } from './contexts/ConfigContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { useConfig } from './hooks/useConfig';
+import { useAuth } from './hooks/useAuth';
 
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
-import SessionWatcher from './components/SessionWatcher';
 
 import HomePage from './pages/HomePage';
 import StorePage from './pages/StorePage';
@@ -20,11 +20,12 @@ import AdminPage from './pages/AdminPage';
 import QuizPage from './pages/QuizPage';
 import MyApplicationsPage from './pages/MyApplicationsPage';
 import ProfilePage from './pages/ProfilePage';
-import AuthCallbackPage from './pages/AuthCallbackPage';
 import HealthCheckPage from './pages/HealthCheckPage';
+import { Loader2 } from 'lucide-react';
 
 const AppContent: React.FC = () => {
   const { config, configLoading } = useConfig();
+  const { user } = useAuth();
 
   const backgroundStyle: React.CSSProperties =
     !configLoading && config.BACKGROUND_IMAGE_URL
@@ -35,15 +36,23 @@ const AppContent: React.FC = () => {
           backgroundAttachment: 'fixed',
         }
       : {};
+      
+  if (configLoading) {
+    return (
+      <div className="flex flex-col gap-4 justify-center items-center h-screen w-screen bg-brand-dark">
+        <Loader2 size={48} className="text-brand-cyan animate-spin" />
+        <p className="text-xl text-gray-300">Loading Community Hub...</p>
+      </div>
+    )
+  }
 
   return (
     <Router>
-      <SessionWatcher />
       <div 
         className="flex flex-col min-h-screen bg-brand-dark text-white font-sans app-container"
         style={backgroundStyle}
       >
-        <div className="flex flex-col min-h-screen" style={{ zIndex: 1, position: 'relative', backgroundColor: config.BACKGROUND_IMAGE_URL ? 'rgba(10, 15, 24, 0.8)' : 'transparent', backdropFilter: config.BACKGROUND_IMAGE_URL ? 'blur(4px)' : 'none' }}>
+        <div className="flex flex-col min-h-screen" style={{ zIndex: 1, position: 'relative', backgroundColor: config.BACKGROUND_IMAGE_URL ? 'rgba(10, 15, 24, 0.9)' : 'transparent', backdropFilter: config.BACKGROUND_IMAGE_URL ? 'blur(4px)' : 'none' }}>
           <Navbar />
           <main className="flex-grow">
             <Routes>
@@ -53,11 +62,18 @@ const AppContent: React.FC = () => {
               <Route path="/applies" element={<AppliesPage />} />
               <Route path="/applies/:quizId" element={<QuizPage />} />
               <Route path="/about" element={<AboutUsPage />} />
-              <Route path="/admin" element={<AdminPage />} />
-              <Route path="/my-applications" element={<MyApplicationsPage />} />
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/health-check" element={<HealthCheckPage />} />
-              <Route path="/api/auth/callback" element={<AuthCallbackPage />} />
+              <Route path="/admin" element={user?.isAdmin ? <AdminPage /> : <Navigate to="/" />} />
+              <Route path="/my-applications" element={user ? <MyApplicationsPage /> : <Navigate to="/" />} />
+              <Route path="/profile" element={user ? <ProfilePage /> : <Navigate to="/" />} />
+              
+              <Route 
+                path="/health-check" 
+                element={
+                  (config.SHOW_HEALTH_CHECK || user?.isAdmin) 
+                  ? <HealthCheckPage /> 
+                  : <Navigate to="/" />
+                } 
+              />
             </Routes>
           </main>
           <Footer />
@@ -70,17 +86,17 @@ const AppContent: React.FC = () => {
 
 function App() {
   return (
-    <ConfigProvider>
-      <LocalizationProvider>
-        <ToastProvider>
+    <LocalizationProvider>
+      <ToastProvider>
+        <ConfigProvider>
           <AuthProvider>
             <CartProvider>
               <AppContent />
             </CartProvider>
           </AuthProvider>
-        </ToastProvider>
-      </LocalizationProvider>
-    </ConfigProvider>
+        </ConfigProvider>
+      </ToastProvider>
+    </LocalizationProvider>
   );
 }
 

@@ -1,4 +1,6 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
+import { supabase } from '../lib/supabaseClient';
+import { getProfileById, getDiscordRoles } from '../lib/api';
 import type { User, AuthContextType } from '../types';
 import { useConfig } from '../hooks/useConfig';
 
@@ -9,103 +11,87 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const { config, configLoading } = useConfig();
 
-  // On initial load, check for a user in localStorage.
+  const getAppUser = useCallback(async (supabaseUser: any): Promise<User | null> => {
+    if (!supabaseUser) return null;
+
+    const profile = await getProfileById(supabaseUser.id);
+    if (!profile) return null; // User may exist in Auth but not have a profile yet
+    
+    // Fetch user's Discord roles from your backend to determine primary role and permissions
+    const discordRoles = await getDiscordRoles(supabaseUser.id);
+    const superAdminRoles = config.SUPER_ADMIN_ROLE_IDS || [];
+
+    const primaryRole = discordRoles.length > 0 ? {
+        id: discordRoles[0].id,
+        name: discordRoles[0].name,
+        color: `#${discordRoles[0].color.toString(16).padStart(6, '0')}`
+    } : undefined;
+
+    return {
+      id: supabaseUser.id,
+      username: supabaseUser.user_metadata.full_name,
+      avatar: supabaseUser.user_metadata.avatar_url,
+      isAdmin: profile.is_admin,
+      isSuperAdmin: profile.is_super_admin || discordRoles.some(r => superAdminRoles.includes(r.id)),
+      roles: discordRoles.map(r => r.id),
+      primaryRole: primaryRole,
+    };
+  }, [config.SUPER_ADMIN_ROLE_IDS]);
+
+
   useEffect(() => {
-    try {
-      setLoading(true);
-      const storedUser = localStorage.getItem('horizon_user_session');
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
-      }
-    } catch (e) {
-      console.error("Failed to parse user from localStorage", e);
-      localStorage.removeItem('horizon_user_session');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const login = useCallback(() => {
-    if (configLoading || !config.DISCORD_CLIENT_ID) {
-      alert("Configuration is not loaded yet or Client ID is missing. Please check the Health Check page or try again in a moment.");
-      return;
-    }
     setLoading(true);
-
-    const state = Math.random().toString(36).substring(2, 15);
-    localStorage.setItem('oauth_state', state);
-
-    const OAUTH_SCOPES = 'identify'; // We get guild info from the bot, so only 'identify' is needed here.
-    const REDIRECT_URI = `${window.location.origin}/api/auth/callback`;
-
-    const params = new URLSearchParams({
-      client_id: config.DISCORD_CLIENT_ID,
-      redirect_uri: REDIRECT_URI,
-      response_type: 'code',
-      scope: OAUTH_SCOPES,
-      state: state,
-      prompt: 'consent',
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        const appUser = await getAppUser(session.user);
+        setUser(appUser);
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
     });
 
-    const discordAuthUrl = `https://discord.com/oauth2/authorize?${params.toString()}`;
-    const width = 500, height = 800;
-    const left = window.screen.width / 2 - width / 2;
-    const top = window.screen.height / 2 - height / 2;
-
-    const popup = window.open(
-      discordAuthUrl,
-      'DiscordAuth',
-      `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
-    );
-
-    if (popup) {
-      const timer = setInterval(() => {
-        if (popup.closed) {
-          clearInterval(timer);
-          // The storage event handler will set the user, but we should stop loading here.
-          setLoading(false);
-        }
-      }, 500);
-    } else {
-      alert("Popup blocked. Please allow popups for this site to log in.");
-      setLoading(false);
-    }
-  }, [config.DISCORD_CLIENT_ID, configLoading]);
-
-  const logout = useCallback(() => {
-    setUser(null);
-    localStorage.removeItem('horizon_user_session');
-  }, []);
-
-  const updateUser = useCallback((updatedUser: User) => {
-    setUser(updatedUser);
-    localStorage.setItem('horizon_user_session', JSON.stringify(updatedUser));
-  }, []);
-
-  // Listen for login/logout events from other tabs (the popup).
-  useEffect(() => {
-    const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === 'horizon_user_session') {
-        setLoading(true);
-        if (event.newValue) {
-          try {
-            setUser(JSON.parse(event.newValue));
-          } catch (e) {
-            console.error("Failed to parse user from storage event", e);
-            logout();
-          }
-        } else {
-          // If newValue is null, it means the item was removed (logout).
-          setUser(null);
+    // Check for existing session on initial load
+    const checkSession = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+            const appUser = await getAppUser(session.user);
+            setUser(appUser);
         }
         setLoading(false);
-      }
     };
-    
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, [logout]);
+
+    if (!configLoading) {
+       checkSession();
+    }
+
+    return () => subscription.unsubscribe();
+  }, [getAppUser, configLoading]);
   
+  const login = async () => {
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'discord',
+    });
+    if (error) {
+      console.error('Error logging in:', error);
+      alert('Error logging in: ' + error.message);
+      setLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    setLoading(true);
+    await supabase.auth.signOut();
+    setUser(null);
+    setLoading(false);
+  };
+
+  // FIX: Add updateUser function to allow components to update the user state.
+  const updateUser = useCallback((newUser: User) => {
+    setUser(newUser);
+  }, []);
+
   const value = { user, login, logout, loading, updateUser };
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

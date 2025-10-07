@@ -1,20 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { useLocalization } from '../hooks/useLocalization';
+import { supabase } from '../lib/supabaseClient';
 
 interface HealthCheckData {
   env: Record<string, string>;
-  bot: {
-    status: string;
-    guild_found: boolean;
-    guild_name: string;
-    error: string | null;
-  };
   supabase: {
     status: string;
     error: string | null;
   };
   urls: {
-    app_url: string;
     redirect_uri: string;
   };
 }
@@ -24,11 +19,13 @@ const HealthCheckPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const { t } = useLocalization();
   
-  const redirectUri = data ? data.urls.redirect_uri : `${window.location.origin}/api/auth/callback`;
+  const redirectUri = data ? data.urls.redirect_uri : 'Loading...';
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(redirectUri).then(() => {
+    if (!data) return;
+    navigator.clipboard.writeText(data.urls.redirect_uri).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
@@ -37,20 +34,50 @@ const HealthCheckPage: React.FC = () => {
 
   useEffect(() => {
     const checkHealth = async () => {
-      try {
-        const response = await fetch('/api/health');
-        const result = await response.json();
-        setData(result);
-        if(!response.ok) {
-            setError("The server reported one or more configuration errors.");
-        }
-      } catch (e) {
-        setError('Failed to connect to the server. Make sure it has been deployed correctly.');
-        console.error(e);
-      } finally {
+      let checks: HealthCheckData = {
+          env: {},
+          supabase: { status: '❌ Not Connected', error: 'Test not run' },
+          urls: { redirect_uri: '' }
+      };
+
+      // 1. Check Env Vars (Client-side)
+      const supabaseUrl = process.env.SUPABASE_URL;
+      const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
+      checks.env['SUPABASE_URL'] = supabaseUrl ? '✅ Set' : '❌ Not Set';
+      checks.env['SUPABASE_ANON_KEY'] = supabaseAnonKey ? '✅ Set' : '❌ Not Set';
+      
+      if (!supabaseUrl) {
+        setError("Supabase URL is missing from environment variables.");
         setLoading(false);
+        setData(checks);
+        return;
       }
+      
+      // 2. Set URLs
+      // Extract the project reference from the URL
+      const urlParts = supabaseUrl.split('.');
+      const projectRef = urlParts[0].split('//')[1];
+      checks.urls.redirect_uri = projectRef 
+        ? `https://{your-supabase-project-ref}.supabase.co/auth/v1/callback`
+        : "Could not determine project ref from URL.";
+
+
+      // 3. Check Supabase Connection
+      try {
+        const { error } = await supabase.from('quizzes').select('id').limit(1);
+        if (error) throw error;
+        checks.supabase.status = '✅ Connected';
+        checks.supabase.error = null;
+      } catch(e: any) {
+        checks.supabase.status = '❌ Failed';
+        checks.supabase.error = e.message;
+        setError("Supabase connection failed. Check your URL, Anon Key, and RLS policies.");
+      }
+      
+      setData(checks);
+      setLoading(false);
     };
+
     checkHealth();
   }, []);
 
@@ -71,79 +98,52 @@ const HealthCheckPage: React.FC = () => {
   return (
     <div className="container mx-auto px-6 py-16">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold mb-8 text-center">Server Health Check</h1>
+        <h1 className="text-4xl font-bold mb-2 text-center">{t('health_check_title')}</h1>
+        <p className="text-center text-gray-400 mb-8">{t('health_check_desc')}</p>
         
         <div className="bg-brand-dark-blue p-6 rounded-lg border-2 border-brand-cyan shadow-glow-cyan-light mb-8">
-            <h2 className="text-2xl font-bold text-brand-cyan mb-3">1. Discord OAuth2 Redirect URI</h2>
-            <p className="text-gray-300 mb-4">
-            For login to work, you must add the correct Redirect URI in the Discord Developer Portal. An incorrect URI is the most common cause of login failure.
-            </p>
-            <label className="text-gray-400 mb-2 font-semibold block">Your Required Redirect URI:</label>
+            <h2 className="text-2xl font-bold text-brand-cyan mb-3">{t('health_check_step1')}</h2>
+            <p className="text-gray-300 mb-4">{t('health_check_step1_desc')}</p>
+            <label className="text-gray-400 mb-2 font-semibold block">{t('health_check_uri_label')}</label>
             <div className="flex items-center gap-4 bg-brand-dark p-3 rounded-md">
-            <code className="text-white text-md md:text-lg flex-grow break-all">{redirectUri}</code>
-            <button onClick={handleCopy} className="bg-brand-cyan text-brand-dark font-bold py-1 px-3 rounded-md hover:bg-white transition-colors flex-shrink-0">
-                {copied ? 'Copied!' : 'Copy'}
+            <code className="text-white text-md md:text-lg flex-grow break-all">{redirectUri.replace('{your-supabase-project-ref}', 'YOUR_PROJECT_REF')}</code>
+            <button onClick={handleCopy} disabled={loading} className="bg-brand-cyan text-brand-dark font-bold py-1 px-3 rounded-md hover:bg-white transition-colors flex-shrink-0">
+                {copied ? t('health_check_copied') : t('health_check_copy')}
             </button>
             </div>
-            <p className="text-xs text-gray-400 mt-3">Go to your <a href="https://discord.com/developers/applications" target="_blank" rel="noopener noreferrer" className="text-brand-cyan underline">Discord Applications</a>, select your app, go to "OAuth2", and paste this exact URL into the "Redirects" box, then click "Save Changes".</p>
         </div>
 
-        <h2 className="text-3xl font-bold mb-6 text-center">2. Server Diagnostics</h2>
+        <h2 className="text-3xl font-bold mb-6 text-center">{t('health_check_step2')}</h2>
 
         {loading && (
           <div className="flex justify-center items-center py-10">
             <Loader2 size={40} className="animate-spin text-brand-cyan" />
-            <span className="ml-4 text-xl">Running diagnostics...</span>
           </div>
-        )}
-        
-        {error && !data && (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-300 p-6 rounded-lg">
-                <h2 className="text-xl font-bold mb-2 flex items-center"><AlertTriangle /> <span className="ml-2">Connection Error</span></h2>
-                <p>{error}</p>
-            </div>
         )}
 
         {data && (
           <div className="space-y-6">
             <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
-                <h3 className="text-2xl font-bold text-brand-cyan mb-4">Backend URL Configuration</h3>
-                 <div className="bg-brand-dark p-3 rounded-md">
-                    <p className="text-gray-400">Detected Backend URL (APP_URL):</p>
-                    <code className="text-white text-lg break-all">{data.urls.app_url}</code>
-                </div>
-                 {data.urls.app_url.includes('vercel.app') && (
-                    <div className="bg-yellow-900/50 border border-yellow-500/30 p-3 rounded-md mt-4 text-yellow-300">
-                        <p className="font-bold">Warning: URL Mismatch Risk</p>
-                        <p className="text-sm">The backend is using an automatic Vercel URL. For your main production site, you **must** set an `APP_URL` environment variable in Vercel to your primary domain (e.g., `https://your-site.com`) to prevent login errors.</p>
-                    </div>
-                )}
-            </div>
-
-            <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
-              <h3 className="text-2xl font-bold text-brand-cyan mb-4">Vercel Environment Variables</h3>
-              <p className="text-sm text-gray-400 mb-4">Checks if the required secrets are set in your Vercel project settings.</p>
+              <h3 className="text-2xl font-bold text-brand-cyan mb-4">{t('health_check_env_vars')}</h3>
+              <p className="text-sm text-gray-400 mb-4">{t('health_check_env_vars_desc')}</p>
               <ul className="space-y-2">
-                {Object.entries(data.env).map(([key, value]) => {
-                  const strValue = value as string;
-                  return (
-                    <li key={key} className={`flex items-center bg-brand-dark p-3 rounded-md ${getStatusTextClass(strValue)}`}>
-                      <StatusIcon status={strValue} />
+                {Object.entries(data.env).map(([key, value]) => (
+                    <li key={key} className={`flex items-center bg-brand-dark p-3 rounded-md ${getStatusTextClass(value)}`}>
+                      <StatusIcon status={value} />
                       <code className="text-gray-300">{key}</code>
-                      <span className="ml-auto font-semibold">{strValue.substring(2)}</span>
+                      <span className="ml-auto font-semibold">{value.substring(2)}</span>
                     </li>
-                  );
-                })}
+                ))}
               </ul>
             </div>
             
             <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
-              <h3 className="text-2xl font-bold text-brand-cyan mb-4">Supabase Connection</h3>
-               <p className="text-sm text-gray-400 mb-4">Tests if the server can connect to your Supabase database.</p>
+              <h3 className="text-2xl font-bold text-brand-cyan mb-4">{t('health_check_supabase_connection')}</h3>
+               <p className="text-sm text-gray-400 mb-4">{t('health_check_supabase_desc')}</p>
                <div className="bg-brand-dark p-4 rounded-md space-y-3">
                  <div className={`flex items-center ${getStatusTextClass(data.supabase.status)}`}>
                     <StatusIcon status={data.supabase.status} />
-                    <span className="font-semibold text-gray-300">DB Status:</span>
+                    <span className="font-semibold text-gray-300">{t('health_check_db_status')}</span>
                     <span className="ml-2 font-bold">{data.supabase.status.substring(2)}</span>
                  </div>
                  {data.supabase.error && (
@@ -155,40 +155,15 @@ const HealthCheckPage: React.FC = () => {
                </div>
             </div>
 
-            <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
-              <h3 className="text-2xl font-bold text-brand-cyan mb-4">Discord Bot Connection</h3>
-               <p className="text-sm text-gray-400 mb-4">Tests if the server can log in with your bot token and find your guild ID.</p>
-              <div className="bg-brand-dark p-4 rounded-md space-y-3">
-                 <div className={`flex items-center ${getStatusTextClass(data.bot.status)}`}>
-                    <StatusIcon status={data.bot.status} />
-                    <span className="font-semibold text-gray-300">Bot Status:</span>
-                    <span className="ml-2 font-bold">{data.bot.status.substring(2)}</span>
-                 </div>
-                  {data.bot.guild_name && (
-                     <div className="flex items-center pl-7 text-white">
-                        <StatusIcon status={data.bot.guild_found ? '✅' : '❌'} />
-                        <span className="font-semibold text-gray-300">Guild Found:</span>
-                        <span className="ml-2 font-bold">{data.bot.guild_name}</span>
-                     </div>
-                  )}
-                  {data.bot.error && (
-                     <div className="bg-red-900/50 border border-red-500/30 p-3 rounded-md mt-2 ml-7">
-                        <p className="font-bold text-red-300">Error Details:</p>
-                        <p className="text-red-300 mt-1 text-sm">{data.bot.error}</p>
-                     </div>
-                  )}
-              </div>
-            </div>
-
             {error ? (
                  <div className="bg-red-500/10 border border-red-500/30 text-red-300 p-6 rounded-lg">
-                    <h2 className="text-xl font-bold mb-2 flex items-center"><XCircle className="mr-2"/> Overall Status: Configuration Error</h2>
-                    <p>One or more checks failed. Please review the errors above and follow the troubleshooting steps. **Login will not work until all checks are green.**</p>
+                    <h2 className="text-xl font-bold mb-2 flex items-center"><XCircle className="mr-2"/> {t('health_check_overall_status')}: {t('health_check_error')}</h2>
+                    <p>{t('health_check_error_desc')}</p>
                 </div>
             ) : (
                  <div className="bg-green-500/10 border border-green-500/30 text-green-300 p-6 rounded-lg">
-                    <h2 className="text-xl font-bold mb-2 flex items-center"><CheckCircle className="mr-2"/> Overall Status: All Systems Operational</h2>
-                    <p>The server is configured correctly. If you have completed Step 1 (Redirect URI) and Step 2 (Vercel Environment Variables), the login should now work perfectly.</p>
+                    <h2 className="text-xl font-bold mb-2 flex items-center"><CheckCircle className="mr-2"/> {t('health_check_overall_status')}: {t('health_check_success')}</h2>
+                    <p>{t('health_check_success_desc')}</p>
                 </div>
             )}
           </div>

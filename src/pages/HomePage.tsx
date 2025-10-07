@@ -14,7 +14,7 @@ const HomePage: React.FC = () => {
 
   return (
     <>
-      <div className="relative h-[calc(100vh-84px)] flex items-center justify-center overflow-hidden">
+      <div className="relative h-[calc(100vh-68px)] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 w-full h-full opacity-5 pointer-events-none">
           <Logo className="w-full h-full object-contain" />
         </div>
@@ -41,7 +41,7 @@ const HomePage: React.FC = () => {
         </div>
       </div>
 
-      <div className="container mx-auto px-6 py-16 -mt-16">
+      <div className="container mx-auto px-6 py-16">
         <MtaServerStatus />
       </div>
 

@@ -1,4 +1,4 @@
-import { staticConfig } from "./lib/config";
+
 
 export type Language = 'ar' | 'en';
 
@@ -16,17 +16,17 @@ export interface LocalizationContextType {
 }
 
 export interface User {
-  id: string;
-  username: string;
-  avatar: string;
-  isAdmin: boolean;
-  roles: string[];
+  id: string; // From Supabase Auth
+  username: string; // From Discord provider
+  avatar: string; // From Discord provider
+  isAdmin: boolean; // From our `profiles` table
+  isSuperAdmin: boolean; // From our `profiles` table
+  roles: string[]; // Discord role IDs from our `profiles` table
   primaryRole?: {
     id: string;
     name: string;
     color: string;
   };
-  ipAddress?: string;
 }
 
 export interface AuthContextType {
@@ -34,15 +34,18 @@ export interface AuthContextType {
   login: () => void;
   logout: () => void;
   loading: boolean;
+  // FIX: Add updateUser to the context type.
   updateUser: (user: User) => void;
 }
 
-export interface AppConfig extends Omit<typeof staticConfig, 'LOGO_URL'> {
+export interface AppConfig {
+  COMMUNITY_NAME: string;
   LOGO_URL: string;
-  SUPER_ADMIN_ROLE_IDS: string[];
-  DISCORD_CLIENT_ID: string;
-  DISCORD_GUILD_ID: string;
+  DISCORD_INVITE_URL: string;
+  MTA_SERVER_URL: string;
   BACKGROUND_IMAGE_URL?: string;
+  SHOW_HEALTH_CHECK?: boolean;
+  SUPER_ADMIN_ROLE_IDS?: string[];
 }
 
 

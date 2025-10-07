@@ -1,6 +1,5 @@
 import React, { createContext, useState, useEffect, useMemo } from 'react';
-import { staticConfig } from '../lib/config';
-import { getPublicConfig } from '../lib/api';
+import { getConfig } from '../lib/api';
 import type { AppConfig } from '../types';
 
 interface ConfigContextType {
@@ -8,43 +7,43 @@ interface ConfigContextType {
   configLoading: boolean;
 }
 
+const defaultConfig: AppConfig = {
+    COMMUNITY_NAME: 'Horizon',
+    LOGO_URL: '',
+    DISCORD_INVITE_URL: '',
+    MTA_SERVER_URL: '',
+    BACKGROUND_IMAGE_URL: '',
+    SHOW_HEALTH_CHECK: false,
+    SUPER_ADMIN_ROLE_IDS: [],
+};
+
 export const ConfigContext = createContext<ConfigContextType>({
-  config: { 
-    ...staticConfig, 
-    SUPER_ADMIN_ROLE_IDS: [], 
-    DISCORD_CLIENT_ID: '', 
-    DISCORD_GUILD_ID: '',
-    LOGO_URL: staticConfig.LOGO_URL,
-  },
+  config: defaultConfig,
   configLoading: true,
 });
 
 export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [remoteConfig, setRemoteConfig] = useState<Partial<AppConfig>>({});
+  const [config, setConfig] = useState<AppConfig>(defaultConfig);
   const [configLoading, setConfigLoading] = useState(true);
 
   useEffect(() => {
-    const fetchConfig = async () => {
+    const fetchAndSetConfig = async () => {
       try {
-        const configData = await getPublicConfig();
-        setRemoteConfig(configData);
+        const configData = await getConfig();
+        setConfig(configData);
       } catch (error) {
-        console.warn("Could not fetch remote config, using static fallback.", error);
+        console.error("Fatal: Could not fetch remote config. Using fallback.", error);
+        // In case of error, we'll stick with the hardcoded default.
       } finally {
         setConfigLoading(false);
       }
     };
 
-    fetchConfig();
+    fetchAndSetConfig();
   }, []);
 
-  const mergedConfig = useMemo(() => {
-    // Remote config from the API overrides the local static fallback values.
-    return { ...staticConfig, ...remoteConfig } as AppConfig;
-  }, [remoteConfig]);
-
   return (
-    <ConfigContext.Provider value={{ config: mergedConfig, configLoading }}>
+    <ConfigContext.Provider value={{ config, configLoading }}>
       {children}
     </ConfigContext.Provider>
   );

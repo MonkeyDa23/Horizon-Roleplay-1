@@ -38,6 +38,7 @@ const TABS: { id: AdminTab; labelKey: string; icon: React.ElementType; superAdmi
 ];
 
 const AdminPage: React.FC = () => {
+  // FIX: Added updateUser to destructuring
   const { user, logout, updateUser, loading: authLoading } = useAuth();
   const { t } = useLocalization();
   const { showToast } = useToast();
@@ -130,11 +131,13 @@ const AdminPage: React.FC = () => {
         setIsTabLoading(true);
         try {
             switch (activeTab) {
-                case 'submissions': setSubmissions(await getSubmissions(user)); break;
+                // FIX: Removed user argument from API calls
+                case 'submissions': setSubmissions(await getSubmissions()); break;
                 case 'quizzes': if (isSuperAdmin) setQuizzes(await getQuizzes()); break;
                 case 'rules': if (isSuperAdmin) setEditableRules(JSON.parse(JSON.stringify(await getRules()))); break;
                 case 'store': if (isSuperAdmin) setProducts(await getProducts()); break;
-                case 'audit': if (isSuperAdmin) setAuditLogs(await getAuditLogs(user)); break;
+                // FIX: Removed user argument from API call
+                case 'audit': if (isSuperAdmin) setAuditLogs(await getAuditLogs()); break;
             }
         } catch (error) {
             console.error(`Failed to fetch data for tab: ${activeTab}`, error);
@@ -152,7 +155,8 @@ const AdminPage: React.FC = () => {
       // FIX: Add user check and pass user to API call
       if (!user) return;
       setIsTabLoading(true);
-      setSubmissions(await getSubmissions(user));
+      // FIX: Removed user argument from API call
+      setSubmissions(await getSubmissions());
       setIsTabLoading(false);
   }
 
@@ -162,7 +166,8 @@ const AdminPage: React.FC = () => {
     if (editingQuiz && user) {
       setIsSaving(true);
       try {
-        await apiSaveQuiz(editingQuiz, user);
+        // FIX: Removed user argument from API call
+        await apiSaveQuiz(editingQuiz);
         setQuizzes(await getQuizzes());
         setEditingQuiz(null);
         showToast('Quiz saved successfully!', 'success');
@@ -178,7 +183,8 @@ const AdminPage: React.FC = () => {
     const quizToDelete = quizzes.find(q => q.id === quizId);
     if (window.confirm(`Delete "${t(quizToDelete?.titleKey || 'this')}" quiz?`)) {
         try {
-            await apiDeleteQuiz(quizId, user);
+            // FIX: Removed user argument from API call
+            await apiDeleteQuiz(quizId);
             setQuizzes(await getQuizzes());
             showToast('Quiz deleted!', 'success');
         } catch (error) {
@@ -187,14 +193,17 @@ const AdminPage: React.FC = () => {
     }
   };
 
-  const handleTakeOrder = async (submissionId: string) => { if(user) { try { await updateSubmissionStatus(submissionId, 'taken', user); refreshSubmissions(); } catch (e) { showToast(e instanceof Error ? e.message : 'Failed to take order', 'error'); } } }
-  const handleDecision = async (submissionId: string, decision: 'accepted' | 'refused') => { if(user) { try { await updateSubmissionStatus(submissionId, decision, user); setViewingSubmission(null); refreshSubmissions(); } catch(e) { showToast(e instanceof Error ? e.message : 'Failed to process decision', 'error'); } } }
+  // FIX: Removed user argument from API call
+  const handleTakeOrder = async (submissionId: string) => { if(user) { try { await updateSubmissionStatus(submissionId, 'taken'); refreshSubmissions(); } catch (e) { showToast(e instanceof Error ? e.message : 'Failed to take order', 'error'); } } }
+  // FIX: Removed user argument from API call
+  const handleDecision = async (submissionId: string, decision: 'accepted' | 'refused') => { if(user) { try { await updateSubmissionStatus(submissionId, decision); setViewingSubmission(null); refreshSubmissions(); } catch(e) { showToast(e instanceof Error ? e.message : 'Failed to process decision', 'error'); } } }
 
   const handleSaveRules = async () => {
       if (editableRules && user) {
           setIsSaving(true);
           try {
-              await apiSaveRules(editableRules, user);
+              // FIX: user argument is not needed
+              await apiSaveRules(editableRules);
               showToast(t('rules_updated_success'), 'success');
           } catch (error) {
               showToast(`Error saving rules: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
