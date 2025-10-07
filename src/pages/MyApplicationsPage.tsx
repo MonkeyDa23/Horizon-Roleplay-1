@@ -67,20 +67,24 @@ const MyApplicationsPage: React.FC = () => {
                 <tr>
                   <th className="p-4">{t('application_type')}</th>
                   <th className="p-4">{t('submitted_on')}</th>
+                  <th className="p-4">{t('result_date')}</th>
                   <th className="p-4">{t('status')}</th>
                 </tr>
               </thead>
               <tbody>
                 {submissions.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="p-8 text-center text-gray-400 text-lg">
+                    <td colSpan={4} className="p-8 text-center text-gray-400 text-lg">
                       {t('no_applications_submitted')}
                     </td>
                   </tr>
                 ) : submissions.map((sub, index) => (
                   <tr key={sub.id} className={`border-b border-brand-light-blue/50 ${index === submissions.length - 1 ? 'border-none' : ''}`}>
                     <td className="p-4 font-semibold">{sub.quizTitle}</td>
-                    <td className="p-4 text-sm text-gray-400">{new Date(sub.submittedAt).toLocaleString()}</td>
+                    <td className="p-4 text-sm text-gray-400">{new Date(sub.submittedAt).toLocaleDateString()}</td>
+                    <td className="p-4 text-sm text-gray-400">
+                      {(sub.status === 'accepted' || sub.status === 'refused') && sub.updatedAt ? new Date(sub.updatedAt).toLocaleDateString() : 'N/A'}
+                    </td>
                     <td className="p-4">{renderStatusBadge(sub.status)}</td>
                   </tr>
                 ))}

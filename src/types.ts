@@ -1,5 +1,6 @@
 
 
+
 export type Language = 'ar' | 'en';
 
 export interface Translations {
@@ -112,6 +113,7 @@ export interface QuizSubmission {
   username: string;
   answers: Answer[];
   submittedAt: string;
+  updatedAt?: string;
   status: SubmissionStatus;
   adminId?: string;
   adminUsername?: string;
@@ -144,4 +146,10 @@ export interface MtaServerStatus {
     name: string;
     players: number;
     maxPlayers: number;
+}
+
+// FIX: Add MtaLogEntry type for the new MtaLogsPanel component.
+export interface MtaLogEntry {
+    timestamp: string;
+    text: string;
 }

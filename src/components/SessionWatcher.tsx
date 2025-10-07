@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { useLocalization } from '../hooks/useLocalization';
+// FIX: Correct import path for revalidateSession.
 import { revalidateSession } from '../lib/api';
 import type { User } from '../types';
 

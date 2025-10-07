@@ -16,17 +16,20 @@ import {
   saveProduct as apiSaveProduct,
   deleteProduct as apiDeleteProduct,
   saveConfig,
+  getSubmissionsByUserId,
 } from '../lib/api';
 import type { Quiz, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule, Product, AppConfig } from '../types';
 import { useNavigate } from 'react-router-dom';
-import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store, AlertTriangle, Palette } from 'lucide-react';
+import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store, AlertTriangle, Palette, Search } from 'lucide-react';
 import Modal from '../components/Modal';
 
-type AdminTab = 'submissions' | 'quizzes' | 'rules' | 'store' | 'appearance' | 'audit';
+
+type AdminTab = 'submissions' | 'quizzes' | 'rules' | 'store' | 'appearance' | 'lookup' | 'audit';
 
 const TABS: { id: AdminTab; labelKey: string; icon: React.ElementType; superAdminOnly: boolean }[] = [
   { id: 'submissions', labelKey: 'submission_management', icon: FileText, superAdminOnly: false },
   { id: 'quizzes', labelKey: 'quiz_management', icon: Server, superAdminOnly: true },
+  { id: 'lookup', labelKey: 'user_lookup', icon: Search, superAdminOnly: true },
   { id: 'rules', labelKey: 'rules_management', icon: BookCopy, superAdminOnly: true },
   { id: 'store', labelKey: 'store_management', icon: Store, superAdminOnly: true },
   { id: 'appearance', labelKey: 'appearance_settings', icon: Palette, superAdminOnly: true },
@@ -59,6 +62,12 @@ const AdminPage: React.FC = () => {
 
   const [isTabLoading, setIsTabLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // State for User Lookup
+  const [lookupUserId, setLookupUserId] = useState('');
+  const [lookupResult, setLookupResult] = useState<{ submissions: QuizSubmission[], searchedId: string } | null>(null);
+  const [isLookupLoading, setIsLookupLoading] = useState(false);
+  const [lookupError, setLookupError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user?.isAdmin) {
@@ -69,6 +78,7 @@ const AdminPage: React.FC = () => {
   // Effect for lazy-loading data based on the active tab
   useEffect(() => {
     if (!user?.isAdmin) return;
+    setLookupResult(null); // Clear lookup results when changing tabs
 
     const fetchDataForTab = async () => {
         setIsTabLoading(true);
@@ -79,6 +89,7 @@ const AdminPage: React.FC = () => {
                     if(quizzes.length === 0) setQuizzes(await getQuizzes());
                     break;
                 case 'quizzes': if (user.isSuperAdmin) setQuizzes(await getQuizzes()); break;
+                case 'lookup': break; // No initial data to load for lookup
                 case 'rules': if (user.isSuperAdmin) setEditableRules(JSON.parse(JSON.stringify(await getRules()))); break;
                 case 'store': if (user.isSuperAdmin) setProducts(await getProducts()); break;
                 case 'appearance': if (user.isSuperAdmin) setEditableConfig({ ...config }); break;
@@ -141,6 +152,24 @@ const AdminPage: React.FC = () => {
     }
   }
 
+  const handleUserLookup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lookupUserId.trim()) return;
+    
+    setIsLookupLoading(true);
+    setLookupError(null);
+    setLookupResult(null);
+
+    try {
+        const submissions = await getSubmissionsByUserId(lookupUserId.trim());
+        setLookupResult({ submissions, searchedId: lookupUserId.trim() });
+    } catch (error) {
+        console.error("User lookup failed:", error);
+        setLookupError(t('no_user_found_or_no_data'));
+    } finally {
+        setIsLookupLoading(false);
+    }
+  };
 
   if (authLoading || !user?.isAdmin) {
     return (
@@ -185,8 +214,8 @@ const AdminPage: React.FC = () => {
   // Define Panels Here (SubmissionsPanel, QuizzesPanel, etc.)
   const SubmissionsPanel = () => (
     <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50 mt-6">
-      <div className="overflow-x-auto"><table className="w-full text-left min-w-[600px]"><thead className="border-b border-brand-light-blue/50 text-gray-300"><tr><th className="p-4">{t('applicant')}</th><th className="p-4">{t('quiz_title')}</th><th className="p-4">{t('submitted_on')}</th><th className="p-4">{t('status')}</th><th className="p-4 text-right">{t('actions')}</th></tr></thead><tbody>
-        {submissions.length === 0 ? (<tr><td colSpan={5} className="p-8 text-center text-gray-400">{t('no_pending_submissions')}</td></tr>) : submissions.map((sub, i) => (<tr key={sub.id} className={`border-b border-brand-light-blue/50 ${i === submissions.length - 1 ? 'border-none' : ''}`}><td className="p-4 font-semibold">{sub.username}</td><td className="p-4">{sub.quizTitle}</td><td className="p-4 text-sm text-gray-400">{new Date(sub.submittedAt).toLocaleDateString()}</td><td className="p-4">{renderStatusBadge(sub.status)}</td><td className="p-4 text-right"><div className="inline-flex gap-4 items-center">{sub.status === 'pending' && getTakeButton(sub)}{sub.status === 'taken' && (<span className="text-xs text-gray-400 italic">{t('taken_by')} {sub.adminUsername === user?.username ? 'You' : sub.adminUsername}</span>)}<button onClick={() => setViewingSubmission(sub)} className="text-gray-300 hover:text-brand-cyan" title={t('view_submission')}><Eye size={20}/></button></div></td></tr>))}
+      <div className="overflow-x-auto"><table className="w-full text-left min-w-[700px]"><thead className="border-b border-brand-light-blue/50 text-gray-300"><tr><th className="p-4">{t('applicant')}</th><th className="p-4">{t('quiz_title')}</th><th className="p-4">{t('submitted_on')}</th><th className="p-4">{t('result_date')}</th><th className="p-4">{t('status')}</th><th className="p-4 text-right">{t('actions')}</th></tr></thead><tbody>
+        {submissions.length === 0 ? (<tr><td colSpan={6} className="p-8 text-center text-gray-400">{t('no_pending_submissions')}</td></tr>) : submissions.map((sub, i) => (<tr key={sub.id} className={`border-b border-brand-light-blue/50 ${i === submissions.length - 1 ? 'border-none' : ''}`}><td className="p-4 font-semibold">{sub.username}</td><td className="p-4">{sub.quizTitle}</td><td className="p-4 text-sm text-gray-400">{new Date(sub.submittedAt).toLocaleDateString()}</td><td className="p-4 text-sm text-gray-400">{(sub.status === 'accepted' || sub.status === 'refused') && sub.updatedAt ? new Date(sub.updatedAt).toLocaleDateString() : 'N/A'}</td><td className="p-4">{renderStatusBadge(sub.status)}</td><td className="p-4 text-right"><div className="inline-flex gap-4 items-center">{sub.status === 'pending' && getTakeButton(sub)}{sub.status === 'taken' && (<span className="text-xs text-gray-400 italic">{t('taken_by')} {sub.adminUsername === user?.username ? 'You' : sub.adminUsername}</span>)}<button onClick={() => setViewingSubmission(sub)} className="text-gray-300 hover:text-brand-cyan" title={t('view_submission')}><Eye size={20}/></button></div></td></tr>))}
       </tbody></table></div>
     </div>
   );
@@ -224,6 +253,65 @@ const AdminPage: React.FC = () => {
     </div>
   );
 
+  const UserLookupPanel = () => (
+    <div className="mt-6 max-w-4xl mx-auto">
+      <form onSubmit={handleUserLookup} className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50 flex flex-col sm:flex-row items-center gap-4">
+        <input 
+          type="text"
+          value={lookupUserId}
+          onChange={e => setLookupUserId(e.target.value)}
+          placeholder={t('enter_discord_id')}
+          className="w-full bg-brand-light-blue text-white p-3 rounded-md border border-gray-600 focus:ring-2 focus:ring-brand-cyan focus:border-brand-cyan transition-colors"
+        />
+        <button type="submit" disabled={isLookupLoading} className="w-full sm:w-auto bg-brand-cyan text-brand-dark font-bold py-3 px-8 rounded-md hover:bg-white transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-wait">
+          {isLookupLoading ? <Loader2 className="animate-spin" /> : <Search />}
+          <span>{t('search')}</span>
+        </button>
+      </form>
+
+      {isLookupLoading && <div className="flex justify-center py-10"><Loader2 size={40} className="animate-spin text-brand-cyan" /></div>}
+      {lookupError && <div className="mt-6 text-center text-red-400 bg-red-500/10 p-4 rounded-lg">{lookupError}</div>}
+      
+      {lookupResult && (
+        <div className="mt-8 space-y-8 animate-fade-in">
+          <h2 className="text-2xl font-bold text-center">{t('lookup_results_for')} <code className="text-brand-cyan bg-brand-dark px-2 py-1 rounded-md">{lookupResult.searchedId}</code></h2>
+          
+          <div>
+            <h3 className="text-2xl font-bold mb-4 flex items-center gap-3"><FileText className="text-brand-cyan" />{t('application_history')}</h3>
+            <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left min-w-[600px]">
+                  <thead className="border-b border-brand-light-blue/50 text-gray-300">
+                    <tr>
+                        <th className="p-4">{t('application_type')}</th>
+                        <th className="p-4">{t('submitted_on')}</th>
+                        <th className="p-4">{t('result_date')}</th>
+                        <th className="p-4">{t('status')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lookupResult.submissions.length === 0 ? (
+                      <tr><td colSpan={4} className="p-8 text-center text-gray-400">{t('no_submissions_found_for_user')}</td></tr>
+                    ) : lookupResult.submissions.map(sub => (
+                      <tr key={sub.id} className="border-b border-brand-light-blue/50 last:border-none">
+                        <td className="p-4 font-semibold">{sub.quizTitle}</td>
+                        <td className="p-4 text-sm text-gray-400">{new Date(sub.submittedAt).toLocaleDateString()}</td>
+                        <td className="p-4 text-sm text-gray-400">
+                            {(sub.status === 'accepted' || sub.status === 'refused') && sub.updatedAt ? new Date(sub.updatedAt).toLocaleDateString() : 'N/A'}
+                        </td>
+                        <td className="p-4">{renderStatusBadge(sub.status)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div className="container mx-auto px-6 py-16">
       <div className="text-center mb-12"><div className="inline-block p-4 bg-brand-light-blue rounded-full mb-4"><UserCog className="text-brand-cyan" size={48} /></div><h1 className="text-4xl md:text-5xl font-bold mb-4">{t('page_title_admin')}</h1></div>
@@ -241,6 +329,7 @@ const AdminPage: React.FC = () => {
           <TabContent>
             {activeTab === 'submissions' && <SubmissionsPanel />}
             {activeTab === 'quizzes' && user.isSuperAdmin && <QuizzesPanel />}
+            {activeTab === 'lookup' && user.isSuperAdmin && <UserLookupPanel />}
             {activeTab === 'rules' && user.isSuperAdmin && <p className="text-center text-gray-400 py-10">{t('coming_soon')}</p>}
             {activeTab === 'store' && user.isSuperAdmin && <p className="text-center text-gray-400 py-10">{t('coming_soon')}</p>}
             {activeTab === 'appearance' && user.isSuperAdmin && <AppearancePanel />}

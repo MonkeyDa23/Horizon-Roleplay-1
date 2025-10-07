@@ -57,14 +57,17 @@ export const translations: Translations = {
   checkout_via_discord: { ar: 'الدفع عبر ديسكورد', en: 'Checkout via Discord' },
   checkout_instructions: { ar: 'لإكمال عملية الشراء، يرجى فتح تذكرة في سيرفر الديسكورد الخاص بنا وسيقوم أحد أعضاء فريق الدعم بمساعدتك.', en: 'To complete your purchase, please open a ticket in our Discord server and a staff member will assist you.' },
   open_ticket: { ar: 'فتح تذكرة', en: 'Open a Ticket' },
+  item_added_to_cart: { ar: 'تمت إضافة "{itemName}" إلى السلة!', en: 'Added "{itemName}" to your cart!' },
 
   // Applies & Quiz
   apply_now: { ar: 'قدم الآن', en: 'Apply Now' },
+  already_applied: { ar: 'تم التقديم', en: 'Already Applied' },
   application_closed: { ar: 'التقديم مغلق', en: 'Application Closed' },
   no_applies_open: { ar: 'لا يوجد تقديمات مفتوحة حالياً.', en: 'No applications are open at this time.'},
   quiz_rules: { ar: 'تعليمات التقديم', en: 'Application Instructions' },
   begin_quiz: { ar: 'ابدأ الاختبار', en: 'Begin Quiz' },
   question: { ar: 'سؤال', en: 'Question' },
+  questions: { ar: 'أسئلة', en: 'Questions' },
   of: { ar: 'من', en: 'of' },
   time_left: { ar: 'الوقت المتبقي', en: 'Time Left' },
   seconds: { ar: 'ثانية', en: 'seconds' },
@@ -73,18 +76,24 @@ export const translations: Translations = {
   application_submitted: { ar: 'تم إرسال تقديمك بنجاح!', en: 'Your application has been submitted successfully!' },
   application_submitted_desc: { ar: 'ستتم مراجعته من قبل الإدارة قريباً. يمكنك متابعة حالته من صفحة "تقديماتي".', en: 'It will be reviewed by the administration soon. You can track its status on the "My Applications" page.' },
   view_my_applications: { ar: 'عرض تقديماتي', en: 'View My Applications' },
+  cheat_attempt_detected: { ar: 'تم كشف محاولة غش! تم إعادة الاختبار.', en: 'Cheat attempt detected! The quiz has been reset.' },
+  cheat_method_switched_tab: { ar: 'تبديل التبويب', en: 'Switched Tab' },
+  cheat_method_lost_focus: { ar: 'فقدان التركيز', en: 'Lost Focus' },
+  cheat_attempts_report: { ar: 'تقرير محاولات الغش', en: 'Cheat Attempts Report' },
+  cheat_attempts_count: { ar: 'تم تسجيل {count} محاولة/محاولات.', en: '{count} attempt(s) were logged.' },
+  no_cheat_attempts: { ar: 'لم يتم تسجيل أي محاولات غش.', en: 'No cheat attempts were logged.' },
 
   // Admin Page
-  quiz_management: { ar: 'إدارة نماذج التقديم', en: 'Quiz Forms Management' },
-  submission_management: { ar: 'إدارة طلبات التقديم', en: 'Application Submissions' },
+  quiz_management: { ar: 'إدارة التقديمات', en: 'Quiz Management' },
+  submission_management: { ar: 'إدارة الطلبات', en: 'Submissions' },
   create_new_quiz: { ar: 'إنشاء تقديم جديد', en: 'Create New Quiz' },
   edit_quiz: { ar: 'تعديل التقديم', en: 'Edit Quiz' },
-  quiz_title: { ar: 'عنوان التقديم (مفتاح الترجمة)', en: 'Quiz Title (Translation Key)' },
-  quiz_description: { ar: 'وصف التقديم (مفتاح الترجمة)', en: 'Quiz Description (Translation Key)' },
+  quiz_title: { ar: 'عنوان التقديم (مفتاح)', en: 'Quiz Title (Key)' },
+  quiz_description: { ar: 'وصف التقديم (مفتاح)', en: 'Quiz Description (Key)' },
   quiz_questions: { ar: 'أسئلة التقديم', en: 'Quiz Questions' },
   add_question: { ar: 'إضافة سؤال', en: 'Add Question' },
-  question_text: { ar: 'نص السؤال (مفتاح الترجمة)', en: 'Question Text (Translation Key)' },
-  time_limit_seconds: { ar: 'الوقت المحدد (بالثواني)', en: 'Time Limit (seconds)' },
+  question_text: { ar: 'نص السؤال (مفتاح)', en: 'Question Text (Key)' },
+  time_limit_seconds: { ar: 'الوقت (بالثواني)', en: 'Time Limit (s)' },
   save_quiz: { ar: 'حفظ التقديم', en: 'Save Quiz' },
   delete_quiz: { ar: 'حذف التقديم', en: 'Delete Quiz' },
   status: { ar: 'الحالة', en: 'Status' },
@@ -94,15 +103,39 @@ export const translations: Translations = {
   edit: { ar: 'تعديل', en: 'Edit' },
   applicant: { ar: 'المتقدم', en: 'Applicant' },
   submitted_on: { ar: 'تاريخ التقديم', en: 'Submitted On' },
+  result_date: { ar: 'تاريخ النتيجة', en: 'Result Date' },
   view_submission: { ar: 'عرض الطلب', en: 'View Submission' },
   take_order: { ar: 'استلام الطلب', en: 'Take Order' },
+  take_order_forbidden: { ar: 'لا تملك الصلاحية', en: 'Not permitted' },
   taken_by: { ar: 'مستلم بواسطة', en: 'Taken by' },
   accept: { ar: 'قبول', en: 'Accept' },
   refuse: { ar: 'رفض', en: 'Refuse' },
   submission_details: { ar: 'تفاصيل الطلب', en: 'Submission Details' },
   close: { ar: 'إغلاق', en: 'Close' },
   no_pending_submissions: { ar: 'لا توجد طلبات تقديم معلقة حالياً.', en: 'There are no pending submissions.' },
-  
+  admin_revoked: { ar: 'تمت إزالة صلاحيات المشرف الخاصة بك.', en: 'Your admin permissions have been revoked.'},
+  admin_granted: { ar: 'تم منحك صلاحيات المشرف.', en: 'You have been granted admin permissions.'},
+  admin_permissions_error: { ar: 'فشل التحقق من صلاحيات المشرف. تم تسجيل خروجك.', en: 'Failed to verify admin permissions. You have been logged out.'},
+  admin_session_error_warning: { ar: 'تحذير: لا يمكن الوصول إلى الخادم للتحقق من صلاحياتك. قد تكون البيانات المعروضة غير محدثة.', en: 'Warning: Could not reach the server to verify your permissions. Displayed data may be stale.'},
+  rules_management: { ar: 'إدارة القوانين', en: 'Rules Management' },
+  save_rules: { ar: 'حفظ القوانين', en: 'Save Rules' },
+  rules_updated_success: { ar: 'تم تحديث القوانين بنجاح!', en: 'Rules updated successfully!' },
+  store_management: { ar: 'إدارة المتجر', en: 'Store Management' },
+  audit_log: { ar: 'سجل التدقيق', en: 'Audit Log' },
+  log_timestamp: { ar: 'الوقت', en: 'Timestamp' },
+  log_admin: { ar: 'المشرف', en: 'Admin' },
+  log_action: { ar: 'الإجراء', en: 'Action' },
+  no_logs_found: { ar: 'لا توجد سجلات.', en: 'No logs found.' },
+  quiz_handler_roles: { ar: 'معرفات رتب المستلمين', en: 'Handler Role IDs' },
+  quiz_handler_roles_desc: { ar: 'اختياري. ضع فاصلة بين معرفات رتب الديسكورد للسماح لهم فقط باستلام الطلبات.', en: 'Optional. Comma-separated list of Discord Role IDs who can handle these submissions.'},
+  user_lookup: { ar: 'بحث عن لاعب', en: 'User Lookup' },
+  enter_discord_id: { ar: 'أدخل معرف الديسكورد للاعب', en: 'Enter user\'s Discord ID' },
+  search: { ar: 'بحث', en: 'Search' },
+  no_user_found_or_no_data: { ar: 'لم يتم العثور على بيانات لهذا المستخدم.', en: 'No data found for this user.' },
+  application_history: { ar: 'سجل التقديمات', en: 'Application History' },
+  no_submissions_found_for_user: { ar: 'لم يقدم هذا اللاعب أي طلبات.', en: 'This user has not submitted any applications.' },
+  lookup_results_for: { ar: 'نتائج البحث عن', en: 'Lookup results for' },
+
   // Submission Statuses
   status_pending: { ar: 'قيد الانتظار', en: 'Pending' },
   status_taken: { ar: 'قيد المراجعة', en: 'Under Review' },
@@ -112,6 +145,20 @@ export const translations: Translations = {
   // My Applications Page
   no_applications_submitted: { ar: 'لم تقم بتقديم أي طلبات بعد.', en: 'You have not submitted any applications yet.' },
   application_type: { ar: 'نوع التقديم', en: 'Application Type' },
+  
+  // Rules
+  no_rules_yet: { ar: 'لم تتم إضافة القوانين بعد.', en: 'Rules have not been added yet.' },
+
+  // Profile Page
+  user_id: { ar: 'معرف المستخدم', en: 'User ID' },
+  role: { ar: 'الرتبة', en: 'Role' },
+  admin: { ar: 'مشرف', en: 'Admin' },
+  member: { ar: 'عضو', en: 'Member' },
+  recent_applications: { ar: 'التقديمات الأخيرة', en: 'Recent Applications' },
+  
+  // Session Management
+  session_expired_not_in_guild: { ar: 'انتهت صلاحية جلستك أو لم تعد عضواً في السيرفر. تم تسجيل خروجك.', en: 'Your session has expired or you are no longer in the server. You have been logged out.'},
+  role_updated: { ar: 'تم تحديث رتبتك إلى {roleName}.', en: 'Your role has been updated to {roleName}.'},
 
   // Health Check Page
   health_check_title: { ar: 'فحص صحة الخادم', en: 'Server Health Check'},
@@ -143,6 +190,13 @@ export const translations: Translations = {
   show_health_check_page: { ar: 'إظهار صفحة فحص الصحة للعامة', en: 'Show Health Check page to public'},
   config_updated_success: { ar: 'تم تحديث الإعدادات بنجاح!', en: 'Settings updated successfully!' },
   
+  // FIX: Add translations for MtaLogsPanel.
+  // MTA Logs
+  mta_player_logs: { ar: 'سجلات لاعب MTA', en: 'MTA Player Logs' },
+  loading_logs: { ar: 'جاري تحميل السجلات...', en: 'Loading logs...' },
+  error_loading_logs: { ar: 'خطأ في تحميل السجلات.', en: 'Error loading logs.' },
+  no_logs_found_for_player: { ar: 'لم يتم العثور على سجلات لهذا اللاعب.', en: 'No logs found for this player.' },
+
   // MOCK DATA TRANSLATIONS
   // Products
   product_vip_bronze_name: { ar: 'عضوية VIP برونزية', en: 'Bronze VIP Membership' },

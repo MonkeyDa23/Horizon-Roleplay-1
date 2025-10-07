@@ -24,6 +24,13 @@ const colors = {
   warning: 'bg-yellow-500/20 border-yellow-500/50 text-yellow-300',
 };
 
+const progressColors = {
+  success: 'bg-green-500/50',
+  info: 'bg-blue-500/50',
+  error: 'bg-red-500/50',
+  warning: 'bg-yellow-500/50',
+};
+
 export const Toast: React.FC<ToastProps> = ({ id, message, type, onClose }) => {
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -33,12 +40,14 @@ export const Toast: React.FC<ToastProps> = ({ id, message, type, onClose }) => {
   }, [id, onClose]);
 
   return (
-    <div className={`flex items-start gap-4 p-4 rounded-lg border shadow-lg animate-toast-in ${colors[type]}`}>
+    <div className={`relative flex items-start gap-4 p-4 rounded-lg border shadow-lg overflow-hidden animate-toast-in ${colors[type]}`}>
       <div className="flex-shrink-0 mt-0.5">{icons[type]}</div>
       <p className="flex-grow text-white text-sm font-medium">{message}</p>
       <button onClick={() => onClose(id)} className="flex-shrink-0 opacity-70 hover:opacity-100">
         <X size={20} />
       </button>
+      <div className="absolute bottom-0 left-0 h-1 animate-progress-bar" style={{ background: `linear-gradient(to right, ${colors[type].split(' ')[2].replace('text-', 'bg-')}, transparent)`}}></div>
+      <div className={`absolute bottom-0 left-0 h-1 ${progressColors[type]} animate-progress-bar`}></div>
     </div>
   );
 };
@@ -51,10 +60,16 @@ export const ToastContainer: React.FC<{ toasts: Omit<ToastProps, 'onClose'>[]; o
             ))}
             <style>{`
                 @keyframes toast-in {
-                    from { transform: translateX(100%); opacity: 0; }
+                    from { transform: translateX(calc(100% + 1.5rem)); opacity: 0; }
                     to { transform: translateX(0); opacity: 1; }
                 }
-                .animate-toast-in { animation: toast-in 0.5s ease-out forwards; }
+                .animate-toast-in { animation: toast-in 0.5s cubic-bezier(0.21, 1.02, 0.73, 1) forwards; }
+
+                @keyframes progress-bar {
+                    from { width: 100%; }
+                    to { width: 0%; }
+                }
+                .animate-progress-bar { animation: progress-bar 5s linear forwards; }
             `}</style>
         </div>
     );

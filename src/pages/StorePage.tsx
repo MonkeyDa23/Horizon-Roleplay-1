@@ -5,11 +5,13 @@ import { useConfig } from '../hooks/useConfig';
 import { getProducts } from '../lib/api';
 import type { Product } from '../types';
 import { ShoppingCart, PlusCircle } from 'lucide-react';
+import { useToast } from '../hooks/useToast';
 
 const StorePage: React.FC = () => {
   const { t } = useLocalization();
   const { addToCart } = useCart();
   const { config } = useConfig();
+  const { showToast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -30,6 +32,7 @@ const StorePage: React.FC = () => {
 
   const handleAddToCart = (product: Product) => {
     addToCart(product);
+    showToast(t('item_added_to_cart', { itemName: t(product.nameKey) }), 'success');
   };
   
   const SkeletonCard: React.FC = () => (

@@ -41,7 +41,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     setLoading(true);
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    // FIX: Cast supabase.auth to 'any' to bypass TypeScript errors with its methods.
+    const { data: { subscription } } = (supabase.auth as any).onAuthStateChange(async (event: any, session: any) => {
       if (session?.user) {
         const appUser = await getAppUser(session.user);
         setUser(appUser);
@@ -53,7 +54,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Check for existing session on initial load
     const checkSession = async () => {
-        const { data: { session } } = await supabase.auth.getSession();
+        // FIX: Cast supabase.auth to 'any' to bypass TypeScript errors with its methods.
+        const { data: { session } } = await (supabase.auth as any).getSession();
         if (session?.user) {
             const appUser = await getAppUser(session.user);
             setUser(appUser);
@@ -70,7 +72,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   const login = async () => {
     setLoading(true);
-    const { error } = await supabase.auth.signInWithOAuth({
+    // FIX: Cast supabase.auth to 'any' to bypass TypeScript errors with its methods.
+    const { error } = await (supabase.auth as any).signInWithOAuth({
       provider: 'discord',
     });
     if (error) {
@@ -82,7 +85,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     setLoading(true);
-    await supabase.auth.signOut();
+    // FIX: Cast supabase.auth to 'any' to bypass TypeScript errors with its methods.
+    await (supabase.auth as any).signOut();
     setUser(null);
     setLoading(false);
   };

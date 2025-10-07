@@ -1,12 +1,15 @@
 import { supabase } from './supabaseClient';
-import type { Quiz, QuizSubmission, User, RuleCategory, Product, AuditLogEntry, MtaServerStatus, SubmissionStatus, AppConfig } from '../types';
+// FIX: Import MtaLogEntry type.
+import type { Quiz, QuizSubmission, User, RuleCategory, Product, AuditLogEntry, MtaServerStatus, SubmissionStatus, AppConfig, MtaLogEntry } from '../types';
 
 // --- API Error Handling ---
-// FIX: Export the ApiError class so it can be used in other files.
+// FIX: Add optional status property to ApiError to carry over HTTP status codes.
 export class ApiError extends Error {
-  constructor(message: string) {
+  status?: number;
+  constructor(message: string, status?: number) {
     super(message);
     this.name = 'ApiError';
+    this.status = status;
   }
 }
 
@@ -122,11 +125,59 @@ export const addSubmission = async (submission: Partial<QuizSubmission>): Promis
 export const getSubmissionsByUserId = async (userId: string): Promise<QuizSubmission[]> => {
     const { data, error } = await supabase.from('submissions').select('*').eq('user_id', userId).order('created_at', { ascending: false });
     if (error) throw new ApiError(error.message);
-    return data.map(s => ({...s, quizTitle: s.quiz_title, userId: s.user_id, submittedAt: s.created_at}));
+    return data.map(s => ({...s, quizTitle: s.quiz_title, userId: s.user_id, submittedAt: s.created_at, updatedAt: s.updated_at}));
+};
+
+// FIX: Implement revalidateSession to get fresh user data and permissions.
+export const revalidateSession = async (currentUser: User): Promise<User> => {
+    const { data: { user: supabaseUser }, error } = await (supabase.auth as any).getUser();
+
+    if (error || !supabaseUser) {
+        throw new ApiError(error?.message || 'User not found', (error as any)?.status);
+    }
+    
+    const profile = await getProfileById(supabaseUser.id);
+    if (!profile) {
+        throw new ApiError('User profile not found.', 404);
+    }
+
+    const { data: configData } = await supabase.from('config').select('SUPER_ADMIN_ROLE_IDS').single();
+    const superAdminRoles = configData?.SUPER_ADMIN_ROLE_IDS || [];
+    
+    const discordRoles = await getDiscordRoles(supabaseUser.id);
+
+    const primaryRole = discordRoles.length > 0 ? {
+        id: discordRoles[0].id,
+        name: discordRoles[0].name,
+        color: `#${discordRoles[0].color.toString(16).padStart(6, '0')}`
+    } : undefined;
+
+    return {
+      id: supabaseUser.id,
+      username: supabaseUser.user_metadata.full_name,
+      avatar: supabaseUser.user_metadata.avatar_url,
+      isAdmin: profile.is_admin,
+      isSuperAdmin: profile.is_super_admin || discordRoles.some(r => superAdminRoles.includes(r.id)),
+      roles: discordRoles.map(r => r.id),
+      primaryRole: primaryRole,
+    };
 };
 
 
 // --- Admin Functions (Requires RLS policies on Supabase) ---
+
+// FIX: Add missing logAdminAccess function required by pages/AdminPage.tsx.
+export const logAdminAccess = async (user: User): Promise<void> => {
+    const { error } = await supabase.from('audit_logs').insert({
+        admin_id: user.id,
+        admin_username: user.username,
+        action: 'Accessed Admin Panel'
+    });
+
+    if (error) {
+        console.error("Failed to log admin access:", error.message);
+    }
+};
 
 export const getSubmissions = async (): Promise<QuizSubmission[]> => {
     const { data, error } = await supabase.from('submissions_with_answers').select('*').order('created_at', { ascending: false });
@@ -136,6 +187,7 @@ export const getSubmissions = async (): Promise<QuizSubmission[]> => {
         quizTitle: s.quiz_title,
         userId: s.user_id,
         submittedAt: s.created_at,
+        updatedAt: s.updated_at,
         adminId: s.admin_id,
         adminUsername: s.admin_username,
         cheatAttempts: s.cheat_attempts as any,
@@ -179,13 +231,11 @@ export const saveConfig = async (config: Partial<AppConfig>): Promise<void> => {
     if (error) throw new ApiError(error.message);
 };
 
-// FIX: Add missing saveRules function
 export const saveRules = async (rules: RuleCategory[]): Promise<void> => {
     const { error } = await supabase.from('rules').upsert({ id: 1, content: rules });
     if (error) throw new ApiError(error.message);
 };
 
-// FIX: Add missing saveProduct function
 export const saveProduct = async (product: Product): Promise<Product> => {
     const { id, nameKey, descriptionKey, price, imageUrl } = product;
     const productData = { name_key: nameKey, description_key: descriptionKey, price, image_url: imageUrl };
@@ -194,25 +244,26 @@ export const saveProduct = async (product: Product): Promise<Product> => {
     return { ...(data as any), nameKey: data.name_key, descriptionKey: data.description_key, imageUrl: data.image_url };
 };
 
-// FIX: Add missing deleteProduct function
 export const deleteProduct = async (productId: string): Promise<void> => {
     const { error } = await supabase.from('products').delete().eq('id', productId);
     if (error) throw new ApiError(error.message);
 };
 
-// FIX: Add missing revalidateSession function (mocked)
-export const revalidateSession = async (user: User): Promise<User> => {
-    // This would invoke a Supabase Edge Function that securely uses the Discord Bot Token
-    // to get fresh role data from Discord.
-    // For now, we'll return the user as is, assuming no changes, to fix compilation.
-    console.warn("Using mock revalidateSession. Create an edge function for production.");
-    return user;
-};
+// FIX: Add getMtaPlayerLogs function for the new MtaLogsPanel component.
+export const getMtaPlayerLogs = async (userId: string): Promise<MtaLogEntry[]> => {
+    // This would be a call to a serverless function or a direct query if logs are in Supabase.
+    // For now, we'll return mock data.
+    console.warn(`Using mock MTA logs for user ${userId}. Create a 'get-mta-logs' edge function for production.`);
+    // A little delay to simulate network
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    // Return empty array if some specific user id is passed to simulate not found.
+    if (userId === 'not_found') return [];
 
-// FIX: Add missing logAdminAccess function (mocked)
-export const logAdminAccess = async (user: User): Promise<void> => {
-    // In a real app this would be an RPC call or handled by the server on protected routes.
-    // For now, we will mock it since it's from the old admin page.
-    console.log(`Admin access by ${user.username} logged.`);
-    return Promise.resolve();
+    return [
+        { timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(), text: 'Player connected.' },
+        { timestamp: new Date(Date.now() - 1000 * 60 * 4).toISOString(), text: 'Player spawned.' },
+        { timestamp: new Date(Date.now() - 1000 * 60 * 2).toISOString(), text: 'Player was killed by another player.' },
+        { timestamp: new Date(Date.now() - 1000 * 60 * 1).toISOString(), text: 'Player disconnected.' },
+    ];
 };

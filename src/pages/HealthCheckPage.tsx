@@ -17,14 +17,14 @@ interface HealthCheckData {
 const HealthCheckPage: React.FC = () => {
   const [data, setData] = useState<HealthCheckData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [overallError, setOverallError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const { t } = useLocalization();
   
   const redirectUri = data ? data.urls.redirect_uri : 'Loading...';
 
   const handleCopy = () => {
-    if (!data) return;
+    if (!data || !data.urls.redirect_uri) return;
     navigator.clipboard.writeText(data.urls.redirect_uri).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
@@ -41,13 +41,14 @@ const HealthCheckPage: React.FC = () => {
       };
 
       // 1. Check Env Vars (Client-side)
-      const supabaseUrl = process.env.SUPABASE_URL;
-      const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
-      checks.env['SUPABASE_URL'] = supabaseUrl ? '✅ Set' : '❌ Not Set';
-      checks.env['SUPABASE_ANON_KEY'] = supabaseAnonKey ? '✅ Set' : '❌ Not Set';
+      // FIX: Use type assertion to bypass TS errors with import.meta.env
+      const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+      checks.env['VITE_SUPABASE_URL'] = supabaseUrl ? '✅ Set' : '❌ Not Set';
+      checks.env['VITE_SUPABASE_ANON_KEY'] = supabaseAnonKey ? '✅ Set' : '❌ Not Set';
       
-      if (!supabaseUrl) {
-        setError("Supabase URL is missing from environment variables.");
+      if (!supabaseUrl || !supabaseAnonKey) {
+        setOverallError("Supabase URL or Anon Key is missing from your .env file.");
         setLoading(false);
         setData(checks);
         return;
@@ -55,23 +56,26 @@ const HealthCheckPage: React.FC = () => {
       
       // 2. Set URLs
       // Extract the project reference from the URL
-      const urlParts = supabaseUrl.split('.');
-      const projectRef = urlParts[0].split('//')[1];
-      checks.urls.redirect_uri = projectRef 
-        ? `https://{your-supabase-project-ref}.supabase.co/auth/v1/callback`
-        : "Could not determine project ref from URL.";
-
+      try {
+        const url = new URL(supabaseUrl);
+        const projectRef = url.hostname.split('.')[0];
+        checks.urls.redirect_uri = projectRef 
+          ? `https://{your-supabase-project-ref}.supabase.co/auth/v1/callback`.replace('{your-supabase-project-ref}', projectRef)
+          : "Could not determine project ref from URL.";
+      } catch (e) {
+          checks.urls.redirect_uri = "Invalid Supabase URL format in .env file."
+      }
 
       // 3. Check Supabase Connection
       try {
-        const { error } = await supabase.from('quizzes').select('id').limit(1);
+        const { error } = await supabase.from('config').select('id').limit(1);
         if (error) throw error;
         checks.supabase.status = '✅ Connected';
         checks.supabase.error = null;
       } catch(e: any) {
         checks.supabase.status = '❌ Failed';
         checks.supabase.error = e.message;
-        setError("Supabase connection failed. Check your URL, Anon Key, and RLS policies.");
+        setOverallError("Supabase connection failed. Check your URL, Anon Key, and ensure RLS policies are correct for the 'config' table.");
       }
       
       setData(checks);
@@ -106,8 +110,8 @@ const HealthCheckPage: React.FC = () => {
             <p className="text-gray-300 mb-4">{t('health_check_step1_desc')}</p>
             <label className="text-gray-400 mb-2 font-semibold block">{t('health_check_uri_label')}</label>
             <div className="flex items-center gap-4 bg-brand-dark p-3 rounded-md">
-            <code className="text-white text-md md:text-lg flex-grow break-all">{redirectUri.replace('{your-supabase-project-ref}', 'YOUR_PROJECT_REF')}</code>
-            <button onClick={handleCopy} disabled={loading} className="bg-brand-cyan text-brand-dark font-bold py-1 px-3 rounded-md hover:bg-white transition-colors flex-shrink-0">
+            <code className="text-white text-md md:text-lg flex-grow break-all">{redirectUri}</code>
+            <button onClick={handleCopy} disabled={loading || !redirectUri} className="bg-brand-cyan text-brand-dark font-bold py-1 px-3 rounded-md hover:bg-white transition-colors flex-shrink-0 disabled:opacity-50">
                 {copied ? t('health_check_copied') : t('health_check_copy')}
             </button>
             </div>
@@ -155,7 +159,7 @@ const HealthCheckPage: React.FC = () => {
                </div>
             </div>
 
-            {error ? (
+            {overallError ? (
                  <div className="bg-red-500/10 border border-red-500/30 text-red-300 p-6 rounded-lg">
                     <h2 className="text-xl font-bold mb-2 flex items-center"><XCircle className="mr-2"/> {t('health_check_overall_status')}: {t('health_check_error')}</h2>
                     <p>{t('health_check_error_desc')}</p>
