@@ -22,10 +22,10 @@ import QuizPage from './pages/QuizPage';
 import MyApplicationsPage from './pages/MyApplicationsPage';
 import ProfilePage from './pages/ProfilePage';
 import HealthCheckPage from './pages/HealthCheckPage';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertTriangle } from 'lucide-react';
 
 const AppContent: React.FC = () => {
-  const { config, configLoading } = useConfig();
+  const { config, configLoading, configError } = useConfig();
   const { user } = useAuth();
 
   const backgroundStyle: React.CSSProperties =
@@ -43,6 +43,27 @@ const AppContent: React.FC = () => {
       <div className="flex flex-col gap-4 justify-center items-center h-screen w-screen bg-brand-dark">
         <Loader2 size={48} className="text-brand-cyan animate-spin" />
         <p className="text-xl text-gray-300">Loading Community Hub...</p>
+      </div>
+    )
+  }
+
+  if (configError) {
+    return (
+       <div className="flex flex-col gap-4 justify-center items-center h-screen w-screen bg-brand-dark p-8">
+          <AlertTriangle size={60} className="text-red-500" />
+          <h1 className="text-3xl font-bold text-white mt-4 text-center">Configuration Error</h1>
+          <p className="text-lg text-gray-300 max-w-2xl text-center">
+            The application could not connect to the database to load essential settings. This usually means the database schema has not been set up yet.
+          </p>
+          <div className="bg-brand-dark-blue p-4 rounded-lg mt-4 max-w-2xl w-full">
+            <p className="font-semibold text-brand-cyan mb-2">How to fix:</p>
+            <ol className="list-decimal list-inside text-gray-300 space-y-1">
+                <li>Go to your Supabase project's SQL Editor.</li>
+                <li>Copy the SQL code from the `src/lib/database_schema.ts` file.</li>
+                <li>Paste the code into a new query and click "RUN".</li>
+            </ol>
+          </div>
+          <p className="text-gray-500 mt-4 text-sm">Error details: {configError.message}</p>
       </div>
     )
   }

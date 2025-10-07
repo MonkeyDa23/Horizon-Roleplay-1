@@ -78,7 +78,8 @@ export const addSubmission = async (submissionData: Partial<QuizSubmission>): Pr
 
 export const getSubmissions = async (): Promise<QuizSubmission[]> => {
     if (!supabase) return [];
-    const { data, error } = await supabase.from('submissions').select('*').order('created_at', { ascending: false });
+    // FIX: Order by 'submitted_at' to match the updated schema.
+    const { data, error } = await supabase.from('submissions').select('*').order('submitted_at', { ascending: false });
     if (error) throw new ApiError(error.message, 500);
     return data;
 }

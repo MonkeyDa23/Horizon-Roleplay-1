@@ -1,11 +1,11 @@
-import React, { createContext, useState, useEffect, useMemo } from 'react';
-// FIX: Corrected import paths for getConfig and AppConfig.
+import React, { createContext, useState, useEffect } from 'react';
 import { getConfig } from '../lib/api';
 import type { AppConfig } from '../types';
 
 interface ConfigContextType {
   config: AppConfig;
   configLoading: boolean;
+  configError: Error | null;
 }
 
 const defaultConfig: AppConfig = {
@@ -21,20 +21,23 @@ const defaultConfig: AppConfig = {
 export const ConfigContext = createContext<ConfigContextType>({
   config: defaultConfig,
   configLoading: true,
+  configError: null,
 });
 
 export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [config, setConfig] = useState<AppConfig>(defaultConfig);
   const [configLoading, setConfigLoading] = useState(true);
+  const [configError, setConfigError] = useState<Error | null>(null);
 
   useEffect(() => {
     const fetchAndSetConfig = async () => {
       try {
         const configData = await getConfig();
         setConfig(configData);
+        setConfigError(null);
       } catch (error) {
         console.error("Fatal: Could not fetch remote config. Using fallback.", error);
-        // In case of error, we'll stick with the hardcoded default.
+        setConfigError(error as Error);
       } finally {
         setConfigLoading(false);
       }
@@ -44,7 +47,7 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   return (
-    <ConfigContext.Provider value={{ config, configLoading }}>
+    <ConfigContext.Provider value={{ config, configLoading, configError }}>
       {children}
     </ConfigContext.Provider>
   );
