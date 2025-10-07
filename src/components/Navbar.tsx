@@ -3,16 +3,14 @@ import { NavLink, Link } from 'react-router-dom';
 import { useLocalization } from '../hooks/useLocalization';
 import { useAuth } from '../hooks/useAuth';
 import { useCart } from '../hooks/useCart';
-import { useConfig } from '../hooks/useConfig';
 import Logo from './Logo';
 import CartModal from './CartModal';
-import { Globe, ChevronDown, LogIn, LogOut, Loader, ShoppingCart, UserCog, FileText, User as UserIcon } from 'lucide-react';
+import { Globe, ChevronDown, LogIn, LogOut, Loader, ShoppingCart, UserCog, FileText, User } from 'lucide-react';
 
 const Navbar: React.FC = () => {
   const { language, setLanguage, t, dir } = useLocalization();
   const { user, login, logout, loading } = useAuth();
   const { totalItems } = useCart();
-  const { config, configLoading } = useConfig();
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [isCartOpen, setCartOpen] = useState(false);
@@ -34,19 +32,17 @@ const Navbar: React.FC = () => {
     <>
       <nav className="bg-brand-dark-blue/80 backdrop-blur-sm sticky top-0 z-50 shadow-lg shadow-black/20">
         <div className="container mx-auto px-6 py-3 flex justify-between items-center">
-          <Link to="/" className="flex items-center gap-4">
+          <div className="flex items-center gap-4">
             <Logo className="h-10 w-10" />
-            <h1 className="text-xl font-bold text-white tracking-wider hidden md:block">
-              {!configLoading && config.COMMUNITY_NAME.toUpperCase()}
-            </h1>
-          </Link>
+            <h1 className="text-xl font-bold text-white tracking-wider hidden md:block">HORIZON</h1>
+          </div>
           <div className="hidden md:flex items-center gap-8">
             {navLinks.map((link) => (
               <NavLink
                 key={link.to}
                 to={link.to}
                 className="text-gray-300 hover:text-brand-cyan transition-colors duration-300 font-medium"
-                style={({ isActive }) => isActive ? activeLinkStyle : undefined}
+                style={({ isActive }) => isActive ? activeLinkStyle : {}}
               >
                 {link.text}
               </NavLink>
@@ -88,26 +84,16 @@ const Navbar: React.FC = () => {
                 <button
                   onClick={() => setUserDropdownOpen(!userDropdownOpen)}
                   onBlur={() => setTimeout(() => setUserDropdownOpen(false), 200)}
-                  className="flex items-center gap-3"
+                  className="flex items-center gap-2"
                 >
-                  <img src={user.avatar} alt={user.username} className="w-10 h-10 rounded-full border-2 border-brand-cyan" />
-                  <div className={`text-start hidden sm:block ${dir === 'rtl' ? 'text-right' : 'text-left'}`}>
-                    <span className="text-white font-medium block leading-tight">{user.username}</span>
-                    {user.primaryRole && (
-                       <span 
-                         className="text-xs font-bold block leading-tight" 
-                         style={{ color: user.primaryRole.color }}
-                       >
-                         {user.primaryRole.name}
-                       </span>
-                    )}
-                  </div>
-                   <ChevronDown size={16} className={`transition-transform text-gray-400 ${userDropdownOpen ? 'rotate-180' : ''}`} />
+                  <img src={user.avatar} alt={user.username} className="w-8 h-8 rounded-full border-2 border-brand-cyan" />
+                  <span className="text-white font-medium hidden sm:inline">{user.username}</span>
+                   <ChevronDown size={16} className={`transition-transform ${userDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
                 {userDropdownOpen && (
                    <div className="absolute top-full mt-2 end-0 bg-brand-light-blue rounded-md shadow-lg py-1 w-48">
                      <Link to="/profile" className="flex items-center gap-2 w-full text-start px-4 py-2 text-sm text-white hover:bg-brand-cyan/20">
-                       <UserIcon size={16} />
+                       <User size={16} />
                        {t('my_profile')}
                      </Link>
                      <Link to="/my-applications" className="flex items-center gap-2 w-full text-start px-4 py-2 text-sm text-white hover:bg-brand-cyan/20">
@@ -130,10 +116,10 @@ const Navbar: React.FC = () => {
             ) : (
               <button
                 onClick={login}
-                disabled={loading || configLoading}
+                disabled={loading}
                 className="bg-brand-cyan text-brand-dark font-bold py-2 px-4 rounded-md hover:bg-white hover:shadow-glow-cyan transition-all duration-300 flex items-center gap-2 disabled:opacity-50 disabled:cursor-wait"
               >
-                {loading || configLoading ? (
+                {loading ? (
                     <Loader size={20} className="animate-spin" />
                 ) : (
                   <>

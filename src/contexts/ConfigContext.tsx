@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, useMemo } from 'react';
+// FIX: Corrected import paths for getConfig and AppConfig.
 import { getConfig } from '../lib/api';
 import type { AppConfig } from '../types';
 

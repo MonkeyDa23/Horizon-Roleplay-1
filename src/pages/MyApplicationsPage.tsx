@@ -83,6 +83,7 @@ const MyApplicationsPage: React.FC = () => {
                     <td className="p-4 font-semibold">{sub.quizTitle}</td>
                     <td className="p-4 text-sm text-gray-400">{new Date(sub.submittedAt).toLocaleDateString()}</td>
                     <td className="p-4 text-sm text-gray-400">
+                      {/* FIX: Conditionally render the result date based on status and the existence of updatedAt. */}
                       {(sub.status === 'accepted' || sub.status === 'refused') && sub.updatedAt ? new Date(sub.updatedAt).toLocaleDateString() : 'N/A'}
                     </td>
                     <td className="p-4">{renderStatusBadge(sub.status)}</td>

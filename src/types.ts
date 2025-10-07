@@ -1,7 +1,3 @@
-
-
-
-
 export type Language = 'ar' | 'en';
 
 export interface Translations {
@@ -13,6 +9,7 @@ export interface Translations {
 export interface LocalizationContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
+  // FIX: Updated 't' function signature to support replacement values.
   t: (key: string, replacements?: Record<string, string | number>) => string;
   dir: 'rtl' | 'ltr';
 }
@@ -24,14 +21,17 @@ export interface DiscordRole {
 }
 
 export interface User {
-  id: string; // From Supabase Auth
-  username: string; // From Discord provider
-  avatar: string; // From Discord provider
-  isAdmin: boolean; // From our `profiles` table
-  isSuperAdmin: boolean; // From our `profiles` table
-  roles: string[]; // Discord role IDs from our `profiles` table
-  primaryRole?: DiscordRole;
+  id: string;
+  username: string;
+  avatar: string;
+  isAdmin: boolean;
+  // FIX: Added isSuperAdmin to user type for admin panel logic.
+  isSuperAdmin: boolean;
   discordRoles: DiscordRole[];
+  // FIX: Added roles array for easier permission checking.
+  roles: string[];
+  // FIX: Added primaryRole for SessionWatcher logic.
+  primaryRole?: DiscordRole;
 }
 
 export interface AuthContextType {
@@ -39,26 +39,15 @@ export interface AuthContextType {
   login: () => void;
   logout: () => void;
   loading: boolean;
-  // FIX: Add updateUser to the context type.
+  // FIX: Added updateUser to allow components to update the user state.
   updateUser: (user: User) => void;
 }
-
-export interface AppConfig {
-  COMMUNITY_NAME: string;
-  LOGO_URL: string;
-  DISCORD_INVITE_URL: string;
-  MTA_SERVER_URL: string;
-  BACKGROUND_IMAGE_URL?: string;
-  SHOW_HEALTH_CHECK?: boolean;
-  SUPER_ADMIN_ROLE_IDS?: string[];
-}
-
 
 // Store & Cart
 export interface Product {
   id: string;
-  nameKey: string;
-  descriptionKey: string;
+  nameKey: string; // Key for translation
+  descriptionKey: string; // Key for translation
   price: number;
   imageUrl: string;
 }
@@ -80,20 +69,21 @@ export interface CartContextType {
 // Quiz & Application System
 export interface QuizQuestion {
   id: string;
-  textKey: string;
+  textKey: string; // Key for translation
   timeLimit: number; // in seconds
 }
 
 export interface Quiz {
   id: string;
-  titleKey: string;
-  descriptionKey: string;
+  titleKey: string; // Key for translation
+  descriptionKey: string; // These are the rules shown before starting
   questions: QuizQuestion[];
   isOpen: boolean;
+  allowedTakeRoles?: string[];
+  // FIX: Added optional properties to the Quiz interface based on usage in components.
+  lastOpenedAt?: string;
   logoUrl?: string;
   bannerUrl?: string;
-  allowedTakeRoles?: string[];
-  lastOpenedAt?: string;
 }
 
 export interface Answer {
@@ -102,12 +92,13 @@ export interface Answer {
   answer: string;
 }
 
-export type SubmissionStatus = 'pending' | 'taken' | 'accepted' | 'refused';
-
+// FIX: Added CheatAttempt type for anti-cheat logging.
 export interface CheatAttempt {
-    method: string;
-    timestamp: string;
+  method: string;
+  timestamp: string;
 }
+
+export type SubmissionStatus = 'pending' | 'taken' | 'accepted' | 'refused';
 
 export interface QuizSubmission {
   id: string;
@@ -117,45 +108,31 @@ export interface QuizSubmission {
   username: string;
   answers: Answer[];
   submittedAt: string;
-  updatedAt?: string;
   status: SubmissionStatus;
-  adminId?: string;
-  adminUsername?: string;
+  adminId?: string; // ID of the admin who claimed/handled it
+  adminUsername?: string; // Username of the admin
+  // FIX: Added optional properties based on component usage.
+  updatedAt?: string;
   cheatAttempts?: CheatAttempt[];
 }
 
-// Admin & Rules
+// Admin Types
 export interface AuditLogEntry {
     id: string;
     timestamp: string;
     adminId: string;
     adminUsername: string;
     action: string;
-    ipAddress?: string;
 }
-
+// FIX: Defined Rule and RuleCategory interfaces.
 export interface Rule {
     id: string;
     textKey: string;
 }
-
 export interface RuleCategory {
     id: string;
     titleKey: string;
     rules: Rule[];
-}
-
-// MTA Server
-export interface MtaServerStatus {
-    name: string;
-    players: number;
-    maxPlayers: number;
-}
-
-// FIX: Add MtaLogEntry type for the new MtaLogsPanel component.
-export interface MtaLogEntry {
-    timestamp: string;
-    text: string;
 }
 
 export interface DiscordAnnouncement {
@@ -168,4 +145,27 @@ export interface DiscordAnnouncement {
   };
   timestamp: string;
   url: string;
+}
+
+export interface MtaServerStatus {
+    name: string;
+    players: number;
+    maxPlayers: number;
+}
+
+// FIX: Added MtaLogEntry for user lookup panel.
+export interface MtaLogEntry {
+    timestamp: string;
+    text: string;
+}
+
+// FIX: Added AppConfig type for dynamic configuration.
+export interface AppConfig {
+    COMMUNITY_NAME: string;
+    LOGO_URL: string;
+    DISCORD_INVITE_URL: string;
+    MTA_SERVER_URL: string;
+    BACKGROUND_IMAGE_URL: string;
+    SHOW_HEALTH_CHECK: boolean;
+    SUPER_ADMIN_ROLE_IDS: string[];
 }

@@ -2,11 +2,12 @@ import { useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { useLocalization } from '../hooks/useLocalization';
-// FIX: Correct import path for revalidateSession.
+// FIX: Corrected import path for revalidateSession.
 import { revalidateSession } from '../lib/api';
 import type { User } from '../types';
 
 const SessionWatcher = () => {
+    // FIX: Added updateUser to correctly update session state.
     const { user, updateUser, logout } = useAuth();
     const { showToast } = useToast();
     const { t } = useLocalization();
@@ -34,6 +35,7 @@ const SessionWatcher = () => {
                         showToast(t('admin_granted'), 'success');
                     } else if (!freshUser.isAdmin && userToValidate?.isAdmin) {
                         showToast(t('admin_revoked'), 'info');
+                    // FIX: Check for primaryRole changes based on the updated User type.
                     } else if (freshUser.primaryRole?.id !== userToValidate?.primaryRole?.id) {
                         showToast(t('role_updated', { roleName: freshUser.primaryRole?.name || 'Member' }), 'info');
                     }

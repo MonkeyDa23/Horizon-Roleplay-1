@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { useLocalization } from '../hooks/useLocalization';
+// FIX: Switched from static config import to the useConfig hook for dynamic values.
 import { useConfig } from '../hooks/useConfig';
 import Modal from '../components/Modal';
 import Logo from '../components/Logo';
-import { Gamepad2 } from 'lucide-react';
+import { Disc3, Gamepad2 } from 'lucide-react';
 import MtaServerStatus from '../components/MtaServerStatus';
-import DiscordLogo from '../components/icons/DiscordLogo';
 import DiscordAnnouncements from '../components/DiscordAnnouncements';
 
 const HomePage: React.FC = () => {
   const { t } = useLocalization();
+  // FIX: Get config from the context.
   const { config } = useConfig();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -28,7 +29,7 @@ const HomePage: React.FC = () => {
         
         <div className="text-center z-10 p-6 animate-slide-up">
           <h1 className="text-5xl md:text-7xl font-extrabold text-white" style={{ textShadow: '0 0 20px rgba(0, 242, 234, 0.4)' }}>
-            {t('hero_title', { communityName: config.COMMUNITY_NAME })}
+            {t('hero_title')}
           </h1>
           <p className="mt-6 text-lg md:text-xl text-gray-300 max-w-3xl mx-auto">
             {t('hero_subtitle')}
@@ -50,15 +51,17 @@ const HomePage: React.FC = () => {
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={t('join_modal_title')}>
         <div className="space-y-6">
           <a
+            // FIX: Use dynamic config value.
             href={config.DISCORD_INVITE_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-4 w-full p-4 bg-[#5865F2] text-white font-bold rounded-lg hover:bg-[#4f5bda] transition-colors duration-300"
+            className="flex items-center justify-center gap-4 w-full p-4 bg-blue-500/80 text-white font-bold rounded-lg hover:bg-blue-500 transition-colors duration-300"
           >
-            <DiscordLogo className="w-6 h-6" />
+            <Disc3 size={24} />
             <span>{t('join_discord')}</span>
           </a>
           <a
+            // FIX: Use dynamic config value.
             href={config.MTA_SERVER_URL}
             className="flex items-center justify-center gap-4 w-full p-4 bg-gray-700 text-white font-bold rounded-lg hover:bg-gray-600 transition-colors duration-300"
           >

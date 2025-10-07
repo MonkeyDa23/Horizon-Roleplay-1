@@ -64,7 +64,7 @@ const ProfilePage: React.FC = () => {
         <h1 className="text-4xl md:text-5xl font-bold mb-4">{t('my_profile')}</h1>
       </div>
       
-      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1">
             <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50 text-center shadow-lg">
                 <img 
@@ -73,10 +73,7 @@ const ProfilePage: React.FC = () => {
                     className="w-32 h-32 rounded-full mx-auto border-4 border-brand-cyan shadow-glow-cyan-light"
                 />
                 <h2 className="text-3xl font-bold mt-4">{user.username}</h2>
-                {user.primaryRole && (
-                    <p className="font-bold mt-1" style={{color: user.primaryRole.color}}>{user.primaryRole.name}</p>
-                )}
-                 <a 
+                <a 
                     href={`https://discord.com/users/${user.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -111,46 +108,44 @@ const ProfilePage: React.FC = () => {
             </div>
         </div>
 
-        <div className="lg:col-span-2 space-y-8">
-           <div>
-                <h3 className="text-2xl font-bold mb-4 flex items-center gap-3">
-                    <FileText className="text-brand-cyan" />
-                    {t('recent_applications')}
-                </h3>
-                <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50">
-                        <div className="overflow-x-auto">
-                        {submissionsLoading ? (
-                            <div className="flex justify-center items-center h-48">
-                                <Loader2 size={40} className="text-brand-cyan animate-spin" />
-                            </div>
-                        ) : (
-                            <table className="w-full text-left min-w-[500px]">
-                            <thead className="border-b border-brand-light-blue/50 text-gray-300">
-                                <tr>
-                                <th className="p-4">{t('application_type')}</th>
-                                <th className="p-4">{t('submitted_on')}</th>
-                                <th className="p-4">{t('status')}</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {submissions.length === 0 ? (
-                                <tr>
-                                    <td colSpan={3} className="p-8 text-center text-gray-400">
-                                    {t('no_applications_submitted')}
-                                    </td>
-                                </tr>
-                                ) : submissions.map((sub, index) => (
-                                <tr key={sub.id} className={`border-b border-brand-light-blue/50 ${index === submissions.length - 1 ? 'border-none' : ''}`}>
-                                    <td className="p-4 font-semibold">{sub.quizTitle}</td>
-                                    <td className="p-4 text-sm text-gray-400">{new Date(sub.submittedAt).toLocaleDateString()}</td>
-                                    <td className="p-4">{renderStatusBadge(sub.status)}</td>
-                                </tr>
-                                ))}
-                            </tbody>
-                            </table>
-                        )}
-                        </div>
+        <div className="lg:col-span-2">
+            <h3 className="text-2xl font-bold mb-4 flex items-center gap-3">
+                <FileText className="text-brand-cyan" />
+                {t('recent_applications')}
+            </h3>
+            <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50">
+                <div className="overflow-x-auto">
+                {submissionsLoading ? (
+                    <div className="flex justify-center items-center h-48">
+                        <Loader2 size={40} className="text-brand-cyan animate-spin" />
                     </div>
+                ) : (
+                    <table className="w-full text-left min-w-[500px]">
+                    <thead className="border-b border-brand-light-blue/50 text-gray-300">
+                        <tr>
+                        <th className="p-4">{t('application_type')}</th>
+                        <th className="p-4">{t('submitted_on')}</th>
+                        <th className="p-4">{t('status')}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {submissions.length === 0 ? (
+                        <tr>
+                            <td colSpan={3} className="p-8 text-center text-gray-400">
+                            {t('no_applications_submitted')}
+                            </td>
+                        </tr>
+                        ) : submissions.map((sub, index) => (
+                        <tr key={sub.id} className={`border-b border-brand-light-blue/50 ${index === submissions.length - 1 ? 'border-none' : ''}`}>
+                            <td className="p-4 font-semibold">{sub.quizTitle}</td>
+                            <td className="p-4 text-sm text-gray-400">{new Date(sub.submittedAt).toLocaleDateString()}</td>
+                            <td className="p-4">{renderStatusBadge(sub.status)}</td>
+                        </tr>
+                        ))}
+                    </tbody>
+                    </table>
+                )}
+                </div>
             </div>
         </div>
       </div>

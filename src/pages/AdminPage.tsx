@@ -18,6 +18,7 @@ import {
   saveConfig,
   getSubmissionsByUserId,
 } from '../lib/api';
+// FIX: Added AppConfig to the import.
 import type { Quiz, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule, Product, AppConfig } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store, AlertTriangle, Palette, Search } from 'lucide-react';
@@ -88,6 +89,7 @@ const AdminPage: React.FC = () => {
                     setSubmissions(await getSubmissions());
                     if(quizzes.length === 0) setQuizzes(await getQuizzes());
                     break;
+                // FIX: Use user.isSuperAdmin for authorization checks.
                 case 'quizzes': if (user.isSuperAdmin) setQuizzes(await getQuizzes()); break;
                 case 'lookup': break; // No initial data to load for lookup
                 case 'rules': if (user.isSuperAdmin) setEditableRules(JSON.parse(JSON.stringify(await getRules()))); break;
@@ -194,6 +196,7 @@ const AdminPage: React.FC = () => {
       if (submission.status !== 'pending') return null;
       const quizForSubmission = quizzes.find(q => q.id === submission.quizId);
       const allowedRoles = quizForSubmission?.allowedTakeRoles;
+      // FIX: Use user.roles (string array of IDs) for permission check.
       const isAllowed = !allowedRoles || allowedRoles.length === 0 || user.roles.some(userRole => allowedRoles.includes(userRole));
       if (!isAllowed) return <div title={t('take_order_forbidden')}><button disabled className="bg-gray-600/50 text-gray-400 font-bold py-1 px-3 rounded-md text-sm cursor-not-allowed">{t('take_order_forbidden')}</button></div>
       return <button onClick={() => handleTakeOrder(submission.id)} className="bg-brand-cyan/20 text-brand-cyan font-bold py-1 px-3 rounded-md hover:bg-brand-cyan/40 text-sm">{t('take_order')}</button>;
@@ -297,6 +300,7 @@ const AdminPage: React.FC = () => {
                         <td className="p-4 font-semibold">{sub.quizTitle}</td>
                         <td className="p-4 text-sm text-gray-400">{new Date(sub.submittedAt).toLocaleDateString()}</td>
                         <td className="p-4 text-sm text-gray-400">
+                            {/* FIX: Check for sub.updatedAt before rendering. */}
                             {(sub.status === 'accepted' || sub.status === 'refused') && sub.updatedAt ? new Date(sub.updatedAt).toLocaleDateString() : 'N/A'}
                         </td>
                         <td className="p-4">{renderStatusBadge(sub.status)}</td>
@@ -318,6 +322,7 @@ const AdminPage: React.FC = () => {
       <div className="max-w-6xl mx-auto">
           <div className="flex border-b border-brand-light-blue/50 mb-6 overflow-x-auto">
               {TABS.map((tab) => {
+                  // FIX: Use user.isSuperAdmin for authorization checks.
                   const isDisabled = tab.superAdminOnly && !user.isSuperAdmin;
                   const isActive = activeTab === tab.id;
                   const buttonClasses = `py-3 px-6 font-bold flex-shrink-0 flex items-center gap-2 transition-colors ${isDisabled ? 'text-gray-600 cursor-not-allowed' : isActive ? 'text-brand-cyan border-b-2 border-brand-cyan' : 'text-gray-400 hover:text-brand-cyan'}`;

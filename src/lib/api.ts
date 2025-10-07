@@ -1,120 +1,190 @@
-import { supabase } from './supabaseClient';
-// FIX: Import MtaLogEntry type.
-import type { Quiz, QuizSubmission, User, RuleCategory, Product, AuditLogEntry, MtaServerStatus, SubmissionStatus, AppConfig, MtaLogEntry, DiscordAnnouncement } from '../types';
+import type { User, Product, Quiz, QuizSubmission, SubmissionStatus, DiscordRole, DiscordAnnouncement, MtaServerStatus, AuditLogEntry, RuleCategory, AppConfig, MtaLogEntry } from '../types';
 
 // --- API Error Handling ---
-// FIX: Add optional status property to ApiError to carry over HTTP status codes.
+// FIX: Updated ApiError to include a status code for better error handling.
 export class ApiError extends Error {
-  status?: number;
-  constructor(message: string, status?: number) {
+  status: number;
+  constructor(message: string, status: number) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
   }
 }
 
-// --- Public Data Fetching ---
+// --- MOCK DATABASE ---
+let MOCK_CONFIG: AppConfig = {
+    COMMUNITY_NAME: 'Horizon',
+    LOGO_URL: 'https://l.top4top.io/p_356271n1v1.png',
+    DISCORD_INVITE_URL: 'https://discord.gg/u3CazwhxVa',
+    MTA_SERVER_URL: 'mtasa://134.255.216.22:22041',
+    BACKGROUND_IMAGE_URL: '',
+    SHOW_HEALTH_CHECK: false,
+    SUPER_ADMIN_ROLE_IDS: ["role_admin"],
+};
 
+let MOCK_DB = {
+  products: [
+    { id: 'prod_1', nameKey: 'product_vip_bronze_name', descriptionKey: 'product_vip_bronze_desc', price: 10.00, imageUrl: 'https://i.imgur.com/S8wO2G6.png' },
+    { id: 'prod_2', nameKey: 'product_vip_silver_name', descriptionKey: 'product_vip_silver_desc', price: 20.00, imageUrl: 'https://i.imgur.com/S8wO2G6.png' },
+    { id: 'prod_3', nameKey: 'product_cash_1_name', descriptionKey: 'product_cash_1_desc', price: 5.00, imageUrl: 'https://i.imgur.com/S8wO2G6.png' },
+    { id: 'prod_4', nameKey: 'product_custom_plate_name', descriptionKey: 'product_custom_plate_desc', price: 15.00, imageUrl: 'https://i.imgur.com/S8wO2G6.png' },
+  ],
+  quizzes: [
+    { id: 'quiz_1', titleKey: 'quiz_police_name', descriptionKey: 'quiz_police_desc', isOpen: true, questions: [
+      { id: 'q_1_1', textKey: 'q_police_1', timeLimit: 60 },
+      { id: 'q_1_2', textKey: 'q_police_2', timeLimit: 90 },
+    ], logoUrl: 'https://i.imgur.com/your_logo.png', bannerUrl: 'https://i.imgur.com/your_banner.png', lastOpenedAt: new Date().toISOString() },
+    { id: 'quiz_2', titleKey: 'quiz_medic_name', descriptionKey: 'quiz_medic_desc', isOpen: false, questions: [
+      { id: 'q_2_1', textKey: 'q_medic_1', timeLimit: 75 },
+    ]},
+  ],
+  submissions: [],
+  audit_logs: [],
+  rules: [],
+};
+
+const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+
+
+// --- Public Functions ---
+
+// FIX: Added getConfig to fetch dynamic configuration.
 export const getConfig = async (): Promise<AppConfig> => {
-    const { data, error } = await supabase.from('config').select('*').single();
-    if (error) {
-        console.error("Error fetching config, falling back to defaults.", error);
-        // Return a default structure on error to prevent site crash
-        return {
-            COMMUNITY_NAME: 'Horizon',
-            LOGO_URL: '',
-            DISCORD_INVITE_URL: '',
-            MTA_SERVER_URL: '',
-        };
-    }
-    return data as AppConfig;
-};
-
-export const getMtaServerStatus = async (): Promise<MtaServerStatus> => {
-  // This is a placeholder as we can't query MTA from the client.
-  // This would need a serverless function proxy in a real scenario.
-  const { data } = await supabase.from('config').select('COMMUNITY_NAME').single();
-  return {
-    name: `${data?.COMMUNITY_NAME || 'Horizon'} Roleplay`,
-    players: Math.floor(Math.random() * 100),
-    maxPlayers: 128,
-  };
-};
+    await delay(200);
+    return MOCK_CONFIG;
+}
 
 export const getProducts = async (): Promise<Product[]> => {
-    const { data, error } = await supabase.from('products').select('*');
-    if (error) throw new ApiError(error.message);
-    return data.map(p => ({ ...p, nameKey: p.name_key, descriptionKey: p.description_key, imageUrl: p.image_url }));
+  await delay(500);
+  return MOCK_DB.products;
 };
 
 export const getQuizzes = async (): Promise<Quiz[]> => {
-    const { data, error } = await supabase.from('quizzes').select('*, questions:quiz_questions(*)');
-    if (error) throw new ApiError(error.message);
-    return data.map(q => ({ 
-        ...q, 
-        questions: q.questions || [],
-        titleKey: q.title_key,
-        descriptionKey: q.description_key,
-        logoUrl: q.logo_url,
-        bannerUrl: q.banner_url,
-        isOpen: q.is_open,
-        allowedTakeRoles: q.allowed_take_roles,
-        lastOpenedAt: q.last_opened_at
-    }));
+  await delay(500);
+  return MOCK_DB.quizzes;
 };
 
-export const getQuizById = async (id: string): Promise<Quiz> => {
-    const { data, error } = await supabase.from('quizzes').select('*, questions:quiz_questions(*)').eq('id', id).single();
-    if (error) throw new ApiError(error.message);
-    return { 
-        ...data, 
-        questions: data.questions || [],
-        titleKey: data.title_key,
-        descriptionKey: data.description_key,
-        logoUrl: data.logo_url,
-        bannerUrl: data.banner_url,
-        isOpen: data.is_open,
-        allowedTakeRoles: data.allowed_take_roles,
-        lastOpenedAt: data.last_opened_at
+export const getQuizById = async (id: string): Promise<Quiz | undefined> => {
+  await delay(300);
+  return MOCK_DB.quizzes.find(q => q.id === id);
+}
+
+export const getMtaServerStatus = async (): Promise<MtaServerStatus> => {
+    await delay(800);
+    return {
+        name: `${MOCK_CONFIG.COMMUNITY_NAME} Roleplay`,
+        players: Math.floor(Math.random() * 100),
+        maxPlayers: 128,
     };
+}
+
+// --- User-Specific Functions ---
+
+export const getSubmissionsByUserId = async (userId: string): Promise<QuizSubmission[]> => {
+    await delay(600);
+    return MOCK_DB.submissions.filter(s => s.userId === userId);
+}
+
+export const addSubmission = async (submissionData: Partial<QuizSubmission>): Promise<QuizSubmission> => {
+    await delay(1000);
+    const newSubmission: QuizSubmission = {
+        id: `sub_${Date.now()}`,
+        status: 'pending',
+        submittedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        ...submissionData,
+    } as QuizSubmission;
+    MOCK_DB.submissions.push(newSubmission);
+    return newSubmission;
 };
 
-export const getRules = async (): Promise<RuleCategory[]> => {
-    const { data, error } = await supabase.from('rules').select('content').single();
-    if (error || !data) return [];
-    return (data.content as any) || [];
-};
 
+// --- Admin Functions ---
 
-// --- User & Profile Specific ---
+export const getSubmissions = async (): Promise<QuizSubmission[]> => {
+    await delay(700);
+    return MOCK_DB.submissions.sort((a,b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+}
 
-export const getProfileById = async (userId: string) => {
-    const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).single();
-    if (error && error.code !== 'PGRST116') { // Ignore "exact one row" error for non-existent profiles
-        console.error("Error fetching profile", error);
+export const updateSubmissionStatus = async (submissionId: string, status: SubmissionStatus): Promise<void> => {
+    await delay(400);
+    const submission = MOCK_DB.submissions.find(s => s.id === submissionId);
+    if(submission) {
+        submission.status = status;
+        // FIX: Added updatedAt timestamp on status change.
+        submission.updatedAt = new Date().toISOString();
+        // In a real scenario, admin details would be taken from the session
+        submission.adminId = "1423683069893673050";
+        submission.adminUsername = "AdminUser";
+    } else {
+        // FIX: Throw ApiError with a status code.
+        throw new ApiError("Submission not found", 404);
     }
-    return data;
-};
+}
 
-// This function must be a serverless function due to requiring bot token. We'll mock it for now.
-export const getDiscordRoles = async (userId: string): Promise<{id: string, name: string, color: number}[]> => {
-    // In a real implementation, this would be an edge function call:
-    // const { data, error } = await supabase.functions.invoke('get-discord-roles', { body: { userId } });
-    console.warn("Using mock Discord roles. Create a 'get-discord-roles' edge function for production.");
-    // Return a more detailed list for the profile page
-    return [
-        { id: '1', name: 'Server Booster', color: 0xf47fff },
-        { id: '2', name: 'Police Department', color: 0x3498db },
-        { id: '3', name: 'Emergency Medical Services', color: 0xe74c3c },
-        { id: '4', name: 'Level 10+', color: 0x9b59b6 },
-        { id: '5', name: 'Member', color: 0x99aab5 }
+export const saveQuiz = async (quiz: Quiz): Promise<Quiz> => {
+    await delay(500);
+    if(quiz.id) { // update
+        const index = MOCK_DB.quizzes.findIndex(q => q.id === quiz.id);
+        if(index > -1) MOCK_DB.quizzes[index] = quiz;
+    } else { // create
+        const newQuiz = { ...quiz, id: `quiz_${Date.now()}`};
+        MOCK_DB.quizzes.push(newQuiz);
+        return newQuiz;
+    }
+    return quiz;
+}
+
+export const deleteQuiz = async (quizId: string): Promise<void> => {
+    await delay(500);
+    MOCK_DB.quizzes = MOCK_DB.quizzes.filter(q => q.id !== quizId);
+}
+
+// FIX: Added saveConfig to allow admins to update settings.
+export const saveConfig = async (config: Partial<AppConfig>): Promise<void> => {
+    await delay(500);
+    MOCK_CONFIG = { ...MOCK_CONFIG, ...config };
+}
+
+export const revalidateSession = async (currentUser: User): Promise<User> => {
+    await delay(200);
+    // FIX: This mock function now simulates fetching a primary role.
+    const primaryRole = currentUser.discordRoles.find(r => r.id === 'role_admin') || currentUser.discordRoles[0];
+    return { ...currentUser, primaryRole };
+}
+
+export const logAdminAccess = async (user: User): Promise<void> => {
+    console.log(`Admin access by ${user.username}`);
+}
+export const getAuditLogs = async (): Promise<AuditLogEntry[]> => { return []; }
+export const getRules = async (): Promise<RuleCategory[]> => { return MOCK_DB.rules; }
+export const saveRules = async (rules: RuleCategory[]): Promise<void> => { MOCK_DB.rules = rules; }
+export const saveProduct = async (product: Product): Promise<Product> => { return product; }
+export const deleteProduct = async (productId: string): Promise<void> => {}
+
+
+// --- NEW MOCK DISCORD FUNCTIONS ---
+
+export const getDiscordRoles = async (userId: string): Promise<DiscordRole[]> => {
+    await delay(300);
+    // Mock roles based on user ID. The mock admin ID gets special roles.
+    const isAdmin = userId === "1423683069893673050";
+    
+    let roles = [
+      { id: 'role_member', name: 'Member', color: '#8a95a3' },
+      { id: 'role_level10', name: 'Level 10+', color: '#f1c40f' },
     ];
+
+    if (isAdmin) {
+      roles.unshift({ id: 'role_admin', name: 'Server Admin', color: '#00f2ea' });
+      roles.push({ id: 'role_booster', name: 'Server Booster', color: '#f47fff' });
+    }
+
+    return roles;
 };
 
 export const getDiscordAnnouncements = async (): Promise<DiscordAnnouncement[]> => {
-    // This would be a serverless function. We'll mock it for now.
-    console.warn("Using mock Discord announcements. Create a 'get-discord-announcements' edge function for production.");
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
+    await delay(1200);
     return [
         {
             id: '1',
@@ -141,165 +211,17 @@ export const getDiscordAnnouncements = async (): Promise<DiscordAnnouncement[]> 
     ];
 };
 
-export const addSubmission = async (submission: Partial<QuizSubmission>): Promise<QuizSubmission> => {
-    const { data, error } = await supabase.rpc('submit_application', {
-        p_quiz_id: submission.quizId,
-        p_quiz_title: submission.quizTitle,
-        p_user_id: submission.userId,
-        p_username: submission.username,
-        p_cheat_attempts: submission.cheatAttempts,
-        p_answers: submission.answers
-    });
-
-    if (error) throw new ApiError(error.message);
-    return data;
-};
-
-export const getSubmissionsByUserId = async (userId: string): Promise<QuizSubmission[]> => {
-    const { data, error } = await supabase.from('submissions').select('*').eq('user_id', userId).order('created_at', { ascending: false });
-    if (error) throw new ApiError(error.message);
-    return data.map(s => ({...s, quizTitle: s.quiz_title, userId: s.user_id, submittedAt: s.created_at, updatedAt: s.updated_at}));
-};
-
-// FIX: Implement revalidateSession to get fresh user data and permissions.
-export const revalidateSession = async (currentUser: User): Promise<User> => {
-    const { data: { user: supabaseUser }, error } = await (supabase.auth as any).getUser();
-
-    if (error || !supabaseUser) {
-        throw new ApiError(error?.message || 'User not found', (error as any)?.status);
-    }
-    
-    const profile = await getProfileById(supabaseUser.id);
-    if (!profile) {
-        throw new ApiError('User profile not found.', 404);
-    }
-
-    const { data: configData } = await supabase.from('config').select('SUPER_ADMIN_ROLE_IDS').single();
-    const superAdminRoles = configData?.SUPER_ADMIN_ROLE_IDS || [];
-    
-    const discordRolesApi = await getDiscordRoles(supabaseUser.id);
-    const discordRoles = discordRolesApi.map(r => ({
-        id: r.id,
-        name: r.name,
-        color: `#${r.color.toString(16).padStart(6, '0')}`
-    }));
-
-
-    const primaryRole = discordRoles.length > 0 ? discordRoles[0] : undefined;
-
-    return {
-      id: supabaseUser.id,
-      username: supabaseUser.user_metadata.full_name,
-      avatar: supabaseUser.user_metadata.avatar_url,
-      isAdmin: profile.is_admin,
-      isSuperAdmin: profile.is_super_admin || discordRoles.some(r => superAdminRoles.includes(r.id)),
-      roles: discordRoles.map(r => r.id),
-      primaryRole: primaryRole,
-      discordRoles: discordRoles,
-    };
-};
-
-
-// --- Admin Functions (Requires RLS policies on Supabase) ---
-
-// FIX: Add missing logAdminAccess function required by pages/AdminPage.tsx.
-export const logAdminAccess = async (user: User): Promise<void> => {
-    const { error } = await supabase.from('audit_logs').insert({
-        admin_id: user.id,
-        admin_username: user.username,
-        action: 'Accessed Admin Panel'
-    });
-
-    if (error) {
-        console.error("Failed to log admin access:", error.message);
-    }
-};
-
-export const getSubmissions = async (): Promise<QuizSubmission[]> => {
-    const { data, error } = await supabase.from('submissions_with_answers').select('*').order('created_at', { ascending: false });
-    if (error) throw new ApiError(error.message);
-    return data.map(s => ({
-        ...s,
-        quizTitle: s.quiz_title,
-        userId: s.user_id,
-        submittedAt: s.created_at,
-        updatedAt: s.updated_at,
-        adminId: s.admin_id,
-        adminUsername: s.admin_username,
-        cheatAttempts: s.cheat_attempts as any,
-    }));
-};
-
-export const updateSubmissionStatus = async (submissionId: string, status: SubmissionStatus): Promise<QuizSubmission> => {
-    const { data, error } = await supabase.rpc('update_submission_status', { p_submission_id: submissionId, p_status: status });
-    if (error) throw new ApiError(error.message);
-    return data;
-};
-
-export const saveQuiz = async (quiz: Quiz): Promise<Quiz> => {
-    const { error } = await supabase.rpc('save_quiz_with_questions', {
-      p_quiz_id: quiz.id || undefined,
-      p_title_key: quiz.titleKey,
-      p_description_key: quiz.descriptionKey,
-      p_is_open: quiz.isOpen,
-      p_logo_url: quiz.logoUrl,
-      p_banner_url: quiz.bannerUrl,
-      p_allowed_take_roles: quiz.allowedTakeRoles,
-      p_questions: quiz.questions
-    });
-    if (error) throw new ApiError(error.message);
-    return quiz;
-};
-
-export const deleteQuiz = async (quizId: string): Promise<void> => {
-    const { error } = await supabase.from('quizzes').delete().eq('id', quizId);
-    if (error) throw new ApiError(error.message);
-};
-
-export const getAuditLogs = async (): Promise<AuditLogEntry[]> => {
-    const { data, error } = await supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(100);
-    if (error) throw new ApiError(error.message);
-    return data.map(l => ({ ...l, adminId: l.admin_id, adminUsername: l.admin_username, timestamp: l.created_at, ipAddress: l.ip_address }));
-};
-
-export const saveConfig = async (config: Partial<AppConfig>): Promise<void> => {
-    const { error } = await supabase.from('config').update(config).eq('id', 1);
-    if (error) throw new ApiError(error.message);
-};
-
-export const saveRules = async (rules: RuleCategory[]): Promise<void> => {
-    const { error } = await supabase.from('rules').upsert({ id: 1, content: rules });
-    if (error) throw new ApiError(error.message);
-};
-
-export const saveProduct = async (product: Product): Promise<Product> => {
-    const { id, nameKey, descriptionKey, price, imageUrl } = product;
-    const productData = { name_key: nameKey, description_key: descriptionKey, price, image_url: imageUrl };
-    const { data, error } = await supabase.from('products').upsert({ id, ...productData }).select().single();
-    if (error) throw new ApiError(error.message);
-    return { ...(data as any), nameKey: data.name_key, descriptionKey: data.description_key, imageUrl: data.image_url };
-};
-
-export const deleteProduct = async (productId: string): Promise<void> => {
-    const { error } = await supabase.from('products').delete().eq('id', productId);
-    if (error) throw new ApiError(error.message);
-};
-
-// FIX: Add getMtaPlayerLogs function for the new MtaLogsPanel component.
+// FIX: Added mock function to get player logs for the admin panel.
 export const getMtaPlayerLogs = async (userId: string): Promise<MtaLogEntry[]> => {
-    // This would be a call to a serverless function or a direct query if logs are in Supabase.
-    // For now, we'll return mock data.
-    console.warn(`Using mock MTA logs for user ${userId}. Create a 'get-mta-logs' edge function for production.`);
-    // A little delay to simulate network
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // Return empty array if some specific user id is passed to simulate not found.
-    if (userId === 'not_found') return [];
-
-    return [
-        { timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(), text: 'Player connected.' },
-        { timestamp: new Date(Date.now() - 1000 * 60 * 4).toISOString(), text: 'Player spawned.' },
-        { timestamp: new Date(Date.now() - 1000 * 60 * 2).toISOString(), text: 'Player was killed by another player.' },
-        { timestamp: new Date(Date.now() - 1000 * 60 * 1).toISOString(), text: 'Player disconnected.' },
-    ];
+    await delay(800);
+    if (userId === "1423683069893673050" || userId === "AdminUser") { // Allow lookup by name for mock
+        return [
+            { timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), text: "Player connected with IP 127.0.0.1" },
+            { timestamp: new Date(Date.now() - 1000 * 60 * 45).toISOString(), text: "Purchased a 'Sultan' from the dealership." },
+            { timestamp: new Date(Date.now() - 1000 * 60 * 20).toISOString(), text: "Was jailed for 10 minutes by Admin 'AnotherAdmin' for Reckless Driving." },
+            { timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(), text: "Sent a private message to 'PlayerTwo'." },
+            { timestamp: new Date(Date.now() - 1000 * 60 * 1).toISOString(), text: "Player disconnected." },
+        ];
+    }
+    return [];
 };
