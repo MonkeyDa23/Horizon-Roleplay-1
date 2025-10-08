@@ -206,43 +206,84 @@ const fetchDiscordMember = async (providerToken: string, guildId: string): Promi
 export const fetchUserProfile = async (session: Session): Promise<User> => {
     if (!supabase) throw new ApiError("Supabase not configured", 500);
 
-    const providerToken = session.provider_token;
-    if (!providerToken) throw new ApiError("Discord provider token not found.", 401);
+    // Step 1: Get basic user info from session.
+    const userId = session.user.id;
+    const username = session.user.user_metadata.full_name;
+    const avatar = session.user.user_metadata.avatar_url;
 
-    const config = await getConfig();
-    const { roles, discordRoles, highestRole } = await fetchDiscordMember(providerToken, config.DISCORD_GUILD_ID);
-    
-    const superAdminRoles = config.SUPER_ADMIN_ROLE_IDS || [];
-    const handlerRoles = config.HANDLER_ROLE_IDS || [];
-
-    const isSuperAdmin = roles.some(roleId => superAdminRoles.includes(roleId));
-    const isHandler = roles.some(roleId => handlerRoles.includes(roleId));
-    const isAdmin = isSuperAdmin || isHandler;
-
-    // Upsert the profile. This will create it if it doesn't exist, or update it if it does.
-    // This is safe because isAdmin/isSuperAdmin are derived from Discord roles, not user input.
-    const { data: profileData, error: upsertError } = await supabase
+    // Step 2: Ensure a profile exists and get its current state. THIS IS THE CRITICAL PATH.
+    // This upsert will create a profile with default values if it's a new user.
+    // We then select it to get the user's last known permissions.
+    const { data: profileData, error: profileError } = await supabase
       .from('profiles')
-      .upsert({
-        id: session.user.id,
-        is_admin: isAdmin,
-        is_super_admin: isSuperAdmin,
-        updated_at: new Date().toISOString()
-      })
-      .select()
+      .upsert({ id: userId, updated_at: new Date().toISOString() })
+      .select('is_admin, is_super_admin')
       .single();
 
-    if (upsertError) {
-      console.error("Error upserting profile:", upsertError);
-      throw new ApiError(upsertError.message, 500);
+    // If this fails, the login cannot proceed. It's a fundamental DB issue.
+    if (profileError) {
+      console.error("Critical error: Could not read or create user profile.", profileError);
+      throw new ApiError(profileError.message, 500);
+    }
+
+    // At this point, login is guaranteed to succeed. The user will be logged in
+    // with their permissions as stored in our database.
+
+    // Step 3: (BEST EFFORT) Try to sync roles from Discord.
+    // This can fail without breaking the login.
+    let roles: string[] = [];
+    let discordRoles: DiscordRole[] = [];
+    let highestRole: DiscordRole | null = null;
+    let isAdmin = profileData.is_admin;
+    let isSuperAdmin = profileData.is_super_admin;
+    
+    try {
+        const providerToken = session.provider_token;
+        if (!providerToken) throw new Error("Discord provider token not found in session.");
+
+        const config = await getConfig();
+        const memberData = await fetchDiscordMember(providerToken, config.DISCORD_GUILD_ID);
+        
+        roles = memberData.roles;
+        discordRoles = memberData.discordRoles;
+        highestRole = memberData.highestRole;
+
+        // Calculate fresh permissions
+        const superAdminRoles = config.SUPER_ADMIN_ROLE_IDS || [];
+        const handlerRoles = config.HANDLER_ROLE_IDS || [];
+        const freshIsSuperAdmin = roles.some(roleId => superAdminRoles.includes(roleId));
+        const freshIsHandler = roles.some(roleId => handlerRoles.includes(roleId));
+        const freshIsAdmin = freshIsSuperAdmin || freshIsHandler;
+
+        // If permissions have changed, update the DB.
+        if (freshIsAdmin !== isAdmin || freshIsSuperAdmin !== isSuperAdmin) {
+            const { error: updateError } = await supabase
+              .from('profiles')
+              .update({ is_admin: freshIsAdmin, is_super_admin: freshIsSuperAdmin })
+              .eq('id', userId);
+            
+            if (updateError) {
+                // Log the error but don't fail the whole login. The user will just have stale permissions
+                // until the next successful sync.
+                console.warn("Failed to update user permissions in DB after a successful role sync.", updateError);
+            } else {
+                // Update the variables we're about to return.
+                isAdmin = freshIsAdmin;
+                isSuperAdmin = freshIsSuperAdmin;
+            }
+        }
+
+    } catch (error) {
+        console.warn("Could not sync Discord roles during login. The user will be logged in with their existing permissions. This is non-critical.", error);
     }
     
+    // Step 4: Return the complete User object.
     return {
-      id: session.user.id,
-      username: session.user.user_metadata.full_name,
-      avatar: session.user.user_metadata.avatar_url,
-      isAdmin: profileData.is_admin,
-      isSuperAdmin: profileData.is_super_admin,
+      id: userId,
+      username: username,
+      avatar: avatar,
+      isAdmin: isAdmin,
+      isSuperAdmin: isSuperAdmin,
       discordRoles: discordRoles,
       roles: roles,
       highestRole: highestRole,
@@ -253,6 +294,7 @@ export const revalidateSession = async (): Promise<User> => {
     if (!supabase) throw new ApiError("Supabase not configured", 500);
     const { data: { session }, error } = await supabase.auth.getSession();
     if (error || !session) throw new ApiError("No active session.", 401);
+    // Re-running the full profile fetch also re-syncs the roles
     return fetchUserProfile(session);
 }
 
