@@ -246,29 +246,30 @@ export const fetchUserProfile = async (session: Session): Promise<User> => {
     const isHandler = roles.some(roleId => handlerRoles.includes(roleId));
     const isAdmin = isSuperAdmin || isHandler;
 
-    // Check for an existing profile and update it if needed
-    const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('is_admin, is_super_admin')
-        .eq('id', session.user.id)
-        .single();
-    
-    if (profileError && profileError.code !== 'PGRST116') throw new ApiError(profileError.message, 500);
+    // Upsert the profile. This will create it if it doesn't exist, or update it if it does.
+    // This is safe because isAdmin/isSuperAdmin are derived from Discord roles, not user input.
+    const { data: profileData, error: upsertError } = await supabase
+      .from('profiles')
+      .upsert({
+        id: session.user.id,
+        is_admin: isAdmin,
+        is_super_admin: isSuperAdmin,
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
 
-    // If profile exists and permissions mismatch, update them
-    if (profile && (profile.is_super_admin !== isSuperAdmin || profile.is_admin !== isAdmin)) {
-        await supabase
-            .from('profiles')
-            .update({ is_super_admin: isSuperAdmin, is_admin: isAdmin })
-            .eq('id', session.user.id);
+    if (upsertError) {
+      console.error("Error upserting profile:", upsertError);
+      throw new ApiError(upsertError.message, 500);
     }
     
     return {
       id: session.user.id,
       username: session.user.user_metadata.full_name,
       avatar: session.user.user_metadata.avatar_url,
-      isAdmin: isAdmin,
-      isSuperAdmin: isSuperAdmin,
+      isAdmin: profileData.is_admin,
+      isSuperAdmin: profileData.is_super_admin,
       discordRoles: discordRoles,
       roles: roles,
       highestRole: highestRole,

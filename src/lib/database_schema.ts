@@ -37,6 +37,15 @@ CREATE POLICY "Allow admin read access" ON public.profiles
     (SELECT is_admin FROM public.profiles WHERE id = auth.uid()) = true
   );
 
+DROP POLICY IF EXISTS "Allow individual insert access" ON public.profiles;
+CREATE POLICY "Allow individual insert access" ON public.profiles
+  FOR INSERT WITH CHECK (auth.uid() = id);
+
+DROP POLICY IF EXISTS "Allow individual update access" ON public.profiles;
+CREATE POLICY "Allow individual update access" ON public.profiles
+  FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
+
+
 -- Function to create a profile for new users
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger
