@@ -65,7 +65,6 @@ const HealthCheckPage: React.FC = () => {
         checks.supabase.error = null;
       } catch(e) {
         checks.supabase.status = '❌ Failed';
-        // FIX: Add type checking for thrown error to safely access `e.message`
         if (e instanceof Error) {
             checks.supabase.error = e.message;
         } else {
@@ -131,7 +130,6 @@ const HealthCheckPage: React.FC = () => {
               <p className="text-sm text-gray-400 mb-4">{t('health_check_env_vars_desc')}</p>
               <ul className="space-y-2">
                 {Object.entries(data.env).map(([key, value]) => {
-                  // FIX: Explicitly cast `value` to string to resolve type inference issue.
                   const statusValue = value as string;
                   return (
                     <li key={key} className={`flex items-center bg-brand-dark p-3 rounded-md ${getStatusTextClass(statusValue)}`}>

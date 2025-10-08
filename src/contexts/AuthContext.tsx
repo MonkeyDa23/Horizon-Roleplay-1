@@ -30,7 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!supabase) {
         setLoading(false);
-        // If Supabase isn't configured, the app runs in a "logged out" state with mock data.
+        // If Supabase isn't configured, the app runs in a "logged out" state.
         return;
     }
 
