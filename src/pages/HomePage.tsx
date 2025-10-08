@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useLocalization } from '../hooks/useLocalization';
-// FIX: Switched from static config import to the useConfig hook for dynamic values.
 import { useConfig } from '../hooks/useConfig';
 import Modal from '../components/Modal';
 import Logo from '../components/Logo';
@@ -10,7 +9,6 @@ import DiscordAnnouncements from '../components/DiscordAnnouncements';
 
 const HomePage: React.FC = () => {
   const { t } = useLocalization();
-  // FIX: Get config from the context.
   const { config } = useConfig();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -51,7 +49,6 @@ const HomePage: React.FC = () => {
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={t('join_modal_title')}>
         <div className="space-y-6">
           <a
-            // FIX: Use dynamic config value.
             href={config.DISCORD_INVITE_URL}
             target="_blank"
             rel="noopener noreferrer"
@@ -61,7 +58,6 @@ const HomePage: React.FC = () => {
             <span>{t('join_discord')}</span>
           </a>
           <a
-            // FIX: Use dynamic config value.
             href={config.MTA_SERVER_URL}
             className="flex items-center justify-center gap-4 w-full p-4 bg-gray-700 text-white font-bold rounded-lg hover:bg-gray-600 transition-colors duration-300"
           >

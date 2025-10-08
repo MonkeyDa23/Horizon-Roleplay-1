@@ -74,7 +74,6 @@ export const addSubmission = async (submissionData: Partial<QuizSubmission>): Pr
 
 export const getSubmissions = async (): Promise<QuizSubmission[]> => {
     if (!supabase) return [];
-    // FIX: Order by 'submitted_at' to match the updated schema.
     const { data, error } = await supabase.from('submissions').select('*').order('submitted_at', { ascending: false });
     if (error) throw new ApiError(error.message, 500);
     return data;
@@ -103,7 +102,6 @@ export const deleteQuiz = async (quizId: string): Promise<void> => {
     if (error) throw new ApiError(error.message, 500);
 }
 
-// FIX: Implement saveRules function for admin panel
 export const saveRules = async (rulesData: RuleCategory[]): Promise<void> => {
     if (!supabase) throw new ApiError("Database not configured", 500);
     // This should ideally be a single RPC call to ensure atomicity.
@@ -133,7 +131,6 @@ export const saveRules = async (rulesData: RuleCategory[]): Promise<void> => {
     }
 }
 
-// FIX: Implement saveProduct function for admin panel
 export const saveProduct = async (product: Product): Promise<Product> => {
     if (!supabase) throw new ApiError("Database not configured", 500);
     const { data, error } = await supabase.from('products').upsert(product).select().single();
@@ -141,7 +138,6 @@ export const saveProduct = async (product: Product): Promise<Product> => {
     return data;
 };
 
-// FIX: Implement deleteProduct function for admin panel
 export const deleteProduct = async (productId: string): Promise<void> => {
     if (!supabase) throw new ApiError("Database not configured", 500);
     const { error } = await supabase.from('products').delete().eq('id', productId);
@@ -161,7 +157,6 @@ export const getAuditLogs = async (): Promise<AuditLogEntry[]> => {
     return data;
 }
 
-// FIX: Implement logAdminAccess function for admin panel
 export const logAdminAccess = async (user: User): Promise<void> => {
     if (!supabase) return; // Gracefully fail if supabase isn't configured
     const { error } = await supabase.from('audit_logs').insert({
@@ -201,7 +196,6 @@ const fetchDiscordMember = async (providerToken: string, guildId: string): Promi
     const guildRolesResponse = await fetch(`https://discord.com/api/guilds/${guildId}/roles`, {
       headers: { 'Authorization': `Bearer ${providerToken}` }
     });
-    // FIX: Explicitly type the response from the Discord API to resolve errors with properties on 'unknown' type.
     const allGuildRoles = await guildRolesResponse.json() as { id: string; name: string; color: number }[];
     const rolesMap = new Map(allGuildRoles.map((r) => [r.id, { name: r.name, color: `#${r.color.toString(16).padStart(6, '0')}` }]));
 
@@ -279,7 +273,6 @@ export const getMtaServerStatus = async (): Promise<MtaServerStatus> => {
     };
 }
 
-// FIX: Implement getMtaPlayerLogs function for user lookup panel
 export const getMtaPlayerLogs = async (userId: string): Promise<MtaLogEntry[]> => {
     console.warn(`getMtaPlayerLogs is mocked for user ID: ${userId}`);
     // This is a mocked function. A real implementation would query an MTA logs database or API.

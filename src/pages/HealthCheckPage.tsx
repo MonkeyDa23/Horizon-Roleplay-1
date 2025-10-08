@@ -63,9 +63,14 @@ const HealthCheckPage: React.FC = () => {
         if (error) throw error;
         checks.supabase.status = '✅ Connected';
         checks.supabase.error = null;
-      } catch(e: any) {
+      } catch(e) {
         checks.supabase.status = '❌ Failed';
-        checks.supabase.error = e.message;
+        // FIX: Add type checking for thrown error to safely access `e.message`
+        if (e instanceof Error) {
+            checks.supabase.error = e.message;
+        } else {
+            checks.supabase.error = String(e);
+        }
         setOverallError("Supabase connection failed. Check your URL, Anon Key, and ensure RLS policies are correct for the 'config' table.");
       }
       
@@ -125,13 +130,17 @@ const HealthCheckPage: React.FC = () => {
               <h3 className="text-2xl font-bold text-brand-cyan mb-4">{t('health_check_env_vars')}</h3>
               <p className="text-sm text-gray-400 mb-4">{t('health_check_env_vars_desc')}</p>
               <ul className="space-y-2">
-                {Object.entries(data.env).map(([key, value]) => (
-                    <li key={key} className={`flex items-center bg-brand-dark p-3 rounded-md ${getStatusTextClass(value)}`}>
-                      <StatusIcon status={value} />
+                {Object.entries(data.env).map(([key, value]) => {
+                  // FIX: Explicitly cast `value` to string to resolve type inference issue.
+                  const statusValue = value as string;
+                  return (
+                    <li key={key} className={`flex items-center bg-brand-dark p-3 rounded-md ${getStatusTextClass(statusValue)}`}>
+                      <StatusIcon status={statusValue} />
                       <code className="text-gray-300">{key}</code>
-                      <span className="ml-auto font-semibold">{value.substring(2)}</span>
+                      <span className="ml-auto font-semibold">{statusValue.substring(2)}</span>
                     </li>
-                ))}
+                  );
+                })}
               </ul>
             </div>
             

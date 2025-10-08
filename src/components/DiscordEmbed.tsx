@@ -42,7 +42,7 @@ const DiscordEmbed: React.FC = () => {
           </span>
         </div>
         <div className="flex items-center gap-2 text-sm">
-          <span className="w-2.5 h-2.5 bg-gray-500 rounded-full"></span>
+          <span className="w-2.s h-2.5 bg-gray-500 rounded-full"></span>
           <span>
             {totalMembers.toLocaleString()} {t('discord_members')}
           </span>

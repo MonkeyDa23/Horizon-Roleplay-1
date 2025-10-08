@@ -1,6 +1,3 @@
-// FIX: This file contained raw SQL, which is not valid TypeScript.
-// The entire schema has been wrapped in a template string to resolve compilation errors.
-// Additionally, column names have been quoted to preserve casing and match application types, preventing potential runtime errors.
 export const DATABASE_SCHEMA = `
 -- #############################################################################
 -- #                                                                           #
