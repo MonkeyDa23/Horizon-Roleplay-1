@@ -169,4 +169,5 @@ export interface AppConfig {
     BACKGROUND_IMAGE_URL: string;
     SHOW_HEALTH_CHECK: boolean;
     SUPER_ADMIN_ROLE_IDS: string[];
+    HANDLER_ROLE_IDS: string[];
 }

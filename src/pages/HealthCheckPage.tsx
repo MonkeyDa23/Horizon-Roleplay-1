@@ -106,6 +106,9 @@ const HealthCheckPage: React.FC = () => {
                 {copied ? t('health_check_copied') : t('health_check_copy')}
             </button>
             </div>
+            <div className="mt-4 bg-yellow-900/50 border border-yellow-500/30 p-3 rounded-md text-yellow-300 text-sm">
+                <p><strong>Important:</strong> Copy this URL exactly as shown. Do not add <code>/auth/callback</code> or any other text to the end of it.</p>
+            </div>
         </div>
 
         <h2 className="text-3xl font-bold mb-6 text-center">{t('health_check_step2')}</h2>

@@ -225,8 +225,11 @@ export const fetchUserProfile = async (session: Session): Promise<User> => {
     const { roles, discordRoles } = await fetchDiscordMember(providerToken, config.DISCORD_GUILD_ID);
     
     const superAdminRoles = config.SUPER_ADMIN_ROLE_IDS || [];
+    const handlerRoles = config.HANDLER_ROLE_IDS || [];
 
     const isSuperAdmin = roles.some(roleId => superAdminRoles.includes(roleId));
+    const isHandler = roles.some(roleId => handlerRoles.includes(roleId));
+    const isAdmin = isSuperAdmin || isHandler;
 
     // Check for an existing profile and update it if needed
     const { data: profile, error: profileError } = await supabase
@@ -238,10 +241,10 @@ export const fetchUserProfile = async (session: Session): Promise<User> => {
     if (profileError && profileError.code !== 'PGRST116') throw new ApiError(profileError.message, 500);
 
     // If profile exists and permissions mismatch, update them
-    if (profile && (profile.is_super_admin !== isSuperAdmin)) {
+    if (profile && (profile.is_super_admin !== isSuperAdmin || profile.is_admin !== isAdmin)) {
         await supabase
             .from('profiles')
-            .update({ is_super_admin: isSuperAdmin, is_admin: isSuperAdmin || profile.is_admin })
+            .update({ is_super_admin: isSuperAdmin, is_admin: isAdmin })
             .eq('id', session.user.id);
     }
     
@@ -249,7 +252,7 @@ export const fetchUserProfile = async (session: Session): Promise<User> => {
       id: session.user.id,
       username: session.user.user_metadata.full_name,
       avatar: session.user.user_metadata.avatar_url,
-      isAdmin: isSuperAdmin || (profile?.is_admin ?? false),
+      isAdmin: isAdmin,
       isSuperAdmin: isSuperAdmin,
       discordRoles: discordRoles,
       roles: roles,

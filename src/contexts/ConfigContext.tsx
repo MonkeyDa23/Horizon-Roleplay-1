@@ -17,6 +17,7 @@ const defaultConfig: AppConfig = {
     BACKGROUND_IMAGE_URL: '',
     SHOW_HEALTH_CHECK: false,
     SUPER_ADMIN_ROLE_IDS: [],
+    HANDLER_ROLE_IDS: [],
 };
 
 export const ConfigContext = createContext<ConfigContextType>({

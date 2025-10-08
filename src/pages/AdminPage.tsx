@@ -170,6 +170,12 @@ const AdminPage: React.FC = () => {
     );
   }
 
+  const visibleTabs = TABS.filter(tab => {
+    if (user.isSuperAdmin) return true;
+    if (user.isAdmin) return !tab.superAdminOnly;
+    return false;
+  });
+
   const renderStatusBadge = (status: SubmissionStatus) => {
     const statusMap = {
       pending: { text: t('status_pending'), color: 'bg-yellow-500/20 text-yellow-400' },
@@ -308,14 +314,15 @@ const AdminPage: React.FC = () => {
       <div className="text-center mb-12"><div className="inline-block p-4 bg-brand-light-blue rounded-full mb-4"><UserCog className="text-brand-cyan" size={48} /></div><h1 className="text-4xl md:text-5xl font-bold mb-4">{t('page_title_admin')}</h1></div>
       <div className="max-w-6xl mx-auto">
           <div className="flex border-b border-brand-light-blue/50 mb-6 overflow-x-auto">
-              {TABS.map((tab) => {
-                  const isDisabled = tab.superAdminOnly && !user.isSuperAdmin;
-                  const isActive = activeTab === tab.id;
-                  const buttonClasses = `py-3 px-6 font-bold flex-shrink-0 flex items-center gap-2 transition-colors ${isDisabled ? 'text-gray-600 cursor-not-allowed' : isActive ? 'text-brand-cyan border-b-2 border-brand-cyan' : 'text-gray-400 hover:text-brand-cyan'}`;
-                  const button = (<button key={tab.id} disabled={isDisabled} onClick={() => !isDisabled && setActiveTab(tab.id)} className={buttonClasses}><tab.icon size={18}/> {t(tab.labelKey)}</button>);
-                  if (isDisabled) return <div key={tab.id} title="Super Admin access required">{button}</div>;
-                  return button;
-              })}
+              {visibleTabs.map((tab) => (
+                <button 
+                  key={tab.id} 
+                  onClick={() => setActiveTab(tab.id)} 
+                  className={`py-3 px-6 font-bold flex-shrink-0 flex items-center gap-2 transition-colors ${activeTab === tab.id ? 'text-brand-cyan border-b-2 border-brand-cyan' : 'text-gray-400 hover:text-brand-cyan'}`}
+                >
+                  <tab.icon size={18}/> {t(tab.labelKey)}
+                </button>
+              ))}
           </div>
           <TabContent>
             {activeTab === 'submissions' && <SubmissionsPanel />}
