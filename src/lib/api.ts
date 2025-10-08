@@ -180,53 +180,26 @@ const fetchDiscordMember = async (providerToken: string, guildId: string): Promi
         headers: { 'Authorization': `Bearer ${providerToken}` }
     });
     if (!memberResponse.ok) {
-        if (memberResponse.status === 404) throw new ApiError("User not found in Discord server.", 404);
+        if (memberResponse.status === 404) throw new ApiError("User not found in the configured Discord server. Please join the server and try logging in again.", 404);
         throw new ApiError(`Failed to fetch Discord member data: ${memberResponse.statusText}`, memberResponse.status);
     }
     const memberData = await memberResponse.json();
-    const userRoleIds = new Set(memberData.roles);
-
-    // Fetch all guild roles. The Discord API returns these sorted by position, highest first.
-    const guildRolesUrl = `https://discord.com/api/guilds/${guildId}/roles`;
-    const guildRolesResponse = await fetch(guildRolesUrl, {
-      headers: { 'Authorization': `Bearer ${providerToken}` }
-    });
-    if (!guildRolesResponse.ok) {
-      throw new ApiError('Failed to fetch guild roles', guildRolesResponse.status);
-    }
-    const allGuildRoles = await guildRolesResponse.json() as { id: string; name: string; color: number; position: number }[];
-
-    let highestRole: DiscordRole | null = null;
-    const discordRoles: DiscordRole[] = [];
-    const rolesMap = new Map(allGuildRoles.map((r) => [r.id, r]));
-
-    // Find the highest role by iterating through the position-sorted list of all roles
-    for (const guildRole of allGuildRoles) {
-        if (userRoleIds.has(guildRole.id)) {
-            const formattedRole = {
-                id: guildRole.id,
-                name: guildRole.name,
-                color: guildRole.color === 0 ? '#99aab5' : `#${guildRole.color.toString(16).padStart(6, '0')}`,
-            };
-            if (!highestRole) {
-                highestRole = formattedRole;
-            }
-            discordRoles.push(formattedRole);
-        }
-    }
     
-    // Create a sorted list of the user's roles for display
-    const userDiscordRoles = (memberData.roles as string[])
-      .map(roleId => rolesMap.get(roleId))
-      .filter(Boolean)
-      .sort((a, b) => b!.position - a!.position)
-      .map(role => ({
-        id: role!.id,
-        name: role!.name,
-        color: role!.color === 0 ? '#99aab5' : `#${role!.color.toString(16).padStart(6, '0')}`
-      }));
+    // HACK: Fetching all guild roles to get names, colors, and positions requires a BOT token,
+    // not a user OAuth token. Using the user token for the /guilds/{id}/roles endpoint
+    // will fail and break the login process.
+    // To fix the login, we must disable fetching full role details until a proper backend 
+    // endpoint (e.g., a serverless function) can be created to handle this securely.
+    // This will temporarily disable the display of the user's highest role on their profile,
+    // but it is necessary to allow users to log in and create an account.
+    // The `roles` array (containing only IDs) is still returned correctly, so admin/permission checks will work.
+    const userRoleIds: string[] = memberData.roles || [];
 
-    return { roles: memberData.roles, discordRoles: userDiscordRoles, highestRole };
+    return { 
+        roles: userRoleIds, 
+        discordRoles: [], // Return empty array as we cannot fetch details
+        highestRole: null // Return null as we cannot determine the highest role
+    };
 };
 
 
@@ -282,6 +255,33 @@ export const revalidateSession = async (): Promise<User> => {
     if (error || !session) throw new ApiError("No active session.", 401);
     return fetchUserProfile(session);
 }
+
+
+// --- HEALTH CHECK FUNCTIONS ---
+
+export const testDiscordApi = async (session: Session): Promise<string> => {
+    const providerToken = session.provider_token;
+    if (!providerToken) throw new ApiError("Discord provider token not found.", 401);
+
+    const config = await getConfig();
+    const guildId = config.DISCORD_GUILD_ID;
+    if (!guildId) throw new ApiError("Discord Guild ID is not configured in the database.", 500);
+
+    const memberUrl = `https://discord.com/api/users/@me/guilds/${guildId}/member`;
+    const memberResponse = await fetch(memberUrl, {
+        headers: { 'Authorization': `Bearer ${providerToken}` }
+    });
+    
+    if (!memberResponse.ok) {
+        if (memberResponse.status === 404) {
+            throw new ApiError(`You are not a member of the configured Discord server (ID: ${guildId}). Please join the server and try again.`, 404);
+        }
+        throw new ApiError(`Failed to fetch Discord member data. Status: ${memberResponse.status} ${memberResponse.statusText}`, memberResponse.status);
+    }
+    
+    // If we get here, it means the API call was successful.
+    return `Successfully connected to Discord and found you in the server (ID: ${guildId}).`;
+};
 
 
 // --- MOCKED FUNCTIONS (to be replaced by real backend/API calls if needed) ---

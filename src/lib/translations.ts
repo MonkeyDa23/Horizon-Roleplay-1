@@ -182,7 +182,18 @@ export const translations: Translations = {
   health_check_uri_label: { ar: 'رابط إعادة التوجيه الخاص بك', en: 'Your Redirect URI' },
   health_check_copy: { ar: 'نسخ', en: 'Copy' },
   health_check_copied: { ar: 'تم النسخ!', en: 'Copied!' },
-  health_check_step2: { ar: 'الخطوة 2: فحص الاتصال', en: 'Step 2: Connection Diagnostics' },
+  health_check_step2: { ar: 'الخطوة 2: إعدادات قاعدة البيانات', en: 'Step 2: Database Configuration' },
+  health_check_step2_desc: { ar: 'يتم جلب هذه الإعدادات مباشرة من جدول `config` في قاعدة بياناتك.', en: 'These settings are fetched directly from your `config` table in the database.' },
+  health_check_step3: { ar: 'الخطوة 3: تشخيص اتصال ديسكورد', en: 'Step 3: Discord Connection Diagnostics' },
+  health_check_step3_desc: { ar: 'يستخدم هذا الاختبار بيانات اعتماد تسجيل دخولك الحالية للتحقق مما إذا كان الموقع يمكنه الاتصال بخادم ديسكورد الخاص بك بشكل صحيح. هذا هو السبب الأكثر شيوعًا لفشل تسجيل الدخول.', en: 'This test uses your current login credentials to check if the site can connect to your Discord server correctly. This is the most common reason for login failures.' },
+  health_check_run_test: { ar: 'تشغيل الاختبار', en: 'Run Test' },
+  health_check_login_to_test: { ar: 'يجب عليك تسجيل الدخول لتشغيل هذا الاختبار.', en: 'You must be logged in to run this test.' },
+  health_check_test_running: { ar: 'جاري الاختبار...', en: 'Testing...' },
+  health_check_test_result: { ar: 'نتيجة الاختبار', en: 'Test Result' },
+  health_check_guild_id: { ar: 'معرف سيرفر ديسكورد', en: 'Discord Guild ID' },
+  health_check_super_admin_roles: { ar: 'رتب المشرفين الخارقين', en: 'Super Admin Roles' },
+  health_check_handler_roles: { ar: 'رتب المعالجين', en: 'Handler Roles' },
+  health_check_not_set: { ar: 'لم يتم التعيين', en: 'Not Set' },
   health_check_env_vars: { ar: 'متغيرات البيئة', en: 'Environment Variables' },
   health_check_env_vars_desc: { ar: 'يتم تحميل هذه المتغيرات من ملف .env الخاص بك.', en: 'These are loaded from your .env file.' },
   health_check_supabase_connection: { ar: 'اتصال Supabase', en: 'Supabase Connection' },
@@ -195,7 +206,6 @@ export const translations: Translations = {
   health_check_success_desc: { ar: 'يبدو أن كل شيء معد بشكل صحيح!', en: 'Everything looks to be configured correctly!' },
   health_check_partial: { ar: 'يعمل جزئياً', en: 'Partial' },
   health_check_partial_desc: { ar: 'الموقع يعمل باستخدام البيانات الوهمية. لإعداد Supabase، يرجى إضافة متغيرات البيئة.', en: 'The site is running on mock data. To set up Supabase, please add the environment variables.' },
-
 
   // MOCK DATA TRANSLATIONS
   // Products
