@@ -27,6 +27,7 @@ export interface User {
   isSuperAdmin: boolean;
   discordRoles: DiscordRole[];
   roles: string[];
+  highestRole: DiscordRole | null;
 }
 
 export interface AuthContextType {

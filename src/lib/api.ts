@@ -171,41 +171,62 @@ export const logAdminAccess = async (user: User): Promise<void> => {
 
 // --- AUTH & SESSION MANAGEMENT ---
 
-/**
- * Fetches Discord member data using the user's provider token.
- * WARNING: This makes a client-side API call to Discord, exposing the user's
- * access token in network requests. For production, this logic should be moved
- * to a secure backend (e.g., a Supabase Edge Function) that uses a bot token.
- */
-const fetchDiscordMember = async (providerToken: string, guildId: string): Promise<{ roles: string[], discordRoles: DiscordRole[] }> => {
+const fetchDiscordMember = async (providerToken: string, guildId: string): Promise<{ roles: string[], discordRoles: DiscordRole[], highestRole: DiscordRole | null }> => {
     if (!guildId) {
         throw new ApiError("Discord Guild ID is not configured in the database.", 500);
     }
-    const url = `https://discord.com/api/users/@me/guilds/${guildId}/member`;
-    const response = await fetch(url, {
+    const memberUrl = `https://discord.com/api/users/@me/guilds/${guildId}/member`;
+    const memberResponse = await fetch(memberUrl, {
         headers: { 'Authorization': `Bearer ${providerToken}` }
     });
-    if (!response.ok) {
-        if (response.status === 404) throw new ApiError("User not found in Discord server.", 404);
-        throw new ApiError(`Failed to fetch Discord member data: ${response.statusText}`, response.status);
+    if (!memberResponse.ok) {
+        if (memberResponse.status === 404) throw new ApiError("User not found in Discord server.", 404);
+        throw new ApiError(`Failed to fetch Discord member data: ${memberResponse.statusText}`, memberResponse.status);
     }
-    const memberData = await response.json();
+    const memberData = await memberResponse.json();
+    const userRoleIds = new Set(memberData.roles);
 
-    // Fetch all guild roles to get color/name info
-    // This part would ideally be cached in a real app
-    const guildRolesResponse = await fetch(`https://discord.com/api/guilds/${guildId}/roles`, {
+    // Fetch all guild roles. The Discord API returns these sorted by position, highest first.
+    const guildRolesUrl = `https://discord.com/api/guilds/${guildId}/roles`;
+    const guildRolesResponse = await fetch(guildRolesUrl, {
       headers: { 'Authorization': `Bearer ${providerToken}` }
     });
-    const allGuildRoles = await guildRolesResponse.json() as { id: string; name: string; color: number }[];
-    const rolesMap = new Map(allGuildRoles.map((r) => [r.id, { name: r.name, color: `#${r.color.toString(16).padStart(6, '0')}` }]));
+    if (!guildRolesResponse.ok) {
+      throw new ApiError('Failed to fetch guild roles', guildRolesResponse.status);
+    }
+    const allGuildRoles = await guildRolesResponse.json() as { id: string; name: string; color: number; position: number }[];
 
-    const discordRoles: DiscordRole[] = memberData.roles.map((roleId: string) => ({
-        id: roleId,
-        name: rolesMap.get(roleId)?.name || 'Unknown Role',
-        color: rolesMap.get(roleId)?.color || '#99aab5',
-    }));
+    let highestRole: DiscordRole | null = null;
+    const discordRoles: DiscordRole[] = [];
+    const rolesMap = new Map(allGuildRoles.map((r) => [r.id, r]));
 
-    return { roles: memberData.roles, discordRoles };
+    // Find the highest role by iterating through the position-sorted list of all roles
+    for (const guildRole of allGuildRoles) {
+        if (userRoleIds.has(guildRole.id)) {
+            const formattedRole = {
+                id: guildRole.id,
+                name: guildRole.name,
+                color: guildRole.color === 0 ? '#99aab5' : `#${guildRole.color.toString(16).padStart(6, '0')}`,
+            };
+            if (!highestRole) {
+                highestRole = formattedRole;
+            }
+            discordRoles.push(formattedRole);
+        }
+    }
+    
+    // Create a sorted list of the user's roles for display
+    const userDiscordRoles = (memberData.roles as string[])
+      .map(roleId => rolesMap.get(roleId))
+      .filter(Boolean)
+      .sort((a, b) => b!.position - a!.position)
+      .map(role => ({
+        id: role!.id,
+        name: role!.name,
+        color: role!.color === 0 ? '#99aab5' : `#${role!.color.toString(16).padStart(6, '0')}`
+      }));
+
+    return { roles: memberData.roles, discordRoles: userDiscordRoles, highestRole };
 };
 
 
@@ -216,7 +237,7 @@ export const fetchUserProfile = async (session: Session): Promise<User> => {
     if (!providerToken) throw new ApiError("Discord provider token not found.", 401);
 
     const config = await getConfig();
-    const { roles, discordRoles } = await fetchDiscordMember(providerToken, config.DISCORD_GUILD_ID);
+    const { roles, discordRoles, highestRole } = await fetchDiscordMember(providerToken, config.DISCORD_GUILD_ID);
     
     const superAdminRoles = config.SUPER_ADMIN_ROLE_IDS || [];
     const handlerRoles = config.HANDLER_ROLE_IDS || [];
@@ -250,6 +271,7 @@ export const fetchUserProfile = async (session: Session): Promise<User> => {
       isSuperAdmin: isSuperAdmin,
       discordRoles: discordRoles,
       roles: roles,
+      highestRole: highestRole,
     };
 };
 
