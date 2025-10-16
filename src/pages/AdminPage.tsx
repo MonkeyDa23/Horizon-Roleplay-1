@@ -321,6 +321,7 @@ const AdminPage: React.FC = () => {
         if (!editableRules || !editableRules[catIndex]) return;
         const newRule: Rule = { id: `rule_${Date.now()}`, textKey: '' };
         const newRules = [...editableRules];
+        // Ensure the rules property is an array before pushing to it.
         if (!Array.isArray(newRules[catIndex].rules)) {
             newRules[catIndex].rules = [];
         }
@@ -359,7 +360,7 @@ const AdminPage: React.FC = () => {
                         <button onClick={() => deleteCategory(catIndex)} className="text-red-500 hover:text-red-400"><Trash2/></button>
                     </div>
                     <div className="space-y-3 pl-6 border-l-2 border-brand-light-blue">
-                        {Array.isArray(cat.rules) && cat.rules.map((rule, ruleIndex) => (
+                        {(cat.rules || []).map((rule, ruleIndex) => (
                             <div key={rule.id} className="flex items-center gap-2">
                                 <span className="text-brand-cyan font-bold">{ruleIndex + 1}.</span>
                                 <input type="text" placeholder={t('rule_text_key')} value={rule.textKey} onChange={(e) => handleRuleChange(catIndex, ruleIndex, e.target.value)} className="w-full bg-brand-dark p-2 rounded border border-gray-700" />

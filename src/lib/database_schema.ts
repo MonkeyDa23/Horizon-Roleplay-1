@@ -329,7 +329,6 @@ CREATE POLICY "Allow admin insert access" ON public.audit_logs
 CREATE OR REPLACE FUNCTION public.notify_new_submission()
 RETURNS TRIGGER
 LANGUAGE plpgsql
--- FIX: Added 'extensions' to search_path to allow calling http_post without schema qualifier.
 SECURITY DEFINER SET search_path = public, extensions
 AS $$
 DECLARE
@@ -360,8 +359,9 @@ BEGIN
       )
     )
   );
--- FIX: Explicitly qualifying the function with 'extensions.' can resolve linter issues, even if it's technically optional due to the search_path setting.
-SELECT extensions.http_post(webhook_url, payload, 'application/json', CAST('{}' AS jsonb));
+  -- Explicitly qualify with schema for robustness
+  -- FIX: Changed CAST syntax to '::' which is more friendly to TypeScript linters.
+  PERFORM extensions.http_post(webhook_url, payload, 'application/json', '{}'::jsonb);
   RETURN NEW;
 END;
 $$;
@@ -377,7 +377,6 @@ EXECUTE FUNCTION public.notify_new_submission();
 CREATE OR REPLACE FUNCTION public.notify_new_audit_log()
 RETURNS TRIGGER
 LANGUAGE plpgsql
--- FIX: Added 'extensions' to search_path to allow calling http_post without schema qualifier.
 SECURITY DEFINER SET search_path = public, extensions
 AS $$
 DECLARE
@@ -404,8 +403,9 @@ BEGIN
     )
   );
   
--- FIX: Explicitly qualifying the function with 'extensions.' can resolve linter issues, even if it's technically optional due to the search_path setting.
-SELECT extensions.http_post(webhook_url, payload, 'application/json', CAST('{}' AS jsonb));
+  -- Explicitly qualify with schema for robustness
+  -- FIX: Changed CAST syntax to '::' which is more friendly to TypeScript linters.
+  PERFORM extensions.http_post(webhook_url, payload, 'application/json', '{}'::jsonb);
   RETURN NEW;
 END;
 $$;
@@ -463,9 +463,7 @@ BEGIN
   END IF;
   
   -- Invoke the Edge Function, ignoring the result.
--- Inlined function name to avoid linter confusion with variables.
--- FIX: Changed PERFORM to SELECT to avoid linter errors.
-SELECT supabase_functions.invoke_edge_function('discord-bot-interactions', payload);
+  PERFORM supabase_functions.invoke_edge_function('discord-bot-interactions', payload);
 
   RETURN NEW;
 END;
