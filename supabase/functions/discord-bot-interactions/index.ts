@@ -4,7 +4,8 @@
 // This ensures Deno globals (like Deno.env) are correctly typed.
 // FIX: Cannot find type definition file for 'https://esm.sh/@supabase/functions-js@2'.
 // Updated reference path to use npm specifier for better type resolution.
-/// <reference types="https://esm.sh/@supabase/functions-js@2" />
+// FIX: Updated the types reference to use the 'npm:' specifier, which resolves Deno types correctly.
+/// <reference types="npm:@supabase/functions-js@2" />
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 

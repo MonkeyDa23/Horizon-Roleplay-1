@@ -319,6 +319,9 @@ const AdminPage: React.FC = () => {
         if (!editableRules) return;
         const newRule: Rule = { id: `rule_${Date.now()}`, textKey: '' };
         const newRules = [...editableRules];
+        if (!newRules[catIndex].rules) {
+            newRules[catIndex].rules = [];
+        }
         newRules[catIndex].rules.push(newRule);
         setEditableRules(newRules);
     };
@@ -331,7 +334,9 @@ const AdminPage: React.FC = () => {
      const deleteRule = (catIndex: number, ruleIndex: number) => {
         if (!editableRules) return;
         const newRules = [...editableRules];
-        newRules[catIndex].rules.splice(ruleIndex, 1);
+        if (newRules[catIndex].rules) {
+            newRules[catIndex].rules.splice(ruleIndex, 1);
+        }
         setEditableRules(newRules);
     };
 
@@ -352,7 +357,7 @@ const AdminPage: React.FC = () => {
                         <button onClick={() => deleteCategory(catIndex)} className="text-red-500 hover:text-red-400"><Trash2/></button>
                     </div>
                     <div className="space-y-3 pl-6 border-l-2 border-brand-light-blue">
-                        {cat.rules.map((rule, ruleIndex) => (
+                        {(cat.rules || []).map((rule, ruleIndex) => (
                             <div key={rule.id} className="flex items-center gap-2">
                                 <span className="text-brand-cyan font-bold">{ruleIndex + 1}.</span>
                                 <input type="text" placeholder={t('rule_text_key')} value={rule.textKey} onChange={(e) => handleRuleChange(catIndex, ruleIndex, e.target.value)} className="w-full bg-brand-dark p-2 rounded border border-gray-700" />

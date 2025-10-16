@@ -361,7 +361,8 @@ BEGIN
 
   -- Call the webhook; PERFORM is used to execute a function and discard its result.
   -- FIX: Reverted to a standard ::jsonb cast to work around linter issues.
-PERFORM extensions.http_post(webhook_url, payload, 'application/json', '{}'::jsonb);
+-- FIX: Changed '::jsonb' to CAST('{}' AS jsonb) to avoid linter errors.
+PERFORM extensions.http_post(webhook_url, payload, 'application/json', CAST('{}' AS jsonb));
   RETURN NEW;
 END;
 $$;
@@ -406,7 +407,8 @@ BEGIN
   -- Call the webhook; PERFORM is used to execute a function and discard its result.
 -- This expression is not callable.
 -- FIX: Reverted to a standard ::jsonb cast to work around linter issues.
-PERFORM extensions.http_post(webhook_url, payload, 'application/json', '{}'::jsonb);
+-- FIX: Changed '::jsonb' to CAST('{}' AS jsonb) to avoid linter errors.
+PERFORM extensions.http_post(webhook_url, payload, 'application/json', CAST('{}' AS jsonb));
   RETURN NEW;
 END;
 $$;

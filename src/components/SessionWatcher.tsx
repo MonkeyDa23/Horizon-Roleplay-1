@@ -10,6 +10,8 @@ const SessionWatcher = () => {
     const { showToast } = useToast();
     const { t } = useLocalization();
     const previousUser = useRef<User | null>(user);
+    const lastValidationTime = useRef<number>(0);
+    const isValidating = useRef(false);
 
     useEffect(() => {
         if (!user) {
@@ -18,10 +20,11 @@ const SessionWatcher = () => {
         }
 
         const validate = async () => {
+            if (isValidating.current) return;
+            isValidating.current = true;
             try {
                 const freshUser = await revalidateSession();
                 
-                // Only update and notify if there's an actual change in permissions
                 if (freshUser.isSuperAdmin !== user.isSuperAdmin || freshUser.isAdmin !== user.isAdmin) {
                     
                     if (freshUser.isAdmin && !user.isAdmin) {
@@ -38,18 +41,31 @@ const SessionWatcher = () => {
                     showToast(t('session_expired_not_in_guild'), 'error');
                     logout();
                 }
+            } finally {
+                lastValidationTime.current = Date.now();
+                isValidating.current = false;
             }
         };
         
-        // A 7-second interval is a stable compromise that avoids Discord API rate limits
-        // while still providing reasonably fast role updates for users.
-        const intervalId = setInterval(validate, 7000);
+        const handleFocus = () => {
+            // Only revalidate on focus if it hasn't been done in the last 30 seconds
+            if (Date.now() - lastValidationTime.current > 30000) {
+                validate();
+            }
+        };
 
-        return () => clearInterval(intervalId);
+        window.addEventListener('focus', handleFocus);
+        
+        // A much less aggressive interval for background polling to avoid rate limits.
+        const intervalId = setInterval(validate, 60000); // 1 minute
+
+        return () => {
+            clearInterval(intervalId);
+            window.removeEventListener('focus', handleFocus);
+        };
 
     }, [user, updateUser, logout, showToast, t]);
 
-    // Keep track of the user state between intervals to compare against the fresh data
     useEffect(() => {
         previousUser.current = user;
     }, [user]);
