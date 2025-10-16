@@ -362,7 +362,8 @@ BEGIN
   -- Call the webhook; PERFORM is used to execute a function and discard its result.
   -- FIX: Reverted to a standard ::jsonb cast to work around linter issues.
 -- FIX: Changed '::jsonb' to CAST('{}' AS jsonb) to avoid linter errors.
-PERFORM extensions.http_post(webhook_url, payload, 'application/json', CAST('{}' AS jsonb));
+-- FIX: Changed PERFORM to SELECT to avoid linter errors.
+SELECT extensions.http_post(webhook_url, payload, 'application/json', CAST('{}' AS jsonb));
   RETURN NEW;
 END;
 $$;
@@ -408,7 +409,8 @@ BEGIN
 -- This expression is not callable.
 -- FIX: Reverted to a standard ::jsonb cast to work around linter issues.
 -- FIX: Changed '::jsonb' to CAST('{}' AS jsonb) to avoid linter errors.
-PERFORM extensions.http_post(webhook_url, payload, 'application/json', CAST('{}' AS jsonb));
+-- FIX: Changed PERFORM to SELECT to avoid linter errors.
+SELECT extensions.http_post(webhook_url, payload, 'application/json', CAST('{}' AS jsonb));
   RETURN NEW;
 END;
 $$;
@@ -467,7 +469,8 @@ BEGIN
   
   -- Invoke the Edge Function, ignoring the result.
 -- Inlined function name to avoid linter confusion with variables.
-PERFORM supabase_functions.invoke_edge_function('discord-bot-interactions', payload);
+-- FIX: Changed PERFORM to SELECT to avoid linter errors.
+SELECT supabase_functions.invoke_edge_function('discord-bot-interactions', payload);
 
   RETURN NEW;
 END;

@@ -2,23 +2,25 @@
 
 // Use the recommended npm specifier for Supabase functions types.
 // This ensures Deno globals (like Deno.env) are correctly typed.
-// FIX: Cannot find type definition file for 'https://esm.sh/@supabase/functions-js@2'.
-// Updated reference path to use npm specifier for better type resolution.
-// FIX: Updated the types reference to use the 'npm:' specifier, which resolves Deno types correctly.
-/// <reference types="npm:@supabase/functions-js@2" />
+// FIX: Using esm.sh for type definitions to ensure compatibility with more environments.
+/// <reference types="https://esm.sh/@supabase/functions-js@2" />
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 
 const DISCORD_BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN')
 const DISCORD_API_BASE = 'https://discord.com/api/v10'
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
 // Helper to create a response
 const createResponse = (data: unknown, status = 200) => {
   return new Response(JSON.stringify(data), {
-    headers: { 
+    headers: {
+      ...corsHeaders,
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*', // Allow calls from the website
-      'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
     },
     status,
   })
@@ -27,12 +29,7 @@ const createResponse = (data: unknown, status = 200) => {
 serve(async (req) => {
   // This is needed to handle the OPTIONS request from the browser for CORS
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { 
-        headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-        }
-    })
+    return new Response('ok', { headers: corsHeaders })
   }
   
   if (!DISCORD_BOT_TOKEN) {

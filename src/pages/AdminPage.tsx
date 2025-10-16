@@ -308,8 +308,10 @@ const AdminPage: React.FC = () => {
     const handleRuleChange = (catIndex: number, ruleIndex: number, newText: string) => {
         if (!editableRules) return;
         const newRules = [...editableRules];
-        newRules[catIndex].rules[ruleIndex].textKey = newText;
-        setEditableRules(newRules);
+        if (newRules[catIndex]?.rules?.[ruleIndex]) {
+            newRules[catIndex].rules[ruleIndex].textKey = newText;
+            setEditableRules(newRules);
+        }
     };
     const addCategory = () => {
         const newCategory: RuleCategory = { id: `cat_${Date.now()}`, titleKey: '', rules: [] };
