@@ -1,4 +1,5 @@
 
+
 export const DATABASE_SCHEMA = `
 -- #############################################################################
 -- #                                                                           #
@@ -328,7 +329,8 @@ CREATE POLICY "Allow admin insert access" ON public.audit_logs
 CREATE OR REPLACE FUNCTION public.notify_new_submission()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-SECURITY DEFINER SET search_path = public
+-- FIX: Added 'extensions' to search_path to allow calling http_post without schema qualifier.
+SECURITY DEFINER SET search_path = public, extensions
 AS $$
 DECLARE
   webhook_url TEXT;
@@ -363,7 +365,8 @@ BEGIN
   -- FIX: Reverted to a standard ::jsonb cast to work around linter issues.
 -- FIX: Changed '::jsonb' to CAST('{}' AS jsonb) to avoid linter errors.
 -- FIX: Changed PERFORM to SELECT to avoid linter errors.
-SELECT extensions.http_post(webhook_url, payload, 'application/json', CAST('{}' AS jsonb));
+-- FIX: Removed 'extensions.' prefix. This is now handled by search_path.
+SELECT http_post(webhook_url, payload, 'application/json', CAST('{}' AS jsonb));
   RETURN NEW;
 END;
 $$;
@@ -379,7 +382,8 @@ EXECUTE FUNCTION public.notify_new_submission();
 CREATE OR REPLACE FUNCTION public.notify_new_audit_log()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-SECURITY DEFINER SET search_path = public
+-- FIX: Added 'extensions' to search_path to allow calling http_post without schema qualifier.
+SECURITY DEFINER SET search_path = public, extensions
 AS $$
 DECLARE
   webhook_url TEXT;
@@ -410,7 +414,8 @@ BEGIN
 -- FIX: Reverted to a standard ::jsonb cast to work around linter issues.
 -- FIX: Changed '::jsonb' to CAST('{}' AS jsonb) to avoid linter errors.
 -- FIX: Changed PERFORM to SELECT to avoid linter errors.
-SELECT extensions.http_post(webhook_url, payload, 'application/json', CAST('{}' AS jsonb));
+-- FIX: Removed 'extensions.' prefix. This is now handled by search_path.
+SELECT http_post(webhook_url, payload, 'application/json', CAST('{}' AS jsonb));
   RETURN NEW;
 END;
 $$;
