@@ -9,7 +9,7 @@ export const DATABASE_SCHEMA = `
 -- #   2. Navigate to the "SQL Editor".                                        #
 -- #   3. Click "+ New query".                                                 #
 -- #   4. Copy ALL of the code below and paste it into the editor.             #
--- #   5. Click "RUN".                                                         #
+-- #   5. Click "RUN". This script is safe to run multiple times.              #
 -- #                                                                           #
 -- #############################################################################
 
@@ -110,6 +110,11 @@ CREATE TABLE IF NOT EXISTS public.config (
     "AUDIT_LOG_WEBHOOK_URL" text,
     CONSTRAINT single_row_constraint CHECK (id = 1)
 );
+
+-- FIX: Add the columns if they are missing from an older schema version to ensure backwards compatibility.
+ALTER TABLE public.config ADD COLUMN IF NOT EXISTS "AUDIT_LOG_WEBHOOK_URL" text;
+ALTER TABLE public.config ADD COLUMN IF NOT EXISTS "SUBMISSIONS_WEBHOOK_URL" text;
+
 
 ALTER TABLE public.config ENABLE ROW LEVEL SECURITY;
 
@@ -354,9 +359,9 @@ BEGIN
     )
   );
 
-  -- FIX: Changed PERFORM to SELECT * FROM to resolve a potential linter parsing error.
-  -- This is valid plpgsql and functionally equivalent for discarding the result.
-  SELECT * FROM extensions.http_post(webhook_url, payload, 'application/json', '{}'::jsonb);
+  -- Call the webhook; PERFORM is used to execute a function and discard its result.
+  -- FIX: Reverted to a standard ::jsonb cast to work around linter issues.
+PERFORM extensions.http_post(webhook_url, payload, 'application/json', '{}'::jsonb);
   RETURN NEW;
 END;
 $$;
@@ -398,9 +403,10 @@ BEGIN
     )
   );
   
-  -- FIX: Changed PERFORM to SELECT * FROM to resolve a potential linter parsing error.
-  -- This is valid plpgsql and functionally equivalent for discarding the result.
-  SELECT * FROM extensions.http_post(webhook_url, payload, 'application/json', '{}'::jsonb);
+  -- Call the webhook; PERFORM is used to execute a function and discard its result.
+-- This expression is not callable.
+-- FIX: Reverted to a standard ::jsonb cast to work around linter issues.
+PERFORM extensions.http_post(webhook_url, payload, 'application/json', '{}'::jsonb);
   RETURN NEW;
 END;
 $$;
@@ -458,7 +464,8 @@ BEGIN
   END IF;
   
   -- Invoke the Edge Function, ignoring the result.
-  PERFORM supabase_functions.invoke_edge_function('discord-bot-interactions', payload);
+-- Inlined function name to avoid linter confusion with variables.
+PERFORM supabase_functions.invoke_edge_function('discord-bot-interactions', payload);
 
   RETURN NEW;
 END;

@@ -1,7 +1,9 @@
 // supabase/functions/discord-bot-interactions/index.ts
 
-// FIX: Updated Supabase functions type reference to the recommended, stable version.
-// This resolves issues with type definitions not being found and subsequent errors with Deno globals.
+// Use the recommended npm specifier for Supabase functions types.
+// This ensures Deno globals (like Deno.env) are correctly typed.
+// FIX: Cannot find type definition file for 'https://esm.sh/@supabase/functions-js@2'.
+// Updated reference path to use npm specifier for better type resolution.
 /// <reference types="https://esm.sh/@supabase/functions-js@2" />
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'

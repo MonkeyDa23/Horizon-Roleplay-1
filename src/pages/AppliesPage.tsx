@@ -37,23 +37,19 @@ const AppliesPage: React.FC = () => {
     fetchData();
   }, [user]);
   
-  const SkeletonLoader: React.FC = () => (
-    <>
-      {[...Array(2)].map((_, i) => (
-        <div key={i} className="bg-brand-dark-blue border border-brand-light-blue/50 rounded-lg p-6 animate-pulse">
-           <div className="flex items-center gap-4 mb-4">
-              <div className="w-16 h-16 bg-brand-light-blue rounded-lg"></div>
-              <div className="w-full">
-                <div className="h-8 bg-brand-light-blue rounded w-3/4 mb-2"></div>
-                 <div className="h-4 bg-brand-light-blue rounded w-1/2"></div>
-              </div>
-           </div>
-            <div className="h-4 bg-brand-light-blue rounded w-full mb-2"></div>
-            <div className="h-4 bg-brand-light-blue rounded w-5/6 mb-6"></div>
-            <div className="h-12 bg-brand-light-blue rounded-md mt-auto"></div>
-        </div>
-      ))}
-    </>
+  const SkeletonCard: React.FC = () => (
+    <div className="bg-brand-dark-blue border border-brand-light-blue/50 rounded-lg p-6 animate-pulse">
+       <div className="flex items-center gap-4 mb-4">
+          <div className="w-16 h-16 bg-brand-light-blue rounded-lg"></div>
+          <div className="w-full">
+            <div className="h-8 bg-brand-light-blue rounded w-3/4 mb-2"></div>
+             <div className="h-4 bg-brand-light-blue rounded w-1/2"></div>
+          </div>
+       </div>
+        <div className="h-4 bg-brand-light-blue rounded w-full mb-2"></div>
+        <div className="h-4 bg-brand-light-blue rounded w-5/6 mb-6"></div>
+        <div className="h-12 bg-brand-light-blue rounded-md mt-auto"></div>
+    </div>
   );
 
   const getApplyButton = (quiz: Quiz) => {
@@ -119,7 +115,8 @@ const AppliesPage: React.FC = () => {
         <div className="max-w-5xl mx-auto">
           {isLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <SkeletonLoader />
+                  <SkeletonCard />
+                  <SkeletonCard />
               </div>
           ) : quizzes.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

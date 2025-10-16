@@ -161,6 +161,27 @@ export const translations: Translations = {
   error_loading_logs: { ar: 'خطأ في تحميل السجلات.', en: 'Error loading logs.' },
   no_logs_found_for_player: { ar: 'لم يتم العثور على سجلات لهذا اللاعب.', en: 'No logs found for this player.' },
 
+  // Admin Page - new keys
+  save: { ar: 'حفظ', en: 'Save' },
+  cancel: { ar: 'إلغاء', en: 'Cancel' },
+  add_new_product: { ar: 'إضافة منتج جديد', en: 'Add New Product' },
+  edit_product: { ar: 'تعديل المنتج', en: 'Edit Product' },
+  delete_product: { ar: 'حذف المنتج', en: 'Delete Product' },
+  product_name_key: { ar: 'اسم المنتج (مفتاح الترجمة)', en: 'Product Name (Translation Key)' },
+  product_desc_key: { ar: 'وصف المنتج (مفتاح الترجمة)', en: 'Product Description (Translation Key)' },
+  price: { ar: 'السعر', en: 'Price' },
+  image_url: { ar: 'رابط الصورة', en: 'Image URL' },
+  delete_product_confirm: { ar: 'هل أنت متأكد من حذف هذا المنتج؟', en: 'Are you sure you want to delete this product?' },
+  add_category: { ar: 'إضافة فئة', en: 'Add Category' },
+  add_rule: { ar: 'إضافة قانون', en: 'Add Rule' },
+  category_title_key: { ar: 'عنوان الفئة (مفتاح الترجمة)', en: 'Category Title (Translation Key)' },
+  rule_text_key: { ar: 'نص القانون (مفتاح الترجمة)', en: 'Rule Text (Translation Key)' },
+  delete_category_confirm: { ar: 'هل أنت متأكد من حذف هذه الفئة وجميع قوانينها؟', en: 'Are you sure you want to delete this category and all its rules?' },
+  quiz_logo_url: { ar: 'رابط شعار التقديم', en: 'Quiz Logo URL' },
+  quiz_banner_url: { ar: 'رابط بانر التقديم', en: 'Quiz Banner URL' },
+  quiz_logo_url_desc: { ar: 'اختياري. يظهر في قائمة التقديمات.', en: 'Optional. Appears in the application list.' },
+  quiz_banner_url_desc: { ar: 'اختياري. يظهر في صفحة التعليمات.', en: 'Optional. Appears on the instructions page.' },
+
   
   // Submission Statuses
   status_pending: { ar: 'قيد الانتظار', en: 'Pending' },
@@ -208,15 +229,8 @@ export const translations: Translations = {
   health_check_env_vars_desc: { ar: 'يتم تحميل هذه المتغيرات من ملف .env الخاص بك.', en: 'These are loaded from your .env file.' },
   health_check_supabase_connection: { ar: 'اتصال Supabase', en: 'Supabase Connection' },
   health_check_supabase_desc: { ar: 'يتحقق هذا من أن الموقع يمكنه الاتصال بقاعدة بيانات Supabase باستخدام مفاتيحك.', en: 'This checks that the site can connect to your Supabase database using your keys.' },
-  health_check_db_status: { ar: 'حالة قاعدة البيانات', en: 'Database Status' },
-  health_check_overall_status: { ar: 'الحالة العامة', en: 'Overall Status' },
-  health_check_error: { ar: 'خطأ', en: 'Error' },
-  health_check_error_desc: { ar: 'تم العثور على مشاكل حرجة. يرجى مراجعة الأخطاء أعلاه.', en: 'Critical issues found. Please review the errors above.' },
-  health_check_success: { ar: 'نجاح', en: 'Success' },
-  health_check_success_desc: { ar: 'يبدو أن كل شيء معد بشكل صحيح!', en: 'Everything looks to be configured correctly!' },
-  health_check_partial: { ar: 'يعمل جزئياً', en: 'Partial' },
-  health_check_partial_desc: { ar: 'الموقع يعمل باستخدام البيانات الوهمية. لإعداد Supabase، يرجى إضافة متغيرات البيئة.', en: 'The site is running on mock data. To set up Supabase, please add the environment variables.' },
-
+  health_check_db_status: { ar: 'DB Connection', en: 'DB Connection' },
+  
   // MOCK DATA TRANSLATIONS
   // Products
   product_vip_bronze_name: { ar: 'عضوية VIP برونزية', en: 'Bronze VIP Membership' },

@@ -14,8 +14,11 @@ import {
   saveRules as apiSaveRules,
   saveConfig,
   getSubmissionsByUserId,
+  getProducts,
+  saveProduct,
+  deleteProduct,
 } from '../lib/api';
-import type { Quiz, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule, Product, AppConfig } from '../types';
+import type { Quiz, QuizQuestion, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule, Product, AppConfig } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store, Palette, Search } from 'lucide-react';
 import Modal from '../components/Modal';
@@ -54,6 +57,9 @@ const AdminPage: React.FC = () => {
   
   const [editableRules, setEditableRules] = useState<RuleCategory[] | null>(null);
   
+  const [products, setProducts] = useState<Product[]>([]);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  
   const [editableConfig, setEditableConfig] = useState<Partial<AppConfig>>({});
 
   const [isTabLoading, setIsTabLoading] = useState(true);
@@ -85,7 +91,7 @@ const AdminPage: React.FC = () => {
                 case 'quizzes': if (user.isSuperAdmin) setQuizzes(await getQuizzes()); break;
                 case 'lookup': break;
                 case 'rules': if (user.isSuperAdmin) setEditableRules(JSON.parse(JSON.stringify(await getRules()))); break;
-                case 'store': if (user.isSuperAdmin) { /* setProducts(await getProducts()); */ } break;
+                case 'store': if (user.isSuperAdmin) setProducts(await getProducts()); break;
                 case 'appearance': if (user.isSuperAdmin) setEditableConfig({ ...config }); break;
                 case 'audit': if (user.isSuperAdmin) setAuditLogs(await getAuditLogs()); break;
             }
@@ -163,6 +169,47 @@ const AdminPage: React.FC = () => {
         setIsLookupLoading(false);
     }
   };
+  
+  const handleSaveProduct = async () => {
+    if (!editingProduct) return;
+    setIsSaving(true);
+    try {
+      await saveProduct(editingProduct);
+      setProducts(await getProducts());
+      setEditingProduct(null);
+      showToast('Product saved successfully!', 'success');
+    } catch (error) {
+      showToast(`Error saving product: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteProduct = async (productId: string) => {
+    const product = products.find(p => p.id === productId);
+    if (window.confirm(t('delete_product_confirm') + `\n"${t(product?.nameKey || 'this product')}"`)) {
+      try {
+        await deleteProduct(productId);
+        setProducts(await getProducts());
+        showToast('Product deleted!', 'success');
+      } catch (error) {
+        showToast(`Error deleting product: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+      }
+    }
+  };
+  
+  const handleSaveRules = async () => {
+    if (!editableRules) return;
+    setIsSaving(true);
+    try {
+        await apiSaveRules(editableRules);
+        showToast(t('rules_updated_success'), 'success');
+    } catch (error) {
+        showToast(`Error saving rules: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+    } finally {
+        setIsSaving(false);
+    }
+  };
 
   if (authLoading || !user?.isAdmin) {
     return (
@@ -210,7 +257,6 @@ const AdminPage: React.FC = () => {
       return <>{children}</>;
   }
 
-  // Define Panels Here (SubmissionsPanel, QuizzesPanel, etc.)
   const SubmissionsPanel = () => (
     <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50 mt-6">
       <div className="overflow-x-auto"><table className="w-full text-left min-w-[700px]"><thead className="border-b border-brand-light-blue/50 text-gray-300"><tr><th className="p-4">{t('applicant')}</th><th className="p-4">{t('quiz_title')}</th><th className="p-4">{t('submitted_on')}</th><th className="p-4">{t('result_date')}</th><th className="p-4">{t('status')}</th><th className="p-4 text-right">{t('actions')}</th></tr></thead><tbody>
@@ -229,6 +275,99 @@ const AdminPage: React.FC = () => {
     </div>
   );
 
+  const StorePanel = () => (
+    <div>
+      <div className="flex justify-between items-center my-6">
+        <h2 className="text-2xl font-bold">{t('store_management')}</h2>
+        <button onClick={() => setEditingProduct({ id: '', nameKey: '', descriptionKey: '', price: 0, imageUrl: '' })} className="bg-brand-cyan text-brand-dark font-bold py-2 px-4 rounded-md hover:bg-white transition-all flex items-center gap-2">
+            <Plus size={20} />{t('add_new_product')}
+        </button>
+      </div>
+      <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50">
+        <table className="w-full text-left"><thead className="border-b border-brand-light-blue/50 text-gray-300"><tr><th className="p-4">{t('product_name_key')}</th><th className="p-4">{t('price')}</th><th className="p-4 text-right">{t('actions')}</th></tr></thead>
+        <tbody>
+          {products.map((product, i) => (
+            <tr key={product.id} className={`border-b border-brand-light-blue/50 ${i === products.length - 1 ? 'border-none' : ''}`}>
+              <td className="p-4 font-semibold">{t(product.nameKey)}</td>
+              <td className="p-4">${product.price.toFixed(2)}</td>
+              <td className="p-4 text-right"><div className="inline-flex gap-4"><button onClick={() => setEditingProduct(JSON.parse(JSON.stringify(product)))} className="text-gray-300 hover:text-brand-cyan"><Edit size={20}/></button><button onClick={() => handleDeleteProduct(product.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={20}/></button></div></td>
+            </tr>
+          ))}
+        </tbody></table>
+      </div>
+    </div>
+  );
+  
+  const RulesPanel = () => {
+    const handleCategoryChange = (index: number, newTitle: string) => {
+        if (!editableRules) return;
+        const newRules = [...editableRules];
+        newRules[index].titleKey = newTitle;
+        setEditableRules(newRules);
+    };
+    const handleRuleChange = (catIndex: number, ruleIndex: number, newText: string) => {
+        if (!editableRules) return;
+        const newRules = [...editableRules];
+        newRules[catIndex].rules[ruleIndex].textKey = newText;
+        setEditableRules(newRules);
+    };
+    const addCategory = () => {
+        const newCategory: RuleCategory = { id: `cat_${Date.now()}`, titleKey: '', rules: [] };
+        setEditableRules(prev => prev ? [...prev, newCategory] : [newCategory]);
+    };
+    const addRule = (catIndex: number) => {
+        if (!editableRules) return;
+        const newRule: Rule = { id: `rule_${Date.now()}`, textKey: '' };
+        const newRules = [...editableRules];
+        newRules[catIndex].rules.push(newRule);
+        setEditableRules(newRules);
+    };
+    const deleteCategory = (catIndex: number) => {
+        if (!editableRules || !window.confirm(t('delete_category_confirm'))) return;
+        const newRules = [...editableRules];
+        newRules.splice(catIndex, 1);
+        setEditableRules(newRules);
+    };
+     const deleteRule = (catIndex: number, ruleIndex: number) => {
+        if (!editableRules) return;
+        const newRules = [...editableRules];
+        newRules[catIndex].rules.splice(ruleIndex, 1);
+        setEditableRules(newRules);
+    };
+
+    return (
+      <div>
+        <div className="flex justify-between items-center my-6">
+          <h2 className="text-2xl font-bold">{t('rules_management')}</h2>
+          <div className="flex gap-4">
+            <button onClick={addCategory} className="bg-brand-light-blue text-white font-bold py-2 px-4 rounded-md hover:bg-brand-cyan/20 flex items-center gap-2"><Plus size={20} />{t('add_category')}</button>
+            <button onClick={handleSaveRules} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white transition-colors min-w-[9rem] flex justify-center">{isSaving ? <Loader2 className="animate-spin" /> : t('save_rules')}</button>
+          </div>
+        </div>
+        <div className="space-y-6">
+            {(editableRules || []).map((cat, catIndex) => (
+                <div key={cat.id} className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
+                    <div className="flex items-center gap-4 mb-4">
+                        <input type="text" placeholder={t('category_title_key')} value={cat.titleKey} onChange={(e) => handleCategoryChange(catIndex, e.target.value)} className="w-full bg-brand-light-blue text-white text-xl font-bold p-2 rounded border border-gray-600" />
+                        <button onClick={() => deleteCategory(catIndex)} className="text-red-500 hover:text-red-400"><Trash2/></button>
+                    </div>
+                    <div className="space-y-3 pl-6 border-l-2 border-brand-light-blue">
+                        {cat.rules.map((rule, ruleIndex) => (
+                            <div key={rule.id} className="flex items-center gap-2">
+                                <span className="text-brand-cyan font-bold">{ruleIndex + 1}.</span>
+                                <input type="text" placeholder={t('rule_text_key')} value={rule.textKey} onChange={(e) => handleRuleChange(catIndex, ruleIndex, e.target.value)} className="w-full bg-brand-dark p-2 rounded border border-gray-700" />
+                                <button onClick={() => deleteRule(catIndex, ruleIndex)} className="text-red-500/70 hover:text-red-400"><X size={18}/></button>
+                            </div>
+                        ))}
+                        <button onClick={() => addRule(catIndex)} className="text-sm bg-brand-light-blue/50 text-brand-cyan font-bold py-1 px-3 rounded-md hover:bg-brand-light-blue flex items-center gap-1"><Plus size={16}/>{t('add_rule')}</button>
+                    </div>
+                </div>
+            ))}
+        </div>
+      </div>
+    );
+  };
+  
   const AuditLogPanel = () => (
     <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50 mt-6"><div className="overflow-x-auto"><table className="w-full text-left min-w-[700px]"><thead className="border-b border-brand-light-blue/50 text-gray-300"><tr><th className="p-4">{t('log_timestamp')}</th><th className="p-4">{t('log_admin')}</th><th className="p-4">{t('log_action')}</th></tr></thead><tbody>
       {auditLogs.length === 0 ? (<tr><td colSpan={3} className="p-8 text-center text-gray-400">{t('no_logs_found')}</td></tr>) : auditLogs.map((log) => (<tr key={log.id} className="border-b border-brand-light-blue/50 last:border-none"><td className="p-4 text-sm text-gray-400">{new Date(log.timestamp).toLocaleString()}</td><td className="p-4 font-semibold">{log.adminUsername} <code className="text-xs text-gray-500">({log.adminId})</code></td><td className="p-4">{log.action}</td></tr>))}
@@ -346,26 +485,61 @@ const AdminPage: React.FC = () => {
               {activeTab === 'submissions' && <SubmissionsPanel />}
               {activeTab === 'quizzes' && user.isSuperAdmin && <QuizzesPanel />}
               {activeTab === 'lookup' && user.isSuperAdmin && <UserLookupPanel />}
-              {activeTab === 'rules' && user.isSuperAdmin && <p className="text-center text-gray-400 py-10">{t('coming_soon')}</p>}
-              {activeTab === 'store' && user.isSuperAdmin && <p className="text-center text-gray-400 py-10">{t('coming_soon')}</p>}
+              {activeTab === 'rules' && user.isSuperAdmin && <RulesPanel />}
+              {activeTab === 'store' && user.isSuperAdmin && <StorePanel />}
               {activeTab === 'appearance' && user.isSuperAdmin && <AppearancePanel />}
               {activeTab === 'audit' && user.isSuperAdmin && <AuditLogPanel />}
             </TabContent>
         </div>
         
         {editingQuiz && <Modal isOpen={!!editingQuiz} onClose={() => setEditingQuiz(null)} title={editingQuiz.id ? t('edit_quiz') : t('create_new_quiz')}>
-          <div className="space-y-4 text-white">
-              <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_title')}</label><input type="text" value={editingQuiz.titleKey} onChange={(e) => setEditingQuiz({...editingQuiz, titleKey: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
-              <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_handler_roles')}</label><input type="text" placeholder="e.g. 123,456" value={(editingQuiz.allowedTakeRoles || []).join(',')} onChange={(e) => setEditingQuiz({...editingQuiz, allowedTakeRoles: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /><p className="text-xs text-gray-400 mt-1">{t('quiz_handler_roles_desc')}</p></div>
-              <div className="flex items-center gap-4 pt-2">
-                  <label className="font-semibold text-gray-300">{t('status')}:</label>
-                  <button onClick={() => setEditingQuiz({...editingQuiz, isOpen: !editingQuiz.isOpen})}
-                    className={`px-4 py-1 rounded-full font-bold ${editingQuiz.isOpen ? 'bg-green-500/30 text-green-300' : 'bg-red-500/30 text-red-300'}`}>
-                    {editingQuiz.isOpen ? t('open') : t('closed')}
-                  </button>
-              </div>
-              <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4"><button onClick={() => setEditingQuiz(null)} disabled={isSaving} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button><button onClick={handleSaveQuiz} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white min-w-[8rem] flex justify-center">{isSaving ? <Loader2 className="animate-spin"/> : t('save_quiz')}</button></div>
-          </div>
+            <div className="space-y-4 text-white max-h-[70vh] overflow-y-auto pr-2">
+                <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_title')}</label><input type="text" value={editingQuiz.titleKey} onChange={(e) => setEditingQuiz({...editingQuiz, titleKey: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
+                <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_description')}</label><textarea value={editingQuiz.descriptionKey} onChange={(e) => setEditingQuiz({...editingQuiz, descriptionKey: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" rows={3}></textarea></div>
+                <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_logo_url')}</label><input type="text" value={editingQuiz.logoUrl || ''} onChange={(e) => setEditingQuiz({...editingQuiz, logoUrl: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /><p className="text-xs text-gray-400 mt-1">{t('quiz_logo_url_desc')}</p></div>
+                <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_banner_url')}</label><input type="text" value={editingQuiz.bannerUrl || ''} onChange={(e) => setEditingQuiz({...editingQuiz, bannerUrl: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /><p className="text-xs text-gray-400 mt-1">{t('quiz_banner_url_desc')}</p></div>
+                <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_handler_roles')}</label><input type="text" placeholder="e.g. 123,456" value={(editingQuiz.allowedTakeRoles || []).join(',')} onChange={(e) => setEditingQuiz({...editingQuiz, allowedTakeRoles: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /><p className="text-xs text-gray-400 mt-1">{t('quiz_handler_roles_desc')}</p></div>
+                
+                <div className="pt-4 border-t border-brand-light-blue/50">
+                  <h3 className="text-lg font-bold text-brand-cyan mb-2">{t('quiz_questions')}</h3>
+                  <div className="space-y-3">
+                    {editingQuiz.questions.map((q, index) => (
+                      <div key={q.id} className="bg-brand-dark p-3 rounded-md">
+                        <div className="flex justify-between items-center mb-2">
+                          <label className="font-semibold text-gray-300">{t('question')} {index + 1}</label>
+                          <button onClick={() => setEditingQuiz(prev => prev ? {...prev, questions: prev.questions.filter((_, i) => i !== index)} : null)} className="text-red-500 hover:text-red-400"><Trash2 size={18}/></button>
+                        </div>
+                        <input type="text" placeholder={t('question_text')} value={q.textKey} onChange={e => { const newQuestions = [...editingQuiz.questions]; newQuestions[index].textKey = e.target.value; setEditingQuiz({...editingQuiz, questions: newQuestions}); }} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 mb-2"/>
+                        <div className="flex items-center gap-2">
+                          <label className="text-sm">{t('time_limit_seconds')}:</label>
+                          <input type="number" value={q.timeLimit} onChange={e => { const newQuestions = [...editingQuiz.questions]; newQuestions[index].timeLimit = parseInt(e.target.value, 10) || 60; setEditingQuiz({...editingQuiz, questions: newQuestions}); }} className="w-24 bg-brand-light-blue p-1 text-center rounded border border-gray-600"/>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                   <button onClick={() => setEditingQuiz(prev => prev ? {...prev, questions: [...prev.questions, {id: `q_${Date.now()}`, textKey: '', timeLimit: 60}]} : null)} className="mt-3 text-sm bg-brand-light-blue/50 text-brand-cyan font-bold py-2 px-3 rounded-md hover:bg-brand-light-blue flex items-center gap-1"><Plus size={16}/>{t('add_question')}</button>
+                </div>
+
+                <div className="flex items-center gap-4 pt-4 border-t border-brand-light-blue/50">
+                    <label className="font-semibold text-gray-300">{t('status')}:</label>
+                    <button onClick={() => setEditingQuiz({...editingQuiz, isOpen: !editingQuiz.isOpen})}
+                      className={`px-4 py-1 rounded-full font-bold ${editingQuiz.isOpen ? 'bg-green-500/30 text-green-300' : 'bg-red-500/30 text-red-300'}`}>
+                      {editingQuiz.isOpen ? t('open') : t('closed')}
+                    </button>
+                </div>
+
+                <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4"><button onClick={() => setEditingQuiz(null)} disabled={isSaving} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">{t('cancel')}</button><button onClick={handleSaveQuiz} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white min-w-[8rem] flex justify-center">{isSaving ? <Loader2 className="animate-spin"/> : t('save_quiz')}</button></div>
+            </div>
+        </Modal>}
+        
+        {editingProduct && <Modal isOpen={!!editingProduct} onClose={() => setEditingProduct(null)} title={editingProduct.id ? t('edit_product') : t('add_new_product')}>
+            <div className="space-y-4 text-white">
+                <div><label className="block mb-1 font-semibold text-gray-300">{t('product_name_key')}</label><input type="text" value={editingProduct.nameKey} onChange={(e) => setEditingProduct({...editingProduct, nameKey: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
+                <div><label className="block mb-1 font-semibold text-gray-300">{t('product_desc_key')}</label><input type="text" value={editingProduct.descriptionKey} onChange={(e) => setEditingProduct({...editingProduct, descriptionKey: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
+                <div><label className="block mb-1 font-semibold text-gray-300">{t('price')}</label><input type="number" step="0.01" value={editingProduct.price} onChange={(e) => setEditingProduct({...editingProduct, price: parseFloat(e.target.value) || 0})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
+                <div><label className="block mb-1 font-semibold text-gray-300">{t('image_url')}</label><input type="text" value={editingProduct.imageUrl} onChange={(e) => setEditingProduct({...editingProduct, imageUrl: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
+                <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4"><button onClick={() => setEditingProduct(null)} disabled={isSaving} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">{t('cancel')}</button><button onClick={handleSaveProduct} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white min-w-[8rem] flex justify-center">{isSaving ? <Loader2 className="animate-spin"/> : t('save')}</button></div>
+            </div>
         </Modal>}
 
         {viewingSubmission && user && (

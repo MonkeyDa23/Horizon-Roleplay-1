@@ -90,8 +90,24 @@ export const updateSubmissionStatus = async (submissionId: string, status: Submi
 
 export const saveQuiz = async (quiz: Quiz): Promise<Quiz> => {
     if (!supabase) throw new ApiError("Database not configured", 500);
-    const { id, questions, ...quizData } = quiz;
-    const { data, error } = await supabase.from('quizzes').upsert({ id: id || undefined, ...quizData }).select().single();
+    
+    // Prepare a payload that matches the DB schema exactly.
+    const quizPayload = {
+      id: quiz.id || undefined, // Let DB generate UUID for new quizzes
+      titleKey: quiz.titleKey,
+      descriptionKey: quiz.descriptionKey,
+      questions: quiz.questions, // This is the crucial part that was missing
+      isOpen: quiz.isOpen,
+      allowedTakeRoles: quiz.allowedTakeRoles,
+      // If we are opening a quiz, or if it's new and open, set the timestamp.
+      // Otherwise, keep the old one. This is used for application seasons.
+      lastOpenedAt: quiz.isOpen ? new Date().toISOString() : quiz.lastOpenedAt,
+      logoUrl: quiz.logoUrl,
+      bannerUrl: quiz.bannerUrl,
+    };
+
+    const { data, error } = await supabase.from('quizzes').upsert(quizPayload).select().single();
+
     if (error) throw new ApiError(error.message, 500);
     return data;
 }

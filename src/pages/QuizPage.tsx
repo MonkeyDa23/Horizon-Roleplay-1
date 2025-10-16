@@ -79,7 +79,7 @@ const QuizPage: React.FC = () => {
           const fetchedQuiz = await getQuizById(quizId);
           if (fetchedQuiz && fetchedQuiz.isOpen) {
               setQuiz(fetchedQuiz);
-              setTimeLeft(fetchedQuiz.questions[0].timeLimit);
+              setTimeLeft(fetchedQuiz.questions[0]?.timeLimit || 60);
               setQuizState('rules');
           } else { navigate('/applies'); }
         } catch (error) { console.error(`Failed to fetch quiz ${quizId}`, error); navigate('/applies');
