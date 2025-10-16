@@ -5,6 +5,7 @@ import { useConfig } from '../hooks/useConfig';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabaseClient';
 import { testDiscordApi, ApiError } from '../lib/api';
+import SEO from '../components/SEO';
 
 interface HealthCheckData {
   env: Record<string, string>;
@@ -123,67 +124,74 @@ const HealthCheckPage: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto px-6 py-16">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold mb-2 text-center">{t('health_check_title')}</h1>
-        <p className="text-center text-gray-400 mb-12">{t('health_check_desc')}</p>
-        
-        <div className="space-y-8">
-            {/* Step 1 */}
-            <div className="bg-brand-dark-blue p-6 rounded-lg border-2 border-brand-light-blue shadow-lg">
-                <h2 className="text-2xl font-bold text-brand-cyan mb-3">{t('health_check_step1')}</h2>
-                <p className="text-gray-300 mb-4">{t('health_check_step1_desc')}</p>
-                <label className="text-gray-400 mb-2 font-semibold block">{t('health_check_uri_label')}</label>
-                <div className="flex items-center gap-4 bg-brand-dark p-3 rounded-md">
-                <code className="text-white text-md md:text-lg flex-grow break-all">{redirectUri}</code>
-                <button onClick={handleCopy} disabled={loading || !redirectUri} className="bg-brand-cyan text-brand-dark font-bold py-1 px-3 rounded-md hover:bg-white transition-colors flex-shrink-0 disabled:opacity-50">
-                    {copied ? t('health_check_copied') : t('health_check_copy')}
-                </button>
-                </div>
-            </div>
+    <>
+      <SEO 
+        title="System Health Check"
+        description="System health check and diagnostics page for server administrators."
+        noIndex={true}
+      />
+      <div className="container mx-auto px-6 py-16">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-4xl font-bold mb-2 text-center">{t('health_check_title')}</h1>
+          <p className="text-center text-gray-400 mb-12">{t('health_check_desc')}</p>
+          
+          <div className="space-y-8">
+              {/* Step 1 */}
+              <div className="bg-brand-dark-blue p-6 rounded-lg border-2 border-brand-light-blue shadow-lg">
+                  <h2 className="text-2xl font-bold text-brand-cyan mb-3">{t('health_check_step1')}</h2>
+                  <p className="text-gray-300 mb-4">{t('health_check_step1_desc')}</p>
+                  <label className="text-gray-400 mb-2 font-semibold block">{t('health_check_uri_label')}</label>
+                  <div className="flex items-center gap-4 bg-brand-dark p-3 rounded-md">
+                  <code className="text-white text-md md:text-lg flex-grow break-all">{redirectUri}</code>
+                  <button onClick={handleCopy} disabled={loading || !redirectUri} className="bg-brand-cyan text-brand-dark font-bold py-1 px-3 rounded-md hover:bg-white transition-colors flex-shrink-0 disabled:opacity-50">
+                      {copied ? t('health_check_copied') : t('health_check_copy')}
+                  </button>
+                  </div>
+              </div>
 
-            {/* Step 2 */}
-            <div className="bg-brand-dark-blue p-6 rounded-lg border-2 border-brand-light-blue shadow-lg">
-                <h2 className="text-2xl font-bold text-brand-cyan mb-3">{t('health_check_step2')}</h2>
-                <p className="text-gray-300 mb-4">{t('health_check_step2_desc')}</p>
-                {configLoading ? <Loader2 className="animate-spin text-brand-cyan" /> : (
-                    <div className="space-y-3">
-                        <ConfigItem label={t('health_check_guild_id')} value={config.DISCORD_GUILD_ID} />
-                        <ConfigItem label={t('health_check_super_admin_roles')} value={config.SUPER_ADMIN_ROLE_IDS} />
-                        <ConfigItem label={t('health_check_handler_roles')} value={config.HANDLER_ROLE_IDS} />
-                    </div>
-                )}
-            </div>
+              {/* Step 2 */}
+              <div className="bg-brand-dark-blue p-6 rounded-lg border-2 border-brand-light-blue shadow-lg">
+                  <h2 className="text-2xl font-bold text-brand-cyan mb-3">{t('health_check_step2')}</h2>
+                  <p className="text-gray-300 mb-4">{t('health_check_step2_desc')}</p>
+                  {configLoading ? <Loader2 className="animate-spin text-brand-cyan" /> : (
+                      <div className="space-y-3">
+                          <ConfigItem label={t('health_check_guild_id')} value={config.DISCORD_GUILD_ID} />
+                          <ConfigItem label={t('health_check_super_admin_roles')} value={config.SUPER_ADMIN_ROLE_IDS} />
+                          <ConfigItem label={t('health_check_handler_roles')} value={config.HANDLER_ROLE_IDS} />
+                      </div>
+                  )}
+              </div>
 
-            {/* Step 3 */}
-            <div className="bg-brand-dark-blue p-6 rounded-lg border-2 border-brand-light-blue shadow-lg">
-                <h2 className="text-2xl font-bold text-brand-cyan mb-3">{t('health_check_step3')}</h2>
-                <p className="text-gray-300 mb-4">{t('health_check_step3_desc')}</p>
-                {user ? (
-                    <div className="space-y-4">
-                        <button onClick={handleRunDiscordTest} disabled={isTesting} className="w-full bg-brand-cyan text-brand-dark font-bold py-3 px-6 rounded-md hover:bg-white transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-wait">
-                            {isTesting ? <Loader2 className="animate-spin" /> : <Bot />}
-                            <span>{isTesting ? t('health_check_test_running') : t('health_check_run_test')}</span>
-                        </button>
-                        {testResult && (
-                            <div className={`p-4 rounded-md border ${testResult.isError ? 'bg-red-500/10 border-red-500/30 text-red-300' : 'bg-green-500/10 border-green-500/30 text-green-300'}`}>
-                                <h4 className="font-bold mb-2 flex items-center gap-2">
-                                    {testResult.isError ? <XCircle /> : <CheckCircle />}
-                                    {t('health_check_test_result')}
-                                </h4>
-                                <p>{testResult.message}</p>
-                            </div>
-                        )}
-                    </div>
-                ) : (
-                    <div className="text-center bg-brand-light-blue/50 p-4 rounded-md text-yellow-300">
-                        {t('health_check_login_to_test')}
-                    </div>
-                )}
-            </div>
+              {/* Step 3 */}
+              <div className="bg-brand-dark-blue p-6 rounded-lg border-2 border-brand-light-blue shadow-lg">
+                  <h2 className="text-2xl font-bold text-brand-cyan mb-3">{t('health_check_step3')}</h2>
+                  <p className="text-gray-300 mb-4">{t('health_check_step3_desc')}</p>
+                  {user ? (
+                      <div className="space-y-4">
+                          <button onClick={handleRunDiscordTest} disabled={isTesting} className="w-full bg-brand-cyan text-brand-dark font-bold py-3 px-6 rounded-md hover:bg-white transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-wait">
+                              {isTesting ? <Loader2 className="animate-spin" /> : <Bot />}
+                              <span>{isTesting ? t('health_check_test_running') : t('health_check_run_test')}</span>
+                          </button>
+                          {testResult && (
+                              <div className={`p-4 rounded-md border ${testResult.isError ? 'bg-red-500/10 border-red-500/30 text-red-300' : 'bg-green-500/10 border-green-500/30 text-green-300'}`}>
+                                  <h4 className="font-bold mb-2 flex items-center gap-2">
+                                      {testResult.isError ? <XCircle /> : <CheckCircle />}
+                                      {t('health_check_test_result')}
+                                  </h4>
+                                  <p>{testResult.message}</p>
+                              </div>
+                          )}
+                      </div>
+                  ) : (
+                      <div className="text-center bg-brand-light-blue/50 p-4 rounded-md text-yellow-300">
+                          {t('health_check_login_to_test')}
+                      </div>
+                  )}
+              </div>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

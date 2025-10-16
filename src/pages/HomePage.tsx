@@ -6,14 +6,24 @@ import Logo from '../components/Logo';
 import { Disc3, Gamepad2 } from 'lucide-react';
 import MtaServerStatus from '../components/MtaServerStatus';
 import DiscordAnnouncements from '../components/DiscordAnnouncements';
+import SEO from '../components/SEO';
 
 const HomePage: React.FC = () => {
   const { t } = useLocalization();
   const { config } = useConfig();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const communityName = config.COMMUNITY_NAME || 'Horizon Roleplay';
+  // This description comes from metadata.json
+  const description = "A visually stunning website for the Horizon VRoleplay community, featuring multilingual support, Discord integration, and pages for community rules, applications, and store.";
+
 
   return (
     <>
+      <SEO 
+        title={`${communityName} - ${t('home')}`}
+        description={description}
+        keywords={`roleplay, community, ${communityName.toLowerCase()}, mta, gta, gaming, horizon`}
+      />
       <div className="relative h-[calc(100vh-68px)] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 w-full h-full opacity-5 pointer-events-none">
           <Logo className="w-full h-full object-contain" />

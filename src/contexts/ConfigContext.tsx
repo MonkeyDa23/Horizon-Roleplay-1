@@ -18,6 +18,8 @@ const defaultConfig: AppConfig = {
     SHOW_HEALTH_CHECK: false,
     SUPER_ADMIN_ROLE_IDS: [],
     HANDLER_ROLE_IDS: [],
+    SUBMISSIONS_WEBHOOK_URL: '',
+    AUDIT_LOG_WEBHOOK_URL: '',
 };
 
 export const ConfigContext = createContext<ConfigContextType>({

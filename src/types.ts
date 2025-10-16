@@ -17,6 +17,7 @@ export interface DiscordRole {
   id: string;
   name: string;
   color: string;
+  position: number;
 }
 
 export interface User {
@@ -105,6 +106,7 @@ export interface QuizSubmission {
   adminId?: string; // ID of the admin who claimed/handled it
   adminUsername?: string; // Username of the admin
   updatedAt?: string;
+  user_highest_role?: string;
   cheatAttempts?: CheatAttempt[];
 }
 
@@ -159,4 +161,6 @@ export interface AppConfig {
     SHOW_HEALTH_CHECK: boolean;
     SUPER_ADMIN_ROLE_IDS: string[];
     HANDLER_ROLE_IDS: string[];
+    SUBMISSIONS_WEBHOOK_URL: string;
+    AUDIT_LOG_WEBHOOK_URL: string;
 }

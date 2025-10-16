@@ -19,6 +19,7 @@ import type { Quiz, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategor
 import { useNavigate } from 'react-router-dom';
 import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store, Palette, Search } from 'lucide-react';
 import Modal from '../components/Modal';
+import SEO from '../components/SEO';
 
 
 type AdminTab = 'submissions' | 'quizzes' | 'rules' | 'store' | 'appearance' | 'lookup' | 'audit';
@@ -38,6 +39,7 @@ const AdminPage: React.FC = () => {
   const { t } = useLocalization();
   const { showToast } = useToast();
   const { config } = useConfig();
+  const communityName = config.COMMUNITY_NAME;
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('submissions');
@@ -238,6 +240,16 @@ const AdminPage: React.FC = () => {
         <div><label className="block mb-2 font-semibold text-gray-300">{t('community_name')}</label><input type="text" value={editableConfig.COMMUNITY_NAME || ''} onChange={(e) => setEditableConfig({...editableConfig, COMMUNITY_NAME: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
         <div><label className="block mb-2 font-semibold text-gray-300">{t('logo_url')}</label><input type="text" value={editableConfig.LOGO_URL || ''} onChange={(e) => setEditableConfig({...editableConfig, LOGO_URL: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
         <div><label className="block mb-2 font-semibold text-gray-300">{t('background_image_url')}</label><input type="text" value={editableConfig.BACKGROUND_IMAGE_URL || ''} onChange={(e) => setEditableConfig({...editableConfig, BACKGROUND_IMAGE_URL: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /><p className="text-xs text-gray-400 mt-1">{t('background_image_url_desc')}</p></div>
+        
+        <div className="pt-4 border-t border-brand-light-blue/50">
+            <h3 className="text-xl font-bold text-brand-cyan mb-4">Discord Integration</h3>
+            <div><label className="block mb-2 font-semibold text-gray-300">{t('discord_guild_id')}</label><input type="text" placeholder="e.g. 1422936346233933980" value={editableConfig.DISCORD_GUILD_ID || ''} onChange={(e) => setEditableConfig({...editableConfig, DISCORD_GUILD_ID: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /><p className="text-xs text-gray-400 mt-1">{t('discord_guild_id_desc')}</p></div>
+            <div className="mt-4"><label className="block mb-2 font-semibold text-gray-300">{t('super_admin_role_ids')}</label><input type="text" placeholder="e.g. 1423683069893673050" value={(editableConfig.SUPER_ADMIN_ROLE_IDS || []).join(', ')} onChange={(e) => setEditableConfig({...editableConfig, SUPER_ADMIN_ROLE_IDS: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /><p className="text-xs text-gray-400 mt-1">{t('super_admin_role_ids_desc')}</p></div>
+            <div className="mt-4"><label className="block mb-2 font-semibold text-gray-300">{t('handler_role_ids')}</label><input type="text" placeholder="e.g. 1423683069893673051" value={(editableConfig.HANDLER_ROLE_IDS || []).join(', ')} onChange={(e) => setEditableConfig({...editableConfig, HANDLER_ROLE_IDS: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /><p className="text-xs text-gray-400 mt-1">{t('handler_role_ids_desc')}</p></div>
+            <div className="mt-4"><label className="block mb-2 font-semibold text-gray-300">{t('submissions_webhook_url')}</label><input type="text" value={editableConfig.SUBMISSIONS_WEBHOOK_URL || ''} onChange={(e) => setEditableConfig({...editableConfig, SUBMISSIONS_WEBHOOK_URL: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /><p className="text-xs text-gray-400 mt-1">{t('submissions_webhook_url_desc')}</p></div>
+            <div className="mt-4"><label className="block mb-2 font-semibold text-gray-300">{t('audit_log_webhook_url')}</label><input type="text" value={editableConfig.AUDIT_LOG_WEBHOOK_URL || ''} onChange={(e) => setEditableConfig({...editableConfig, AUDIT_LOG_WEBHOOK_URL: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /><p className="text-xs text-gray-400 mt-1">{t('audit_log_webhook_url_desc')}</p></div>
+        </div>
+        
         <div className="flex items-center justify-between bg-brand-light-blue/50 p-4 rounded-md">
             <label htmlFor="healthCheckToggle" className="font-semibold text-gray-300 cursor-pointer">{t('show_health_check_page')}</label>
             <div className="relative inline-block w-12 ms-3 align-middle select-none transition duration-200 ease-in">
@@ -310,75 +322,82 @@ const AdminPage: React.FC = () => {
   );
 
   return (
-    <div className="container mx-auto px-6 py-16">
-      <div className="text-center mb-12"><div className="inline-block p-4 bg-brand-light-blue rounded-full mb-4"><UserCog className="text-brand-cyan" size={48} /></div><h1 className="text-4xl md:text-5xl font-bold mb-4">{t('page_title_admin')}</h1></div>
-      <div className="max-w-6xl mx-auto">
-          <div className="flex border-b border-brand-light-blue/50 mb-6 overflow-x-auto">
-              {visibleTabs.map((tab) => (
-                <button 
-                  key={tab.id} 
-                  onClick={() => setActiveTab(tab.id)} 
-                  className={`py-3 px-6 font-bold flex-shrink-0 flex items-center gap-2 transition-colors ${activeTab === tab.id ? 'text-brand-cyan border-b-2 border-brand-cyan' : 'text-gray-400 hover:text-brand-cyan'}`}
-                >
-                  <tab.icon size={18}/> {t(tab.labelKey)}
-                </button>
-              ))}
-          </div>
-          <TabContent>
-            {activeTab === 'submissions' && <SubmissionsPanel />}
-            {activeTab === 'quizzes' && user.isSuperAdmin && <QuizzesPanel />}
-            {activeTab === 'lookup' && user.isSuperAdmin && <UserLookupPanel />}
-            {activeTab === 'rules' && user.isSuperAdmin && <p className="text-center text-gray-400 py-10">{t('coming_soon')}</p>}
-            {activeTab === 'store' && user.isSuperAdmin && <p className="text-center text-gray-400 py-10">{t('coming_soon')}</p>}
-            {activeTab === 'appearance' && user.isSuperAdmin && <AppearancePanel />}
-            {activeTab === 'audit' && user.isSuperAdmin && <AuditLogPanel />}
-          </TabContent>
-      </div>
-       
-      {editingQuiz && <Modal isOpen={!!editingQuiz} onClose={() => setEditingQuiz(null)} title={editingQuiz.id ? t('edit_quiz') : t('create_new_quiz')}>
-        <div className="space-y-4 text-white">
-             <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_title')}</label><input type="text" value={editingQuiz.titleKey} onChange={(e) => setEditingQuiz({...editingQuiz, titleKey: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
-             <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_handler_roles')}</label><input type="text" placeholder="e.g. 123,456" value={(editingQuiz.allowedTakeRoles || []).join(',')} onChange={(e) => setEditingQuiz({...editingQuiz, allowedTakeRoles: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /><p className="text-xs text-gray-400 mt-1">{t('quiz_handler_roles_desc')}</p></div>
-             <div className="flex items-center gap-4 pt-2">
-                <label className="font-semibold text-gray-300">{t('status')}:</label>
-                <button onClick={() => setEditingQuiz({...editingQuiz, isOpen: !editingQuiz.isOpen})}
-                  className={`px-4 py-1 rounded-full font-bold ${editingQuiz.isOpen ? 'bg-green-500/30 text-green-300' : 'bg-red-500/30 text-red-300'}`}>
-                  {editingQuiz.isOpen ? t('open') : t('closed')}
-                </button>
-             </div>
-            <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4"><button onClick={() => setEditingQuiz(null)} disabled={isSaving} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button><button onClick={handleSaveQuiz} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white min-w-[8rem] flex justify-center">{isSaving ? <Loader2 className="animate-spin"/> : t('save_quiz')}</button></div>
-        </div>
-      </Modal>}
-
-      {viewingSubmission && user && (
-        <Modal isOpen={!!viewingSubmission} onClose={() => setViewingSubmission(null)} title={t('submission_details')}>
-            <div className="space-y-4 text-gray-200">
-                <p><strong>{t('applicant')}:</strong> {viewingSubmission.username}</p>
-                <p><strong>{t('quiz_title')}:</strong> {viewingSubmission.quizTitle}</p>
-                <p><strong>{t('submitted_on')}:</strong> {new Date(viewingSubmission.submittedAt).toLocaleString()}</p>
-                <p><strong>{t('status')}:</strong> {renderStatusBadge(viewingSubmission.status)}</p>
-                {viewingSubmission.adminUsername && <p><strong>{t('taken_by')}:</strong> {viewingSubmission.adminUsername}</p>}
-                <div className="border-t border-brand-light-blue pt-4 mt-4">
-                    <h4 className="text-lg font-bold text-brand-cyan mb-2">{t('quiz_questions')}</h4>
-                    <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
-                        {viewingSubmission.answers.map((ans, i) => (
-                            <div key={ans.questionId}>
-                                <p className="font-semibold text-gray-300">{i+1}. {ans.questionText}</p>
-                                <p className="bg-brand-dark p-2 rounded mt-1 text-gray-200 whitespace-pre-wrap">{ans.answer}</p>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-                {viewingSubmission.status === 'taken' && viewingSubmission.adminId === user.id && (
-                    <div className="flex justify-end gap-4 pt-6 border-t border-brand-light-blue">
-                        <button onClick={() => handleDecision(viewingSubmission.id, 'refused')} className="flex items-center gap-2 bg-red-600 text-white font-bold py-2 px-5 rounded-md hover:bg-red-500 transition-colors"><X size={20}/> {t('refuse')}</button>
-                        <button onClick={() => handleDecision(viewingSubmission.id, 'accepted')} className="flex items-center gap-2 bg-green-600 text-white font-bold py-2 px-5 rounded-md hover:bg-green-500 transition-colors"><Check size={20}/> {t('accept')}</button>
-                    </div>
-                )}
+    <>
+      <SEO 
+        title={`${communityName} - ${t('admin_panel')}`}
+        description="Admin control panel for authorized staff members."
+        noIndex={true}
+      />
+      <div className="container mx-auto px-6 py-16">
+        <div className="text-center mb-12"><div className="inline-block p-4 bg-brand-light-blue rounded-full mb-4"><UserCog className="text-brand-cyan" size={48} /></div><h1 className="text-4xl md:text-5xl font-bold mb-4">{t('page_title_admin')}</h1></div>
+        <div className="max-w-6xl mx-auto">
+            <div className="flex border-b border-brand-light-blue/50 mb-6 overflow-x-auto">
+                {visibleTabs.map((tab) => (
+                  <button 
+                    key={tab.id} 
+                    onClick={() => setActiveTab(tab.id)} 
+                    className={`py-3 px-6 font-bold flex-shrink-0 flex items-center gap-2 transition-colors ${activeTab === tab.id ? 'text-brand-cyan border-b-2 border-brand-cyan' : 'text-gray-400 hover:text-brand-cyan'}`}
+                  >
+                    <tab.icon size={18}/> {t(tab.labelKey)}
+                  </button>
+                ))}
             </div>
-        </Modal>
-      )}
-    </div>
+            <TabContent>
+              {activeTab === 'submissions' && <SubmissionsPanel />}
+              {activeTab === 'quizzes' && user.isSuperAdmin && <QuizzesPanel />}
+              {activeTab === 'lookup' && user.isSuperAdmin && <UserLookupPanel />}
+              {activeTab === 'rules' && user.isSuperAdmin && <p className="text-center text-gray-400 py-10">{t('coming_soon')}</p>}
+              {activeTab === 'store' && user.isSuperAdmin && <p className="text-center text-gray-400 py-10">{t('coming_soon')}</p>}
+              {activeTab === 'appearance' && user.isSuperAdmin && <AppearancePanel />}
+              {activeTab === 'audit' && user.isSuperAdmin && <AuditLogPanel />}
+            </TabContent>
+        </div>
+        
+        {editingQuiz && <Modal isOpen={!!editingQuiz} onClose={() => setEditingQuiz(null)} title={editingQuiz.id ? t('edit_quiz') : t('create_new_quiz')}>
+          <div className="space-y-4 text-white">
+              <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_title')}</label><input type="text" value={editingQuiz.titleKey} onChange={(e) => setEditingQuiz({...editingQuiz, titleKey: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
+              <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_handler_roles')}</label><input type="text" placeholder="e.g. 123,456" value={(editingQuiz.allowedTakeRoles || []).join(',')} onChange={(e) => setEditingQuiz({...editingQuiz, allowedTakeRoles: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /><p className="text-xs text-gray-400 mt-1">{t('quiz_handler_roles_desc')}</p></div>
+              <div className="flex items-center gap-4 pt-2">
+                  <label className="font-semibold text-gray-300">{t('status')}:</label>
+                  <button onClick={() => setEditingQuiz({...editingQuiz, isOpen: !editingQuiz.isOpen})}
+                    className={`px-4 py-1 rounded-full font-bold ${editingQuiz.isOpen ? 'bg-green-500/30 text-green-300' : 'bg-red-500/30 text-red-300'}`}>
+                    {editingQuiz.isOpen ? t('open') : t('closed')}
+                  </button>
+              </div>
+              <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4"><button onClick={() => setEditingQuiz(null)} disabled={isSaving} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button><button onClick={handleSaveQuiz} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white min-w-[8rem] flex justify-center">{isSaving ? <Loader2 className="animate-spin"/> : t('save_quiz')}</button></div>
+          </div>
+        </Modal>}
+
+        {viewingSubmission && user && (
+          <Modal isOpen={!!viewingSubmission} onClose={() => setViewingSubmission(null)} title={t('submission_details')}>
+              <div className="space-y-4 text-gray-200">
+                  <p><strong>{t('applicant')}:</strong> {viewingSubmission.username}</p>
+                  <p><strong>{t('quiz_title')}:</strong> {viewingSubmission.quizTitle}</p>
+                  <p><strong>{t('submitted_on')}:</strong> {new Date(viewingSubmission.submittedAt).toLocaleString()}</p>
+                  <p><strong>{t('status')}:</strong> {renderStatusBadge(viewingSubmission.status)}</p>
+                  {viewingSubmission.adminUsername && <p><strong>{t('taken_by')}:</strong> {viewingSubmission.adminUsername}</p>}
+                  <div className="border-t border-brand-light-blue pt-4 mt-4">
+                      <h4 className="text-lg font-bold text-brand-cyan mb-2">{t('quiz_questions')}</h4>
+                      <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                          {viewingSubmission.answers.map((ans, i) => (
+                              <div key={ans.questionId}>
+                                  <p className="font-semibold text-gray-300">{i+1}. {ans.questionText}</p>
+                                  <p className="bg-brand-dark p-2 rounded mt-1 text-gray-200 whitespace-pre-wrap">{ans.answer}</p>
+                              </div>
+                          ))}
+                      </div>
+                  </div>
+                  {viewingSubmission.status === 'taken' && viewingSubmission.adminId === user.id && (
+                      <div className="flex justify-end gap-4 pt-6 border-t border-brand-light-blue">
+                          <button onClick={() => handleDecision(viewingSubmission.id, 'refused')} className="flex items-center gap-2 bg-red-600 text-white font-bold py-2 px-5 rounded-md hover:bg-red-500 transition-colors"><X size={20}/> {t('refuse')}</button>
+                          <button onClick={() => handleDecision(viewingSubmission.id, 'accepted')} className="flex items-center gap-2 bg-green-600 text-white font-bold py-2 px-5 rounded-md hover:bg-green-500 transition-colors"><Check size={20}/> {t('accept')}</button>
+                      </div>
+                  )}
+              </div>
+          </Modal>
+        )}
+      </div>
+    </>
   );
 };
 

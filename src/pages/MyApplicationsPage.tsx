@@ -5,11 +5,15 @@ import { getSubmissionsByUserId } from '../lib/api';
 import type { QuizSubmission, SubmissionStatus } from '../types';
 import { useNavigate } from 'react-router-dom';
 import { FileText, Loader2 } from 'lucide-react';
+import { useConfig } from '../hooks/useConfig';
+import SEO from '../components/SEO';
 
 const MyApplicationsPage: React.FC = () => {
   const { user } = useAuth();
   const { t } = useLocalization();
   const navigate = useNavigate();
+  const { config } = useConfig();
+  const communityName = config.COMMUNITY_NAME;
   const [submissions, setSubmissions] = useState<QuizSubmission[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -47,53 +51,60 @@ const MyApplicationsPage: React.FC = () => {
   };
   
   return (
-    <div className="container mx-auto px-6 py-16">
-      <div className="text-center mb-12">
-        <div className="inline-block p-4 bg-brand-light-blue rounded-full mb-4">
-          <FileText className="text-brand-cyan" size={48} />
+    <>
+      <SEO 
+        title={`${communityName} - ${t('my_applications')}`}
+        description="View the status of your submitted applications."
+        noIndex={true}
+      />
+      <div className="container mx-auto px-6 py-16">
+        <div className="text-center mb-12">
+          <div className="inline-block p-4 bg-brand-light-blue rounded-full mb-4">
+            <FileText className="text-brand-cyan" size={48} />
+          </div>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">{t('page_title_my_applications')}</h1>
         </div>
-        <h1 className="text-4xl md:text-5xl font-bold mb-4">{t('page_title_my_applications')}</h1>
-      </div>
 
-      <div className="max-w-4xl mx-auto bg-brand-dark-blue rounded-lg border border-brand-light-blue/50">
-        <div className="overflow-x-auto">
-          {loading ? (
-             <div className="flex justify-center items-center h-48">
-                <Loader2 size={40} className="text-brand-cyan animate-spin" />
-             </div>
-          ) : (
-            <table className="w-full text-left min-w-[600px]">
-              <thead className="border-b border-brand-light-blue/50 text-gray-300">
-                <tr>
-                  <th className="p-4">{t('application_type')}</th>
-                  <th className="p-4">{t('submitted_on')}</th>
-                  <th className="p-4">{t('result_date')}</th>
-                  <th className="p-4">{t('status')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {submissions.length === 0 ? (
+        <div className="max-w-4xl mx-auto bg-brand-dark-blue rounded-lg border border-brand-light-blue/50">
+          <div className="overflow-x-auto">
+            {loading ? (
+              <div className="flex justify-center items-center h-48">
+                  <Loader2 size={40} className="text-brand-cyan animate-spin" />
+              </div>
+            ) : (
+              <table className="w-full text-left min-w-[600px]">
+                <thead className="border-b border-brand-light-blue/50 text-gray-300">
                   <tr>
-                    <td colSpan={4} className="p-8 text-center text-gray-400 text-lg">
-                      {t('no_applications_submitted')}
-                    </td>
+                    <th className="p-4">{t('application_type')}</th>
+                    <th className="p-4">{t('submitted_on')}</th>
+                    <th className="p-4">{t('result_date')}</th>
+                    <th className="p-4">{t('status')}</th>
                   </tr>
-                ) : submissions.map((sub, index) => (
-                  <tr key={sub.id} className={`border-b border-brand-light-blue/50 ${index === submissions.length - 1 ? 'border-none' : ''}`}>
-                    <td className="p-4 font-semibold">{sub.quizTitle}</td>
-                    <td className="p-4 text-sm text-gray-400">{new Date(sub.submittedAt).toLocaleDateString()}</td>
-                    <td className="p-4 text-sm text-gray-400">
-                      {(sub.status === 'accepted' || sub.status === 'refused') && sub.updatedAt ? new Date(sub.updatedAt).toLocaleDateString() : 'N/A'}
-                    </td>
-                    <td className="p-4">{renderStatusBadge(sub.status)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+                </thead>
+                <tbody>
+                  {submissions.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="p-8 text-center text-gray-400 text-lg">
+                        {t('no_applications_submitted')}
+                      </td>
+                    </tr>
+                  ) : submissions.map((sub, index) => (
+                    <tr key={sub.id} className={`border-b border-brand-light-blue/50 ${index === submissions.length - 1 ? 'border-none' : ''}`}>
+                      <td className="p-4 font-semibold">{sub.quizTitle}</td>
+                      <td className="p-4 text-sm text-gray-400">{new Date(sub.submittedAt).toLocaleDateString()}</td>
+                      <td className="p-4 text-sm text-gray-400">
+                        {(sub.status === 'accepted' || sub.status === 'refused') && sub.updatedAt ? new Date(sub.updatedAt).toLocaleDateString() : 'N/A'}
+                      </td>
+                      <td className="p-4">{renderStatusBadge(sub.status)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

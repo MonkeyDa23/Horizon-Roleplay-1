@@ -3,34 +3,43 @@ import { useLocalization } from '../hooks/useLocalization';
 import { useConfig } from '../hooks/useConfig';
 import { Info } from 'lucide-react';
 import DiscordEmbed from '../components/DiscordEmbed';
+import SEO from '../components/SEO';
 
 const AboutUsPage: React.FC = () => {
   const { t } = useLocalization();
   const { config } = useConfig();
+  const communityName = config.COMMUNITY_NAME;
 
   return (
-    <div className="container mx-auto px-6 py-16">
-      <div className="text-center mb-12">
-        <div className="inline-block p-4 bg-brand-light-blue rounded-full mb-4">
-          <Info className="text-brand-cyan" size={48} />
+    <>
+      <SEO 
+        title={`${communityName} - ${t('about_us')}`}
+        description={`Learn more about the ${communityName} roleplay community, our mission, and what makes our server unique. Join our Discord to become a part of our story.`}
+        keywords={`about, about us, community, mission, history, roleplay, ${communityName.toLowerCase()}`}
+      />
+      <div className="container mx-auto px-6 py-16">
+        <div className="text-center mb-12">
+          <div className="inline-block p-4 bg-brand-light-blue rounded-full mb-4">
+            <Info className="text-brand-cyan" size={48} />
+          </div>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">{t('page_title_about', { communityName: config.COMMUNITY_NAME })}</h1>
+          <p className="text-lg text-gray-300 max-w-3xl mx-auto">{t('about_intro', { communityName: config.COMMUNITY_NAME })}</p>
         </div>
-        <h1 className="text-4xl md:text-5xl font-bold mb-4">{t('page_title_about', { communityName: config.COMMUNITY_NAME })}</h1>
-        <p className="text-lg text-gray-300 max-w-3xl mx-auto">{t('about_intro', { communityName: config.COMMUNITY_NAME })}</p>
-      </div>
 
-      <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-8 items-center">
-        <div className="bg-brand-dark-blue p-8 rounded-lg border border-brand-light-blue">
-          <h2 className="text-3xl font-bold text-brand-cyan mb-4">{t('our_mission')}</h2>
-          <p className="text-gray-300 leading-relaxed">
-            {t('mission_text')}
-          </p>
-        </div>
-        
-        <div className="flex flex-col items-center justify-center">
-           <DiscordEmbed />
+        <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-8 items-center">
+          <div className="bg-brand-dark-blue p-8 rounded-lg border border-brand-light-blue">
+            <h2 className="text-3xl font-bold text-brand-cyan mb-4">{t('our_mission')}</h2>
+            <p className="text-gray-300 leading-relaxed">
+              {t('mission_text')}
+            </p>
+          </div>
+          
+          <div className="flex flex-col items-center justify-center">
+            <DiscordEmbed />
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

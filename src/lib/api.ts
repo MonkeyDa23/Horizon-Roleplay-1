@@ -184,22 +184,54 @@ const fetchDiscordMember = async (providerToken: string, guildId: string): Promi
         throw new ApiError(`Failed to fetch Discord member data: ${memberResponse.statusText}`, memberResponse.status);
     }
     const memberData = await memberResponse.json();
-    
-    // HACK: Fetching all guild roles to get names, colors, and positions requires a BOT token,
-    // not a user OAuth token. Using the user token for the /guilds/{id}/roles endpoint
-    // will fail and break the login process.
-    // To fix the login, we must disable fetching full role details until a proper backend 
-    // endpoint (e.g., a serverless function) can be created to handle this securely.
-    // This will temporarily disable the display of the user's highest role on their profile,
-    // but it is necessary to allow users to log in and create an account.
-    // The `roles` array (containing only IDs) is still returned correctly, so admin/permission checks will work.
     const userRoleIds: string[] = memberData.roles || [];
 
-    return { 
-        roles: userRoleIds, 
-        discordRoles: [], // Return empty array as we cannot fetch details
-        highestRole: null // Return null as we cannot determine the highest role
-    };
+    // The following logic assumes a Supabase Edge Function named 'get-guild-roles'
+    // has been deployed. This function should accept a 'guildId' and use a Discord Bot
+    // token to fetch all roles for that guild, returning them as an array.
+    // This is necessary because fetching all guild roles requires bot permissions,
+    // which cannot be done with a user's OAuth token on the client-side.
+    if (!supabase) {
+        console.warn("Supabase client not available, skipping role detail fetch.");
+        return { roles: userRoleIds, discordRoles: [], highestRole: null };
+    }
+
+    try {
+        const { data: functionResponse, error: functionsError } = await supabase.functions.invoke('get-guild-roles', {
+            body: { guildId },
+        });
+
+        if (functionsError) throw functionsError;
+        
+        // The edge function is expected to return an object like { roles: [...] }
+        const allGuildRoles: { id: string; name: string; color: number; position: number; }[] = functionResponse.roles;
+
+        if (!Array.isArray(allGuildRoles)) {
+            console.warn("Edge function 'get-guild-roles' did not return a 'roles' array.", functionResponse);
+            return { roles: userRoleIds, discordRoles: [], highestRole: null };
+        }
+
+        const userFullRoles: DiscordRole[] = allGuildRoles
+            .filter(role => userRoleIds.includes(role.id))
+            .map(role => ({
+                id: role.id,
+                name: role.name,
+                color: `#${(role.color || 0).toString(16).padStart(6, '0')}`,
+                position: role.position
+            }))
+            .sort((a, b) => b.position - a.position);
+
+        const highestUserRole = userFullRoles.length > 0 ? userFullRoles[0] : null;
+
+        return { 
+            roles: userRoleIds, 
+            discordRoles: userFullRoles, 
+            highestRole: highestUserRole 
+        };
+    } catch (error) {
+        console.warn("Could not fetch full role details. This may be because the 'get-guild-roles' Edge Function is not deployed or has an error. The user will be logged in with basic permissions.", error);
+        return { roles: userRoleIds, discordRoles: [], highestRole: null };
+    }
 };
 
 

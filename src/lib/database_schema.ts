@@ -1,3 +1,4 @@
+
 export const DATABASE_SCHEMA = `
 -- #############################################################################
 -- #                                                                           #
@@ -13,6 +14,15 @@ export const DATABASE_SCHEMA = `
 -- #############################################################################
 
 -- =============================================================================
+--  0. EXTENSIONS
+-- =============================================================================
+-- Enable HTTP extension for sending webhooks from database triggers
+CREATE EXTENSION IF NOT EXISTS http WITH SCHEMA extensions;
+-- Enable pg_net for invoking Edge Functions from database triggers
+CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
+
+
+-- =============================================================================
 --  1. PROFILES & AUTHENTICATION
 -- =============================================================================
 -- Create a table for public profiles
@@ -26,16 +36,32 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 -- Set up Row Level Security (RLS)
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
+-- NEW: Helper function to check admin status without recursion
+CREATE OR REPLACE FUNCTION public.is_current_user_admin()
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+BEGIN
+  -- Bypasses RLS to check the is_admin flag of the current user.
+  RETURN (SELECT is_admin FROM public.profiles WHERE id = auth.uid());
+EXCEPTION
+  -- Return false if the user has no profile yet or any other error occurs.
+  WHEN OTHERS THEN
+    RETURN false;
+END;
+$$;
+
+
 -- Policies for profiles
 DROP POLICY IF EXISTS "Allow individual read access" ON public.profiles;
 CREATE POLICY "Allow individual read access" ON public.profiles
   FOR SELECT USING (auth.uid() = id);
 
+-- UPDATED: Use the helper function to prevent infinite recursion.
 DROP POLICY IF EXISTS "Allow admin read access" ON public.profiles;
 CREATE POLICY "Allow admin read access" ON public.profiles
-  FOR SELECT USING (
-    (SELECT is_admin FROM public.profiles WHERE id = auth.uid()) = true
-  );
+  FOR SELECT USING (public.is_current_user_admin() = true);
 
 DROP POLICY IF EXISTS "Allow individual insert access" ON public.profiles;
 CREATE POLICY "Allow individual insert access" ON public.profiles
@@ -63,7 +89,7 @@ $$;
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 
 -- =============================================================================
@@ -80,6 +106,8 @@ CREATE TABLE IF NOT EXISTS public.config (
     "SHOW_HEALTH_CHECK" boolean DEFAULT false,
     "SUPER_ADMIN_ROLE_IDS" text[],
     "HANDLER_ROLE_IDS" text[],
+    "SUBMISSIONS_WEBHOOK_URL" text,
+    "AUDIT_LOG_WEBHOOK_URL" text,
     CONSTRAINT single_row_constraint CHECK (id = 1)
 );
 
@@ -147,6 +175,7 @@ CREATE TABLE IF NOT EXISTS public.submissions (
   "adminId" uuid REFERENCES auth.users(id),
   "adminUsername" text,
   "cheatAttempts" jsonb,
+  "user_highest_role" text,
   submitted_at timestamp with time zone DEFAULT now(),
   "updatedAt" timestamp with time zone
 );
@@ -165,7 +194,7 @@ DROP POLICY IF EXISTS "Allow individual insert" ON public.submissions;
 CREATE POLICY "Allow individual insert" ON public.submissions
   FOR INSERT WITH CHECK (auth.uid() = user_id);
 
--- Helper function for admins to update submission status securely
+-- Helper function for admins to update submission status securely AND create an audit log
 CREATE OR REPLACE FUNCTION public.update_submission_status(p_submission_id uuid, p_status text)
 RETURNS void
 LANGUAGE plpgsql
@@ -174,15 +203,23 @@ AS $$
 DECLARE
   current_admin_id uuid := auth.uid();
   current_admin_username text;
+  submission_info RECORD;
 BEGIN
   -- Ensure the user is an admin
   IF NOT (SELECT is_admin FROM public.profiles WHERE id = current_admin_id) THEN
     RAISE EXCEPTION 'User is not an admin';
   END IF;
+  
+  -- Get info for logging
+  SELECT s.username, s."quizTitle" INTO submission_info
+  FROM public.submissions s
+  WHERE s.id = p_submission_id;
 
+  -- Get admin username
   SELECT raw_user_meta_data->>'full_name' INTO current_admin_username
   FROM auth.users WHERE id = current_admin_id;
 
+  -- Update submission
   UPDATE public.submissions
   SET
     status = p_status,
@@ -190,6 +227,14 @@ BEGIN
     "adminUsername" = current_admin_username,
     "updatedAt" = now()
   WHERE id = p_submission_id;
+
+  -- Create audit log entry
+  INSERT INTO public.audit_logs(admin_id, admin_username, action)
+  VALUES (
+    current_admin_id,
+    current_admin_username,
+    'Updated submission for "' || submission_info.username || '" (' || submission_info."quizTitle" || ') to status: ' || p_status
+  );
 END;
 $$;
 
@@ -269,4 +314,158 @@ CREATE POLICY "Allow admin read access" ON public.audit_logs
 DROP POLICY IF EXISTS "Allow admin insert access" ON public.audit_logs;
 CREATE POLICY "Allow admin insert access" ON public.audit_logs
   FOR INSERT WITH CHECK ((SELECT is_admin FROM public.profiles WHERE id = auth.uid()) = true);
+
+-- =============================================================================
+--  8. DISCORD WEBHOOK & DM TRIGGERS
+-- =============================================================================
+
+-- Submission Webhook (for admins)
+CREATE OR REPLACE FUNCTION public.notify_new_submission()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  webhook_url TEXT;
+  payload JSONB;
+  cheat_count INT;
+BEGIN
+  SELECT "SUBMISSIONS_WEBHOOK_URL" INTO webhook_url FROM public.config WHERE id = 1;
+
+  IF webhook_url IS NULL OR webhook_url = '' THEN
+    RETURN NEW;
+  END IF;
+
+  cheat_count := COALESCE(jsonb_array_length(NEW."cheatAttempts"), 0);
+
+  payload := jsonb_build_object(
+    'embeds', jsonb_build_array(
+      jsonb_build_object(
+        'title', 'New Application: ' || NEW."quizTitle",
+        'color', 3447003, -- Blue
+        'fields', jsonb_build_array(
+          jsonb_build_object('name', 'Applicant', 'value', NEW.username || ' (`' || NEW.user_id || '`)', 'inline', true),
+          jsonb_build_object('name', 'Highest Role', 'value', COALESCE(NEW.user_highest_role, 'Member'), 'inline', true),
+          jsonb_build_object('name', 'Cheat Attempts', 'value', cheat_count, 'inline', true)
+        ),
+        'timestamp', NEW.submitted_at,
+        'footer', jsonb_build_object('text', (SELECT "COMMUNITY_NAME" FROM public.config WHERE id = 1))
+      )
+    )
+  );
+
+  PERFORM extensions.http_post(webhook_url, payload, 'application/json', '{}'::jsonb);
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_submission_insert ON public.submissions;
+CREATE TRIGGER on_submission_insert
+AFTER INSERT ON public.submissions
+FOR EACH ROW
+EXECUTE FUNCTION public.notify_new_submission();
+
+
+-- Audit Log Webhook
+CREATE OR REPLACE FUNCTION public.notify_new_audit_log()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  webhook_url TEXT;
+  payload JSONB;
+BEGIN
+  SELECT "AUDIT_LOG_WEBHOOK_URL" INTO webhook_url FROM public.config WHERE id = 1;
+
+  IF webhook_url IS NULL OR webhook_url = '' THEN
+    RETURN NEW;
+  END IF;
+
+  payload := jsonb_build_object(
+    'embeds', jsonb_build_array(
+      jsonb_build_object(
+        'title', 'Admin Action Logged',
+        'color', 9807270, -- Gray
+        'fields', jsonb_build_array(
+          jsonb_build_object('name', 'Admin', 'value', NEW.admin_username || ' (`' || NEW.admin_id || '`)', 'inline', false),
+          jsonb_build_object('name', 'Action', 'value', NEW.action, 'inline', false)
+        ),
+        'timestamp', NEW.timestamp
+      )
+    )
+  );
+  
+  PERFORM extensions.http_post(webhook_url, payload, 'application/json', '{}'::jsonb);
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS on_audit_log_insert ON public.audit_logs;
+CREATE TRIGGER on_audit_log_insert
+AFTER INSERT ON public.audit_logs
+FOR EACH ROW
+EXECUTE FUNCTION public.notify_new_audit_log();
+
+
+-- Submission DM Notifier (for users)
+CREATE OR REPLACE FUNCTION public.notify_user_on_submission_change()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  payload JSONB;
+  event_type TEXT;
+BEGIN
+  -- Determine the event type
+  IF TG_OP = 'INSERT' THEN
+    event_type := 'SUBMISSION_RECEIVED';
+    payload := jsonb_build_object(
+        'type', event_type,
+        'payload', jsonb_build_object(
+            'userId', NEW.user_id,
+            'username', NEW.username,
+            'quizTitle', NEW."quizTitle"
+        )
+    );
+  ELSIF TG_OP = 'UPDATE' AND NEW.status <> OLD.status THEN
+    IF NEW.status = 'taken' THEN
+      event_type := 'SUBMISSION_TAKEN';
+    ELSIF NEW.status = 'accepted' THEN
+      event_type := 'SUBMISSION_ACCEPTED';
+    ELSIF NEW.status = 'refused' THEN
+      event_type := 'SUBMISSION_REFUSED';
+    ELSE
+      RETURN NEW; -- Not a status change we care about
+    END IF;
+
+    payload := jsonb_build_object(
+        'type', event_type,
+        'payload', jsonb_build_object(
+            'userId', NEW.user_id,
+            'username', NEW.username,
+            'quizTitle', NEW."quizTitle",
+            'status', NEW.status,
+            'adminUsername', NEW."adminUsername"
+        )
+    );
+  ELSE
+    RETURN NEW; -- No relevant change
+  END IF;
+  
+  -- Invoke the Edge Function, ignoring the result.
+  -- FIX: This expression is not callable.
+  PERFORM supabase_functions.invoke(function_name => 'discord-bot-interactions', body => payload);
+
+  RETURN NEW;
+END;
+$$;
+
+-- New trigger for DMs
+DROP TRIGGER IF EXISTS on_submission_change_notify_user ON public.submissions;
+CREATE TRIGGER on_submission_change_notify_user
+AFTER INSERT OR UPDATE ON public.submissions
+FOR EACH ROW
+EXECUTE FUNCTION public.notify_user_on_submission_change();
+
 `;
