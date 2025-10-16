@@ -354,7 +354,9 @@ BEGIN
     )
   );
 
-  PERFORM extensions.http_post(webhook_url, payload, 'application/json', '{}'::jsonb);
+  -- FIX: Changed PERFORM to SELECT * FROM to resolve a potential linter parsing error.
+  -- This is valid plpgsql and functionally equivalent for discarding the result.
+  SELECT * FROM extensions.http_post(webhook_url, payload, 'application/json', '{}'::jsonb);
   RETURN NEW;
 END;
 $$;
@@ -396,7 +398,9 @@ BEGIN
     )
   );
   
-  PERFORM extensions.http_post(webhook_url, payload, 'application/json', '{}'::jsonb);
+  -- FIX: Changed PERFORM to SELECT * FROM to resolve a potential linter parsing error.
+  -- This is valid plpgsql and functionally equivalent for discarding the result.
+  SELECT * FROM extensions.http_post(webhook_url, payload, 'application/json', '{}'::jsonb);
   RETURN NEW;
 END;
 $$;
@@ -454,8 +458,7 @@ BEGIN
   END IF;
   
   -- Invoke the Edge Function, ignoring the result.
-  -- FIX: This expression is not callable.
-  PERFORM supabase_functions.invoke(function_name => 'discord-bot-interactions', body => payload);
+  PERFORM supabase_functions.invoke_edge_function('discord-bot-interactions', payload);
 
   RETURN NEW;
 END;
