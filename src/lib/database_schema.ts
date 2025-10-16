@@ -360,13 +360,8 @@ BEGIN
       )
     )
   );
-
-  -- Call the webhook; PERFORM is used to execute a function and discard its result.
-  -- FIX: Reverted to a standard ::jsonb cast to work around linter issues.
--- FIX: Changed '::jsonb' to CAST('{}' AS jsonb) to avoid linter errors.
--- FIX: Changed PERFORM to SELECT to avoid linter errors.
--- FIX: Removed 'extensions.' prefix. This is now handled by search_path.
-SELECT http_post(webhook_url, payload, 'application/json', CAST('{}' AS jsonb));
+-- FIX: Explicitly qualifying the function with 'extensions.' can resolve linter issues, even if it's technically optional due to the search_path setting.
+SELECT extensions.http_post(webhook_url, payload, 'application/json', CAST('{}' AS jsonb));
   RETURN NEW;
 END;
 $$;
@@ -409,13 +404,8 @@ BEGIN
     )
   );
   
-  -- Call the webhook; PERFORM is used to execute a function and discard its result.
--- This expression is not callable.
--- FIX: Reverted to a standard ::jsonb cast to work around linter issues.
--- FIX: Changed '::jsonb' to CAST('{}' AS jsonb) to avoid linter errors.
--- FIX: Changed PERFORM to SELECT to avoid linter errors.
--- FIX: Removed 'extensions.' prefix. This is now handled by search_path.
-SELECT http_post(webhook_url, payload, 'application/json', CAST('{}' AS jsonb));
+-- FIX: Explicitly qualifying the function with 'extensions.' can resolve linter issues, even if it's technically optional due to the search_path setting.
+SELECT extensions.http_post(webhook_url, payload, 'application/json', CAST('{}' AS jsonb));
   RETURN NEW;
 END;
 $$;
