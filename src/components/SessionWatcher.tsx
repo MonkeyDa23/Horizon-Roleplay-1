@@ -48,8 +48,8 @@ const SessionWatcher = () => {
         };
         
         const handleFocus = () => {
-            // Only revalidate on focus if it hasn't been done in the last 30 seconds
-            if (Date.now() - lastValidationTime.current > 30000) {
+            // Only revalidate on focus if it hasn't been done in the last 5 minutes
+            if (Date.now() - lastValidationTime.current > 300000) {
                 validate();
             }
         };
@@ -57,7 +57,7 @@ const SessionWatcher = () => {
         window.addEventListener('focus', handleFocus);
         
         // A much less aggressive interval for background polling to avoid rate limits.
-        const intervalId = setInterval(validate, 60000); // 1 minute
+        const intervalId = setInterval(validate, 300000); // 5 minutes
 
         return () => {
             clearInterval(intervalId);

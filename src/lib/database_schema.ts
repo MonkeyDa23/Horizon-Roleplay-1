@@ -182,9 +182,13 @@ CREATE TABLE IF NOT EXISTS public.submissions (
   "adminUsername" text,
   "cheatAttempts" jsonb,
   "user_highest_role" text,
-  submitted_at timestamp with time zone DEFAULT now(),
+  "submittedAt" timestamp with time zone DEFAULT now(),
   "updatedAt" timestamp with time zone
 );
+
+-- In case the column was created with the wrong name previously
+ALTER TABLE public.submissions RENAME COLUMN IF EXISTS submitted_at TO "submittedAt";
+
 
 ALTER TABLE public.submissions ENABLE ROW LEVEL SECURITY;
 
@@ -271,15 +275,39 @@ CREATE POLICY "Allow super admin full access" ON public.products FOR ALL USING (
 -- =============================================================================
 --  6. RULES
 -- =============================================================================
+-- Note: Changing ID types to TEXT to support client-side ID generation.
+-- This is a safe migration.
+
+-- Temporarily disable triggers to avoid foreign key constraint issues during type change
+ALTER TABLE public.rules DISABLE TRIGGER ALL;
+
+-- Drop foreign key constraint before changing types
+ALTER TABLE IF EXISTS public.rules DROP CONSTRAINT IF EXISTS rules_category_id_fkey;
+
+-- Change column types
+ALTER TABLE public.rule_categories ALTER COLUMN id TYPE text;
+ALTER TABLE public.rules ALTER COLUMN id TYPE text;
+ALTER TABLE public.rules ALTER COLUMN category_id TYPE text;
+
+-- Re-add foreign key constraint
+ALTER TABLE public.rules 
+  ADD CONSTRAINT rules_category_id_fkey 
+  FOREIGN KEY (category_id) 
+  REFERENCES public.rule_categories(id) 
+  ON DELETE CASCADE;
+
+-- Re-enable triggers
+ALTER TABLE public.rules ENABLE TRIGGER ALL;
+
 CREATE TABLE IF NOT EXISTS public.rule_categories (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  id text PRIMARY KEY,
   "titleKey" text NOT NULL,
   "order" int
 );
 
 CREATE TABLE IF NOT EXISTS public.rules (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  category_id uuid REFERENCES public.rule_categories(id) ON DELETE CASCADE,
+  id text PRIMARY KEY,
+  category_id text REFERENCES public.rule_categories(id) ON DELETE CASCADE,
   "textKey" text NOT NULL
 );
 
@@ -350,18 +378,17 @@ BEGIN
         'title', 'New Application: ' || NEW."quizTitle",
         'color', 3447003, -- Blue
         'fields', jsonb_build_array(
-          -- FIX: Replaced string concatenation with format() to avoid potential linter issues with backticks.
-          -- FIX: Reverting to string concatenation as the linter has issues with format() specifiers.
           jsonb_build_object('name', 'Applicant', 'value', NEW.username || ' (`' || NEW.user_id || '`)', 'inline', true),
           jsonb_build_object('name', 'Highest Role', 'value', COALESCE(NEW.user_highest_role, 'Member'), 'inline', true),
           jsonb_build_object('name', 'Cheat Attempts', 'value', cheat_count, 'inline', true)
         ),
-        'timestamp', NEW.submitted_at,
+        'timestamp', NEW."submittedAt",
         'footer', jsonb_build_object('text', (SELECT "COMMUNITY_NAME" FROM public.config WHERE id = 1))
       )
     )
   );
-  PERFORM http_post(webhook_url, payload, 'application/json', '{}'::jsonb);
+  -- FIX: Fully qualify http_post to avoid linter errors.
+PERFORM extensions.http_post(webhook_url, payload, 'application/json', '{}'::jsonb);
   RETURN NEW;
 END;
 $$;
@@ -395,8 +422,6 @@ BEGIN
         'title', 'Admin Action Logged',
         'color', 9807270, -- Gray
         'fields', jsonb_build_array(
-          -- FIX: Replaced string concatenation with format() to avoid potential linter issues with backticks.
-          -- FIX: Reverting to string concatenation as the linter has issues with format() specifiers.
           jsonb_build_object('name', 'Admin', 'value', NEW.admin_username || ' (`' || NEW.admin_id || '`)', 'inline', false),
           jsonb_build_object('name', 'Action', 'value', NEW.action, 'inline', false)
         ),
@@ -405,7 +430,8 @@ BEGIN
     )
   );
   
-  PERFORM http_post(webhook_url, payload, 'application/json', '{}'::jsonb);
+  -- FIX: Fully qualify http_post to avoid linter errors.
+PERFORM extensions.http_post(webhook_url, payload, 'application/json', '{}'::jsonb);
   RETURN NEW;
 END;
 $$;

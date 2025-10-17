@@ -2,8 +2,8 @@
 
 // Use the recommended npm specifier for Supabase functions types.
 // This ensures Deno globals (like Deno.env) are correctly typed.
-// FIX: Replaced @deno-types with a triple-slash directive for better tool compatibility.
-/// <reference types="https://esm.sh/@supabase/functions-js@2" />
+// FIX: Reverted to @deno-types to resolve type definition error in some environments.
+// @deno-types="https://esm.sh/@supabase/functions-js@2"
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 
