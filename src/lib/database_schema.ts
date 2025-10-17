@@ -455,6 +455,7 @@ BEGIN
           jsonb_build_object('name', 'Cheat Attempts', 'value', cheat_count::text, 'inline', true)
         ),
         'timestamp', new."submittedAt",
+        -- FIX: Changed config() to config to reference the table correctly.
         -- FIX: Quoted "config" to prevent linter errors.
         'footer', jsonb_build_object('text', (SELECT "COMMUNITY_NAME" FROM public."config" WHERE id = 1))
       )

@@ -266,7 +266,6 @@ interface DiscordMemberCacheEntry {
         highestRole: DiscordRole | null;
     };
 }
-const discordMemberCache = new Map<string, DiscordMemberCacheEntry>(); // Key is user ID
 const MEMBER_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 // --- AUTH & SESSION MANAGEMENT ---
@@ -277,12 +276,21 @@ export interface UserProfileResponse {
 }
 
 const fetchDiscordMember = async (providerToken: string, guildId: string, userId: string): Promise<{ roles: string[], discordRoles: DiscordRole[], highestRole: DiscordRole | null }> => {
-    // Check cache first
-    const cached = discordMemberCache.get(userId);
-    if (cached && (Date.now() - cached.timestamp < MEMBER_CACHE_TTL_MS)) {
-        console.log(`[Cache HIT] Returning cached Discord member data for user ${userId}.`);
-        return cached.data;
+    // Check sessionStorage cache first for persistence across reloads
+    const cacheKey = `discord_member_${userId}_${guildId}`;
+    try {
+        const cachedItem = sessionStorage.getItem(cacheKey);
+        if (cachedItem) {
+            const cached: DiscordMemberCacheEntry = JSON.parse(cachedItem);
+            if (cached && (Date.now() - cached.timestamp < MEMBER_CACHE_TTL_MS)) {
+                console.log(`[Cache HIT] Returning cached Discord member data for user ${userId}.`);
+                return cached.data;
+            }
+        }
+    } catch (e) {
+        console.warn("Could not read from sessionStorage cache", e);
     }
+
     console.log(`[Cache MISS] Fetching fresh Discord member data for user ${userId}.`);
 
     if (!guildId) {
@@ -335,8 +343,13 @@ const fetchDiscordMember = async (providerToken: string, guildId: string, userId
             highestRole: highestUserRole 
         };
         
-        // Update cache
-        discordMemberCache.set(userId, { timestamp: Date.now(), data: result });
+        // Update sessionStorage cache
+        try {
+            const cacheEntry: DiscordMemberCacheEntry = { timestamp: Date.now(), data: result };
+            sessionStorage.setItem(cacheKey, JSON.stringify(cacheEntry));
+        } catch (e) {
+            console.warn("Could not write to sessionStorage cache", e);
+        }
         
         return result;
     } catch (error) {
