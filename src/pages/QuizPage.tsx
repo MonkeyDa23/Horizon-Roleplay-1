@@ -77,12 +77,18 @@ const QuizPage: React.FC = () => {
         setIsLoading(true);
         try {
           const fetchedQuiz = await getQuizById(quizId);
-          if (fetchedQuiz && fetchedQuiz.isOpen) {
+          // Add a check for questions array being valid
+          if (fetchedQuiz && fetchedQuiz.isOpen && Array.isArray(fetchedQuiz.questions) && fetchedQuiz.questions.length > 0) {
               setQuiz(fetchedQuiz);
-              setTimeLeft(fetchedQuiz.questions[0]?.timeLimit || 60);
+              setTimeLeft(fetchedQuiz.questions[0].timeLimit);
               setQuizState('rules');
-          } else { navigate('/applies'); }
-        } catch (error) { console.error(`Failed to fetch quiz ${quizId}`, error); navigate('/applies');
+          } else {
+              // If quiz is not valid for taking, redirect
+              navigate('/applies');
+          }
+        } catch (error) { 
+            console.error(`Failed to fetch quiz ${quizId}`, error); 
+            navigate('/applies');
         } finally { setIsLoading(false); }
     }
     

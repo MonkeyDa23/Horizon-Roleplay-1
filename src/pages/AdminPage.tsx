@@ -511,21 +511,21 @@ const AdminPage: React.FC = () => {
                 <div className="pt-4 border-t border-brand-light-blue/50">
                   <h3 className="text-lg font-bold text-brand-cyan mb-2">{t('quiz_questions')}</h3>
                   <div className="space-y-3">
-                    {editingQuiz.questions.map((q, index) => (
+                    {(editingQuiz.questions || []).map((q, index) => (
                       <div key={q.id} className="bg-brand-dark p-3 rounded-md">
                         <div className="flex justify-between items-center mb-2">
                           <label className="font-semibold text-gray-300">{t('question')} {index + 1}</label>
-                          <button onClick={() => setEditingQuiz(prev => prev ? {...prev, questions: prev.questions.filter((_, i) => i !== index)} : null)} className="text-red-500 hover:text-red-400"><Trash2 size={18}/></button>
+                          <button onClick={() => setEditingQuiz(prev => prev ? {...prev, questions: (prev.questions || []).filter((_, i) => i !== index)} : null)} className="text-red-500 hover:text-red-400"><Trash2 size={18}/></button>
                         </div>
-                        <input type="text" placeholder={t('question_text')} value={q.textKey} onChange={e => { const newQuestions = [...editingQuiz.questions]; newQuestions[index].textKey = e.target.value; setEditingQuiz({...editingQuiz, questions: newQuestions}); }} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 mb-2"/>
+                        <input type="text" placeholder={t('question_text')} value={q.textKey} onChange={e => { const newQuestions = [...(editingQuiz.questions || [])]; newQuestions[index].textKey = e.target.value; setEditingQuiz({...editingQuiz, questions: newQuestions}); }} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 mb-2"/>
                         <div className="flex items-center gap-2">
                           <label className="text-sm">{t('time_limit_seconds')}:</label>
-                          <input type="number" value={q.timeLimit} onChange={e => { const newQuestions = [...editingQuiz.questions]; newQuestions[index].timeLimit = parseInt(e.target.value, 10) || 60; setEditingQuiz({...editingQuiz, questions: newQuestions}); }} className="w-24 bg-brand-light-blue p-1 text-center rounded border border-gray-600"/>
+                          <input type="number" value={q.timeLimit} onChange={e => { const newQuestions = [...(editingQuiz.questions || [])]; newQuestions[index].timeLimit = parseInt(e.target.value, 10) || 60; setEditingQuiz({...editingQuiz, questions: newQuestions}); }} className="w-24 bg-brand-light-blue p-1 text-center rounded border border-gray-600"/>
                         </div>
                       </div>
                     ))}
                   </div>
-                   <button onClick={() => setEditingQuiz(prev => prev ? {...prev, questions: [...prev.questions, {id: `q_${Date.now()}`, textKey: '', timeLimit: 60}]} : null)} className="mt-3 text-sm bg-brand-light-blue/50 text-brand-cyan font-bold py-2 px-3 rounded-md hover:bg-brand-light-blue flex items-center gap-1"><Plus size={16}/>{t('add_question')}</button>
+                   <button onClick={() => setEditingQuiz(prev => prev ? {...prev, questions: [...(prev.questions || []), {id: `q_${Date.now()}`, textKey: '', timeLimit: 60}]} : null)} className="mt-3 text-sm bg-brand-light-blue/50 text-brand-cyan font-bold py-2 px-3 rounded-md hover:bg-brand-light-blue flex items-center gap-1"><Plus size={16}/>{t('add_question')}</button>
                 </div>
 
                 <div className="flex items-center gap-4 pt-4 border-t border-brand-light-blue/50">

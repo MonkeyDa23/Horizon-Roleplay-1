@@ -140,7 +140,7 @@ const AppliesPage: React.FC = () => {
                               </div>
                               <div>
                                   <h2 className="text-2xl font-bold text-white">{t(quiz.titleKey)}</h2>
-                                  <p className="text-sm text-gray-400">{quiz.questions.length} {t('questions')}</p>
+                                  <p className="text-sm text-gray-400">{(quiz.questions || []).length} {t('questions')}</p>
                               </div>
                           </div>
                           <p className="text-gray-300 mb-6 min-h-[40px]">{t(quiz.descriptionKey)}</p>

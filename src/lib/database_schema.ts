@@ -1,17 +1,17 @@
 
 export const DATABASE_SCHEMA = `
--- #############################################################################
--- #                                                                           #
--- #                     HORIZON ROLEPLAY DATABASE SETUP                       #
--- #                                                                           #
--- #   Instructions:                                                           #
--- #   1. Go to your Supabase project dashboard.                               #
--- #   2. Navigate to the "SQL Editor".                                        #
--- #   3. Click "+ New query".                                                 #
--- #   4. Copy ALL of the code below and paste it into the editor.             #
--- #   5. Click "RUN". This script is safe to run multiple times.              #
--- #                                                                           #
--- #############################################################################
+-- -----------------------------------------------------------------------------
+-- -                                                                           -
+-- -                     HORIZON ROLEPLAY DATABASE SETUP                       -
+-- -                                                                           -
+-- -   Instructions:                                                           -
+-- -   1. Go to your Supabase project dashboard.                               -
+-- -   2. Navigate to the "SQL Editor".                                        -
+-- -   3. Click "+ New query".                                                 -
+-- -   4. Copy ALL of the code below and paste it into the editor.             -
+-- -   5. Click "RUN". This script is safe to run multiple times.              -
+-- -                                                                           -
+-- -----------------------------------------------------------------------------
 
 -- =============================================================================
 --  0. EXTENSIONS
@@ -351,7 +351,8 @@ BEGIN
         'color', 3447003, -- Blue
         'fields', jsonb_build_array(
           -- FIX: Replaced string concatenation with format() to avoid potential linter issues with backticks.
-          jsonb_build_object('name', 'Applicant', 'value', format('%s (`%s`)', NEW.username, NEW.user_id), 'inline', true),
+          -- FIX: Reverting to string concatenation as the linter has issues with format() specifiers.
+          jsonb_build_object('name', 'Applicant', 'value', NEW.username || ' (`' || NEW.user_id || '`)', 'inline', true),
           jsonb_build_object('name', 'Highest Role', 'value', COALESCE(NEW.user_highest_role, 'Member'), 'inline', true),
           jsonb_build_object('name', 'Cheat Attempts', 'value', cheat_count, 'inline', true)
         ),
@@ -395,7 +396,8 @@ BEGIN
         'color', 9807270, -- Gray
         'fields', jsonb_build_array(
           -- FIX: Replaced string concatenation with format() to avoid potential linter issues with backticks.
-          jsonb_build_object('name', 'Admin', 'value', format('%s (`%s`)', NEW.admin_username, NEW.admin_id), 'inline', false),
+          -- FIX: Reverting to string concatenation as the linter has issues with format() specifiers.
+          jsonb_build_object('name', 'Admin', 'value', NEW.admin_username || ' (`' || NEW.admin_id || '`)', 'inline', false),
           jsonb_build_object('name', 'Action', 'value', NEW.action, 'inline', false)
         ),
         'timestamp', NEW.timestamp

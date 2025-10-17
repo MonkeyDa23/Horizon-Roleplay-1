@@ -7,6 +7,7 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 
+// @ts-ignore - Supressing "Cannot find name 'Deno'" because this is a Deno script running in a non-Deno linter.
 const DISCORD_BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN')
 const DISCORD_API_BASE = 'https://discord.com/api/v10'
 

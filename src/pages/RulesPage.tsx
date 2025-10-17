@@ -73,7 +73,7 @@ const RulesPage: React.FC = () => {
                 {openCategoryId === category.id && (
                   <div className="px-6 pb-6 animate-fade-in-down">
                     <ol className="list-decimal list-inside space-y-4 text-gray-300 text-lg marker:text-brand-cyan marker:font-bold">
-                      {category.rules.map((rule) => (
+                      {(category.rules || []).map((rule) => (
                         <li key={rule.id} className="pl-2">
                           {t(rule.textKey)}
                         </li>
