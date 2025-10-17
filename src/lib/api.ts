@@ -320,7 +320,14 @@ export const fetchUserProfile = async (session: Session): Promise<User> => {
         }
 
     } catch (error) {
-        console.warn("Could not sync Discord roles during login. The user will be logged in with their existing permissions. This is non-critical.", error);
+        let warningMessage = "Could not sync Discord roles during login. User will have existing permissions. This is non-critical.";
+        if (error instanceof ApiError) {
+            warningMessage += ` (Reason: ${error.message}, Status: ${error.status})`;
+        } else if (error instanceof Error) {
+            warningMessage += ` (Reason: ${error.message})`;
+        }
+        // The second argument to console.warn is for the error object itself, which allows for expandable stack trace.
+        console.warn(warningMessage, error);
     }
     
     // Step 4: Return the complete User object.

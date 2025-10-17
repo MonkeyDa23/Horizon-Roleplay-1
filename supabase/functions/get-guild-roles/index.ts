@@ -40,9 +40,9 @@ serve(async (req) => {
 
   try {
     const { guildId } = await req.json();
-
     if (!guildId) {
-      return createResponse({ error: 'guildId is required' }, 400);
+        console.error('Bad Request: guildId is missing from the request body.');
+        return createResponse({ error: 'guildId is required' }, 400);
     }
     
     const rolesUrl = `${DISCORD_API_BASE}/guilds/${guildId}/roles`;
@@ -54,18 +54,30 @@ serve(async (req) => {
     });
 
     if (!rolesResponse.ok) {
-      const errorData = await rolesResponse.json();
-      console.error(`Failed to fetch roles for guild ${guildId}:`, errorData.message);
-      return createResponse({ error: `Failed to fetch roles from Discord: ${errorData.message}` }, rolesResponse.status);
+        const errorText = await rolesResponse.text();
+        console.error(`Discord API Error: Failed to fetch roles for guild ${guildId}. Status: ${rolesResponse.status}. Body: ${errorText}`);
+        // Try to parse as JSON, but fall back to text if it fails
+        let errorJson;
+        try {
+            errorJson = JSON.parse(errorText);
+        } catch {
+            errorJson = { message: errorText };
+        }
+        return createResponse({ error: `Failed to fetch roles from Discord: ${errorJson.message || 'Unknown error'}` }, rolesResponse.status);
     }
 
     const roles = await rolesResponse.json();
     
-    // Return the array of roles directly.
+    // Explicitly check if the response is an array before returning
+    if (!Array.isArray(roles)) {
+        console.error(`Discord API did not return an array for guild roles. Guild ID: ${guildId}. Response:`, roles);
+        return createResponse({ error: 'Discord API returned an unexpected data format for roles.' }, 500);
+    }
+
     return createResponse(roles);
 
   } catch (error) {
-    console.error('An unexpected error occurred:', error.message);
+    console.error('An unexpected error occurred in get-guild-roles function:', error.message);
     return createResponse({ error: 'An internal server error occurred.' }, 500);
   }
 })

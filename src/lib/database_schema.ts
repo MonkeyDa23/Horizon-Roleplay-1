@@ -176,8 +176,8 @@ CREATE TABLE IF NOT EXISTS public.submissions (
 -- Fix for old schemas that might have used snake_case
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM pg_catalog.pg_attribute WHERE attrelid = 'public.submissions'::regclass AND attname = 'submitted_at' AND NOT attisdropped)
-    AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_attribute WHERE attrelid = 'public.submissions'::regclass AND attname = 'submittedAt' AND NOT attisdropped) THEN
+    IF EXISTS (SELECT 1 FROM pg_catalog.pg_attribute WHERE attrelid = CAST('public.submissions' AS regclass) AND attname = 'submitted_at' AND NOT attisdropped)
+    AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_attribute WHERE attrelid = CAST('public.submissions' AS regclass) AND attname = 'submittedAt' AND NOT attisdropped) THEN
         ALTER TABLE public.submissions RENAME COLUMN submitted_at TO "submittedAt";
     END IF;
 END $$;
@@ -308,7 +308,7 @@ BEGIN
     END IF;
 
     -- Re-create the foreign key constraint if it doesn't exist
-    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'rules_category_id_fkey' AND conrelid = 'public.rules'::regclass) THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'rules_category_id_fkey' AND conrelid = CAST('public.rules' AS regclass)) THEN
        ALTER TABLE public.rules
        ADD CONSTRAINT rules_category_id_fkey
        FOREIGN KEY (category_id) REFERENCES public.rule_categories(id) ON DELETE CASCADE;
@@ -385,15 +385,15 @@ BEGIN
         'fields', jsonb_build_array(
           jsonb_build_object('name', 'Applicant', 'value', NEW.username || ' (`' || NEW.user_id || '`)', 'inline', true),
           jsonb_build_object('name', 'Highest Role', 'value', COALESCE(NEW.user_highest_role, 'Member'), 'inline', true),
-          jsonb_build_object('name', 'Cheat Attempts', 'value', cheat_count::text, 'inline', true)
+          jsonb_build_object('name', 'Cheat Attempts', 'value', CAST(cheat_count AS text), 'inline', true)
         ),
         'timestamp', NEW."submittedAt",
         'footer', jsonb_build_object('text', (SELECT "COMMUNITY_NAME" FROM public.config WHERE id = 1))
       )
     )
   );
-  -- FIX: Use standard CAST syntax to avoid potential linter issues with the `::` shorthand.
-  PERFORM extensions.http_post(webhook_url, CAST(payload AS text), 'application/json', '{}'::jsonb);
+  -- FIX: Use standard CAST syntax to avoid potential linter issues with the :: shorthand.
+  PERFORM extensions.http_post(webhook_url, CAST(payload AS text), 'application/json', CAST('{}' AS jsonb));
   RETURN NEW;
 END;
 $$;
@@ -435,8 +435,8 @@ BEGIN
     )
   );
   
-  -- FIX: Use standard CAST syntax to avoid potential linter issues with the `::` shorthand.
-  PERFORM extensions.http_post(webhook_url, CAST(payload AS text), 'application/json', '{}'::jsonb);
+  -- FIX: Use standard CAST syntax to avoid potential linter issues with the :: shorthand.
+  PERFORM extensions.http_post(webhook_url, CAST(payload AS text), 'application/json', CAST('{}' AS jsonb));
   RETURN NEW;
 END;
 $$;
