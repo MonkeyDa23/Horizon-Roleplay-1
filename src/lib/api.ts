@@ -340,17 +340,21 @@ export const fetchUserProfile = async (session: Session): Promise<UserProfileRes
         const freshIsHandler = roles.some(roleId => handlerRoles.includes(roleId));
         const freshIsAdmin = freshIsSuperAdmin || freshIsHandler;
 
-        if (freshIsAdmin !== isAdmin || freshIsSuperAdmin !== isSuperAdmin) {
+        // Immediately update the local variables for the current session's user object.
+        // This ensures the user gets the correct permissions right away.
+        isAdmin = freshIsAdmin;
+        isSuperAdmin = freshIsSuperAdmin;
+
+        // Then, attempt to update the database for persistence.
+        // This is a "fire and forget" with logging; it shouldn't block the user's current session permissions.
+        if (freshIsAdmin !== profileData.is_admin || freshIsSuperAdmin !== profileData.is_super_admin) {
             const { error: updateError } = await supabase
               .from('profiles')
               .update({ is_admin: freshIsAdmin, is_super_admin: freshIsSuperAdmin })
               .eq('id', userId);
             
             if (updateError) {
-                console.warn("Failed to update user permissions in DB after a successful role sync.", updateError);
-            } else {
-                isAdmin = freshIsAdmin;
-                isSuperAdmin = freshIsSuperAdmin;
+                console.warn("Non-critical: Failed to persist updated user permissions to DB after role sync.", updateError);
             }
         }
     } catch (error) {
