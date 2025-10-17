@@ -12,59 +12,6 @@ export class ApiError extends Error {
   }
 }
 
-// --- User Profile Caching to prevent Rate Limiting ---
-interface UserProfileCacheEntry {
-  user: User;
-  syncError: string | null;
-  timestamp: number;
-}
-const CACHE_KEY = 'userProfileCache';
-const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
-
-const getCachedUserProfile = (userId: string): UserProfileCacheEntry | null => {
-    try {
-        const cachedData = localStorage.getItem(CACHE_KEY);
-        if (!cachedData) return null;
-
-        const cache: Record<string, any> = JSON.parse(cachedData);
-        const userEntry = cache[userId];
-
-        if (userEntry && (Date.now() - userEntry.timestamp < CACHE_TTL_MS)) {
-            // Re-hydrate the Set object, which is lost during JSON stringification
-            userEntry.user.permissions = new Set(userEntry.user.permissions);
-            return userEntry as UserProfileCacheEntry;
-        }
-        return null;
-    } catch (error) {
-        console.error("Failed to read from localStorage cache", error);
-        return null;
-    }
-};
-
-const setCachedUserProfile = (userId: string, data: { user: User, syncError: string | null }) => {
-    try {
-        const cachedData = localStorage.getItem(CACHE_KEY);
-        const cache: Record<string, any> = cachedData ? JSON.parse(cachedData) : {};
-        
-        // Convert Set to array for JSON compatibility
-        const userToCache = {
-            ...data.user,
-            permissions: Array.from(data.user.permissions),
-        };
-
-        cache[userId] = {
-            user: userToCache, // permissions is an array here
-            syncError: data.syncError,
-            timestamp: Date.now(),
-        };
-
-        localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-    } catch (error) {
-        console.error("Failed to write to localStorage cache", error);
-    }
-};
-
-
 // --- PUBLIC READ-ONLY FUNCTIONS ---
 
 export const getConfig = async (): Promise<AppConfig> => {
@@ -273,94 +220,39 @@ export const saveRolePermissions = async (roleId: string, permissions: Permissio
 
 export const fetchUserProfile = async (session: Session): Promise<{ user: User, syncError: string | null }> => {
     if (!supabase) throw new ApiError("Supabase not configured", 500);
+
+    // The new `sync-user-profile` edge function handles all caching and syncing logic
+    // to prevent Discord API rate limiting. It gets the user from the session's JWT.
+    const { data, error } = await supabase.functions.invoke('sync-user-profile');
+
+    if (error) {
+        // The function will throw specific errors we can catch.
+        if (error.message.includes("User not found in Discord guild")) {
+            // This specific error tells the AuthContext to log the user out.
+            throw new ApiError(error.message, 404);
+        }
+        // For other errors, we throw a generic one.
+        throw new ApiError(`Failed to sync user profile: ${error.message}`, 500);
+    }
     
-    // --- Caching Logic ---
-    const userId = session.user.id;
-    const cachedData = getCachedUserProfile(userId);
-    if (cachedData) {
-        return { user: cachedData.user, syncError: cachedData.syncError };
-    }
-    // --- End Caching Logic ---
-
-    const { data: config, error: configError } = await supabase.from('config').select('DISCORD_GUILD_ID').single();
-    if (configError) throw new ApiError(`Failed to fetch guild config: ${configError.message}`, 500);
-
-    const guildId = config.DISCORD_GUILD_ID;
-    const providerToken = session.provider_token;
-    let syncError: string | null = null;
-    let roles: string[] = [];
-    let highestRole: { id: string; name: string; color: number } | null = null;
-
-    if (providerToken && guildId) {
-        try {
-            const memberUrl = `https://discord.com/api/v10/users/@me/guilds/${guildId}/member`;
-            const memberResponse = await fetch(memberUrl, { headers: { 'Authorization': `Bearer ${providerToken}` } });
-
-            if (!memberResponse.ok) {
-                syncError = memberResponse.status === 404
-                    ? 'User not found in Discord server. Permissions may be limited.'
-                    : `Failed to sync Discord roles (HTTP ${memberResponse.status}).`;
-            } else {
-                const memberData = await memberResponse.json();
-                roles = memberData.roles || [];
-                
-                // Update the user's metadata in Supabase Auth to include their roles.
-                // This makes the roles available in the JWT for RLS policies.
-                const { error: updateError } = await supabase.auth.updateUser({ data: { roles } });
-                if (updateError) console.error("Failed to update user metadata with roles:", updateError);
-
-                if (roles.length > 0) {
-                    const guildRoles = await getGuildRoles();
-                    const userRolesDetails = guildRoles.filter(role => roles.includes(role.id)).sort((a, b) => b.position - a.position);
-                    if (userRolesDetails.length > 0) {
-                        const topRole = userRolesDetails[0];
-                        highestRole = { id: topRole.id, name: topRole.name, color: topRole.color };
-                    }
-                }
-            }
-        } catch (e) {
-            syncError = e instanceof Error ? e.message : "An error occurred while syncing Discord roles.";
-        }
-    } else {
-        syncError = "Discord Guild ID not configured or provider token missing. Roles cannot be synced.";
+    // The function returns the exact structure we need, but permissions need to be
+    // converted from an array back into a Set.
+    if (data.user && data.user.permissions) {
+        data.user.permissions = new Set(data.user.permissions);
     }
 
-    // Calculate final permissions
-    let finalPermissions = new Set<PermissionKey>();
-    if (roles.length > 0) {
-        const { data: perms, error: permsError } = await supabase.from('role_permissions').select('permissions').in('role_id', roles);
-        if (permsError) {
-            console.error("Failed to fetch role permissions:", permsError);
-            syncError = (syncError ? syncError + " " : "") + "Could not fetch permissions from database.";
-        } else if (perms) {
-            perms.forEach(p => {
-                p.permissions.forEach(key => finalPermissions.add(key as PermissionKey));
-            });
-        }
-    }
-
-    const finalUser: User = {
-      id: session.user.id,
-      username: session.user.user_metadata.full_name,
-      avatar: session.user.user_metadata.avatar_url,
-      roles,
-      highestRole,
-      permissions: finalPermissions,
-    };
-
-    const result = { user: finalUser, syncError };
-
-    // Store the fresh data in the cross-tab cache before returning
-    setCachedUserProfile(userId, result);
-
-    return result;
+    return data as { user: User, syncError: string | null };
 };
-
 
 export const revalidateSession = async (): Promise<User> => {
     if (!supabase) throw new ApiError("Supabase not configured", 500);
-    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    // Refreshing the session gets a new JWT, which is important.
+    const { data: { session }, error } = await supabase.auth.refreshSession();
+    
     if (error || !session) throw new ApiError("No active session.", 401);
+    
+    // After refreshing, fetch the profile, which will trigger a sync if needed.
     const { user } = await fetchUserProfile(session);
     return user;
 }
