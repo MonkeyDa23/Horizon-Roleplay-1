@@ -366,6 +366,7 @@ export const fetchUserProfile = async (session: Session): Promise<UserProfileRes
     const username = session.user.user_metadata.full_name;
     const avatar = session.user.user_metadata.avatar_url;
 
+    // Fetch the user's profile from the database. This is now the SINGLE SOURCE OF TRUTH for permissions.
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .upsert({ id: userId, updated_at: new Date().toISOString() })
@@ -377,74 +378,45 @@ export const fetchUserProfile = async (session: Session): Promise<UserProfileRes
       throw new ApiError(profileError.message, 500);
     }
     
-    // Initialize with DB data as a fallback.
-    // Also initialize Discord data as empty, to be populated by sync.
+    // Permissions are taken directly from the database.
+    const isAdmin = profileData.is_admin;
+    const isSuperAdmin = profileData.is_super_admin;
+
+    // Initialize Discord data as empty, to be populated by sync for display purposes only.
     let roles: string[] = [];
     let discordRoles: DiscordRole[] = [];
     let highestRole: DiscordRole | null = null;
-    let isAdmin = profileData.is_admin;
-    let isSuperAdmin = profileData.is_super_admin;
     let syncError: string | undefined = undefined;
 
+    // We still attempt to fetch Discord roles for display on the profile page,
+    // but this process will no longer affect the user's admin status.
     try {
         const config = await getConfig();
-        let memberData: { roles: string[], discordRoles: DiscordRole[], highestRole: DiscordRole | null };
-
         const providerToken = session.provider_token;
+
         if (providerToken) {
-            console.log(`[Sync] Using provider_token for user ${userId}.`);
-            memberData = await fetchDiscordMember(providerToken, config.DISCORD_GUILD_ID, userId);
+            console.log(`[Sync] Using provider_token for user ${userId} to fetch display roles.`);
+            const memberData = await fetchDiscordMember(providerToken, config.DISCORD_GUILD_ID, userId);
+            
+            roles = memberData.roles;
+            discordRoles = memberData.discordRoles;
+            highestRole = memberData.highestRole;
         } else {
-            console.log(`[Sync] No provider_token for user ${userId}. Using bot function.`);
-            const { data: botData, error: funcError } = await supabase.functions.invoke('get-discord-user-profile', { body: { userId } });
-            
-            if (funcError) throw funcError;
-            if (!botData.discordRoles) throw new Error("Bot function did not return discordRoles.");
-            
-            const fetchedRoles: DiscordRole[] = (botData.discordRoles || []).sort((a: DiscordRole, b: DiscordRole) => b.position - a.position);
-            
-            memberData = {
-                roles: fetchedRoles.map(r => r.id),
-                discordRoles: fetchedRoles,
-                highestRole: fetchedRoles[0] || null,
-            };
+            // If there's no provider token (e.g., from an old session), we can't sync roles. This is not critical.
+            console.log(`[Sync] No provider_token for user ${userId}. Skipping Discord role sync on login. Roles will not be displayed on profile page.`);
         }
+
+        // CRITICAL CHANGE: The section that recalculated and updated permissions based on roles has been REMOVED.
         
-        roles = memberData.roles;
-        discordRoles = memberData.discordRoles;
-        highestRole = memberData.highestRole;
-
-        // Re-calculate permissions based on fresh roles
-        const superAdminRoles = config.SUPER_ADMIN_ROLE_IDS || [];
-        const handlerRoles = config.HANDLER_ROLE_IDS || [];
-        const freshIsSuperAdmin = roles.some(roleId => superAdminRoles.includes(roleId));
-        const freshIsHandler = roles.some(roleId => handlerRoles.includes(roleId));
-        const freshIsAdmin = freshIsSuperAdmin || freshIsHandler;
-
-        isAdmin = freshIsAdmin;
-        isSuperAdmin = freshIsSuperAdmin;
-
-        // If calculated permissions differ from DB, update the DB.
-        if (freshIsAdmin !== profileData.is_admin || freshIsSuperAdmin !== profileData.is_super_admin) {
-            const { error: updateError } = await supabase
-                .from('profiles')
-                .update({ is_admin: freshIsAdmin, is_super_admin: freshIsSuperAdmin })
-                .eq('id', userId);
-            if (updateError) {
-                console.warn("Non-critical: Failed to persist updated permissions to DB.", updateError);
-            }
-        }
     } catch (error) {
         // In case of any error during Discord sync (API down, user not in guild, etc.),
-        // we fall back to the permissions stored in our database.
-        // The user can still use the site, but their roles won't be updated.
-        let warningMessage = `Could not sync Discord roles for user ${userId}. Falling back to DB permissions.`;
+        // we now treat it as a non-critical warning. The user's permissions are safe.
+        let warningMessage = `Could not sync Discord roles for user ${userId}. Roles will not be displayed on profile.`;
         if (error instanceof Error) {
             warningMessage += ` (Reason: ${error.message})`;
         }
         console.warn(warningMessage, error);
-        syncError = error instanceof Error ? error.message : "An unknown error occurred during Discord sync.";
-        // 'isAdmin' and 'isSuperAdmin' retain their values from `profileData`.
+        syncError = error instanceof Error ? error.message : "An unknown error occurred during Discord role sync.";
         // 'roles', 'discordRoles', 'highestRole' are left empty/null.
     }
     
@@ -452,8 +424,10 @@ export const fetchUserProfile = async (session: Session): Promise<UserProfileRes
       id: userId,
       username: username,
       avatar: avatar,
+      // Use permissions directly from the database.
       isAdmin: isAdmin,
       isSuperAdmin: isSuperAdmin,
+      // Include fetched Discord data for display purposes.
       discordRoles: discordRoles,
       roles: roles,
       highestRole: highestRole,
@@ -461,6 +435,7 @@ export const fetchUserProfile = async (session: Session): Promise<UserProfileRes
 
     return { user: finalUser, syncError };
 };
+
 
 export const revalidateSession = async (): Promise<User> => {
     if (!supabase) throw new ApiError("Supabase not configured", 500);

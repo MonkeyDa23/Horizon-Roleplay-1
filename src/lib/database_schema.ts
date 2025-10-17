@@ -436,7 +436,7 @@ DECLARE
 BEGIN
   -- FIX: Changed config() to config to reference the table correctly.
   -- FIX: Quoted "config" to prevent linter errors.
-  SELECT "SUBMISSIONS_WEBHOOK_URL" INTO webhook_url FROM public."config" WHERE id = 1;
+  SELECT "SUBMISSIONS_WEBHOOK_URL" INTO webhook_url FROM public.config WHERE id = 1;
 
   IF webhook_url IS NULL OR webhook_url = '' THEN
     RETURN new;
@@ -457,7 +457,7 @@ BEGIN
         'timestamp', new."submittedAt",
         -- FIX: Changed config() to config to reference the table correctly.
         -- FIX: Quoted "config" to prevent linter errors.
-        'footer', jsonb_build_object('text', (SELECT "COMMUNITY_NAME" FROM public."config" WHERE id = 1))
+        'footer', jsonb_build_object('text', (SELECT "COMMUNITY_NAME" FROM public.config WHERE id = 1))
       )
     )
   );
@@ -486,7 +486,7 @@ DECLARE
 BEGIN
   -- FIX: Changed config() to config to reference the table correctly.
   -- FIX: Quoted "config" to prevent linter errors.
-  SELECT "AUDIT_LOG_WEBHOOK_URL" INTO webhook_url FROM public."config" WHERE id = 1;
+  SELECT "AUDIT_LOG_WEBHOOK_URL" INTO webhook_url FROM public.config WHERE id = 1;
 
   IF webhook_url IS NULL OR webhook_url = '' THEN
     RETURN new;
@@ -779,7 +779,7 @@ INSERT INTO public.translations (key, ar, en) VALUES
   ('health_check_copy', 'نسخ', 'Copy'),
   ('health_check_copied', 'تم النسخ!', 'Copied!'),
   ('health_check_step2', 'الخطوة 2: إعدادات قاعدة البيانات', 'Step 2: Database Configuration'),
-  ('health_check_step2_desc', 'يتم جلب هذه الإعدادات مباشرة من جدول `config` في قاعدة بياناتك.', 'These settings are fetched directly from your `config` table in the database.'),
+  ('health_check_step2_desc', 'يتم جلب هذه الإعدادات مباشرة من جدول ''config'' في قاعدة بياناتك.', 'These settings are fetched directly from your ''config'' table in the database.'),
   ('health_check_step3', 'الخطوة 3: تشخيص اتصال ديسكورد', 'Step 3: Discord Connection Diagnostics'),
   ('health_check_step3_desc', 'يستخدم هذا الاختبار بيانات اعتماد تسجيل دخولك الحالية للتحقق مما إذا كان الموقع يمكنه الاتصال بخادم ديسكورد الخاص بك بشكل صحيح. هذا هو السبب الأكثر شيوعًا لفشل تسجيل الدخول.', 'This test uses your current login credentials to check if the site can connect to your Discord server correctly. This is the most common reason for login failures.'),
   ('health_check_run_test', 'تشغيل الاختبار', 'Run Test'),
