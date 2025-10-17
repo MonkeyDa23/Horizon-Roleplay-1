@@ -99,7 +99,7 @@ export const addSubmission = async (submissionData: Partial<QuizSubmission>): Pr
 
 export const getSubmissions = async (): Promise<QuizSubmission[]> => {
     if (!supabase) return [];
-    const { data, error } = await supabase.from('submissions').select('*').order('submitted_at', { ascending: false });
+    const { data, error } = await supabase.from('submissions').select('*').order('submittedAt', { ascending: false });
     if (error) throw new ApiError(error.message, 500);
     return data;
 }
@@ -387,7 +387,7 @@ export const testDiscordApi = async (session: Session): Promise<string> => {
     if (!guildId) throw new ApiError("Discord Guild ID is not configured in the database.", 500);
 
     const memberUrl = `https://discord.com/api/users/@me/guilds/${guildId}/member`;
-    const memberResponse = await fetch(memberUrl, {
+    const memberResponse = await fetchWithRetry(memberUrl, {
         headers: { 'Authorization': `Bearer ${providerToken}` }
     });
     

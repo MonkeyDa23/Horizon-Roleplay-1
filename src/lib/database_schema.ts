@@ -1,5 +1,6 @@
 
 
+
 export const DATABASE_SCHEMA = `
 -- -----------------------------------------------------------------------------
 -- -                                                                           -
@@ -372,29 +373,29 @@ BEGIN
   SELECT "SUBMISSIONS_WEBHOOK_URL" INTO webhook_url FROM public.config WHERE id = 1;
 
   IF webhook_url IS NULL OR webhook_url = '' THEN
-    RETURN NEW;
+    RETURN new;
   END IF;
 
-  cheat_count := COALESCE(jsonb_array_length(NEW."cheatAttempts"), 0);
+  cheat_count := COALESCE(jsonb_array_length(new."cheatAttempts"), 0);
 
   payload := jsonb_build_object(
     'embeds', jsonb_build_array(
       jsonb_build_object(
-        'title', 'New Application: ' || NEW."quizTitle",
+        'title', 'New Application: ' || new."quizTitle",
         'color', 3447003, -- Blue
         'fields', jsonb_build_array(
-          jsonb_build_object('name', 'Applicant', 'value', NEW.username || ' (`' || NEW.user_id || '`)', 'inline', true),
-          jsonb_build_object('name', 'Highest Role', 'value', COALESCE(NEW.user_highest_role, 'Member'), 'inline', true),
+          jsonb_build_object('name', 'Applicant', 'value', new.username || ' (`' || new.user_id || '`)', 'inline', true),
+          jsonb_build_object('name', 'Highest Role', 'value', COALESCE(new.user_highest_role, 'Member'), 'inline', true),
           jsonb_build_object('name', 'Cheat Attempts', 'value', CAST(cheat_count AS text), 'inline', true)
         ),
-        'timestamp', NEW."submittedAt",
+        'timestamp', new."submittedAt",
         'footer', jsonb_build_object('text', (SELECT "COMMUNITY_NAME" FROM public.config WHERE id = 1))
       )
     )
   );
-  -- FIX: Use standard CAST syntax to avoid potential linter issues with the :: shorthand.
+  
   PERFORM extensions.http_post(webhook_url, CAST(payload AS text), 'application/json', CAST('{}' AS jsonb));
-  RETURN NEW;
+  RETURN new;
 END;
 $$;
 
@@ -418,7 +419,7 @@ BEGIN
   SELECT "AUDIT_LOG_WEBHOOK_URL" INTO webhook_url FROM public.config WHERE id = 1;
 
   IF webhook_url IS NULL OR webhook_url = '' THEN
-    RETURN NEW;
+    RETURN new;
   END IF;
 
   payload := jsonb_build_object(
@@ -427,17 +428,16 @@ BEGIN
         'title', 'Admin Action Logged',
         'color', 9807270, -- Gray
         'fields', jsonb_build_array(
-          jsonb_build_object('name', 'Admin', 'value', NEW.admin_username || ' (`' || NEW.admin_id || '`)', 'inline', false),
-          jsonb_build_object('name', 'Action', 'value', NEW.action, 'inline', false)
+          jsonb_build_object('name', 'Admin', 'value', new.admin_username || ' (`' || new.admin_id || '`)', 'inline', false),
+          jsonb_build_object('name', 'Action', 'value', new.action, 'inline', false)
         ),
-        'timestamp', NEW.timestamp
+        'timestamp', new.timestamp
       )
     )
   );
   
-  -- FIX: Use standard CAST syntax to avoid potential linter issues with the :: shorthand.
   PERFORM extensions.http_post(webhook_url, CAST(payload AS text), 'application/json', CAST('{}' AS jsonb));
-  RETURN NEW;
+  RETURN new;
 END;
 $$;
 
@@ -463,40 +463,40 @@ BEGIN
     payload := jsonb_build_object(
         'type', event_type,
         'payload', jsonb_build_object(
-            'userId', NEW.user_id,
-            'username', NEW.username,
-            'quizTitle', NEW."quizTitle"
+            'userId', new.user_id,
+            'username', new.username,
+            'quizTitle', new."quizTitle"
         )
     );
-  ELSIF TG_OP = 'UPDATE' AND NEW.status <> OLD.status THEN
-    IF NEW.status = 'taken' THEN
+  ELSIF TG_OP = 'UPDATE' AND new.status <> old.status THEN
+    IF new.status = 'taken' THEN
       event_type := 'SUBMISSION_TAKEN';
-    ELSIF NEW.status = 'accepted' THEN
+    ELSIF new.status = 'accepted' THEN
       event_type := 'SUBMISSION_ACCEPTED';
-    ELSIF NEW.status = 'refused' THEN
+    ELSIF new.status = 'refused' THEN
       event_type := 'SUBMISSION_REFUSED';
     ELSE
-      RETURN NEW; -- Not a status change we care about
+      RETURN new; -- Not a status change we care about
     END IF;
 
     payload := jsonb_build_object(
         'type', event_type,
         'payload', jsonb_build_object(
-            'userId', NEW.user_id,
-            'username', NEW.username,
-            'quizTitle', NEW."quizTitle",
-            'status', NEW.status,
-            'adminUsername', NEW."adminUsername"
+            'userId', new.user_id,
+            'username', new.username,
+            'quizTitle', new."quizTitle",
+            'status', new.status,
+            'adminUsername', new."adminUsername"
         )
     );
   ELSE
-    RETURN NEW; -- No relevant change
+    RETURN new; -- No relevant change
   END IF;
   
   -- Invoke the Edge Function, ignoring the result.
   PERFORM supabase_functions.invoke_edge_function('discord-bot-interactions', payload);
 
-  RETURN NEW;
+  RETURN new;
 END;
 $$;
 
@@ -507,4 +507,4 @@ AFTER INSERT OR UPDATE ON public.submissions
 FOR EACH ROW
 EXECUTE FUNCTION public.notify_user_on_submission_change();
 
-`;
+`
