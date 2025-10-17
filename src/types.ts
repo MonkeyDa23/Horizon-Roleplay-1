@@ -164,3 +164,14 @@ export interface AppConfig {
     SUBMISSIONS_WEBHOOK_URL: string;
     AUDIT_LOG_WEBHOOK_URL: string;
 }
+
+export interface UserLookupResult {
+  id: string;
+  username: string;
+  avatar: string;
+  isAdmin: boolean;
+  isSuperAdmin: boolean;
+  discordRoles: DiscordRole[];
+  joinedAt: string;
+  submissions: QuizSubmission[];
+}

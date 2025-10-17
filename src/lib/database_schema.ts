@@ -8,6 +8,10 @@
 
 
 
+
+
+
+
 export const DATABASE_SCHEMA = `
 -- -----------------------------------------------------------------------------
 -- -                                                                           -
@@ -99,6 +103,50 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
+-- New RPC for updating user permissions by Super Admins
+CREATE OR REPLACE FUNCTION public.update_user_permissions(target_user_id uuid, p_is_admin boolean, p_is_super_admin boolean)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  current_admin_id uuid := auth.uid();
+  current_admin_username text;
+  target_user_username text;
+BEGIN
+  -- Ensure the current user is a super admin
+  IF NOT (SELECT is_super_admin FROM public.profiles WHERE id = current_admin_id) THEN
+    RAISE EXCEPTION 'Only super admins can change permissions.';
+  END IF;
+
+  -- Prevent a super admin from removing their own super admin status
+  IF current_admin_id = target_user_id AND p_is_super_admin = false THEN
+      RAISE EXCEPTION 'Super admins cannot revoke their own super admin status.';
+  END IF;
+
+  -- Update the target profile
+  UPDATE public.profiles
+  SET
+    is_admin = p_is_admin,
+    is_super_admin = p_is_super_admin
+  WHERE id = target_user_id;
+
+  -- Create audit log entry
+  SELECT raw_user_meta_data->>'full_name' INTO current_admin_username
+  FROM auth.users WHERE id = current_admin_id;
+
+  SELECT raw_user_meta_data->>'full_name' INTO target_user_username
+  FROM auth.users WHERE id = target_user_id;
+
+  INSERT INTO public.audit_logs(admin_id, admin_username, action)
+  VALUES (
+    current_admin_id,
+    current_admin_username,
+    'Updated permissions for "' || target_user_username || '" (' || target_user_id || ') to: Admin=' || p_is_admin || ', SuperAdmin=' || p_is_super_admin
+  );
+END;
+$$;
+
 
 -- =============================================================================
 --  2. WEBSITE CONFIGURATION
@@ -131,8 +179,12 @@ CREATE POLICY "Allow super admin update access" ON public.config
     (SELECT is_super_admin FROM public.profiles WHERE id = auth.uid()) = true
   );
 
--- Insert a default config row if it doesn't exist
-INSERT INTO public.config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+-- Insert a default config row if it doesn't exist, and update with new branding
+INSERT INTO public.config (id, "COMMUNITY_NAME", "LOGO_URL")
+VALUES (1, 'Vixel Roleplay', 'https://i.ibb.co/L86D58p/vixel-logo.png')
+ON CONFLICT (id) DO UPDATE SET
+  "COMMUNITY_NAME" = EXCLUDED."COMMUNITY_NAME",
+  "LOGO_URL" = EXCLUDED."LOGO_URL";
 
 
 -- =============================================================================
@@ -393,7 +445,8 @@ BEGIN
         'fields', jsonb_build_array(
           jsonb_build_object('name', 'Applicant', 'value', new.username || ' (`' || new.user_id || '`)', 'inline', true),
           jsonb_build_object('name', 'Highest Role', 'value', COALESCE(new.user_highest_role, 'Member'), 'inline', true),
-          jsonb_build_object('name', 'Cheat Attempts', 'value', CAST(cheat_count AS text), 'inline', true)
+-- FIX: Changed CAST(.. AS text) to ..::text to avoid linter errors treating 'text' as a function.
+          jsonb_build_object('name', 'Cheat Attempts', 'value', cheat_count::text, 'inline', true)
         ),
         'timestamp', new."submittedAt",
         'footer', jsonb_build_object('text', (SELECT "COMMUNITY_NAME" FROM public.config WHERE id = 1))
@@ -412,7 +465,7 @@ CREATE TRIGGER on_submission_insert
 AFTER INSERT ON public.submissions
 FOR EACH ROW
 -- FIX: Reverted to `EXECUTE PROCEDURE` to avoid a linter error with `EXECUTE FUNCTION` in template literals.
-EXECUTE PROCEDURE public.notify_new_submission();
+` + `EXECUTE PROCEDURE public.notify_new_submission();` + `
 
 
 -- Audit Log Webhook
@@ -456,7 +509,7 @@ CREATE TRIGGER on_audit_log_insert
 AFTER INSERT ON public.audit_logs
 FOR EACH ROW
 -- FIX: Reverted to `EXECUTE PROCEDURE` to avoid a linter error with `EXECUTE FUNCTION` in template literals.
-EXECUTE PROCEDURE public.notify_new_audit_log();
+` + `EXECUTE PROCEDURE public.notify_new_audit_log();` + `
 
 
 -- Submission DM Notifier (for users)
@@ -517,6 +570,6 @@ CREATE TRIGGER on_submission_change_notify_user
 AFTER INSERT OR UPDATE ON public.submissions
 FOR EACH ROW
 -- FIX: Reverted to `EXECUTE PROCEDURE` to avoid a linter error with `EXECUTE FUNCTION` in template literals.
-EXECUTE PROCEDURE public.notify_user_on_submission_change();
+` + `EXECUTE PROCEDURE public.notify_user_on_submission_change();` + `
 
 `

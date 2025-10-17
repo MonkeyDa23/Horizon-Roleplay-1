@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { LocalizationProvider } from './contexts/LocalizationContext';
 import { AuthProvider } from './contexts/AuthContext';
@@ -11,47 +11,24 @@ import { useAuth } from './hooks/useAuth';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import SessionWatcher from './components/SessionWatcher';
+import VideoBackground from './components/VideoBackground';
 
 import HomePage from './pages/HomePage';
 import StorePage from './pages/StorePage';
 import RulesPage from './pages/RulesPage';
 import AppliesPage from './pages/AppliesPage';
 import AboutUsPage from './pages/AboutUsPage';
-import AdminPage from './pages/AdminPage';
 import QuizPage from './pages/QuizPage';
 import MyApplicationsPage from './pages/MyApplicationsPage';
 import ProfilePage from './pages/ProfilePage';
 import HealthCheckPage from './pages/HealthCheckPage';
 import { Loader2, AlertTriangle } from 'lucide-react';
 
-const AnimatedBackground = () => (
-  <ul className="background">
-    <li></li>
-    <li></li>
-    <li></li>
-    <li></li>
-    <li></li>
-    <li></li>
-    <li></li>
-    <li></li>
-    <li></li>
-    <li></li>
-  </ul>
-);
+const AdminPage = React.lazy(() => import('./pages/AdminPage'));
 
 const AppContent: React.FC = () => {
   const { config, configLoading, configError } = useConfig();
   const { user } = useAuth();
-
-  const backgroundStyle: React.CSSProperties =
-    !configLoading && config.BACKGROUND_IMAGE_URL
-      ? {
-          backgroundImage: `url(${config.BACKGROUND_IMAGE_URL})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundAttachment: 'fixed',
-        }
-      : {};
       
   if (configLoading) {
     return (
@@ -87,10 +64,9 @@ const AppContent: React.FC = () => {
     <Router>
       <div 
         className="flex flex-col min-h-screen text-white font-sans"
-        style={backgroundStyle}
       >
-        <AnimatedBackground />
-        <div className="flex flex-col min-h-screen" style={{ zIndex: 1, position: 'relative', backgroundColor: config.BACKGROUND_IMAGE_URL ? 'rgba(10, 15, 24, 0.9)' : 'transparent', backdropFilter: config.BACKGROUND_IMAGE_URL ? 'blur(4px)' : 'none' }}>
+        <VideoBackground />
+        <div className="flex flex-col min-h-screen relative z-10 bg-brand-dark/90 backdrop-blur-sm">
           <Navbar />
           <main className="flex-grow">
             <Routes>
@@ -100,7 +76,11 @@ const AppContent: React.FC = () => {
               <Route path="/applies" element={<AppliesPage />} />
               <Route path="/applies/:quizId" element={<QuizPage />} />
               <Route path="/about" element={<AboutUsPage />} />
-              <Route path="/admin" element={user?.isAdmin ? <AdminPage /> : <Navigate to="/" />} />
+              <Route path="/admin" element={
+                <Suspense fallback={<div className="flex justify-center items-center h-full w-full py-20"><Loader2 className="animate-spin text-brand-cyan" size={48}/></div>}>
+                  {user?.isAdmin ? <AdminPage /> : <Navigate to="/" />}
+                </Suspense>
+              } />
               <Route path="/my-applications" element={user ? <MyApplicationsPage /> : <Navigate to="/" />} />
               <Route path="/profile" element={user ? <ProfilePage /> : <Navigate to="/" />} />
               

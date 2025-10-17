@@ -160,6 +160,19 @@ export const translations: Translations = {
   loading_logs: { ar: 'جاري تحميل السجلات...', en: 'Loading logs...' },
   error_loading_logs: { ar: 'خطأ في تحميل السجلات.', en: 'Error loading logs.' },
   no_logs_found_for_player: { ar: 'لم يتم العثور على سجلات لهذا اللاعب.', en: 'No logs found for this player.' },
+  
+  // User Lookup
+  user_information: { ar: 'معلومات المستخدم', en: 'User Information' },
+  permissions: { ar: 'الصلاحيات', en: 'Permissions' },
+  grant_admin_access: { ar: 'منح صلاحية مشرف', en: 'Grant Admin Access' },
+  grant_super_admin_access: { ar: 'منح صلاحية مشرف خارق', en: 'Grant Super Admin Access' },
+  confirm_permission_change_title: { ar: 'تأكيد تغيير الصلاحيات', en: 'Confirm Permission Change' },
+  // FIX: Escaped the single quote in "user's" to fix a parsing error.
+  confirm_permission_change_desc: { ar: 'هل أنت متأكد أنك تريد تحديث صلاحيات هذا المستخدم؟ هذا الإجراء سيتم تسجيله.', en: 'Are you sure you want to update this user\'s permissions? This action will be logged.' },
+  update_permissions: { ar: 'تحديث الصلاحيات', en: 'Update Permissions' },
+  permissions_updated: { ar: 'تم تحديث الصلاحيات بنجاح!', en: 'Permissions updated successfully!' },
+  joined_discord: { ar: 'تاريخ الانضمام', en: 'Joined Discord' },
+
 
   // Admin Page - new keys
   save: { ar: 'حفظ', en: 'Save' },

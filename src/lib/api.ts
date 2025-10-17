@@ -1,7 +1,7 @@
 import { supabase } from './supabaseClient';
 // FIX: The Session type is sometimes not re-exported from the main supabase-js package. Importing directly from gotrue-js is safer.
 import type { Session } from '@supabase/gotrue-js';
-import type { User, Product, Quiz, QuizSubmission, SubmissionStatus, DiscordRole, DiscordAnnouncement, MtaServerStatus, AuditLogEntry, RuleCategory, AppConfig, Rule, MtaLogEntry } from '../types';
+import type { User, Product, Quiz, QuizSubmission, SubmissionStatus, DiscordRole, DiscordAnnouncement, MtaServerStatus, AuditLogEntry, RuleCategory, AppConfig, Rule, MtaLogEntry, UserLookupResult } from '../types';
 
 // --- API Error Handling ---
 export class ApiError extends Error {
@@ -208,6 +208,25 @@ export const logAdminAccess = async (user: User): Promise<void> => {
     if (error) {
         console.error("Failed to log admin access:", error);
     }
+};
+
+export const lookupDiscordUser = async (userId: string): Promise<UserLookupResult> => {
+    if (!supabase) throw new ApiError("Database not configured", 500);
+    const { data, error } = await supabase.functions.invoke('get-discord-user-profile', {
+        body: { userId },
+    });
+    if (error) throw new ApiError(error.message, 500);
+    return data;
+}
+
+export const updateUserPermissions = async (targetUserId: string, isAdmin: boolean, isSuperAdmin: boolean): Promise<void> => {
+    if (!supabase) throw new ApiError("Database not configured", 500);
+    const { error } = await supabase.rpc('update_user_permissions', {
+        target_user_id: targetUserId,
+        p_is_admin: isAdmin,
+        p_is_super_admin: isSuperAdmin
+    });
+    if (error) throw new ApiError(error.message, 500);
 };
 
 // --- Caching for Discord data ---
