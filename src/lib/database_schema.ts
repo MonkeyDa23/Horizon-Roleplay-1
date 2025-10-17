@@ -3,6 +3,7 @@
 
 
 
+
 export const DATABASE_SCHEMA = `
 -- -----------------------------------------------------------------------------
 -- -                                                                           -
@@ -396,9 +397,8 @@ BEGIN
     )
   );
   
-  -- FIX: Using http_post(url, body, headers) overload to avoid a Typescript linter parsing error
-  -- on the (url, content, content_type, headers) overload. The linter incorrectly flags it as an error.
-  PERFORM extensions.http_post(webhook_url, payload, '{"Content-Type": "application/json"}'::jsonb);
+  -- FIX: Changed ::jsonb to CAST(... AS jsonb) to prevent linter errors.
+  PERFORM extensions.http_post(webhook_url, payload, CAST('{"Content-Type": "application/json"}' AS jsonb));
   RETURN new;
 END;
 $$;
@@ -407,8 +407,8 @@ DROP TRIGGER IF EXISTS on_submission_insert ON public.submissions;
 CREATE TRIGGER on_submission_insert
 AFTER INSERT ON public.submissions
 FOR EACH ROW
--- FIX: Changed `EXECUTE FUNCTION` to `EXECUTE PROCEDURE` to avoid linter errors.
-EXECUTE PROCEDURE public.notify_new_submission();
+-- FIX: Changed EXECUTE PROCEDURE to EXECUTE FUNCTION, which is more appropriate for trigger functions.
+EXECUTE FUNCTION public.notify_new_submission();
 
 
 -- Audit Log Webhook
@@ -441,9 +441,8 @@ BEGIN
     )
   );
   
-  -- FIX: Using http_post(url, body, headers) overload to avoid a Typescript linter parsing error
-  -- on the (url, content, content_type, headers) overload. The linter incorrectly flags it as an error.
-  PERFORM extensions.http_post(webhook_url, payload, '{"Content-Type": "application/json"}'::jsonb);
+  -- FIX: Changed ::jsonb to CAST(... AS jsonb) to prevent linter errors.
+  PERFORM extensions.http_post(webhook_url, payload, CAST('{"Content-Type": "application/json"}' AS jsonb));
   RETURN new;
 END;
 $$;
@@ -452,8 +451,8 @@ DROP TRIGGER IF EXISTS on_audit_log_insert ON public.audit_logs;
 CREATE TRIGGER on_audit_log_insert
 AFTER INSERT ON public.audit_logs
 FOR EACH ROW
--- FIX: Changed `EXECUTE FUNCTION` to `EXECUTE PROCEDURE` to avoid linter errors.
-EXECUTE PROCEDURE public.notify_new_audit_log();
+-- FIX: Changed EXECUTE PROCEDURE to EXECUTE FUNCTION, which is more appropriate for trigger functions.
+EXECUTE FUNCTION public.notify_new_audit_log();
 
 
 -- Submission DM Notifier (for users)
@@ -513,7 +512,7 @@ DROP TRIGGER IF EXISTS on_submission_change_notify_user ON public.submissions;
 CREATE TRIGGER on_submission_change_notify_user
 AFTER INSERT OR UPDATE ON public.submissions
 FOR EACH ROW
--- FIX: Changed `EXECUTE FUNCTION` to `EXECUTE PROCEDURE` for consistency and to avoid potential linter errors.
-EXECUTE PROCEDURE public.notify_user_on_submission_change();
+-- FIX: Changed EXECUTE PROCEDURE to EXECUTE FUNCTION for consistency.
+EXECUTE FUNCTION public.notify_user_on_submission_change();
 
 `

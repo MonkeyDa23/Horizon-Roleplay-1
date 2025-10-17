@@ -2,6 +2,7 @@ import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { fetchUserProfile } from '../lib/api';
 import type { User, AuthContextType } from '../types';
+import { useToast } from '../hooks/useToast';
 // FIX: The Session type is sometimes not re-exported from the main supabase-js package. Importing directly from gotrue-js is safer.
 import type { Session } from '@supabase/gotrue-js';
 
@@ -10,14 +11,19 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const { showToast } = useToast();
 
   const handleSession = useCallback(async (session: Session | null) => {
     if (session) {
       try {
-        const fullUserProfile = await fetchUserProfile(session);
+        const { user: fullUserProfile, syncError } = await fetchUserProfile(session);
         setUser(fullUserProfile);
+        if (syncError) {
+            showToast(`Warning: ${syncError}`, 'warning');
+        }
       } catch (error) {
-        console.error("Error fetching user profile:", error);
+        console.error("Critical error fetching user profile:", error);
+        showToast("A critical error occurred during login.", 'error');
         // If profile fetch fails, sign out to prevent being in a broken login state
         await supabase?.auth.signOut();
         setUser(null);
@@ -26,7 +32,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(null);
     }
     setLoading(false);
-  }, []);
+  }, [showToast]);
 
   useEffect(() => {
     if (!supabase) {

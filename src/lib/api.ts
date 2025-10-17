@@ -224,6 +224,11 @@ const MEMBER_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 // --- AUTH & SESSION MANAGEMENT ---
 
+export interface UserProfileResponse {
+    user: User;
+    syncError?: string;
+}
+
 const fetchDiscordMember = async (providerToken: string, guildId: string, userId: string): Promise<{ roles: string[], discordRoles: DiscordRole[], highestRole: DiscordRole | null }> => {
     // Check cache first
     const cached = discordMemberCache.get(userId);
@@ -242,6 +247,7 @@ const fetchDiscordMember = async (providerToken: string, guildId: string, userId
     });
     if (!memberResponse.ok) {
         if (memberResponse.status === 404) throw new ApiError("User not found in the configured Discord server. Please join the server and try logging in again.", 404);
+        if (memberResponse.status === 403) throw new ApiError("Discord permissions missing. Please log out and log back in, ensuring you grant the 'Access your servers' permission.", 403);
         throw new ApiError(`Failed to fetch Discord member data: ${memberResponse.statusText}`, memberResponse.status);
     }
     const memberData = await memberResponse.json();
@@ -293,34 +299,24 @@ const fetchDiscordMember = async (providerToken: string, guildId: string, userId
 };
 
 
-export const fetchUserProfile = async (session: Session): Promise<User> => {
+export const fetchUserProfile = async (session: Session): Promise<UserProfileResponse> => {
     if (!supabase) throw new ApiError("Supabase not configured", 500);
 
-    // Step 1: Get basic user info from session.
     const userId = session.user.id;
     const username = session.user.user_metadata.full_name;
     const avatar = session.user.user_metadata.avatar_url;
 
-    // Step 2: Ensure a profile exists and get its current state. THIS IS THE CRITICAL PATH.
-    // This upsert will create a profile with default values if it's a new user.
-    // We then select it to get the user's last known permissions.
     const { data: profileData, error: profileError } = await supabase
       .from('profiles')
       .upsert({ id: userId, updated_at: new Date().toISOString() })
       .select('is_admin, is_super_admin')
       .single();
 
-    // If this fails, the login cannot proceed. It's a fundamental DB issue.
     if (profileError) {
       console.error("Critical error: Could not read or create user profile.", profileError);
       throw new ApiError(profileError.message, 500);
     }
 
-    // At this point, login is guaranteed to succeed. The user will be logged in
-    // with their permissions as stored in our database.
-
-    // Step 3: (BEST EFFORT) Try to sync roles from Discord.
-    // This can fail without breaking the login.
     let roles: string[] = [];
     let discordRoles: DiscordRole[] = [];
     let highestRole: DiscordRole | null = null;
@@ -338,14 +334,12 @@ export const fetchUserProfile = async (session: Session): Promise<User> => {
         discordRoles = memberData.discordRoles;
         highestRole = memberData.highestRole;
 
-        // Calculate fresh permissions
         const superAdminRoles = config.SUPER_ADMIN_ROLE_IDS || [];
         const handlerRoles = config.HANDLER_ROLE_IDS || [];
         const freshIsSuperAdmin = roles.some(roleId => superAdminRoles.includes(roleId));
         const freshIsHandler = roles.some(roleId => handlerRoles.includes(roleId));
         const freshIsAdmin = freshIsSuperAdmin || freshIsHandler;
 
-        // If permissions have changed, update the DB.
         if (freshIsAdmin !== isAdmin || freshIsSuperAdmin !== isSuperAdmin) {
             const { error: updateError } = await supabase
               .from('profiles')
@@ -353,16 +347,12 @@ export const fetchUserProfile = async (session: Session): Promise<User> => {
               .eq('id', userId);
             
             if (updateError) {
-                // Log the error but don't fail the whole login. The user will just have stale permissions
-                // until the next successful sync.
                 console.warn("Failed to update user permissions in DB after a successful role sync.", updateError);
             } else {
-                // Update the variables we're about to return.
                 isAdmin = freshIsAdmin;
                 isSuperAdmin = freshIsSuperAdmin;
             }
         }
-
     } catch (error) {
         let warningMessage = "Could not sync Discord roles during login. User will have existing permissions. This is non-critical.";
         if (error instanceof ApiError) {
@@ -370,12 +360,23 @@ export const fetchUserProfile = async (session: Session): Promise<User> => {
         } else if (error instanceof Error) {
             warningMessage += ` (Reason: ${error.message})`;
         }
-        // The second argument to console.warn is for the error object itself, which allows for expandable stack trace.
         console.warn(warningMessage, error);
+
+        const staleUser: User = {
+          id: userId,
+          username: username,
+          avatar: avatar,
+          isAdmin: isAdmin,
+          isSuperAdmin: isSuperAdmin,
+          discordRoles: [],
+          roles: [],
+          highestRole: null,
+        };
+        const errorMessage = error instanceof Error ? error.message : "An unknown error occurred during Discord sync.";
+        return { user: staleUser, syncError: errorMessage };
     }
     
-    // Step 4: Return the complete User object.
-    return {
+    const finalUser: User = {
       id: userId,
       username: username,
       avatar: avatar,
@@ -385,14 +386,16 @@ export const fetchUserProfile = async (session: Session): Promise<User> => {
       roles: roles,
       highestRole: highestRole,
     };
+
+    return { user: finalUser };
 };
 
 export const revalidateSession = async (): Promise<User> => {
     if (!supabase) throw new ApiError("Supabase not configured", 500);
     const { data: { session }, error } = await supabase.auth.getSession();
     if (error || !session) throw new ApiError("No active session.", 401);
-    // Re-running the full profile fetch also re-syncs the roles
-    return fetchUserProfile(session);
+    const { user } = await fetchUserProfile(session);
+    return user;
 }
 
 
