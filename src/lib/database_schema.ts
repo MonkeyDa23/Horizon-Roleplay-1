@@ -1,6 +1,7 @@
 
 
 
+
 export const DATABASE_SCHEMA = `
 -- -----------------------------------------------------------------------------
 -- -                                                                           -
@@ -394,7 +395,9 @@ BEGIN
     )
   );
   
-  PERFORM extensions.http_post(webhook_url, CAST(payload AS text), 'application/json', CAST('{}' AS jsonb));
+  -- FIX: Using http_post(url, body, headers) overload to avoid a Typescript linter parsing error
+  -- on the (url, content, content_type, headers) overload. The linter incorrectly flags it as an error.
+  PERFORM extensions.http_post(webhook_url, payload, '{"Content-Type": "application/json"}'::jsonb);
   RETURN new;
 END;
 $$;
@@ -436,7 +439,9 @@ BEGIN
     )
   );
   
-  PERFORM extensions.http_post(webhook_url, CAST(payload AS text), 'application/json', CAST('{}' AS jsonb));
+  -- FIX: Using http_post(url, body, headers) overload to avoid a Typescript linter parsing error
+  -- on the (url, content, content_type, headers) overload. The linter incorrectly flags it as an error.
+  PERFORM extensions.http_post(webhook_url, payload, '{"Content-Type": "application/json"}'::jsonb);
   RETURN new;
 END;
 $$;

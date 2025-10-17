@@ -216,7 +216,7 @@ const fetchDiscordMember = async (providerToken: string, guildId: string): Promi
     if (!guildId) {
         throw new ApiError("Discord Guild ID is not configured in the database.", 500);
     }
-    const memberUrl = `https://discord.com/api/users/@me/guilds/${guildId}/member`;
+    const memberUrl = `https://discord.com/api/v10/users/@me/guilds/${guildId}/member`;
     const memberResponse = await fetchWithRetry(memberUrl, {
         headers: { 'Authorization': `Bearer ${providerToken}` }
     });
@@ -386,7 +386,7 @@ export const testDiscordApi = async (session: Session): Promise<string> => {
     const guildId = config.DISCORD_GUILD_ID;
     if (!guildId) throw new ApiError("Discord Guild ID is not configured in the database.", 500);
 
-    const memberUrl = `https://discord.com/api/users/@me/guilds/${guildId}/member`;
+    const memberUrl = `https://discord.com/api/v10/users/@me/guilds/${guildId}/member`;
     const memberResponse = await fetchWithRetry(memberUrl, {
         headers: { 'Authorization': `Bearer ${providerToken}` }
     });
