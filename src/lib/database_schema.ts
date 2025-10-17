@@ -4,6 +4,8 @@
 
 
 
+
+
 export const DATABASE_SCHEMA = `
 -- -----------------------------------------------------------------------------
 -- -                                                                           -
@@ -397,8 +399,8 @@ BEGIN
     )
   );
   
-  -- FIX: Changed ::jsonb to CAST(... AS jsonb) to prevent linter errors.
-  PERFORM extensions.http_post(webhook_url, payload, CAST('{"Content-Type": "application/json"}' AS jsonb));
+  -- FIX: Use jsonb_build_object to create headers without linter-unfriendly casting syntax.
+  PERFORM extensions.http_post(webhook_url, payload, jsonb_build_object('Content-Type', 'application/json'));
   RETURN new;
 END;
 $$;
@@ -441,8 +443,8 @@ BEGIN
     )
   );
   
-  -- FIX: Changed ::jsonb to CAST(... AS jsonb) to prevent linter errors.
-  PERFORM extensions.http_post(webhook_url, payload, CAST('{"Content-Type": "application/json"}' AS jsonb));
+  -- FIX: Use jsonb_build_object to create headers without linter-unfriendly casting syntax.
+  PERFORM extensions.http_post(webhook_url, payload, jsonb_build_object('Content-Type', 'application/json'));
   RETURN new;
 END;
 $$;

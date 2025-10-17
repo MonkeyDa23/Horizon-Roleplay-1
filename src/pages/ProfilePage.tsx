@@ -50,6 +50,24 @@ const ProfilePage: React.FC = () => {
     const { text, color } = statusMap[status];
     return <span className={`px-3 py-1 text-sm font-bold rounded-full ${color}`}>{text}</span>;
   };
+
+  const renderUserRole = () => {
+    if (!user) return null;
+
+    if (user.highestRole && user.highestRole.name !== '@everyone') {
+        const role = user.highestRole;
+        const style = {
+            backgroundColor: `${role.color === '#000000' ? '#2f3136' : role.color}30`,
+            borderColor: role.color === '#000000' ? '#99aab5' : role.color,
+            color: role.color === '#000000' ? '#ffffff' : role.color,
+        };
+        return <span className="px-3 py-1 text-sm font-bold rounded-full border" style={style}>{role.name}</span>;
+    }
+    if (user.isAdmin) {
+        return <span className="px-3 py-1 text-sm font-bold rounded-full bg-brand-cyan/20 text-brand-cyan">{t('admin')}</span>;
+    }
+    return <span className="px-3 py-1 text-sm font-bold rounded-full bg-gray-500/20 text-gray-300">{t('member')}</span>;
+  };
   
   if (authLoading || !user) {
     return (
@@ -83,20 +101,9 @@ const ProfilePage: React.FC = () => {
                       className="w-32 h-32 rounded-full mx-auto border-4 border-brand-cyan shadow-glow-cyan-light"
                   />
                   <h2 className="text-3xl font-bold mt-4">{user.username}</h2>
-                  {user.highestRole && user.highestRole.name !== '@everyone' && (
-                    <div className="mt-2">
-                      <span
-                        className="px-3 py-1 text-sm font-bold rounded-full border"
-                        style={{
-                          backgroundColor: `${user.highestRole.color === '#000000' ? '#2f3136' : user.highestRole.color}30`,
-                          borderColor: user.highestRole.color === '#000000' ? '#99aab5' : user.highestRole.color,
-                          color: user.highestRole.color === '#000000' ? '#ffffff' : user.highestRole.color,
-                        }}
-                      >
-                        {user.highestRole.name}
-                      </span>
-                    </div>
-                  )}
+                  <div className="mt-2 min-h-[28px] flex items-center justify-center">
+                    {renderUserRole()}
+                  </div>
                   
                   {user.discordRoles && user.discordRoles.length > 0 && (
                       <div className="mt-6 pt-4 border-t border-brand-light-blue/50">
@@ -134,12 +141,6 @@ const ProfilePage: React.FC = () => {
                       <div className="flex flex-col items-center">
                           <span className="font-semibold text-gray-400">{t('user_id')}</span>
                           <code className="text-xs bg-brand-dark px-2 py-1 rounded mt-1">{user.id}</code>
-                      </div>
-                      <div className="flex flex-col items-center">
-                          <span className="font-semibold text-gray-400">{t('role')}</span>
-                          <span className={`px-3 py-1 text-sm font-bold rounded-full mt-1 ${user.isAdmin ? 'bg-brand-cyan/20 text-brand-cyan' : 'bg-gray-500/20 text-gray-300'}`}>
-                            {user.isAdmin ? t('admin') : t('member')}
-                          </span>
                       </div>
                   </div>
               </div>
