@@ -1,6 +1,4 @@
-// supabase/functions/sync-user-profile/index.ts
-
-// FIX: Add Deno types reference to resolve errors with Deno globals.
+// FIX: Replaced triple-slash directive with @deno-types to resolve Deno type errors.
 // @deno-types="https://esm.sh/@supabase/functions-js@2"
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -30,7 +28,6 @@ serve(async (req) => {
 
   try {
     const supabaseClient = createClient(
-      // FIX: Suppress Deno global type errors in non-Deno environments.
       // @ts-ignore
       Deno.env.get('SUPABASE_URL') ?? '',
       // @ts-ignore
@@ -46,7 +43,6 @@ serve(async (req) => {
 
     // Create a service role client for elevated permissions
     const supabaseAdmin = createClient(
-      // FIX: Suppress Deno global type errors in non-Deno environments.
       // @ts-ignore
       Deno.env.get('SUPABASE_URL') ?? '',
       // @ts-ignore
