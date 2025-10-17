@@ -61,8 +61,8 @@ serve(async (req) => {
 
     const roles = await rolesResponse.json();
     
-    // The client expects an object with a 'roles' key
-    return createResponse({ roles });
+    // Return the array of roles directly.
+    return createResponse(roles);
 
   } catch (error) {
     console.error('An unexpected error occurred:', error.message);

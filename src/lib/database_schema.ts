@@ -1,4 +1,5 @@
 
+
 export const DATABASE_SCHEMA = `
 -- -----------------------------------------------------------------------------
 -- -                                                                           -
@@ -36,7 +37,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 -- Set up Row Level Security (RLS)
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
--- NEW: Helper function to check admin status without recursion
+-- Helper function to check admin status without recursion
 CREATE OR REPLACE FUNCTION public.is_current_user_admin()
 RETURNS boolean
 LANGUAGE plpgsql
@@ -58,7 +59,6 @@ DROP POLICY IF EXISTS "Allow individual read access" ON public.profiles;
 CREATE POLICY "Allow individual read access" ON public.profiles
   FOR SELECT USING (auth.uid() = id);
 
--- UPDATED: Use the helper function to prevent infinite recursion.
 DROP POLICY IF EXISTS "Allow admin read access" ON public.profiles;
 CREATE POLICY "Allow admin read access" ON public.profiles
   FOR SELECT USING (public.is_current_user_admin() = true);
@@ -111,11 +111,6 @@ CREATE TABLE IF NOT EXISTS public.config (
     CONSTRAINT single_row_constraint CHECK (id = 1)
 );
 
--- FIX: Add the columns if they are missing from an older schema version to ensure backwards compatibility.
-ALTER TABLE public.config ADD COLUMN IF NOT EXISTS "AUDIT_LOG_WEBHOOK_URL" text;
-ALTER TABLE public.config ADD COLUMN IF NOT EXISTS "SUBMISSIONS_WEBHOOK_URL" text;
-
-
 ALTER TABLE public.config ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Allow public read access" ON public.config;
@@ -129,15 +124,7 @@ CREATE POLICY "Allow super admin update access" ON public.config
   );
 
 -- Insert a default config row if it doesn't exist
-INSERT INTO public.config (id, "COMMUNITY_NAME", "LOGO_URL", "DISCORD_GUILD_ID", "SHOW_HEALTH_CHECK", "SUPER_ADMIN_ROLE_IDS", "HANDLER_ROLE_IDS") 
-VALUES (1, 'Horizon RP', 'https://k.top4top.io/p_3567qyjog1.png', 'YOUR_DISCORD_GUILD_ID_HERE', true, '{}', '{}')
-ON CONFLICT (id) DO UPDATE SET
-    "COMMUNITY_NAME" = COALESCE(public.config."COMMUNITY_NAME", 'Horizon RP'),
-    "LOGO_URL" = COALESCE(public.config."LOGO_URL", 'https://k.top4top.io/p_3567qyjog1.png'),
-    "DISCORD_GUILD_ID" = COALESCE(public.config."DISCORD_GUILD_ID", 'YOUR_DISCORD_GUILD_ID_HERE'),
-    "SHOW_HEALTH_CHECK" = COALESCE(public.config."SHOW_HEALTH_CHECK", true),
-    "SUPER_ADMIN_ROLE_IDS" = COALESCE(public.config."SUPER_ADMIN_ROLE_IDS", '{}'),
-    "HANDLER_ROLE_IDS" = COALESCE(public.config."HANDLER_ROLE_IDS", '{}');
+INSERT INTO public.config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 
 
 -- =============================================================================
@@ -186,8 +173,14 @@ CREATE TABLE IF NOT EXISTS public.submissions (
   "updatedAt" timestamp with time zone
 );
 
--- In case the column was created with the wrong name previously
-ALTER TABLE public.submissions RENAME COLUMN IF EXISTS submitted_at TO "submittedAt";
+-- Fix for old schemas that might have used snake_case
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_catalog.pg_attribute WHERE attrelid = 'public.submissions'::regclass AND attname = 'submitted_at' AND NOT attisdropped)
+    AND NOT EXISTS (SELECT 1 FROM pg_catalog.pg_attribute WHERE attrelid = 'public.submissions'::regclass AND attname = 'submittedAt' AND NOT attisdropped) THEN
+        ALTER TABLE public.submissions RENAME COLUMN submitted_at TO "submittedAt";
+    END IF;
+END $$;
 
 
 ALTER TABLE public.submissions ENABLE ROW LEVEL SECURITY;
@@ -253,13 +246,21 @@ $$;
 --  5. STORE PRODUCTS
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS public.products (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  id text PRIMARY KEY,
   "nameKey" text NOT NULL,
   "descriptionKey" text,
   price numeric(10, 2) NOT NULL,
   "imageUrl" text,
   created_at timestamp with time zone DEFAULT now()
 );
+
+-- Safe migration from UUID to TEXT for backwards compatibility
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='products' AND column_name='id' AND udt_name='uuid') THEN
+        ALTER TABLE public.products ALTER COLUMN id TYPE TEXT;
+    END IF;
+END $$;
 
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 
@@ -275,30 +276,6 @@ CREATE POLICY "Allow super admin full access" ON public.products FOR ALL USING (
 -- =============================================================================
 --  6. RULES
 -- =============================================================================
--- Note: Changing ID types to TEXT to support client-side ID generation.
--- This is a safe migration.
-
--- Temporarily disable triggers to avoid foreign key constraint issues during type change
-ALTER TABLE public.rules DISABLE TRIGGER ALL;
-
--- Drop foreign key constraint before changing types
-ALTER TABLE IF EXISTS public.rules DROP CONSTRAINT IF EXISTS rules_category_id_fkey;
-
--- Change column types
-ALTER TABLE public.rule_categories ALTER COLUMN id TYPE text;
-ALTER TABLE public.rules ALTER COLUMN id TYPE text;
-ALTER TABLE public.rules ALTER COLUMN category_id TYPE text;
-
--- Re-add foreign key constraint
-ALTER TABLE public.rules 
-  ADD CONSTRAINT rules_category_id_fkey 
-  FOREIGN KEY (category_id) 
-  REFERENCES public.rule_categories(id) 
-  ON DELETE CASCADE;
-
--- Re-enable triggers
-ALTER TABLE public.rules ENABLE TRIGGER ALL;
-
 CREATE TABLE IF NOT EXISTS public.rule_categories (
   id text PRIMARY KEY,
   "titleKey" text NOT NULL,
@@ -307,9 +284,37 @@ CREATE TABLE IF NOT EXISTS public.rule_categories (
 
 CREATE TABLE IF NOT EXISTS public.rules (
   id text PRIMARY KEY,
-  category_id text REFERENCES public.rule_categories(id) ON DELETE CASCADE,
+  category_id text,
   "textKey" text NOT NULL
 );
+
+-- Safe migration from UUID to TEXT for backwards compatibility
+DO $$
+BEGIN
+    -- Check if migration is needed for rule_categories
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='rule_categories' AND column_name='id' AND udt_name='uuid') THEN
+        -- Temporarily drop the foreign key from 'rules' before changing the primary key type
+        ALTER TABLE public.rules DROP CONSTRAINT IF EXISTS rules_category_id_fkey;
+        -- Alter the primary key type
+        ALTER TABLE public.rule_categories ALTER COLUMN id TYPE TEXT;
+    END IF;
+
+    -- Check if migration is needed for rules
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='rules' AND column_name='id' AND udt_name='uuid') THEN
+        ALTER TABLE public.rules ALTER COLUMN id TYPE TEXT;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='rules' AND column_name='category_id' AND udt_name='uuid') THEN
+        ALTER TABLE public.rules ALTER COLUMN category_id TYPE TEXT;
+    END IF;
+
+    -- Re-create the foreign key constraint if it doesn't exist
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'rules_category_id_fkey' AND conrelid = 'public.rules'::regclass) THEN
+       ALTER TABLE public.rules
+       ADD CONSTRAINT rules_category_id_fkey
+       FOREIGN KEY (category_id) REFERENCES public.rule_categories(id) ON DELETE CASCADE;
+    END IF;
+END $$;
+
 
 ALTER TABLE public.rule_categories ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public read access" ON public.rule_categories;
@@ -380,15 +385,15 @@ BEGIN
         'fields', jsonb_build_array(
           jsonb_build_object('name', 'Applicant', 'value', NEW.username || ' (`' || NEW.user_id || '`)', 'inline', true),
           jsonb_build_object('name', 'Highest Role', 'value', COALESCE(NEW.user_highest_role, 'Member'), 'inline', true),
-          jsonb_build_object('name', 'Cheat Attempts', 'value', cheat_count, 'inline', true)
+          jsonb_build_object('name', 'Cheat Attempts', 'value', cheat_count::text, 'inline', true)
         ),
         'timestamp', NEW."submittedAt",
         'footer', jsonb_build_object('text', (SELECT "COMMUNITY_NAME" FROM public.config WHERE id = 1))
       )
     )
   );
-  -- FIX: Fully qualify http_post to avoid linter errors.
-PERFORM extensions.http_post(webhook_url, payload, 'application/json', '{}'::jsonb);
+  -- FIX: Use standard CAST syntax to avoid potential linter issues with the `::` shorthand.
+  PERFORM extensions.http_post(webhook_url, CAST(payload AS text), 'application/json', '{}'::jsonb);
   RETURN NEW;
 END;
 $$;
@@ -430,8 +435,8 @@ BEGIN
     )
   );
   
-  -- FIX: Fully qualify http_post to avoid linter errors.
-PERFORM extensions.http_post(webhook_url, payload, 'application/json', '{}'::jsonb);
+  -- FIX: Use standard CAST syntax to avoid potential linter issues with the `::` shorthand.
+  PERFORM extensions.http_post(webhook_url, CAST(payload AS text), 'application/json', '{}'::jsonb);
   RETURN NEW;
 END;
 $$;

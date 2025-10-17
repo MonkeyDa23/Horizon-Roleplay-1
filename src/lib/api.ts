@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
-import type { Session } from '@supabase/supabase-js';
+// FIX: The Session type is sometimes not re-exported from the main supabase-js package. Importing directly from gotrue-js is safer.
+import type { Session } from '@supabase/gotrue-js';
 import type { User, Product, Quiz, QuizSubmission, SubmissionStatus, DiscordRole, DiscordAnnouncement, MtaServerStatus, AuditLogEntry, RuleCategory, AppConfig, Rule, MtaLogEntry } from '../types';
 
 // --- API Error Handling ---
@@ -213,17 +214,14 @@ const fetchDiscordMember = async (providerToken: string, guildId: string): Promi
     }
 
     try {
-        const { data: functionResponse, error: functionsError } = await supabase.functions.invoke('get-guild-roles', {
+        const { data: allGuildRoles, error: functionsError } = await supabase.functions.invoke('get-guild-roles', {
             body: { guildId },
         });
 
         if (functionsError) throw functionsError;
         
-        // The edge function is expected to return an object like { roles: [...] }
-        const allGuildRoles: { id: string; name: string; color: number; position: number; }[] = functionResponse.roles;
-
         if (!Array.isArray(allGuildRoles)) {
-            console.warn("Edge function 'get-guild-roles' did not return a 'roles' array.", functionResponse);
+            console.warn("Edge function 'get-guild-roles' did not return an array.", allGuildRoles);
             return { roles: userRoleIds, discordRoles: [], highestRole: null };
         }
 

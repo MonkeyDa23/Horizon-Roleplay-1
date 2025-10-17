@@ -2,7 +2,8 @@ import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { fetchUserProfile } from '../lib/api';
 import type { User, AuthContextType } from '../types';
-import type { Session } from '@supabase/supabase-js';
+// FIX: The Session type is sometimes not re-exported from the main supabase-js package. Importing directly from gotrue-js is safer.
+import type { Session } from '@supabase/gotrue-js';
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
