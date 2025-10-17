@@ -24,6 +24,21 @@ import ProfilePage from './pages/ProfilePage';
 import HealthCheckPage from './pages/HealthCheckPage';
 import { Loader2, AlertTriangle } from 'lucide-react';
 
+const AnimatedBackground = () => (
+  <ul className="background">
+    <li></li>
+    <li></li>
+    <li></li>
+    <li></li>
+    <li></li>
+    <li></li>
+    <li></li>
+    <li></li>
+    <li></li>
+    <li></li>
+  </ul>
+);
+
 const AppContent: React.FC = () => {
   const { config, configLoading, configError } = useConfig();
   const { user } = useAuth();
@@ -71,9 +86,10 @@ const AppContent: React.FC = () => {
   return (
     <Router>
       <div 
-        className="flex flex-col min-h-screen bg-brand-dark text-white font-sans app-container"
+        className="flex flex-col min-h-screen text-white font-sans"
         style={backgroundStyle}
       >
+        <AnimatedBackground />
         <div className="flex flex-col min-h-screen" style={{ zIndex: 1, position: 'relative', backgroundColor: config.BACKGROUND_IMAGE_URL ? 'rgba(10, 15, 24, 0.9)' : 'transparent', backdropFilter: config.BACKGROUND_IMAGE_URL ? 'blur(4px)' : 'none' }}>
           <Navbar />
           <main className="flex-grow">
