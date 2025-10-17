@@ -364,7 +364,8 @@ export const fetchUserProfile = async (session: Session): Promise<UserProfileRes
       throw new ApiError(profileError.message, 500);
     }
     
-    // Initialize with DB data and empty Discord data
+    // Initialize with DB data as a fallback.
+    // Also initialize Discord data as empty, to be populated by sync.
     let roles: string[] = [];
     let discordRoles: DiscordRole[] = [];
     let highestRole: DiscordRole | null = null;
@@ -372,49 +373,66 @@ export const fetchUserProfile = async (session: Session): Promise<UserProfileRes
     let isSuperAdmin = profileData.is_super_admin;
     let syncError: string | undefined = undefined;
 
-    const providerToken = session.provider_token;
+    try {
+        const config = await getConfig();
+        let memberData: { roles: string[], discordRoles: DiscordRole[], highestRole: DiscordRole | null };
 
-    // Only attempt to sync with Discord if we have a fresh provider token.
-    if (providerToken) {
-        try {
-            const config = await getConfig();
-            const memberData = await fetchDiscordMember(providerToken, config.DISCORD_GUILD_ID, userId);
+        const providerToken = session.provider_token;
+        if (providerToken) {
+            console.log(`[Sync] Using provider_token for user ${userId}.`);
+            memberData = await fetchDiscordMember(providerToken, config.DISCORD_GUILD_ID, userId);
+        } else {
+            console.log(`[Sync] No provider_token for user ${userId}. Using bot function.`);
+            const { data: botData, error: funcError } = await supabase.functions.invoke('get-discord-user-profile', { body: { userId } });
             
-            roles = memberData.roles;
-            discordRoles = memberData.discordRoles;
-            highestRole = memberData.highestRole;
-    
-            const superAdminRoles = config.SUPER_ADMIN_ROLE_IDS || [];
-            const handlerRoles = config.HANDLER_ROLE_IDS || [];
-            const freshIsSuperAdmin = roles.some(roleId => superAdminRoles.includes(roleId));
-            const freshIsHandler = roles.some(roleId => handlerRoles.includes(roleId));
-            const freshIsAdmin = freshIsSuperAdmin || freshIsHandler;
-    
-            isAdmin = freshIsAdmin;
-            isSuperAdmin = freshIsSuperAdmin;
-    
-            if (freshIsAdmin !== profileData.is_admin || freshIsSuperAdmin !== profileData.is_super_admin) {
-                const { error: updateError } = await supabase
-                  .from('profiles')
-                  .update({ is_admin: freshIsAdmin, is_super_admin: freshIsSuperAdmin })
-                  .eq('id', userId);
-                
-                if (updateError) {
-                    console.warn("Non-critical: Failed to persist updated user permissions to DB after role sync.", updateError);
-                }
-            }
-        } catch (error) {
-            let warningMessage = "Could not sync Discord roles during login. User will have existing permissions. This is non-critical.";
-            if (error instanceof ApiError) {
-                warningMessage += ` (Reason: ${error.message}, Status: ${error.status})`;
-            } else if (error instanceof Error) {
-                warningMessage += ` (Reason: ${error.message})`;
-            }
-            console.warn(warningMessage, error);
-            syncError = error instanceof Error ? error.message : "An unknown error occurred during Discord sync.";
+            if (funcError) throw funcError;
+            if (!botData.discordRoles) throw new Error("Bot function did not return discordRoles.");
+            
+            const fetchedRoles: DiscordRole[] = (botData.discordRoles || []).sort((a: DiscordRole, b: DiscordRole) => b.position - a.position);
+            
+            memberData = {
+                roles: fetchedRoles.map(r => r.id),
+                discordRoles: fetchedRoles,
+                highestRole: fetchedRoles[0] || null,
+            };
         }
-    } else {
-        console.log(`No provider_token in session for user ${userId}. Skipping Discord role sync. This is normal for refreshed sessions.`);
+        
+        roles = memberData.roles;
+        discordRoles = memberData.discordRoles;
+        highestRole = memberData.highestRole;
+
+        // Re-calculate permissions based on fresh roles
+        const superAdminRoles = config.SUPER_ADMIN_ROLE_IDS || [];
+        const handlerRoles = config.HANDLER_ROLE_IDS || [];
+        const freshIsSuperAdmin = roles.some(roleId => superAdminRoles.includes(roleId));
+        const freshIsHandler = roles.some(roleId => handlerRoles.includes(roleId));
+        const freshIsAdmin = freshIsSuperAdmin || freshIsHandler;
+
+        isAdmin = freshIsAdmin;
+        isSuperAdmin = freshIsSuperAdmin;
+
+        // If calculated permissions differ from DB, update the DB.
+        if (freshIsAdmin !== profileData.is_admin || freshIsSuperAdmin !== profileData.is_super_admin) {
+            const { error: updateError } = await supabase
+                .from('profiles')
+                .update({ is_admin: freshIsAdmin, is_super_admin: freshIsSuperAdmin })
+                .eq('id', userId);
+            if (updateError) {
+                console.warn("Non-critical: Failed to persist updated permissions to DB.", updateError);
+            }
+        }
+    } catch (error) {
+        // In case of any error during Discord sync (API down, user not in guild, etc.),
+        // we fall back to the permissions stored in our database.
+        // The user can still use the site, but their roles won't be updated.
+        let warningMessage = `Could not sync Discord roles for user ${userId}. Falling back to DB permissions.`;
+        if (error instanceof Error) {
+            warningMessage += ` (Reason: ${error.message})`;
+        }
+        console.warn(warningMessage, error);
+        syncError = error instanceof Error ? error.message : "An unknown error occurred during Discord sync.";
+        // 'isAdmin' and 'isSuperAdmin' retain their values from `profileData`.
+        // 'roles', 'discordRoles', 'highestRole' are left empty/null.
     }
     
     const finalUser: User = {

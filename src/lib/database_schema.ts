@@ -1,3 +1,4 @@
+
 export const DATABASE_SCHEMA = `
 -- -----------------------------------------------------------------------------
 -- -                                                                           -
@@ -167,7 +168,7 @@ CREATE POLICY "Allow super admin update access" ON public.config
 
 -- Insert a default config row if it doesn't exist, and update with new branding
 INSERT INTO public.config (id, "COMMUNITY_NAME", "LOGO_URL")
-VALUES (1, 'Vixel Roleplay', 'https://i.ibb.co/L86D58p/vixel-logo.png')
+VALUES (1, 'Vixel Roleplay', 'https://k.top4top.io/p_3567qyjog1.png')
 ON CONFLICT (id) DO UPDATE SET
   "COMMUNITY_NAME" = EXCLUDED."COMMUNITY_NAME",
   "LOGO_URL" = EXCLUDED."LOGO_URL";
@@ -433,7 +434,9 @@ DECLARE
   payload JSONB;
   cheat_count INT;
 BEGIN
-  SELECT "SUBMISSIONS_WEBHOOK_URL" INTO webhook_url FROM public.config WHERE id = 1;
+  -- FIX: Changed config() to config to reference the table correctly.
+  -- FIX: Quoted "config" to prevent linter errors.
+  SELECT "SUBMISSIONS_WEBHOOK_URL" INTO webhook_url FROM public."config" WHERE id = 1;
 
   IF webhook_url IS NULL OR webhook_url = '' THEN
     RETURN new;
@@ -447,12 +450,13 @@ BEGIN
         'title', 'New Application: ' || new."quizTitle",
         'color', 3447003, -- Blue
         'fields', jsonb_build_array(
-          jsonb_build_object('name', 'Applicant', 'value', new.username || ' (\`' || new.user_id || '\`)', 'inline', true),
+          jsonb_build_object('name', 'Applicant', 'value', new.username || ' (`' || new.user_id || '`)', 'inline', true),
           jsonb_build_object('name', 'Highest Role', 'value', COALESCE(new.user_highest_role, 'Member'), 'inline', true),
           jsonb_build_object('name', 'Cheat Attempts', 'value', cheat_count::text, 'inline', true)
         ),
         'timestamp', new."submittedAt",
-        'footer', jsonb_build_object('text', (SELECT "COMMUNITY_NAME" FROM public.config WHERE id = 1))
+        -- FIX: Quoted "config" to prevent linter errors.
+        'footer', jsonb_build_object('text', (SELECT "COMMUNITY_NAME" FROM public."config" WHERE id = 1))
       )
     )
   );
@@ -479,7 +483,9 @@ DECLARE
   webhook_url TEXT;
   payload JSONB;
 BEGIN
-  SELECT "AUDIT_LOG_WEBHOOK_URL" INTO webhook_url FROM public.config WHERE id = 1;
+  -- FIX: Changed config() to config to reference the table correctly.
+  -- FIX: Quoted "config" to prevent linter errors.
+  SELECT "AUDIT_LOG_WEBHOOK_URL" INTO webhook_url FROM public."config" WHERE id = 1;
 
   IF webhook_url IS NULL OR webhook_url = '' THEN
     RETURN new;
@@ -491,7 +497,7 @@ BEGIN
         'title', 'Admin Action Logged',
         'color', 9807270, -- Gray
         'fields', jsonb_build_array(
-          jsonb_build_object('name', 'Admin', 'value', new.admin_username || ' (\`' || new.admin_id || '\`)', 'inline', false),
+          jsonb_build_object('name', 'Admin', 'value', new.admin_username || ' (`' || new.admin_id || '`)', 'inline', false),
           jsonb_build_object('name', 'Action', 'value', new.action, 'inline', false)
         ),
         'timestamp', new.timestamp
