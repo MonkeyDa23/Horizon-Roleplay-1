@@ -263,7 +263,15 @@ export const getGuildRoles = async (): Promise<DiscordRole[]> => {
 export const getRolePermissions = async (): Promise<RolePermission[]> => {
     if (!supabase) return [];
     const { data, error } = await supabase.from('role_permissions').select('*');
-    if (error) throw new ApiError(error.message, 500);
+    if (error) {
+        // This specific error code means the table doesn't exist.
+        // We handle this gracefully to prevent login from breaking if the DB schema is not updated.
+        if (error.code === '42P01') { 
+            console.warn('Warning: role_permissions table not found. RBAC will be disabled. Please run the database schema update script.');
+            return []; // Return empty array to allow the app to function for non-admins.
+        }
+        throw new ApiError(error.message, 500);
+    }
     return data;
 }
 
@@ -399,7 +407,7 @@ export const fetchUserProfile = async (session: Session): Promise<UserProfileRes
     let roles: string[] = [];
     let discordRoles: DiscordRole[] = [];
     let highestRole: DiscordRole | null = null;
-    let permissions = new Set<string>(['submissions', 'lookup']); // Base permissions for all admins
+    let permissions = new Set<string>();
     let isAdmin = false;
     let syncError: string | undefined = undefined;
 
@@ -408,6 +416,12 @@ export const fetchUserProfile = async (session: Session): Promise<UserProfileRes
             getConfig(),
             getRolePermissions()
         ]);
+        
+        // Base permissions for admins. If the user has any role with permissions, they get these.
+        if (allRolePermissions.length > 0) {
+           permissions.add('submissions');
+           permissions.add('lookup');
+        }
         
         console.log(`[Sync] Using provider_token for user ${userId} to fetch display roles.`);
         const memberData = await fetchDiscordMember(providerToken, config.DISCORD_GUILD_ID, userId);

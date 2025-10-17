@@ -87,30 +87,6 @@ CREATE TABLE IF NOT EXISTS public.role_permissions (
 
 ALTER TABLE public.role_permissions ENABLE ROW LEVEL SECURITY;
 
--- Helper function to check if the current user is a super admin based on their roles
-CREATE OR REPLACE FUNCTION public.is_current_user_super_admin()
-RETURNS boolean
-LANGUAGE sql
-STABLE
-AS $$
-  SELECT EXISTS (
-    SELECT 1
-    FROM public.role_permissions
-    WHERE permissions @> ARRAY['_super_admin']
-      AND role_id = ANY (
-        (SELECT raw_user_meta_data->'roles' FROM auth.users WHERE id = auth.uid())::jsonb ->> 0
-      )
-  );
-$$;
-
-
-DROP POLICY IF EXISTS "Allow super admin full access" ON public.role_permissions;
-CREATE POLICY "Allow super admin full access" ON public.role_permissions
-  FOR ALL
-  USING (
-    (SELECT is_super_admin FROM public.profiles WHERE id = auth.uid()) -- This will be replaced by the function below
-  );
-  
 -- New function to check super admin status based on roles, used for RLS.
 CREATE OR REPLACE FUNCTION public.check_is_super_admin_by_role()
 RETURNS boolean AS $$

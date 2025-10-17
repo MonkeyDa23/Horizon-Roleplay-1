@@ -67,13 +67,25 @@ serve(async (req) => {
     }
     const memberData = await memberResponse.json();
     
-    // 4. Fetch role permissions from our DB based on the user's roles
+    // 4. Fetch role permissions from our DB (Gracefully handle if table doesn't exist)
     const userRoleIds: string[] = memberData.roles || [];
-    const { data: permsData, error: permsError } = await supabaseClient
-      .from('role_permissions')
-      .select('permissions')
-      .in('role_id', userRoleIds);
-    if (permsError) throw new Error(`Failed to fetch role permissions: ${permsError.message}`);
+    let permsData: { permissions: string[] }[] | null = null;
+    if (userRoleIds.length > 0) {
+      const { data, error: permsError } = await supabaseClient
+        .from('role_permissions')
+        .select('permissions')
+        .in('role_id', userRoleIds);
+      
+      if (permsError) {
+        if (permsError.code === '42P01') { // table does not exist
+          console.warn('Warning: role_permissions table not found in get-discord-user-profile function.');
+        } else {
+          throw new Error(`Failed to fetch role permissions: ${permsError.message}`);
+        }
+      } else {
+        permsData = data;
+      }
+    }
     
     // 5. Calculate final permissions set
     const permissions = new Set<string>();
@@ -83,6 +95,11 @@ serve(async (req) => {
           rolePerms.permissions.forEach(p => permissions.add(p));
         }
       }
+    }
+     // If user has any permissions, grant them base admin access
+    if (permissions.size > 0) {
+        permissions.add('submissions');
+        permissions.add('lookup');
     }
     
     // 6. Fetch user's submission history
