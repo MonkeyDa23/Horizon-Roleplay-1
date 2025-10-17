@@ -53,17 +53,12 @@ const ProfilePage: React.FC = () => {
 
   const renderUserRole = () => {
     if (!user) return null;
-
-    if (user.highestRole && user.highestRole.name !== '@everyone') {
-        const role = user.highestRole;
-        const style = {
-            backgroundColor: `${role.color === '#000000' ? '#2f3136' : role.color}30`,
-            borderColor: role.color === '#000000' ? '#99aab5' : role.color,
-            color: role.color === '#000000' ? '#ffffff' : role.color,
-        };
-        return <span className="px-3 py-1 text-sm font-bold rounded-full border" style={style}>{role.name}</span>;
+    // FIX: Replaced user.isSuperAdmin with a check on the permissions set.
+    if (user.permissions.has('_super_admin')) {
+        return <span className="px-3 py-1 text-sm font-bold rounded-full bg-red-500/20 text-red-400 border border-red-500">{t('grant_super_admin_access')}</span>;
     }
-    if (user.isAdmin) {
+    // FIX: Replaced user.isAdmin with a check on the permissions set.
+    if (user.permissions.has('admin_panel')) {
         return <span className="px-3 py-1 text-sm font-bold rounded-full bg-brand-cyan/20 text-brand-cyan">{t('admin')}</span>;
     }
     return <span className="px-3 py-1 text-sm font-bold rounded-full bg-gray-500/20 text-gray-300">{t('member')}</span>;
@@ -105,29 +100,6 @@ const ProfilePage: React.FC = () => {
                     {renderUserRole()}
                   </div>
                   
-                  {user.discordRoles && user.discordRoles.length > 0 && (
-                      <div className="mt-6 pt-4 border-t border-brand-light-blue/50">
-                          <h4 className="font-bold text-gray-300 mb-3">{t('discord_roles')}</h4>
-                          <div className="flex flex-wrap justify-center gap-2">
-                              {user.discordRoles
-                                .filter(role => role.name !== '@everyone')
-                                .map(role => (
-                                  <span 
-                                      key={role.id}
-                                      className="px-2.5 py-1 text-xs font-semibold rounded-full border"
-                                      style={{
-                                          backgroundColor: `${role.color === '#000000' ? '#2f3136' : role.color}4D`,
-                                          borderColor: role.color === '#000000' ? '#99aab5' : role.color,
-                                          color: role.color === '#000000' ? '#ffffff' : role.color,
-                                      }}
-                                  >
-                                      {role.name}
-                                  </span>
-                              ))}
-                          </div>
-                      </div>
-                  )}
-
                   <a 
                       href={`https://discord.com/users/${user.id}`}
                       target="_blank"

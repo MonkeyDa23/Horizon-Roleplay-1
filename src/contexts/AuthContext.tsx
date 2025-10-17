@@ -1,9 +1,8 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { fetchUserProfile } from '../lib/api';
-import type { User, AuthContextType } from '../types';
+import type { User, AuthContextType, PermissionKey } from '../types';
 import { useToast } from '../hooks/useToast';
-// FIX: The Session type is sometimes not re-exported from the main supabase-js package. Importing directly from gotrue-js is safer.
 import type { Session } from '@supabase/gotrue-js';
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,7 +23,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (error) {
         console.error("Critical error fetching user profile:", error);
         showToast("A critical error occurred during login.", 'error');
-        // If profile fetch fails, sign out to prevent being in a broken login state
         await supabase?.auth.signOut();
         setUser(null);
       }
@@ -37,16 +35,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!supabase) {
         setLoading(false);
-        // If Supabase isn't configured, the app runs in a "logged out" state.
         return;
     }
 
-    // Handle initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
         handleSession(session);
     });
 
-    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
         handleSession(session);
     });
@@ -85,7 +80,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(newUser);
   };
 
-  const value = { user, login, logout, loading, updateUser };
+  const hasPermission = useCallback((key: PermissionKey): boolean => {
+    if (!user) return false;
+    // Super admin has all permissions implicitly
+    if (user.permissions.has('_super_admin')) return true;
+    return user.permissions.has(key);
+  }, [user]);
+
+
+  const value = { user, login, logout, loading, updateUser, hasPermission };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

@@ -21,6 +21,7 @@ import {
   getProducts,
   saveProduct,
   deleteProduct,
+  // FIX: Added missing import for logAdminAccess.
   logAdminAccess,
 } from '../src/lib/api';
 import type { Quiz, QuizQuestion, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule, Product } from '../src/types';
@@ -40,7 +41,8 @@ const TABS: { id: AdminTab; labelKey: string; icon: React.ElementType; superAdmi
 
 const AdminPage: React.FC = () => {
   // FIX: Added updateUser to destructuring
-  const { user, logout, updateUser, loading: authLoading } = useAuth();
+  // FIX: Added hasPermission to check for admin access.
+  const { user, logout, updateUser, loading: authLoading, hasPermission } = useAuth();
   const { t } = useLocalization();
   const { showToast } = useToast();
   const { config } = useConfig();
@@ -73,7 +75,8 @@ const AdminPage: React.FC = () => {
     const gateCheck = async () => {
         if (authLoading) return;
 
-        if (!user || !user.isAdmin) {
+        // FIX: Replaced user.isAdmin check with hasPermission('admin_panel').
+        if (!user || !hasPermission('admin_panel')) {
             navigate('/');
             return;
         }
@@ -84,7 +87,8 @@ const AdminPage: React.FC = () => {
             // FIX: The revalidateSession function does not take any arguments.
             const freshUser = await revalidateSession();
             
-            if (!freshUser.isAdmin) {
+            // FIX: Replaced freshUser.isAdmin with a check on the permissions set.
+            if (!freshUser.permissions.has('admin_panel')) {
                 showToast(t('admin_revoked'), 'error');
                 updateUser(freshUser);
                 navigate('/');
@@ -96,12 +100,13 @@ const AdminPage: React.FC = () => {
             }
             
             // Check for Super Admin privileges
-            const superAdminRoles = config.SUPER_ADMIN_ROLE_IDS || [];
-            const userIsSuperAdmin = freshUser.roles.some(roleId => superAdminRoles.includes(roleId));
+            // FIX: The 'isSuperAdmin' property is deprecated. Use the permissions set.
+            const userIsSuperAdmin = freshUser.permissions.has('_super_admin');
             setIsSuperAdmin(userIsSuperAdmin);
 
             if (!accessLoggedRef.current) {
-                await logAdminAccess(freshUser);
+                // FIX: The logAdminAccess function does not take any arguments.
+                await logAdminAccess();
                 accessLoggedRef.current = true;
             }
 
@@ -121,7 +126,8 @@ const AdminPage: React.FC = () => {
     };
 
     gateCheck();
-  }, [user, authLoading, navigate, logout, showToast, t, updateUser, config.SUPER_ADMIN_ROLE_IDS]);
+    // FIX: Removed deprecated config.SUPER_ADMIN_ROLE_IDS from dependency array.
+  }, [user, authLoading, navigate, logout, showToast, t, updateUser]);
 
 
   // Effect for lazy-loading data based on the active tab
@@ -223,7 +229,8 @@ const AdminPage: React.FC = () => {
         </div>
     );
   }
-  if (!user?.isAdmin) return null; // Should be handled by gatekeeper, but as a fallback.
+  // FIX: Replaced user.isAdmin check with hasPermission('admin_panel').
+  if (!hasPermission('admin_panel')) return null; // Should be handled by gatekeeper, but as a fallback.
 
   const renderStatusBadge = (status: SubmissionStatus) => {
     const statusMap = {
@@ -242,6 +249,8 @@ const AdminPage: React.FC = () => {
       const quizForSubmission = quizzes.find(q => q.id === submission.quizId);
       const allowedRoles = quizForSubmission?.allowedTakeRoles;
 
+      // FIX: The 'roles' property on user was missing. It has been added to the User type
+      // and populated in the fetchUserProfile function.
       const isAllowed = !allowedRoles || allowedRoles.length === 0 || user.roles.some(userRole => allowedRoles.includes(userRole));
       
       if (!isAllowed) {

@@ -16,8 +16,7 @@ const defaultConfig: AppConfig = {
     MTA_SERVER_URL: '',
     BACKGROUND_IMAGE_URL: '',
     SHOW_HEALTH_CHECK: false,
-    SUPER_ADMIN_ROLE_IDS: [],
-    HANDLER_ROLE_IDS: [],
+    // FIX: Removed deprecated role ID arrays. Permissions are now handled by the RBAC system.
     SUBMISSIONS_WEBHOOK_URL: '',
     AUDIT_LOG_WEBHOOK_URL: '',
 };

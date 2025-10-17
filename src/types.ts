@@ -13,22 +13,30 @@ export interface LocalizationContextType {
   dir: 'rtl' | 'ltr';
 }
 
-export interface DiscordRole {
-  id: string;
-  name: string;
-  color: string;
-  position: number;
-}
+export type PermissionKey = 
+  | '_super_admin'
+  | 'page_store'
+  | 'page_rules'
+  | 'page_applies'
+  | 'admin_panel'
+  | 'admin_submissions'
+  | 'admin_quizzes'
+  | 'admin_rules'
+  | 'admin_store'
+  | 'admin_translations'
+  | 'admin_appearance'
+  | 'admin_audit_log'
+  | 'admin_permissions'
+  | 'admin_lookup';
+
 
 export interface User {
-  id:string;
+  id: string;
   username: string;
   avatar: string;
-  isAdmin: boolean;
-  permissions: Set<string>; // Set of allowed admin page keys
-  discordRoles: DiscordRole[];
-  roles: string[]; // Array of role IDs
-  highestRole: DiscordRole | null;
+  roles: string[];
+  highestRole: { id: string; name: string; color: number } | null;
+  permissions: Set<PermissionKey>; // The new source of truth for all user permissions
 }
 
 export interface AuthContextType {
@@ -37,6 +45,7 @@ export interface AuthContextType {
   logout: () => void;
   loading: boolean;
   updateUser: (user: User) => void;
+  hasPermission: (key: PermissionKey) => boolean; // Helper function for easy permission checks
 }
 
 // Store & Cart
@@ -159,8 +168,6 @@ export interface AppConfig {
     MTA_SERVER_URL: string;
     BACKGROUND_IMAGE_URL: string;
     SHOW_HEALTH_CHECK: boolean;
-    SUPER_ADMIN_ROLE_IDS: string[]; // Deprecated, but kept for reference
-    HANDLER_ROLE_IDS: string[];
     SUBMISSIONS_WEBHOOK_URL: string;
     AUDIT_LOG_WEBHOOK_URL: string;
 }
@@ -169,14 +176,18 @@ export interface UserLookupResult {
   id: string;
   username: string;
   avatar: string;
-  isAdmin: boolean;
-  permissions: string[];
-  discordRoles: DiscordRole[];
   joinedAt: string;
   submissions: QuizSubmission[];
 }
 
+export interface DiscordRole {
+    id: string;
+    name: string;
+    color: number;
+    position: number;
+}
+
 export interface RolePermission {
     role_id: string;
-    permissions: string[];
+    permissions: PermissionKey[];
 }

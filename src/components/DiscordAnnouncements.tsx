@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocalization } from '../hooks/useLocalization';
+// FIX: Added 'getDiscordAnnouncements' to imports.
 import { getDiscordAnnouncements } from '../lib/api';
 import type { DiscordAnnouncement } from '../types';
 import { Loader2, Megaphone, AlertTriangle } from 'lucide-react';

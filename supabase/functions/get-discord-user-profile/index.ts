@@ -50,14 +50,7 @@ serve(async (req) => {
     const guildId = config.DISCORD_GUILD_ID;
     if (!guildId) throw new Error('DISCORD_GUILD_ID is not set in config table.');
     
-    // 2. Fetch all guild roles
-    const rolesResponse = await fetch(`${DISCORD_API_BASE}/guilds/${guildId}/roles`, {
-        headers: { 'Authorization': `Bot ${DISCORD_BOT_TOKEN}` },
-    });
-    if (!rolesResponse.ok) throw new Error('Failed to fetch guild roles from Discord.');
-    const allGuildRoles = await rolesResponse.json();
-
-    // 3. Fetch specific guild member
+    // 2. Fetch specific guild member from Discord
     const memberResponse = await fetch(`${DISCORD_API_BASE}/guilds/${guildId}/members/${userId}`, {
         headers: { 'Authorization': `Bot ${DISCORD_BOT_TOKEN}` },
     });
@@ -67,42 +60,18 @@ serve(async (req) => {
     }
     const memberData = await memberResponse.json();
     
-    // 4. Fetch role permissions from our DB (Gracefully handle if table doesn't exist)
-    const userRoleIds: string[] = memberData.roles || [];
-    let permsData: { permissions: string[] }[] | null = null;
-    if (userRoleIds.length > 0) {
-      const { data, error: permsError } = await supabaseClient
-        .from('role_permissions')
-        .select('permissions')
-        .in('role_id', userRoleIds);
+    // 3. Fetch user's permissions from our `profiles` table
+    const { data: profile, error: profileError } = await supabaseClient
+      .from('profiles')
+      .select('is_admin, is_super_admin')
+      .eq('id', userId)
+      .single();
+
+    // If there's an error fetching the profile (e.g., user exists in auth but not profiles yet), default to false.
+    const isAdmin = profile?.is_admin || false;
+    const isSuperAdmin = profile?.is_super_admin || false;
       
-      if (permsError) {
-        if (permsError.code === '42P01') { // table does not exist
-          console.warn('Warning: role_permissions table not found in get-discord-user-profile function.');
-        } else {
-          throw new Error(`Failed to fetch role permissions: ${permsError.message}`);
-        }
-      } else {
-        permsData = data;
-      }
-    }
-    
-    // 5. Calculate final permissions set
-    const permissions = new Set<string>();
-    if(permsData) {
-      for (const rolePerms of permsData) {
-        if (Array.isArray(rolePerms.permissions)) {
-          rolePerms.permissions.forEach(p => permissions.add(p));
-        }
-      }
-    }
-     // If user has any permissions, grant them base admin access
-    if (permissions.size > 0) {
-        permissions.add('submissions');
-        permissions.add('lookup');
-    }
-    
-    // 6. Fetch user's submission history
+    // 4. Fetch user's submission history
     const { data: submissions, error: subsError } = await supabaseClient
       .from('submissions')
       .select('*')
@@ -110,25 +79,15 @@ serve(async (req) => {
       .order('submittedAt', { ascending: false });
     if (subsError) throw new Error(`Failed to fetch submissions: ${subsError.message}`);
 
-    // 7. Combine all data for the final response
-    const discordRoles = allGuildRoles
-      .filter((role: any) => userRoleIds.includes(role.id))
-      .map((role: any) => ({
-        id: role.id,
-        name: role.name,
-        color: `#${(role.color || 0).toString(16).padStart(6, '0')}`,
-        position: role.position
-      }))
-      .sort((a: any, b: any) => b.position - a.position);
-
+    // 5. Combine all data for the final response
     const result = {
       id: memberData.user.id,
       username: memberData.user.global_name || memberData.user.username,
       avatar: memberData.user.avatar 
         ? `https://cdn.discordapp.com/avatars/${memberData.user.id}/${memberData.user.avatar}.png`
         : `https://cdn.discordapp.com/embed/avatars/${parseInt(memberData.user.discriminator || '0') % 5}.png`,
-      permissions: Array.from(permissions),
-      discordRoles: discordRoles,
+      isAdmin: isAdmin || isSuperAdmin,
+      isSuperAdmin: isSuperAdmin,
       joinedAt: memberData.joined_at,
       submissions: submissions || [],
     };

@@ -8,25 +8,30 @@ import CartModal from './CartModal';
 import { Globe, ChevronDown, LogIn, LogOut, Loader, ShoppingCart, UserCog, FileText, User } from 'lucide-react';
 
 const Navbar: React.FC = () => {
-  const { language, setLanguage, t, dir } = useLocalization();
-  const { user, login, logout, loading } = useAuth();
+  const { language, setLanguage, t } = useLocalization();
+  const { user, login, logout, loading, hasPermission } = useAuth();
   const { totalItems } = useCart();
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [isCartOpen, setCartOpen] = useState(false);
 
   const navLinks = [
-    { to: '/', text: t('home') },
-    { to: '/store', text: t('store') },
-    { to: '/rules', text: t('rules') },
-    { to: '/applies', text: t('applies') },
-    { to: '/about', text: t('about_us') },
+    { to: '/', text: t('home'), perm: null },
+    { to: '/store', text: t('store'), perm: 'page_store' as const },
+    { to: '/rules', text: t('rules'), perm: 'page_rules' as const },
+    { to: '/applies', text: t('applies'), perm: 'page_applies' as const },
+    { to: '/about', text: t('about_us'), perm: null },
   ];
 
   const activeLinkStyle = {
     color: '#00f2ea',
     textShadow: '0 0 8px rgba(0, 242, 234, 0.7)',
   };
+  
+  const canView = (perm: typeof navLinks[number]['perm']) => {
+      if (!perm) return true; // Page is public
+      return hasPermission(perm);
+  }
 
   return (
     <>
@@ -37,7 +42,7 @@ const Navbar: React.FC = () => {
             <h1 className="text-xl font-bold text-white tracking-wider hidden md:block">HORIZON</h1>
           </div>
           <div className="hidden md:flex items-center gap-8">
-            {navLinks.map((link) => (
+            {navLinks.filter(l => canView(l.perm)).map((link) => (
               <NavLink
                 key={link.to}
                 to={link.to}
@@ -100,7 +105,7 @@ const Navbar: React.FC = () => {
                        <FileText size={16} />
                        {t('my_applications')}
                      </Link>
-                     {user.isAdmin && (
+                     {hasPermission('admin_panel') && (
                        <Link to="/admin" className="flex items-center gap-2 w-full text-start px-4 py-2 text-sm text-white hover:bg-brand-cyan/20">
                          <UserCog size={16} />
                          {t('admin_panel')}

@@ -156,8 +156,7 @@ const HealthCheckPage: React.FC = () => {
                   {configLoading ? <Loader2 className="animate-spin text-brand-cyan" /> : (
                       <div className="space-y-3">
                           <ConfigItem label={t('health_check_guild_id')} value={config.DISCORD_GUILD_ID} />
-                          <ConfigItem label={t('health_check_super_admin_roles')} value={config.SUPER_ADMIN_ROLE_IDS} />
-                          <ConfigItem label={t('health_check_handler_roles')} value={config.HANDLER_ROLE_IDS} />
+                          {/* FIX: Removed deprecated SUPER_ADMIN_ROLE_IDS and HANDLER_ROLE_IDS properties. */}
                       </div>
                   )}
               </div>
