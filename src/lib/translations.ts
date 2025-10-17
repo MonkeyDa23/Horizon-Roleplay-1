@@ -1,5 +1,9 @@
 import { Translations } from '../types';
 
+// This file serves as a fallback for translations if the database connection fails.
+// All translations are now primarily managed in the 'translations' table in the database
+// and can be edited via the Admin Panel.
+
 export const translations: Translations = {
   // Navbar
   home: { ar: 'الرئيسية', en: 'Home' },
@@ -90,6 +94,7 @@ export const translations: Translations = {
   rules_management: { ar: 'إدارة القوانين', en: 'Rules Management' },
   store_management: { ar: 'إدارة المتجر', en: 'Store Management' },
   appearance_settings: { ar: 'إعدادات المظهر', en: 'Appearance Settings' },
+  translations_management: { ar: 'إدارة الترجمات', en: 'Translations Management' },
   audit_log: { ar: 'سجل التدقيق', en: 'Audit Log' },
   user_lookup: { ar: 'بحث عن مستخدم', en: 'User Lookup' },
   create_new_quiz: { ar: 'إنشاء تقديم جديد', en: 'Create New Quiz' },
@@ -103,6 +108,7 @@ export const translations: Translations = {
   save_quiz: { ar: 'حفظ التقديم', en: 'Save Quiz' },
   save_rules: { ar: 'حفظ القوانين', en: 'Save Rules' },
   save_settings: { ar: 'حفظ الإعدادات', en: 'Save Settings' },
+  save_translations: { ar: 'حفظ الترجمات', en: 'Save Translations' },
   delete_quiz: { ar: 'حذف التقديم', en: 'Delete Quiz' },
   status: { ar: 'الحالة', en: 'Status' },
   open: { ar: 'مفتوح', en: 'Open' },
@@ -127,6 +133,7 @@ export const translations: Translations = {
   no_logs_found: { ar: 'لا توجد سجلات.', en: 'No logs found.' },
   rules_updated_success: { ar: 'تم تحديث القوانين بنجاح!', en: 'Rules updated successfully!' },
   config_updated_success: { ar: 'تم تحديث الإعدادات بنجاح!', en: 'Settings updated successfully!' },
+  translations_updated_success: { ar: 'تم تحديث الترجمات بنجاح!', en: 'Translations updated successfully!' },
   admin_revoked: { ar: 'تم سحب صلاحيات الإدارة منك.', en: 'Your admin permissions have been revoked.' },
   admin_granted: { ar: 'تم منحك صلاحيات الإدارة!', en: 'You have been granted admin permissions!' },
   admin_permissions_error: { ar: 'خطأ في صلاحيات المشرف. تم تسجيل خروجك.', en: 'Admin permission error. You have been logged out.' },
@@ -152,6 +159,10 @@ export const translations: Translations = {
   show_health_check_page: { ar: 'عرض صفحة فحص الحالة', en: 'Show Health Check Page' },
   enter_discord_id: { ar: 'أدخل معرف ديسكورد...', en: 'Enter Discord ID...' },
   search: { ar: 'بحث', en: 'Search' },
+  search_by_key: { ar: 'بحث بالمفتاح...', en: 'Search by key...' },
+  key: { ar: 'المفتاح', en: 'Key' },
+  arabic_translation: { ar: 'الترجمة العربية', en: 'Arabic Translation' },
+  english_translation: { ar: 'الترجمة الإنجليزية', en: 'English Translation' },
   lookup_results_for: { ar: 'نتائج البحث عن', en: 'Lookup Results for' },
   application_history: { ar: 'سجل التقديمات', en: 'Application History' },
   no_submissions_found_for_user: { ar: 'لم يتم العثور على تقديمات لهذا المستخدم.', en: 'No submissions found for this user.' },
@@ -167,7 +178,6 @@ export const translations: Translations = {
   grant_admin_access: { ar: 'منح صلاحية مشرف', en: 'Grant Admin Access' },
   grant_super_admin_access: { ar: 'منح صلاحية مشرف خارق', en: 'Grant Super Admin Access' },
   confirm_permission_change_title: { ar: 'تأكيد تغيير الصلاحيات', en: 'Confirm Permission Change' },
-  // FIX: Escaped the single quote in "user's" to fix a parsing error.
   confirm_permission_change_desc: { ar: 'هل أنت متأكد أنك تريد تحديث صلاحيات هذا المستخدم؟ هذا الإجراء سيتم تسجيله.', en: 'Are you sure you want to update this user\'s permissions? This action will be logged.' },
   update_permissions: { ar: 'تحديث الصلاحيات', en: 'Update Permissions' },
   permissions_updated: { ar: 'تم تحديث الصلاحيات بنجاح!', en: 'Permissions updated successfully!' },

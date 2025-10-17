@@ -77,6 +77,19 @@ export const getRules = async (): Promise<RuleCategory[]> => {
     return data;
 }
 
+export const getTranslations = async (): Promise<Record<string, { ar: string, en: string }>> => {
+    if (!supabase) return {};
+    const { data, error } = await supabase.from('translations').select('key, ar, en');
+    if (error) throw new ApiError(error.message, 500);
+    
+    // Transform the array of objects into the required key-value structure
+    const translationsObject: Record<string, { ar: string, en: string }> = {};
+    for (const item of data) {
+        translationsObject[item.key] = { ar: item.ar, en: item.en };
+    }
+    return translationsObject;
+};
+
 
 // --- USER-SPECIFIC FUNCTIONS ---
 
@@ -190,6 +203,21 @@ export const saveConfig = async (config: Partial<AppConfig>): Promise<void> => {
     const { error } = await supabase.from('config').update(config).eq('id', 1);
     if (error) throw new ApiError(error.message, 500);
 }
+
+export const saveTranslations = async (translations: Record<string, { ar: string; en: string }>): Promise<void> => {
+    if (!supabase) throw new ApiError("Database not configured", 500);
+    const translationsData = Object.entries(translations).map(([key, value]) => ({
+        key,
+        ar: value.ar,
+        en: value.en,
+    }));
+
+    const { error } = await supabase.rpc('update_translations', {
+        translations_data: translationsData
+    });
+
+    if (error) throw new ApiError(error.message, 500);
+};
 
 export const getAuditLogs = async (): Promise<AuditLogEntry[]> => {
     if (!supabase) return [];

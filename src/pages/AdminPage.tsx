@@ -13,19 +13,22 @@ import {
   getRules,
   saveRules as apiSaveRules,
   saveConfig,
-  getSubmissionsByUserId,
+  lookupDiscordUser,
+  updateUserPermissions,
   getProducts,
   saveProduct,
   deleteProduct,
+  getTranslations,
+  saveTranslations,
 } from '../lib/api';
-import type { Quiz, QuizQuestion, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule, Product, AppConfig } from '../types';
+import type { Quiz, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule, Product, AppConfig, UserLookupResult, Translations } from '../types';
 import { useNavigate } from 'react-router-dom';
-import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store, Palette, Search } from 'lucide-react';
+import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store, Palette, Search, Languages } from 'lucide-react';
 import Modal from '../components/Modal';
 import SEO from '../components/SEO';
 
 
-type AdminTab = 'submissions' | 'quizzes' | 'rules' | 'store' | 'appearance' | 'lookup' | 'audit';
+type AdminTab = 'submissions' | 'quizzes' | 'rules' | 'store' | 'appearance' | 'lookup' | 'translations' | 'audit';
 
 const TABS: { id: AdminTab; labelKey: string; icon: React.ElementType; superAdminOnly: boolean }[] = [
   { id: 'submissions', labelKey: 'submission_management', icon: FileText, superAdminOnly: false },
@@ -33,6 +36,7 @@ const TABS: { id: AdminTab; labelKey: string; icon: React.ElementType; superAdmi
   { id: 'lookup', labelKey: 'user_lookup', icon: Search, superAdminOnly: true },
   { id: 'rules', labelKey: 'rules_management', icon: BookCopy, superAdminOnly: true },
   { id: 'store', labelKey: 'store_management', icon: Store, superAdminOnly: true },
+  { id: 'translations', labelKey: 'translations_management', icon: Languages, superAdminOnly: true },
   { id: 'appearance', labelKey: 'appearance_settings', icon: Palette, superAdminOnly: true },
   { id: 'audit', labelKey: 'audit_log', icon: ShieldCheck, superAdminOnly: true },
 ];
@@ -61,14 +65,17 @@ const AdminPage: React.FC = () => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   
   const [editableConfig, setEditableConfig] = useState<Partial<AppConfig>>({});
-
+  
+  const [translations, setTranslations] = useState<Translations>({});
+  
   const [isTabLoading, setIsTabLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   
   const [lookupUserId, setLookupUserId] = useState('');
-  const [lookupResult, setLookupResult] = useState<{ submissions: QuizSubmission[], searchedId: string } | null>(null);
+  const [lookupResult, setLookupResult] = useState<UserLookupResult | null>(null);
   const [isLookupLoading, setIsLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
+  const [confirmingPermission, setConfirmingPermission] = useState<{isAdmin: boolean, isSuperAdmin: boolean} | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user?.isAdmin) {
@@ -92,6 +99,7 @@ const AdminPage: React.FC = () => {
                 case 'lookup': break;
                 case 'rules': if (user.isSuperAdmin) setEditableRules(JSON.parse(JSON.stringify(await getRules()))); break;
                 case 'store': if (user.isSuperAdmin) setProducts(await getProducts()); break;
+                case 'translations': if(user.isSuperAdmin) setTranslations(await getTranslations()); break;
                 case 'appearance': if (user.isSuperAdmin) setEditableConfig({ ...config }); break;
                 case 'audit': if (user.isSuperAdmin) setAuditLogs(await getAuditLogs()); break;
             }
@@ -150,6 +158,19 @@ const AdminPage: React.FC = () => {
         } finally { setIsSaving(false); }
     }
   }
+  
+  const handleSaveTranslations = async () => {
+    if(translations) {
+        setIsSaving(true);
+        try {
+            await saveTranslations(translations);
+            showToast(t('translations_updated_success'), 'success');
+            setTimeout(() => window.location.reload(), 1000);
+        } catch(e) {
+            showToast(`Error saving translations: ${e instanceof Error ? e.message : 'Unknown error'}`, 'error');
+        } finally { setIsSaving(false); }
+    }
+  };
 
   const handleUserLookup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -160,8 +181,8 @@ const AdminPage: React.FC = () => {
     setLookupResult(null);
 
     try {
-        const submissions = await getSubmissionsByUserId(lookupUserId.trim());
-        setLookupResult({ submissions, searchedId: lookupUserId.trim() });
+        const result = await lookupDiscordUser(lookupUserId.trim());
+        setLookupResult(result);
     } catch (error) {
         console.error("User lookup failed:", error);
         setLookupError(t('no_user_found_or_no_data'));
@@ -169,6 +190,24 @@ const AdminPage: React.FC = () => {
         setIsLookupLoading(false);
     }
   };
+  
+  const handleConfirmPermissionChange = async () => {
+    if (!lookupResult || !confirmingPermission) return;
+    setIsSaving(true);
+    try {
+        await updateUserPermissions(lookupResult.id, confirmingPermission.isAdmin, confirmingPermission.isSuperAdmin);
+        // Refresh lookup data
+        const freshResult = await lookupDiscordUser(lookupResult.id);
+        setLookupResult(freshResult);
+        showToast(t('permissions_updated'), 'success');
+    } catch (error) {
+        showToast(error instanceof Error ? error.message : 'Failed to update permissions.', 'error');
+    } finally {
+        setIsSaving(false);
+        setConfirmingPermission(null);
+    }
+  };
+
   
   const handleSaveProduct = async () => {
     if (!editingProduct) return;
@@ -410,18 +449,11 @@ const AdminPage: React.FC = () => {
   );
 
   const UserLookupPanel = () => (
-    <div className="mt-6 max-w-4xl mx-auto">
+    <div className="mt-6 max-w-5xl mx-auto">
       <form onSubmit={handleUserLookup} className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50 flex flex-col sm:flex-row items-center gap-4">
-        <input 
-          type="text"
-          value={lookupUserId}
-          onChange={e => setLookupUserId(e.target.value)}
-          placeholder={t('enter_discord_id')}
-          className="w-full bg-brand-light-blue text-white p-3 rounded-md border border-gray-600 focus:ring-2 focus:ring-brand-cyan focus:border-brand-cyan transition-colors"
-        />
+        <input type="text" value={lookupUserId} onChange={e => setLookupUserId(e.target.value)} placeholder={t('enter_discord_id')} className="w-full bg-brand-light-blue text-white p-3 rounded-md border border-gray-600 focus:ring-2 focus:ring-brand-cyan focus:border-brand-cyan transition-colors" />
         <button type="submit" disabled={isLookupLoading} className="w-full sm:w-auto bg-brand-cyan text-brand-dark font-bold py-3 px-8 rounded-md hover:bg-white transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-wait">
-          {isLookupLoading ? <Loader2 className="animate-spin" /> : <Search />}
-          <span>{t('search')}</span>
+          {isLookupLoading ? <Loader2 className="animate-spin" /> : <Search />} <span>{t('search')}</span>
         </button>
       </form>
 
@@ -429,44 +461,105 @@ const AdminPage: React.FC = () => {
       {lookupError && <div className="mt-6 text-center text-red-400 bg-red-500/10 p-4 rounded-lg">{lookupError}</div>}
       
       {lookupResult && (
-        <div className="mt-8 space-y-8 animate-fade-in">
-          <h2 className="text-2xl font-bold text-center">{t('lookup_results_for')} <code className="text-brand-cyan bg-brand-dark px-2 py-1 rounded-md">{lookupResult.searchedId}</code></h2>
-          
-          <div>
-            <h3 className="text-2xl font-bold mb-4 flex items-center gap-3"><FileText className="text-brand-cyan" />{t('application_history')}</h3>
-            <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left min-w-[600px]">
-                  <thead className="border-b border-brand-light-blue/50 text-gray-300">
-                    <tr>
-                        <th className="p-4">{t('application_type')}</th>
-                        <th className="p-4">{t('submitted_on')}</th>
-                        <th className="p-4">{t('result_date')}</th>
-                        <th className="p-4">{t('status')}</th>
-                    </tr>
-                  </thead>
+        <div className="mt-8 space-y-8 animate-fade-in-up">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <div className="md:col-span-1 space-y-6">
+                  {/* User Info Card */}
+                  <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
+                      <h3 className="text-xl font-bold text-brand-cyan mb-4">{t('user_information')}</h3>
+                      <div className="flex flex-col items-center">
+                          <img src={lookupResult.avatar} alt={lookupResult.username} className="w-24 h-24 rounded-full border-4 border-brand-cyan/50"/>
+                          <p className="text-2xl font-bold mt-3">{lookupResult.username}</p>
+                          <p className="text-sm text-gray-400">ID: {lookupResult.id}</p>
+                          <p className="text-xs text-gray-500 mt-2">{t('joined_discord')}: {new Date(lookupResult.joinedAt).toLocaleDateString()}</p>
+                      </div>
+                      <div className="mt-4 pt-4 border-t border-brand-light-blue/50">
+                          <h4 className="font-semibold text-gray-300 mb-2">{t('discord_roles')}</h4>
+                          <div className="flex flex-wrap justify-center gap-1.5">
+                              {lookupResult.discordRoles.filter(r => r.name !== '@everyone').map(role => (
+                                <span key={role.id} className="px-2 py-0.5 text-xs font-semibold rounded-full border" style={{ backgroundColor: `${role.color}20`, borderColor: role.color, color: role.color }}>{role.name}</span>
+                              ))}
+                          </div>
+                      </div>
+                  </div>
+                  {/* Permissions Card */}
+                  <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
+                      <h3 className="text-xl font-bold text-brand-cyan mb-4">{t('permissions')}</h3>
+                      <div className="space-y-3">
+                          <div className="flex items-center justify-between bg-brand-light-blue/50 p-3 rounded-md">
+                              <label htmlFor="isAdmin" className="font-semibold text-gray-300 cursor-pointer">{t('grant_admin_access')}</label>
+                              <div className="relative inline-block w-12 ms-3 align-middle select-none"><input type="checkbox" name="isAdmin" id="isAdmin" checked={lookupResult.isAdmin} onChange={(e) => setConfirmingPermission({ isAdmin: e.target.checked, isSuperAdmin: lookupResult.isSuperAdmin })} className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/><label htmlFor="isAdmin" className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-600 cursor-pointer"></label></div>
+                          </div>
+                          <div className="flex items-center justify-between bg-brand-light-blue/50 p-3 rounded-md">
+                              <label htmlFor="isSuperAdmin" className="font-semibold text-gray-300 cursor-pointer">{t('grant_super_admin_access')}</label>
+                              <div className="relative inline-block w-12 ms-3 align-middle select-none"><input type="checkbox" name="isSuperAdmin" id="isSuperAdmin" checked={lookupResult.isSuperAdmin} onChange={(e) => setConfirmingPermission({ isAdmin: lookupResult.isAdmin, isSuperAdmin: e.target.checked })} className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/><label htmlFor="isSuperAdmin" className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-600 cursor-pointer"></label></div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+              <div className="md:col-span-2">
+                  <h3 className="text-xl font-bold mb-4 flex items-center gap-2"><FileText className="text-brand-cyan"/>{t('application_history')}</h3>
+                  <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50"><div className="overflow-x-auto"><table className="w-full text-left min-w-[500px]"><thead className="border-b border-brand-light-blue/50 text-gray-300"><tr><th className="p-4">{t('application_type')}</th><th className="p-4">{t('submitted_on')}</th><th className="p-4">{t('status')}</th></tr></thead>
                   <tbody>
-                    {lookupResult.submissions.length === 0 ? (
-                      <tr><td colSpan={4} className="p-8 text-center text-gray-400">{t('no_submissions_found_for_user')}</td></tr>
-                    ) : lookupResult.submissions.map(sub => (
-                      <tr key={sub.id} className="border-b border-brand-light-blue/50 last:border-none">
-                        <td className="p-4 font-semibold">{sub.quizTitle}</td>
-                        <td className="p-4 text-sm text-gray-400">{new Date(sub.submittedAt).toLocaleDateString()}</td>
-                        <td className="p-4 text-sm text-gray-400">
-                            {(sub.status === 'accepted' || sub.status === 'refused') && sub.updatedAt ? new Date(sub.updatedAt).toLocaleDateString() : 'N/A'}
-                        </td>
-                        <td className="p-4">{renderStatusBadge(sub.status)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    {lookupResult.submissions.length === 0 ? (<tr><td colSpan={3} className="p-8 text-center text-gray-400">{t('no_submissions_found_for_user')}</td></tr>) : lookupResult.submissions.map(sub => (<tr key={sub.id} className="border-b border-brand-light-blue/50 last:border-none"><td className="p-4 font-semibold">{sub.quizTitle}</td><td className="p-4 text-sm text-gray-400">{new Date(sub.submittedAt).toLocaleDateString()}</td><td className="p-4">{renderStatusBadge(sub.status)}</td></tr>))}
+                  </tbody></table></div></div>
               </div>
             </div>
-          </div>
         </div>
       )}
     </div>
   );
+  
+  const TranslationsPanel = () => {
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const handleTranslationChange = (key: string, lang: 'ar' | 'en', value: string) => {
+      setTranslations(prev => ({
+        ...prev,
+        [key]: { ...prev[key], [lang]: value }
+      }));
+    };
+    
+    const filteredKeys = Object.keys(translations).filter(key => 
+      key.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    return (
+      <div>
+        <div className="flex justify-between items-center my-6">
+          <h2 className="text-2xl font-bold">{t('translations_management')}</h2>
+          <button onClick={handleSaveTranslations} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white transition-colors min-w-[9rem] flex justify-center">{isSaving ? <Loader2 className="animate-spin" /> : t('save_translations')}</button>
+        </div>
+        <div className="mb-4">
+          <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder={t('search_by_key')} className="w-full bg-brand-light-blue text-white p-3 rounded-md border border-gray-600 focus:ring-2 focus:ring-brand-cyan"/>
+        </div>
+        <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50 max-h-[60vh] overflow-y-auto">
+          <table className="w-full text-left">
+            <thead className="sticky top-0 bg-brand-dark-blue border-b border-brand-light-blue/50 text-gray-300">
+              <tr>
+                <th className="p-4 w-1/4">{t('key')}</th>
+                <th className="p-4 w-2/5">{t('english_translation')}</th>
+                <th className="p-4 w-2/5">{t('arabic_translation')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredKeys.map(key => (
+                <tr key={key} className="border-b border-brand-light-blue/50 last:border-none">
+                  <td className="p-4 font-mono text-sm text-gray-400">{key}</td>
+                  <td className="p-4">
+                    <textarea value={translations[key]?.en || ''} onChange={e => handleTranslationChange(key, 'en', e.target.value)} className="w-full bg-brand-dark p-2 rounded border border-gray-700 h-20" />
+                  </td>
+                   <td className="p-4">
+                    <textarea dir="rtl" value={translations[key]?.ar || ''} onChange={e => handleTranslationChange(key, 'ar', e.target.value)} className="w-full bg-brand-dark p-2 rounded border border-gray-700 h-20" />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <>
@@ -480,13 +573,7 @@ const AdminPage: React.FC = () => {
         <div className="max-w-6xl mx-auto">
             <div className="flex border-b border-brand-light-blue/50 mb-6 overflow-x-auto">
                 {visibleTabs.map((tab) => (
-                  <button 
-                    key={tab.id} 
-                    onClick={() => setActiveTab(tab.id)} 
-                    className={`py-3 px-6 font-bold flex-shrink-0 flex items-center gap-2 transition-colors ${activeTab === tab.id ? 'text-brand-cyan border-b-2 border-brand-cyan' : 'text-gray-400 hover:text-brand-cyan'}`}
-                  >
-                    <tab.icon size={18}/> {t(tab.labelKey)}
-                  </button>
+                  <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`py-3 px-6 font-bold flex-shrink-0 flex items-center gap-2 transition-colors ${activeTab === tab.id ? 'text-brand-cyan border-b-2 border-brand-cyan' : 'text-gray-400 hover:text-brand-cyan'}`}><tab.icon size={18}/> {t(tab.labelKey)}</button>
                 ))}
             </div>
             <TabContent>
@@ -495,6 +582,7 @@ const AdminPage: React.FC = () => {
               {activeTab === 'lookup' && user.isSuperAdmin && <UserLookupPanel />}
               {activeTab === 'rules' && user.isSuperAdmin && <RulesPanel />}
               {activeTab === 'store' && user.isSuperAdmin && <StorePanel />}
+              {activeTab === 'translations' && user.isSuperAdmin && <TranslationsPanel />}
               {activeTab === 'appearance' && user.isSuperAdmin && <AppearancePanel />}
               {activeTab === 'audit' && user.isSuperAdmin && <AuditLogPanel />}
             </TabContent>
@@ -577,6 +665,18 @@ const AdminPage: React.FC = () => {
                   )}
               </div>
           </Modal>
+        )}
+        
+        {confirmingPermission && lookupResult && (
+             <Modal isOpen={!!confirmingPermission} onClose={() => setConfirmingPermission(null)} title={t('confirm_permission_change_title')}>
+                <div>
+                  <p className="text-gray-300 mb-6">{t('confirm_permission_change_desc')}</p>
+                  <div className="flex justify-end gap-4">
+                    <button onClick={() => setConfirmingPermission(null)} disabled={isSaving} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">{t('cancel')}</button>
+                    <button onClick={handleConfirmPermissionChange} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white min-w-[9rem] flex justify-center">{isSaving ? <Loader2 className="animate-spin"/> : t('update_permissions')}</button>
+                  </div>
+                </div>
+            </Modal>
         )}
       </div>
     </>

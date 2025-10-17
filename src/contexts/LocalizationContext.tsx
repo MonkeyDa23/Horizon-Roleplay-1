@@ -1,11 +1,12 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
-import { translations } from '../lib/translations';
+import { useTranslations } from '../hooks/useTranslations';
 import type { Language, LocalizationContextType } from '../types';
 
 export const LocalizationContext = createContext<LocalizationContextType | undefined>(undefined);
 
 export const LocalizationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [language, setLanguage] = useState<Language>('ar');
+  const { translations, loading } = useTranslations();
 
   useEffect(() => {
     const dir = language === 'ar' ? 'rtl' : 'ltr';
@@ -14,6 +15,8 @@ export const LocalizationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, [language]);
 
   const t = useCallback((key: string, replacements?: Record<string, string | number>): string => {
+    if (loading) return '...'; // Return a loading indicator while translations are being fetched
+    
     let translation = translations[key]?.[language] || key;
     if (replacements) {
       Object.keys(replacements).forEach(placeholder => {
@@ -22,7 +25,7 @@ export const LocalizationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       });
     }
     return translation;
-  }, [language]);
+  }, [language, translations, loading]);
 
   const value = {
     language,

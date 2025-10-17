@@ -2,10 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
-@keyframes question-fade-in {
+@layer base {
+  .page-container {
+    @apply container mx-auto px-6 py-16 animate-fade-in-up;
+  }
+}
+
+
+/* General Purpose Animations */
+@keyframes fade-in-up {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(20px);
   }
   to {
     opacity: 1;
@@ -13,6 +21,67 @@
   }
 }
 
-.animate-question-fade-in {
-  animation: question-fade-in 0.5s ease-out forwards;
+.animate-fade-in-up {
+  animation: fade-in-up 0.6s ease-out forwards;
+}
+
+
+/* Modal Animation */
+@keyframes slide-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(50px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.animate-slide-in-up {
+  animation: slide-in-up 0.4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+
+/* Hexagon Background Animation */
+.hexagon-background {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  z-index: -10;
+  background: #0a0f18;
+}
+
+.hex-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 200%;
+  height: 200%;
+  transform: translate(-50%, -50%);
+}
+
+.hex {
+  position: absolute;
+  width: 8vmax;
+  height: 9.2vmax;
+  background-color: rgba(0, 242, 234, 0.03);
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  animation: float 20s infinite linear;
+}
+
+.hex:nth-child(1) { top: 10%; left: 15%; animation-duration: 17s; }
+.hex:nth-child(2) { top: 30%; left: 80%; animation-duration: 23s; }
+.hex:nth-child(3) { top: 80%; left: 10%; animation-duration: 29s; }
+.hex:nth-child(4) { top: 60%; left: 60%; animation-duration: 15s; }
+.hex:nth-child(5) { top: 5%; left: 50%; animation-duration: 25s; }
+.hex:nth-child(6) { top: 90%; left: 85%; animation-duration: 19s; }
+.hex:nth-child(7) { top: 50%; left: 30%; animation-duration: 22s; }
+
+@keyframes float {
+  0% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-20px) rotate(180deg); }
+  100% { transform: translateY(0) rotate(360deg); }
 }

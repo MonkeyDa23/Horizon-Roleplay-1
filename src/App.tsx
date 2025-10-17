@@ -11,7 +11,7 @@ import { useAuth } from './hooks/useAuth';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import SessionWatcher from './components/SessionWatcher';
-import VideoBackground from './components/VideoBackground';
+import HexagonBackground from './components/HexagonBackground';
 
 import HomePage from './pages/HomePage';
 import StorePage from './pages/StorePage';
@@ -23,6 +23,7 @@ import MyApplicationsPage from './pages/MyApplicationsPage';
 import ProfilePage from './pages/ProfilePage';
 import HealthCheckPage from './pages/HealthCheckPage';
 import { Loader2, AlertTriangle } from 'lucide-react';
+import { TranslationsProvider } from './contexts/TranslationsContext';
 
 const AdminPage = React.lazy(() => import('./pages/AdminPage'));
 
@@ -65,7 +66,7 @@ const AppContent: React.FC = () => {
       <div 
         className="flex flex-col min-h-screen text-white font-sans"
       >
-        <VideoBackground />
+        <HexagonBackground />
         <div className="flex flex-col min-h-screen relative z-10 bg-brand-dark/90 backdrop-blur-sm">
           <Navbar />
           <main className="flex-grow">
@@ -100,18 +101,20 @@ const AppContent: React.FC = () => {
 
 function App() {
   return (
-    <LocalizationProvider>
-      <ToastProvider>
-        <ConfigProvider>
-          <AuthProvider>
-            <CartProvider>
-              <AppContent />
-              <SessionWatcher />
-            </CartProvider>
-          </AuthProvider>
-        </ConfigProvider>
-      </ToastProvider>
-    </LocalizationProvider>
+    <TranslationsProvider>
+      <LocalizationProvider>
+        <ToastProvider>
+          <ConfigProvider>
+            <AuthProvider>
+              <CartProvider>
+                <AppContent />
+                <SessionWatcher />
+              </CartProvider>
+            </AuthProvider>
+          </ConfigProvider>
+        </ToastProvider>
+      </LocalizationProvider>
+    </TranslationsProvider>
   );
 }
 
