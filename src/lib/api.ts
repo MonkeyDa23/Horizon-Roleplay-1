@@ -18,8 +18,52 @@ interface UserProfileCacheEntry {
   syncError: string | null;
   timestamp: number;
 }
-const userProfileCache = new Map<string, UserProfileCacheEntry>();
+const CACHE_KEY = 'userProfileCache';
 const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
+
+const getCachedUserProfile = (userId: string): UserProfileCacheEntry | null => {
+    try {
+        const cachedData = localStorage.getItem(CACHE_KEY);
+        if (!cachedData) return null;
+
+        const cache: Record<string, any> = JSON.parse(cachedData);
+        const userEntry = cache[userId];
+
+        if (userEntry && (Date.now() - userEntry.timestamp < CACHE_TTL_MS)) {
+            // Re-hydrate the Set object, which is lost during JSON stringification
+            userEntry.user.permissions = new Set(userEntry.user.permissions);
+            return userEntry as UserProfileCacheEntry;
+        }
+        return null;
+    } catch (error) {
+        console.error("Failed to read from localStorage cache", error);
+        return null;
+    }
+};
+
+const setCachedUserProfile = (userId: string, data: { user: User, syncError: string | null }) => {
+    try {
+        const cachedData = localStorage.getItem(CACHE_KEY);
+        const cache: Record<string, any> = cachedData ? JSON.parse(cachedData) : {};
+        
+        // Convert Set to array for JSON compatibility
+        const userToCache = {
+            ...data.user,
+            permissions: Array.from(data.user.permissions),
+        };
+
+        cache[userId] = {
+            user: userToCache, // permissions is an array here
+            syncError: data.syncError,
+            timestamp: Date.now(),
+        };
+
+        localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+    } catch (error) {
+        console.error("Failed to write to localStorage cache", error);
+    }
+};
+
 
 // --- PUBLIC READ-ONLY FUNCTIONS ---
 
@@ -232,9 +276,8 @@ export const fetchUserProfile = async (session: Session): Promise<{ user: User, 
     
     // --- Caching Logic ---
     const userId = session.user.id;
-    const cachedData = userProfileCache.get(userId);
-    if (cachedData && (Date.now() - cachedData.timestamp < CACHE_TTL_MS)) {
-        // Return cached data if it's fresh
+    const cachedData = getCachedUserProfile(userId);
+    if (cachedData) {
         return { user: cachedData.user, syncError: cachedData.syncError };
     }
     // --- End Caching Logic ---
@@ -307,10 +350,8 @@ export const fetchUserProfile = async (session: Session): Promise<{ user: User, 
 
     const result = { user: finalUser, syncError };
 
-    // --- Caching Logic ---
-    // Store the fresh data in the cache before returning
-    userProfileCache.set(userId, { ...result, timestamp: Date.now() });
-    // --- End Caching Logic ---
+    // Store the fresh data in the cross-tab cache before returning
+    setCachedUserProfile(userId, result);
 
     return result;
 };
