@@ -13,6 +13,30 @@ export class ApiError extends Error {
   }
 }
 
+// Helper to delay execution
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// A helper function to wrap fetch and handle 429 rate-limiting errors from Discord
+async function fetchWithRetry(url: string, options: RequestInit): Promise<Response> {
+    let response = await fetch(url, options);
+
+    if (response.status === 429) {
+        const retryAfterHeader = response.headers.get('Retry-After');
+        // The header is in seconds, might be a float. Add a small buffer (500ms).
+        const retryAfterSeconds = retryAfterHeader ? parseFloat(retryAfterHeader) : 1;
+        const waitMs = retryAfterSeconds * 1000 + 500;
+        
+        console.warn(`Rate limited by Discord. Retrying after ${waitMs}ms...`);
+        await delay(waitMs);
+
+        // Retry the request once
+        response = await fetch(url, options);
+    }
+
+    return response;
+}
+
+
 // --- PUBLIC READ-ONLY FUNCTIONS ---
 
 export const getConfig = async (): Promise<AppConfig> => {
@@ -193,7 +217,7 @@ const fetchDiscordMember = async (providerToken: string, guildId: string): Promi
         throw new ApiError("Discord Guild ID is not configured in the database.", 500);
     }
     const memberUrl = `https://discord.com/api/users/@me/guilds/${guildId}/member`;
-    const memberResponse = await fetch(memberUrl, {
+    const memberResponse = await fetchWithRetry(memberUrl, {
         headers: { 'Authorization': `Bearer ${providerToken}` }
     });
     if (!memberResponse.ok) {

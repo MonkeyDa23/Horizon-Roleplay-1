@@ -16,6 +16,14 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// --- In-memory cache for roles to reduce Discord API calls ---
+interface CacheEntry {
+  timestamp: number;
+  roles: any[];
+}
+const rolesCache = new Map<string, CacheEntry>();
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
 // Helper to create a response
 const createResponse = (data: unknown, status = 200) => {
   return new Response(JSON.stringify(data), {
@@ -45,6 +53,15 @@ serve(async (req) => {
         return createResponse({ error: 'guildId is required' }, 400);
     }
     
+    // --- Cache Check ---
+    const cachedEntry = rolesCache.get(guildId);
+    if (cachedEntry && (Date.now() - cachedEntry.timestamp < CACHE_TTL_MS)) {
+        console.log(`Cache hit for guild roles: ${guildId}`);
+        return createResponse(cachedEntry.roles);
+    }
+    console.log(`Cache miss for guild roles: ${guildId}`);
+
+
     const rolesUrl = `${DISCORD_API_BASE}/guilds/${guildId}/roles`;
 
     const rolesResponse = await fetch(rolesUrl, {
@@ -73,6 +90,11 @@ serve(async (req) => {
         console.error(`Discord API did not return an array for guild roles. Guild ID: ${guildId}. Response:`, roles);
         return createResponse({ error: 'Discord API returned an unexpected data format for roles.' }, 500);
     }
+
+    // --- Cache Update ---
+    rolesCache.set(guildId, { timestamp: Date.now(), roles });
+    console.log(`Cache updated for guild roles: ${guildId}`);
+
 
     return createResponse(roles);
 
