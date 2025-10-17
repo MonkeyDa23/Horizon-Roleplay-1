@@ -1,5 +1,4 @@
 
-
 export const DATABASE_SCHEMA = `
 -- #############################################################################
 -- #                                                                           #
@@ -351,7 +350,8 @@ BEGIN
         'title', 'New Application: ' || NEW."quizTitle",
         'color', 3447003, -- Blue
         'fields', jsonb_build_array(
-          jsonb_build_object('name', 'Applicant', 'value', NEW.username || ' (`' || NEW.user_id || '`)', 'inline', true),
+          -- FIX: Replaced string concatenation with format() to avoid potential linter issues with backticks.
+          jsonb_build_object('name', 'Applicant', 'value', format('%s (`%s`)', NEW.username, NEW.user_id), 'inline', true),
           jsonb_build_object('name', 'Highest Role', 'value', COALESCE(NEW.user_highest_role, 'Member'), 'inline', true),
           jsonb_build_object('name', 'Cheat Attempts', 'value', cheat_count, 'inline', true)
         ),
@@ -360,9 +360,6 @@ BEGIN
       )
     )
   );
-  -- Explicitly qualify with schema for robustness
-  -- FIX: Changed CAST syntax to '::' which is more friendly to TypeScript linters.
-  -- FIX(354): Removed schema qualifier to potentially resolve linter issue without affecting functionality.
   PERFORM http_post(webhook_url, payload, 'application/json', '{}'::jsonb);
   RETURN NEW;
 END;
@@ -397,7 +394,8 @@ BEGIN
         'title', 'Admin Action Logged',
         'color', 9807270, -- Gray
         'fields', jsonb_build_array(
-          jsonb_build_object('name', 'Admin', 'value', NEW.admin_username || ' (`' || NEW.admin_id || '`)', 'inline', false),
+          -- FIX: Replaced string concatenation with format() to avoid potential linter issues with backticks.
+          jsonb_build_object('name', 'Admin', 'value', format('%s (`%s`)', NEW.admin_username, NEW.admin_id), 'inline', false),
           jsonb_build_object('name', 'Action', 'value', NEW.action, 'inline', false)
         ),
         'timestamp', NEW.timestamp
@@ -405,9 +403,6 @@ BEGIN
     )
   );
   
-  -- Explicitly qualify with schema for robustness
-  -- FIX: Changed CAST syntax to '::' which is more friendly to TypeScript linters.
-  -- FIX(399): Removed schema qualifier to potentially resolve linter issue without affecting functionality.
   PERFORM http_post(webhook_url, payload, 'application/json', '{}'::jsonb);
   RETURN NEW;
 END;
