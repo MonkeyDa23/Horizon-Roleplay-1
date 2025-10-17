@@ -25,9 +25,9 @@ export interface User {
   username: string;
   avatar: string;
   isAdmin: boolean;
-  isSuperAdmin: boolean;
+  permissions: Set<string>; // Set of allowed admin page keys
   discordRoles: DiscordRole[];
-  roles: string[];
+  roles: string[]; // Array of role IDs
   highestRole: DiscordRole | null;
 }
 
@@ -159,7 +159,7 @@ export interface AppConfig {
     MTA_SERVER_URL: string;
     BACKGROUND_IMAGE_URL: string;
     SHOW_HEALTH_CHECK: boolean;
-    SUPER_ADMIN_ROLE_IDS: string[];
+    SUPER_ADMIN_ROLE_IDS: string[]; // Deprecated, but kept for reference
     HANDLER_ROLE_IDS: string[];
     SUBMISSIONS_WEBHOOK_URL: string;
     AUDIT_LOG_WEBHOOK_URL: string;
@@ -170,8 +170,13 @@ export interface UserLookupResult {
   username: string;
   avatar: string;
   isAdmin: boolean;
-  isSuperAdmin: boolean;
+  permissions: string[];
   discordRoles: DiscordRole[];
   joinedAt: string;
   submissions: QuizSubmission[];
+}
+
+export interface RolePermission {
+    role_id: string;
+    permissions: string[];
 }

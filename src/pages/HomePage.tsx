@@ -23,6 +23,7 @@ const HomePage: React.FC = () => {
         title={`${communityName} - ${t('home')}`}
         description={description}
         keywords={`roleplay, community, ${communityName.toLowerCase()}, mta, gta, gaming, horizon`}
+        image={config.BACKGROUND_IMAGE_URL || config.LOGO_URL}
       />
       <div className="relative h-[calc(100vh-68px)] flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0 w-full h-full opacity-5 pointer-events-none">

@@ -46,6 +46,7 @@ export const translations: Translations = {
   
   // Discord Embed
   discord_online: { ar: 'متصل', en: 'Online' },
+  // FIX: Added missing 'en' key.
   discord_members: { ar: 'عضو', en: 'Members' },
 
   // Footer
@@ -95,6 +96,7 @@ export const translations: Translations = {
   store_management: { ar: 'إدارة المتجر', en: 'Store Management' },
   appearance_settings: { ar: 'إعدادات المظهر', en: 'Appearance Settings' },
   translations_management: { ar: 'إدارة الترجمات', en: 'Translations Management' },
+  permissions_management: { ar: 'إدارة الصلاحيات', en: 'Permissions Management' },
   audit_log: { ar: 'سجل التدقيق', en: 'Audit Log' },
   user_lookup: { ar: 'بحث عن مستخدم', en: 'User Lookup' },
   create_new_quiz: { ar: 'إنشاء تقديم جديد', en: 'Create New Quiz' },
@@ -149,6 +151,7 @@ export const translations: Translations = {
   discord_guild_id: { ar: 'معرف سيرفر ديسكورد', en: 'Discord Guild ID' },
   discord_guild_id_desc: { ar: 'المعرف الرقمي لسيرفرك لاستخراج الرتب.', en: 'The numerical ID of your server for fetching roles.' },
   super_admin_role_ids: { ar: 'أرقام رتب المشرفين الخارقين', en: 'Super Admin Role IDs' },
+  // FIX: Added missing 'en' key.
   super_admin_role_ids_desc: { ar: 'مفصولة بفاصلة. هؤلاء يمكنهم تغيير إعدادات الموقع.', en: 'Comma-separated. These can change site settings.' },
   handler_role_ids: { ar: 'أرقام رتب المعالجين', en: 'Handler Role IDs' },
   handler_role_ids_desc: { ar: 'مفصولة بفاصلة. هؤلاء يمكنهم رؤية جميع التقديمات.', en: 'Comma-separated. These can view all submissions.' },
@@ -176,12 +179,20 @@ export const translations: Translations = {
   user_information: { ar: 'معلومات المستخدم', en: 'User Information' },
   permissions: { ar: 'الصلاحيات', en: 'Permissions' },
   grant_admin_access: { ar: 'منح صلاحية مشرف', en: 'Grant Admin Access' },
-  grant_super_admin_access: { ar: 'منح صلاحية مشرف خارق', en: 'Grant Super Admin Access' },
+  grant_super_admin_access: { ar: 'صلاحية مشرف خارق', en: 'Super Admin Permission' },
   confirm_permission_change_title: { ar: 'تأكيد تغيير الصلاحيات', en: 'Confirm Permission Change' },
+  // FIX: Added missing 'en' key and corrected typo with double single quote.
   confirm_permission_change_desc: { ar: 'هل أنت متأكد أنك تريد تحديث صلاحيات هذا المستخدم؟ هذا الإجراء سيتم تسجيله.', en: 'Are you sure you want to update this user\'s permissions? This action will be logged.' },
   update_permissions: { ar: 'تحديث الصلاحيات', en: 'Update Permissions' },
   permissions_updated: { ar: 'تم تحديث الصلاحيات بنجاح!', en: 'Permissions updated successfully!' },
   joined_discord: { ar: 'تاريخ الانضمام', en: 'Joined Discord' },
+  
+  // Permissions Page
+  discord_role: { ar: 'رتبة ديسكورد', en: 'Discord Role' },
+  select_role_to_configure: { ar: 'اختر رتبة لضبط صلاحياتها', en: 'Select a role to configure its permissions' },
+  available_permissions: { ar: 'الصلاحيات المتاحة', en: 'Available Permissions' },
+  save_permissions: { ar: 'حفظ الصلاحيات', en: 'Save Permissions' },
+  permissions_saved_success: { ar: 'تم حفظ الصلاحيات بنجاح!', en: 'Permissions saved successfully!' },
 
 
   // Admin Page - new keys

@@ -14,32 +14,48 @@ import {
   saveRules as apiSaveRules,
   saveConfig,
   lookupDiscordUser,
-  updateUserPermissions,
   getProducts,
   saveProduct,
   deleteProduct,
   getTranslations,
   saveTranslations,
+  getGuildRoles,
+  getRolePermissions,
+  saveRolePermissions,
 } from '../lib/api';
-import type { Quiz, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule, Product, AppConfig, UserLookupResult, Translations } from '../types';
+import type { Quiz, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule, Product, AppConfig, UserLookupResult, Translations, DiscordRole, RolePermission } from '../types';
 import { useNavigate } from 'react-router-dom';
-import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store, Palette, Search, Languages } from 'lucide-react';
+import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store, Palette, Search, Languages, KeyRound } from 'lucide-react';
 import Modal from '../components/Modal';
 import SEO from '../components/SEO';
 
 
-type AdminTab = 'submissions' | 'quizzes' | 'rules' | 'store' | 'appearance' | 'lookup' | 'translations' | 'audit';
+type AdminTab = 'submissions' | 'quizzes' | 'rules' | 'store' | 'appearance' | 'lookup' | 'translations' | 'permissions' | 'audit';
+type PermissionKey = Exclude<AdminTab, 'permissions' | 'submissions' | 'lookup'> | '_super_admin';
 
-const TABS: { id: AdminTab; labelKey: string; icon: React.ElementType; superAdminOnly: boolean }[] = [
-  { id: 'submissions', labelKey: 'submission_management', icon: FileText, superAdminOnly: false },
-  { id: 'quizzes', labelKey: 'quiz_management', icon: Server, superAdminOnly: true },
-  { id: 'lookup', labelKey: 'user_lookup', icon: Search, superAdminOnly: true },
-  { id: 'rules', labelKey: 'rules_management', icon: BookCopy, superAdminOnly: true },
-  { id: 'store', labelKey: 'store_management', icon: Store, superAdminOnly: true },
-  { id: 'translations', labelKey: 'translations_management', icon: Languages, superAdminOnly: true },
-  { id: 'appearance', labelKey: 'appearance_settings', icon: Palette, superAdminOnly: true },
-  { id: 'audit', labelKey: 'audit_log', icon: ShieldCheck, superAdminOnly: true },
+
+const TABS: { id: AdminTab; labelKey: string; icon: React.ElementType; permission: string }[] = [
+  { id: 'submissions', labelKey: 'submission_management', icon: FileText, permission: 'submissions' },
+  { id: 'lookup', labelKey: 'user_lookup', icon: Search, permission: 'lookup' },
+  { id: 'permissions', labelKey: 'permissions_management', icon: KeyRound, permission: '_super_admin' },
+  { id: 'quizzes', labelKey: 'quiz_management', icon: Server, permission: 'quizzes' },
+  { id: 'rules', labelKey: 'rules_management', icon: BookCopy, permission: 'rules' },
+  { id: 'store', labelKey: 'store_management', icon: Store, permission: 'store' },
+  { id: 'translations', labelKey: 'translations_management', icon: Languages, permission: 'translations' },
+  { id: 'appearance', labelKey: 'appearance_settings', icon: Palette, permission: 'appearance' },
+  { id: 'audit', labelKey: 'audit_log', icon: ShieldCheck, permission: 'audit' },
 ];
+
+const AVAILABLE_PERMISSIONS: { key: PermissionKey; labelKey: string }[] = [
+    { key: '_super_admin', labelKey: 'grant_super_admin_access' },
+    { key: 'quizzes', labelKey: 'quiz_management' },
+    { key: 'rules', labelKey: 'rules_management' },
+    { key: 'store', labelKey: 'store_management' },
+    { key: 'translations', labelKey: 'translations_management' },
+    { key: 'appearance', labelKey: 'appearance_settings' },
+    { key: 'audit', labelKey: 'audit_log' },
+];
+
 
 const AdminPage: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
@@ -58,25 +74,26 @@ const AdminPage: React.FC = () => {
   const [viewingSubmission, setViewingSubmission] = useState<QuizSubmission | null>(null);
   
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
-  
   const [editableRules, setEditableRules] = useState<RuleCategory[] | null>(null);
-  
   const [products, setProducts] = useState<Product[]>([]);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  
   const [editableConfig, setEditableConfig] = useState<Partial<AppConfig>>({});
-  
   const [translations, setTranslations] = useState<Translations>({});
   
   const [isTabLoading, setIsTabLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   
+  // User Lookup State
   const [lookupUserId, setLookupUserId] = useState('');
   const [lookupResult, setLookupResult] = useState<UserLookupResult | null>(null);
   const [isLookupLoading, setIsLookupLoading] = useState(false);
   const [lookupError, setLookupError] = useState<string | null>(null);
-  const [confirmingPermission, setConfirmingPermission] = useState<{isAdmin: boolean, isSuperAdmin: boolean} | null>(null);
 
+  // Permissions Panel State
+  const [allGuildRoles, setAllGuildRoles] = useState<DiscordRole[]>([]);
+  const [rolePermissions, setRolePermissions] = useState<RolePermission[]>([]);
+  const [selectedRoleId, setSelectedRoleId] = useState<string>('');
+  
   useEffect(() => {
     if (!authLoading && !user?.isAdmin) {
         navigate('/');
@@ -92,16 +109,25 @@ const AdminPage: React.FC = () => {
         try {
             switch (activeTab) {
                 case 'submissions': 
-                    setSubmissions(await getSubmissions());
-                    if(quizzes.length === 0) setQuizzes(await getQuizzes());
+                    if (user.permissions.has('submissions')) {
+                      setSubmissions(await getSubmissions());
+                      if(quizzes.length === 0) setQuizzes(await getQuizzes());
+                    }
                     break;
-                case 'quizzes': if (user.isSuperAdmin) setQuizzes(await getQuizzes()); break;
+                case 'quizzes': if (user.permissions.has('quizzes')) setQuizzes(await getQuizzes()); break;
                 case 'lookup': break;
-                case 'rules': if (user.isSuperAdmin) setEditableRules(JSON.parse(JSON.stringify(await getRules()))); break;
-                case 'store': if (user.isSuperAdmin) setProducts(await getProducts()); break;
-                case 'translations': if(user.isSuperAdmin) setTranslations(await getTranslations()); break;
-                case 'appearance': if (user.isSuperAdmin) setEditableConfig({ ...config }); break;
-                case 'audit': if (user.isSuperAdmin) setAuditLogs(await getAuditLogs()); break;
+                case 'permissions':
+                    if (user.permissions.has('_super_admin')) {
+                        const [guildRoles, currentPerms] = await Promise.all([getGuildRoles(), getRolePermissions()]);
+                        setAllGuildRoles(guildRoles.sort((a,b) => b.position - a.position));
+                        setRolePermissions(currentPerms);
+                    }
+                    break;
+                case 'rules': if (user.permissions.has('rules')) setEditableRules(JSON.parse(JSON.stringify(await getRules()))); break;
+                case 'store': if (user.permissions.has('store')) setProducts(await getProducts()); break;
+                case 'translations': if(user.permissions.has('translations')) setTranslations(await getTranslations()); break;
+                case 'appearance': if (user.permissions.has('appearance')) setEditableConfig({ ...config }); break;
+                case 'audit': if (user.permissions.has('audit')) setAuditLogs(await getAuditLogs()); break;
             }
         } catch (error) {
             console.error(`Failed to fetch data for tab: ${activeTab}`, error);
@@ -112,7 +138,7 @@ const AdminPage: React.FC = () => {
     };
 
     fetchDataForTab();
-  }, [activeTab, user?.isAdmin, user?.isSuperAdmin, showToast, config]);
+  }, [activeTab, user]);
 
   const refreshSubmissions = useCallback(async () => {
       setIsTabLoading(true);
@@ -191,24 +217,6 @@ const AdminPage: React.FC = () => {
     }
   };
   
-  const handleConfirmPermissionChange = async () => {
-    if (!lookupResult || !confirmingPermission) return;
-    setIsSaving(true);
-    try {
-        await updateUserPermissions(lookupResult.id, confirmingPermission.isAdmin, confirmingPermission.isSuperAdmin);
-        // Refresh lookup data
-        const freshResult = await lookupDiscordUser(lookupResult.id);
-        setLookupResult(freshResult);
-        showToast(t('permissions_updated'), 'success');
-    } catch (error) {
-        showToast(error instanceof Error ? error.message : 'Failed to update permissions.', 'error');
-    } finally {
-        setIsSaving(false);
-        setConfirmingPermission(null);
-    }
-  };
-
-  
   const handleSaveProduct = async () => {
     if (!editingProduct) return;
     setIsSaving(true);
@@ -244,6 +252,7 @@ const AdminPage: React.FC = () => {
         await apiSaveRules(editableRules);
         showToast(t('rules_updated_success'), 'success');
     } catch (error) {
+        // FIX: Corrected variable name from 'e' to 'error'.
         showToast(`Error saving rules: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
     } finally {
         setIsSaving(false);
@@ -258,11 +267,8 @@ const AdminPage: React.FC = () => {
     );
   }
 
-  const visibleTabs = TABS.filter(tab => {
-    if (user.isSuperAdmin) return true;
-    if (user.isAdmin) return !tab.superAdminOnly;
-    return false;
-  });
+  // Filter tabs based on user's new permissions structure
+  const visibleTabs = TABS.filter(tab => user.permissions.has(tab.permission));
 
   const renderStatusBadge = (status: SubmissionStatus) => {
     const statusMap = {
@@ -430,8 +436,6 @@ const AdminPage: React.FC = () => {
         <div className="pt-4 border-t border-brand-light-blue/50">
             <h3 className="text-xl font-bold text-brand-cyan mb-4">Discord Integration</h3>
             <div><label className="block mb-2 font-semibold text-gray-300">{t('discord_guild_id')}</label><input type="text" placeholder="e.g. 1422936346233933980" value={editableConfig.DISCORD_GUILD_ID || ''} onChange={(e) => setEditableConfig({...editableConfig, DISCORD_GUILD_ID: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /><p className="text-xs text-gray-400 mt-1">{t('discord_guild_id_desc')}</p></div>
-            <div className="mt-4"><label className="block mb-2 font-semibold text-gray-300">{t('super_admin_role_ids')}</label><input type="text" placeholder="e.g. 1423683069893673050" value={(editableConfig.SUPER_ADMIN_ROLE_IDS || []).join(', ')} onChange={(e) => setEditableConfig({...editableConfig, SUPER_ADMIN_ROLE_IDS: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /><p className="text-xs text-gray-400 mt-1">{t('super_admin_role_ids_desc')}</p></div>
-            <div className="mt-4"><label className="block mb-2 font-semibold text-gray-300">{t('handler_role_ids')}</label><input type="text" placeholder="e.g. 1423683069893673051" value={(editableConfig.HANDLER_ROLE_IDS || []).join(', ')} onChange={(e) => setEditableConfig({...editableConfig, HANDLER_ROLE_IDS: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /><p className="text-xs text-gray-400 mt-1">{t('handler_role_ids_desc')}</p></div>
             <div className="mt-4"><label className="block mb-2 font-semibold text-gray-300">{t('submissions_webhook_url')}</label><input type="text" value={editableConfig.SUBMISSIONS_WEBHOOK_URL || ''} onChange={(e) => setEditableConfig({...editableConfig, SUBMISSIONS_WEBHOOK_URL: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /><p className="text-xs text-gray-400 mt-1">{t('submissions_webhook_url_desc')}</p></div>
             <div className="mt-4"><label className="block mb-2 font-semibold text-gray-300">{t('audit_log_webhook_url')}</label><input type="text" value={editableConfig.AUDIT_LOG_WEBHOOK_URL || ''} onChange={(e) => setEditableConfig({...editableConfig, AUDIT_LOG_WEBHOOK_URL: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /><p className="text-xs text-gray-400 mt-1">{t('audit_log_webhook_url_desc')}</p></div>
         </div>
@@ -482,20 +486,21 @@ const AdminPage: React.FC = () => {
                           </div>
                       </div>
                   </div>
-                  {/* Permissions Card */}
-                  <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
+                   <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
                       <h3 className="text-xl font-bold text-brand-cyan mb-4">{t('permissions')}</h3>
-                      <div className="space-y-3">
-                          <div className="flex items-center justify-between bg-brand-light-blue/50 p-3 rounded-md">
-                              <label htmlFor="isAdmin" className="font-semibold text-gray-300 cursor-pointer">{t('grant_admin_access')}</label>
-                              <div className="relative inline-block w-12 ms-3 align-middle select-none"><input type="checkbox" name="isAdmin" id="isAdmin" checked={lookupResult.isAdmin} onChange={(e) => setConfirmingPermission({ isAdmin: e.target.checked, isSuperAdmin: lookupResult.isSuperAdmin })} className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/><label htmlFor="isAdmin" className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-600 cursor-pointer"></label></div>
-                          </div>
-                          <div className="flex items-center justify-between bg-brand-light-blue/50 p-3 rounded-md">
-                              <label htmlFor="isSuperAdmin" className="font-semibold text-gray-300 cursor-pointer">{t('grant_super_admin_access')}</label>
-                              <div className="relative inline-block w-12 ms-3 align-middle select-none"><input type="checkbox" name="isSuperAdmin" id="isSuperAdmin" checked={lookupResult.isSuperAdmin} onChange={(e) => setConfirmingPermission({ isAdmin: lookupResult.isAdmin, isSuperAdmin: e.target.checked })} className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/><label htmlFor="isSuperAdmin" className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-600 cursor-pointer"></label></div>
-                          </div>
-                      </div>
-                  </div>
+                      {lookupResult.permissions.length > 0 ? (
+                        <ul className="space-y-2">
+                          {lookupResult.permissions.map(perm => (
+                            <li key={perm} className="flex items-center gap-2 text-gray-200">
+                              <Check size={16} className="text-green-400" />
+                              <span>{t(perm === '_super_admin' ? 'grant_super_admin_access' : `${perm}_management`)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-gray-400 italic">This user has no admin permissions.</p>
+                      )}
+                   </div>
               </div>
               <div className="md:col-span-2">
                   <h3 className="text-xl font-bold mb-4 flex items-center gap-2"><FileText className="text-brand-cyan"/>{t('application_history')}</h3>
@@ -561,6 +566,91 @@ const AdminPage: React.FC = () => {
     );
   };
 
+  const PermissionsPanel = () => {
+    const [currentPerms, setCurrentPerms] = useState<string[]>([]);
+    
+    useEffect(() => {
+        if(selectedRoleId) {
+            const existing = rolePermissions.find(p => p.role_id === selectedRoleId);
+            setCurrentPerms(existing ? existing.permissions : []);
+        } else {
+            setCurrentPerms([]);
+        }
+    }, [selectedRoleId]);
+    
+    const handlePermissionChange = (permKey: PermissionKey, checked: boolean) => {
+        let newPerms = new Set(currentPerms);
+        if (checked) {
+            newPerms.add(permKey);
+            if(permKey === '_super_admin') {
+                AVAILABLE_PERMISSIONS.forEach(p => newPerms.add(p.key));
+            }
+        } else {
+            newPerms.delete(permKey);
+             if(permKey === '_super_admin') {
+                newPerms.clear();
+            }
+        }
+        setCurrentPerms(Array.from(newPerms));
+    }
+
+    const handleSave = async () => {
+        if (!selectedRoleId) return;
+        setIsSaving(true);
+        try {
+            await saveRolePermissions(selectedRoleId, currentPerms);
+            setRolePermissions(await getRolePermissions());
+            showToast(t('permissions_saved_success'), 'success');
+        } catch(e) {
+            showToast(e instanceof Error ? e.message : 'Failed to save.', 'error');
+        } finally {
+            setIsSaving(false);
+        }
+    }
+    
+    return (
+      <div className="mt-6 max-w-3xl mx-auto">
+        <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
+            <h3 className="text-xl font-bold text-brand-cyan mb-4">{t('discord_role')}</h3>
+            <select value={selectedRoleId} onChange={e => setSelectedRoleId(e.target.value)} className="w-full bg-brand-light-blue text-white p-3 rounded-md border border-gray-600 mb-6">
+                <option value="">{t('select_role_to_configure')}</option>
+                {allGuildRoles.filter(r => r.name !== '@everyone').map(role => (
+                    <option key={role.id} value={role.id}>{role.name}</option>
+                ))}
+            </select>
+
+            {selectedRoleId && (
+                <div className="animate-fade-in-up">
+                    <h3 className="text-xl font-bold text-brand-cyan mb-4">{t('available_permissions')}</h3>
+                    <div className="space-y-3">
+                        {AVAILABLE_PERMISSIONS.map(perm => {
+                            const isChecked = currentPerms.includes(perm.key);
+                            const isSuperAdmin = currentPerms.includes('_super_admin');
+                            return (
+                                <div key={perm.key} className="flex items-center bg-brand-light-blue/50 p-3 rounded-md">
+                                    <input 
+                                        type="checkbox" 
+                                        id={`perm-${perm.key}`} 
+                                        checked={isChecked}
+                                        disabled={isSuperAdmin && perm.key !== '_super_admin'}
+                                        onChange={e => handlePermissionChange(perm.key, e.target.checked)}
+                                        className="h-5 w-5 rounded bg-brand-dark border-gray-500 text-brand-cyan focus:ring-brand-cyan disabled:opacity-50"
+                                    />
+                                    <label htmlFor={`perm-${perm.key}`} className="ms-3 font-semibold text-gray-200">{t(perm.labelKey)}</label>
+                                </div>
+                            )
+                        })}
+                    </div>
+                    <div className="flex justify-end mt-8">
+                        <button onClick={handleSave} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-8 rounded-md hover:bg-white min-w-[9rem] flex justify-center">{isSaving ? <Loader2 className="animate-spin"/> : t('save_permissions')}</button>
+                    </div>
+                </div>
+            )}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
       <SEO 
@@ -577,14 +667,15 @@ const AdminPage: React.FC = () => {
                 ))}
             </div>
             <TabContent>
-              {activeTab === 'submissions' && <SubmissionsPanel />}
-              {activeTab === 'quizzes' && user.isSuperAdmin && <QuizzesPanel />}
-              {activeTab === 'lookup' && user.isSuperAdmin && <UserLookupPanel />}
-              {activeTab === 'rules' && user.isSuperAdmin && <RulesPanel />}
-              {activeTab === 'store' && user.isSuperAdmin && <StorePanel />}
-              {activeTab === 'translations' && user.isSuperAdmin && <TranslationsPanel />}
-              {activeTab === 'appearance' && user.isSuperAdmin && <AppearancePanel />}
-              {activeTab === 'audit' && user.isSuperAdmin && <AuditLogPanel />}
+              {activeTab === 'submissions' && user.permissions.has('submissions') && <SubmissionsPanel />}
+              {activeTab === 'quizzes' && user.permissions.has('quizzes') && <QuizzesPanel />}
+              {activeTab === 'lookup' && user.permissions.has('lookup') && <UserLookupPanel />}
+              {activeTab === 'permissions' && user.permissions.has('_super_admin') && <PermissionsPanel />}
+              {activeTab === 'rules' && user.permissions.has('rules') && <RulesPanel />}
+              {activeTab === 'store' && user.permissions.has('store') && <StorePanel />}
+              {activeTab === 'translations' && user.permissions.has('translations') && <TranslationsPanel />}
+              {activeTab === 'appearance' && user.permissions.has('appearance') && <AppearancePanel />}
+              {activeTab === 'audit' && user.permissions.has('audit') && <AuditLogPanel />}
             </TabContent>
         </div>
         
@@ -665,18 +756,6 @@ const AdminPage: React.FC = () => {
                   )}
               </div>
           </Modal>
-        )}
-        
-        {confirmingPermission && lookupResult && (
-             <Modal isOpen={!!confirmingPermission} onClose={() => setConfirmingPermission(null)} title={t('confirm_permission_change_title')}>
-                <div>
-                  <p className="text-gray-300 mb-6">{t('confirm_permission_change_desc')}</p>
-                  <div className="flex justify-end gap-4">
-                    <button onClick={() => setConfirmingPermission(null)} disabled={isSaving} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">{t('cancel')}</button>
-                    <button onClick={handleConfirmPermissionChange} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white min-w-[9rem] flex justify-center">{isSaving ? <Loader2 className="animate-spin"/> : t('update_permissions')}</button>
-                  </div>
-                </div>
-            </Modal>
         )}
       </div>
     </>

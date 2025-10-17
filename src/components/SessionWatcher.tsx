@@ -25,7 +25,8 @@ const SessionWatcher = () => {
             try {
                 const freshUser = await revalidateSession();
                 
-                if (freshUser.isSuperAdmin !== user.isSuperAdmin || freshUser.isAdmin !== user.isAdmin) {
+                // FIX: Replaced non-existent 'isSuperAdmin' with a check on the 'permissions' set.
+                if (freshUser.isAdmin !== user.isAdmin || freshUser.permissions.has('_super_admin') !== user.permissions.has('_super_admin')) {
                     
                     if (freshUser.isAdmin && !user.isAdmin) {
                         showToast(t('admin_granted'), 'success');

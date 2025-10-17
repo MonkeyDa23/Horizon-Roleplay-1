@@ -22,6 +22,7 @@ const createResponse = (data: unknown, status = 200) => {
 }
 
 serve(async (req) => {
+  // This is needed to handle the OPTIONS request from the browser for CORS
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
@@ -49,7 +50,7 @@ serve(async (req) => {
     const guildId = config.DISCORD_GUILD_ID;
     if (!guildId) throw new Error('DISCORD_GUILD_ID is not set in config table.');
     
-    // 2. Fetch all guild roles (can be cached in a real-world scenario)
+    // 2. Fetch all guild roles
     const rolesResponse = await fetch(`${DISCORD_API_BASE}/guilds/${guildId}/roles`, {
         headers: { 'Authorization': `Bot ${DISCORD_BOT_TOKEN}` },
     });
@@ -65,16 +66,26 @@ serve(async (req) => {
         throw new Error('Failed to fetch guild member from Discord.');
     }
     const memberData = await memberResponse.json();
-
-    // 4. Fetch user's profile from our DB
-    const { data: profile, error: profileError } = await supabaseClient
-      .from('profiles')
-      .select('is_admin, is_super_admin')
-      .eq('id', memberData.user.id)
-      .single();
-    if (profileError && profileError.code !== 'PGRST116') throw new Error(`Failed to fetch user profile: ${profileError.message}`);
     
-    // 5. Fetch user's submission history
+    // 4. Fetch role permissions from our DB based on the user's roles
+    const userRoleIds: string[] = memberData.roles || [];
+    const { data: permsData, error: permsError } = await supabaseClient
+      .from('role_permissions')
+      .select('permissions')
+      .in('role_id', userRoleIds);
+    if (permsError) throw new Error(`Failed to fetch role permissions: ${permsError.message}`);
+    
+    // 5. Calculate final permissions set
+    const permissions = new Set<string>();
+    if(permsData) {
+      for (const rolePerms of permsData) {
+        if (Array.isArray(rolePerms.permissions)) {
+          rolePerms.permissions.forEach(p => permissions.add(p));
+        }
+      }
+    }
+    
+    // 6. Fetch user's submission history
     const { data: submissions, error: subsError } = await supabaseClient
       .from('submissions')
       .select('*')
@@ -82,8 +93,7 @@ serve(async (req) => {
       .order('submittedAt', { ascending: false });
     if (subsError) throw new Error(`Failed to fetch submissions: ${subsError.message}`);
 
-    // 6. Combine all data
-    const userRoleIds: string[] = memberData.roles || [];
+    // 7. Combine all data for the final response
     const discordRoles = allGuildRoles
       .filter((role: any) => userRoleIds.includes(role.id))
       .map((role: any) => ({
@@ -99,9 +109,8 @@ serve(async (req) => {
       username: memberData.user.global_name || memberData.user.username,
       avatar: memberData.user.avatar 
         ? `https://cdn.discordapp.com/avatars/${memberData.user.id}/${memberData.user.avatar}.png`
-        : `https://cdn.discordapp.com/embed/avatars/${parseInt(memberData.user.discriminator) % 5}.png`,
-      isAdmin: profile ? profile.is_admin : false,
-      isSuperAdmin: profile ? profile.is_super_admin : false,
+        : `https://cdn.discordapp.com/embed/avatars/${parseInt(memberData.user.discriminator || '0') % 5}.png`,
+      permissions: Array.from(permissions),
       discordRoles: discordRoles,
       joinedAt: memberData.joined_at,
       submissions: submissions || [],

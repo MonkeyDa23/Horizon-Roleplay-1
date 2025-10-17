@@ -1,5 +1,4 @@
-
-export const DATABASE_SCHEMA = `
+/*
 -- -----------------------------------------------------------------------------
 -- -                                                                           -
 -- -                     HORIZON ROLEPLAY DATABASE SETUP                       -
@@ -28,39 +27,22 @@ CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
 -- Create a table for public profiles
 CREATE TABLE IF NOT EXISTS public.profiles (
   id uuid NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  is_admin boolean DEFAULT false NOT NULL,
-  is_super_admin boolean DEFAULT false NOT NULL,
+  -- is_admin and is_super_admin columns are now removed in favor of RBAC
   updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
+-- Drop old columns if they exist
+ALTER TABLE public.profiles
+  DROP COLUMN IF EXISTS is_admin,
+  DROP COLUMN IF EXISTS is_super_admin;
+
 -- Set up Row Level Security (RLS)
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-
--- Helper function to check admin status without recursion
-CREATE OR REPLACE FUNCTION public.is_current_user_admin()
-RETURNS boolean
-LANGUAGE plpgsql
-SECURITY DEFINER SET search_path = public
-AS $$
-BEGIN
-  -- Bypasses RLS to check the is_admin flag of the current user.
-  RETURN (SELECT is_admin FROM public.profiles WHERE id = auth.uid());
-EXCEPTION
-  -- Return false if the user has no profile yet or any other error occurs.
-  WHEN OTHERS THEN
-    RETURN false;
-END;
-$$;
-
 
 -- Policies for profiles
 DROP POLICY IF EXISTS "Allow individual read access" ON public.profiles;
 CREATE POLICY "Allow individual read access" ON public.profiles
   FOR SELECT USING (auth.uid() = id);
-
-DROP POLICY IF EXISTS "Allow admin read access" ON public.profiles;
-CREATE POLICY "Allow admin read access" ON public.profiles
-  FOR SELECT USING (public.is_current_user_admin() = true);
 
 DROP POLICY IF EXISTS "Allow individual insert access" ON public.profiles;
 CREATE POLICY "Allow individual insert access" ON public.profiles
@@ -70,7 +52,6 @@ DROP POLICY IF EXISTS "Allow individual update access" ON public.profiles;
 CREATE POLICY "Allow individual update access" ON public.profiles
   FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
-
 -- Function to create a profile for new users
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger
@@ -79,7 +60,8 @@ SECURITY DEFINER SET search_path = public
 AS $$
 BEGIN
   INSERT INTO public.profiles (id)
-  VALUES (new.id);
+  VALUES (new.id)
+  ON CONFLICT (id) DO NOTHING;
   RETURN new;
 END;
 $$;
@@ -90,46 +72,108 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
--- New RPC for updating user permissions by Super Admins
-CREATE OR REPLACE FUNCTION public.update_user_permissions(target_user_id uuid, p_is_admin boolean, p_is_super_admin boolean)
+-- Drop the old RPC for updating user permissions as it's now obsolete
+DROP FUNCTION IF EXISTS public.update_user_permissions(uuid, boolean, boolean);
+
+-- =============================================================================
+--  1.5. ROLE-BASED ACCESS CONTROL (RBAC)
+-- =============================================================================
+CREATE TABLE IF NOT EXISTS public.role_permissions (
+  role_id text PRIMARY KEY,
+  permissions text[] NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+ALTER TABLE public.role_permissions ENABLE ROW LEVEL SECURITY;
+
+-- Helper function to check if the current user is a super admin based on their roles
+CREATE OR REPLACE FUNCTION public.is_current_user_super_admin()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.role_permissions
+    WHERE permissions @> ARRAY['_super_admin']
+      AND role_id = ANY (
+        (SELECT raw_user_meta_data->'roles' FROM auth.users WHERE id = auth.uid())::jsonb ->> 0
+      )
+  );
+$$;
+
+
+DROP POLICY IF EXISTS "Allow super admin full access" ON public.role_permissions;
+CREATE POLICY "Allow super admin full access" ON public.role_permissions
+  FOR ALL
+  USING (
+    (SELECT is_super_admin FROM public.profiles WHERE id = auth.uid()) -- This will be replaced by the function below
+  );
+  
+-- New function to check super admin status based on roles, used for RLS.
+CREATE OR REPLACE FUNCTION public.check_is_super_admin_by_role()
+RETURNS boolean AS $$
+DECLARE
+    user_roles text[];
+BEGIN
+    -- This function must be SECURITY DEFINER to query auth.users
+    SELECT ARRAY(SELECT jsonb_array_elements_text(COALESCE(u.raw_app_meta_data->'roles', '[]'::jsonb)))
+    INTO user_roles
+    FROM auth.users u
+    WHERE u.id = auth.uid();
+
+    IF user_roles IS NULL THEN
+        RETURN FALSE;
+    END IF;
+
+    RETURN EXISTS (
+        SELECT 1
+        FROM public.role_permissions rp
+        WHERE rp.role_id = ANY(user_roles)
+        AND rp.permissions @> ARRAY['_super_admin']
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+-- Recreate the policy on role_permissions using the new function
+DROP POLICY IF EXISTS "Allow super admin full access" ON public.role_permissions;
+CREATE POLICY "Allow super admin full access" ON public.role_permissions
+    FOR ALL
+    USING (public.check_is_super_admin_by_role());
+
+-- New RPC for updating role permissions by Super Admins
+CREATE OR REPLACE FUNCTION public.save_role_permissions(p_role_id text, p_permissions text[])
 RETURNS void
 LANGUAGE plpgsql
-SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE
   current_admin_id uuid := auth.uid();
   current_admin_username text;
-  target_user_username text;
+  -- We don't have role name here, so we will use role ID in the log
 BEGIN
   -- Ensure the current user is a super admin
-  IF NOT (SELECT is_super_admin FROM public.profiles WHERE id = current_admin_id) THEN
-    RAISE EXCEPTION 'Only super admins can change permissions.';
+  IF NOT public.check_is_super_admin_by_role() THEN
+    RAISE EXCEPTION 'Only super admins can change role permissions.';
   END IF;
 
-  -- Prevent a super admin from removing their own super admin status
-  IF current_admin_id = target_user_id AND p_is_super_admin = false THEN
-      RAISE EXCEPTION 'Super admins cannot revoke their own super admin status.';
-  END IF;
-
-  -- Update the target profile
-  UPDATE public.profiles
-  SET
-    is_admin = p_is_admin,
-    is_super_admin = p_is_super_admin
-  WHERE id = target_user_id;
+  -- Upsert the role permissions
+  INSERT INTO public.role_permissions(role_id, permissions, updated_at)
+  VALUES (p_role_id, p_permissions, now())
+  ON CONFLICT (role_id) DO UPDATE SET
+    permissions = EXCLUDED.permissions,
+    updated_at = now();
 
   -- Create audit log entry
   SELECT raw_user_meta_data->>'full_name' INTO current_admin_username
   FROM auth.users WHERE id = current_admin_id;
 
-  SELECT raw_user_meta_data->>'full_name' INTO target_user_username
-  FROM auth.users WHERE id = target_user_id;
-
   INSERT INTO public.audit_logs(admin_id, admin_username, action)
   VALUES (
     current_admin_id,
     current_admin_username,
-    'Updated permissions for "' || target_user_username || '" (' || target_user_id || ') to: Admin=' || p_is_admin || ', SuperAdmin=' || p_is_super_admin
+    'Updated permissions for role_id ' || p_role_id || ' to: [' || array_to_string(p_permissions, ', ') || ']'
   );
 END;
 $$;
@@ -147,7 +191,7 @@ CREATE TABLE IF NOT EXISTS public.config (
     "MTA_SERVER_URL" text,
     "BACKGROUND_IMAGE_URL" text,
     "SHOW_HEALTH_CHECK" boolean DEFAULT false,
-    "SUPER_ADMIN_ROLE_IDS" text[],
+    "SUPER_ADMIN_ROLE_IDS" text[], -- This is now deprecated but kept for legacy/reference
     "HANDLER_ROLE_IDS" text[],
     "SUBMISSIONS_WEBHOOK_URL" text,
     "AUDIT_LOG_WEBHOOK_URL" text,
@@ -162,9 +206,7 @@ CREATE POLICY "Allow public read access" ON public.config
   
 DROP POLICY IF EXISTS "Allow super admin update access" ON public.config;
 CREATE POLICY "Allow super admin update access" ON public.config
-  FOR UPDATE USING (
-    (SELECT is_super_admin FROM public.profiles WHERE id = auth.uid()) = true
-  );
+  FOR UPDATE USING (public.check_is_super_admin_by_role());
 
 -- Insert a default config row if it doesn't exist, and update with new branding
 INSERT INTO public.config (id, "COMMUNITY_NAME", "LOGO_URL")
@@ -196,9 +238,7 @@ DROP POLICY IF EXISTS "Allow public read access" ON public.quizzes;
 CREATE POLICY "Allow public read access" ON public.quizzes FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS "Allow super admin full access" ON public.quizzes;
-CREATE POLICY "Allow super admin full access" ON public.quizzes FOR ALL USING (
-  (SELECT is_super_admin FROM public.profiles WHERE id = auth.uid()) = true
-);
+CREATE POLICY "Allow super admin full access" ON public.quizzes FOR ALL USING (public.check_is_super_admin_by_role());
 
 
 -- =============================================================================
@@ -222,13 +262,37 @@ CREATE TABLE IF NOT EXISTS public.submissions (
 
 ALTER TABLE public.submissions ENABLE ROW LEVEL SECURITY;
 
+-- Helper function to check if user has any admin permissions
+CREATE OR REPLACE FUNCTION public.check_is_admin_by_role()
+RETURNS boolean AS $$
+DECLARE
+    user_roles text[];
+BEGIN
+    SELECT ARRAY(SELECT jsonb_array_elements_text(COALESCE(u.raw_app_meta_data->'roles', '[]'::jsonb)))
+    INTO user_roles
+    FROM auth.users u
+    WHERE u.id = auth.uid();
+
+    IF user_roles IS NULL THEN
+        RETURN FALSE;
+    END IF;
+
+    RETURN EXISTS (
+        SELECT 1
+        FROM public.role_permissions rp
+        WHERE rp.role_id = ANY(user_roles)
+        AND cardinality(rp.permissions) > 0
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 DROP POLICY IF EXISTS "Allow individual access" ON public.submissions;
 CREATE POLICY "Allow individual access" ON public.submissions
   FOR SELECT USING (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "Allow admin read access" ON public.submissions;
 CREATE POLICY "Allow admin read access" ON public.submissions
-  FOR SELECT USING ((SELECT is_admin FROM public.profiles WHERE id = auth.uid()) = true);
+  FOR SELECT USING (public.check_is_admin_by_role());
   
 DROP POLICY IF EXISTS "Allow individual insert" ON public.submissions;
 CREATE POLICY "Allow individual insert" ON public.submissions
@@ -238,7 +302,6 @@ CREATE POLICY "Allow individual insert" ON public.submissions
 CREATE OR REPLACE FUNCTION public.update_submission_status(p_submission_id uuid, p_status text)
 RETURNS void
 LANGUAGE plpgsql
-SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE
   current_admin_id uuid := auth.uid();
@@ -246,8 +309,8 @@ DECLARE
   submission_info RECORD;
 BEGIN
   -- Ensure the user is an admin
-  IF NOT (SELECT is_admin FROM public.profiles WHERE id = current_admin_id) THEN
-    RAISE EXCEPTION 'User is not an admin';
+  IF NOT public.check_is_admin_by_role() THEN
+    RAISE EXCEPTION 'User does not have admin permissions.';
   END IF;
   
   -- Get info for logging
@@ -297,9 +360,7 @@ DROP POLICY IF EXISTS "Allow public read access" ON public.products;
 CREATE POLICY "Allow public read access" ON public.products FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS "Allow super admin full access" ON public.products;
-CREATE POLICY "Allow super admin full access" ON public.products FOR ALL USING (
-  (SELECT is_super_admin FROM public.profiles WHERE id = auth.uid()) = true
-);
+CREATE POLICY "Allow super admin full access" ON public.products FOR ALL USING (public.check_is_super_admin_by_role());
 
 
 -- =============================================================================
@@ -321,17 +382,13 @@ ALTER TABLE public.rule_categories ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public read access" ON public.rule_categories;
 CREATE POLICY "Allow public read access" ON public.rule_categories FOR SELECT USING (true);
 DROP POLICY IF EXISTS "Allow super admin full access" ON public.rule_categories;
-CREATE POLICY "Allow super admin full access" ON public.rule_categories FOR ALL USING (
-  (SELECT is_super_admin FROM public.profiles WHERE id = auth.uid()) = true
-);
+CREATE POLICY "Allow super admin full access" ON public.rule_categories FOR ALL USING (public.check_is_super_admin_by_role());
 
 ALTER TABLE public.rules ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Allow public read access" ON public.rules;
 CREATE POLICY "Allow public read access" ON public.rules FOR SELECT USING (true);
 DROP POLICY IF EXISTS "Allow super admin full access" ON public.rules;
-CREATE POLICY "Allow super admin full access" ON public.rules FOR ALL USING (
-  (SELECT is_super_admin FROM public.profiles WHERE id = auth.uid()) = true
-);
+CREATE POLICY "Allow super admin full access" ON public.rules FOR ALL USING (public.check_is_super_admin_by_role());
 
 
 -- =============================================================================
@@ -349,12 +406,12 @@ ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Allow admin read access" ON public.audit_logs;
 CREATE POLICY "Allow admin read access" ON public.audit_logs
-  FOR SELECT USING ((SELECT is_admin FROM public.profiles WHERE id = auth.uid()) = true);
+  FOR SELECT USING (public.check_is_admin_by_role());
   
-DROP POLICY IF EXISTS "Allow admin insert access" ON public.audit_logs;
-CREATE POLICY "Allow admin insert access" ON public.audit_logs
-  FOR INSERT WITH CHECK ((SELECT is_admin FROM public.profiles WHERE id = auth.uid()) = true);
-  
+DROP POLICY IF EXISTS "Allow server-side insert access" ON public.audit_logs;
+CREATE POLICY "Allow server-side insert access" ON public.audit_logs
+  FOR INSERT WITH CHECK (false); -- No client-side inserts
+
 
 -- =============================================================================
 --  8. TRANSLATIONS (FOR CMS)
@@ -372,22 +429,19 @@ DROP POLICY IF EXISTS "Allow public read access" ON public.translations;
 CREATE POLICY "Allow public read access" ON public.translations FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS "Allow super admin update access" ON public.translations;
-CREATE POLICY "Allow super admin update access" ON public.translations FOR UPDATE USING (
-  (SELECT is_super_admin FROM public.profiles WHERE id = auth.uid()) = true
-);
+CREATE POLICY "Allow super admin update access" ON public.translations FOR UPDATE USING (public.check_is_super_admin_by_role());
 
 -- Function for super admins to bulk-update translations
 CREATE OR REPLACE FUNCTION public.update_translations(translations_data jsonb)
 RETURNS void
 LANGUAGE plpgsql
-SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE
   current_admin_id uuid := auth.uid();
   translation_record jsonb;
 BEGIN
   -- Ensure the user is a super admin
-  IF NOT (SELECT is_super_admin FROM public.profiles WHERE id = current_admin_id) THEN
+  IF NOT public.check_is_super_admin_by_role() THEN
     RAISE EXCEPTION 'Only super admins can update translations.';
   END IF;
 
@@ -434,8 +488,6 @@ DECLARE
   payload JSONB;
   cheat_count INT;
 BEGIN
-  -- FIX: Changed config() to config to reference the table correctly.
-  -- FIX: Quoted "config" to prevent linter errors.
   SELECT "SUBMISSIONS_WEBHOOK_URL" INTO webhook_url FROM public.config WHERE id = 1;
 
   IF webhook_url IS NULL OR webhook_url = '' THEN
@@ -455,8 +507,6 @@ BEGIN
           jsonb_build_object('name', 'Cheat Attempts', 'value', cheat_count::text, 'inline', true)
         ),
         'timestamp', new."submittedAt",
-        -- FIX: Changed config() to config to reference the table correctly.
-        -- FIX: Quoted "config" to prevent linter errors.
         'footer', jsonb_build_object('text', (SELECT "COMMUNITY_NAME" FROM public.config WHERE id = 1))
       )
     )
@@ -484,8 +534,6 @@ DECLARE
   webhook_url TEXT;
   payload JSONB;
 BEGIN
-  -- FIX: Changed config() to config to reference the table correctly.
-  -- FIX: Quoted "config" to prevent linter errors.
   SELECT "AUDIT_LOG_WEBHOOK_URL" INTO webhook_url FROM public.config WHERE id = 1;
 
   IF webhook_url IS NULL OR webhook_url = '' THEN
@@ -792,8 +840,6 @@ INSERT INTO public.translations (key, ar, en) VALUES
   ('health_check_not_set', 'لم يتم التعيين', 'Not Set'),
   ('health_check_env_vars', 'متغيرات البيئة', 'Environment Variables'),
   ('health_check_env_vars_desc', 'يتم تحميل هذه المتغيرات من ملف .env الخاص بك.', 'These are loaded from your .env file.'),
-  ('health_check_supabase_connection', 'اتصال Supabase', 'Supabase Connection'),
-  ('health_check_supabase_desc', 'يتحقق هذا من أن الموقع يمكنه الاتصال بقاعدة بيانات Supabase باستخدام مفاتيحك.', 'This checks that the site can connect to your Supabase database using your keys.'),
   ('health_check_db_status', 'DB Connection', 'DB Connection'),
   ('product_vip_bronze_name', 'عضوية VIP برونزية', 'Bronze VIP Membership'),
   ('product_vip_bronze_desc', 'مميزات حصرية داخل السيرفر لمدة شهر.', 'Exclusive in-server perks for one month.'),
@@ -809,6 +855,12 @@ INSERT INTO public.translations (key, ar, en) VALUES
   ('q_police_2', 'متى يسمح لك باستخدام القوة المميتة؟', 'When are you permitted to use lethal force?'),
   ('quiz_medic_name', 'تقديم قسم الإسعاف', 'EMS Department Application'),
   ('quiz_medic_desc', 'مطلوب منك الهدوء والاحترافية في جميع الأوقات.', 'You are required to be calm and professional at all times.'),
-  ('q_medic_1', 'ما هي أولويتك القصوى عند الوصول إلى مكان الحادث؟', 'What is your top priority when arriving at an accident scene?')
+  ('q_medic_1', 'ما هي أولويتك القصوى عند الوصول إلى مكان الحادث؟', 'What is your top priority when arriving at an accident scene?'),
+  ('permissions_management', 'إدارة الصلاحيات', 'Permissions Management'),
+  ('discord_role', 'رتبة ديسكورد', 'Discord Role'),
+  ('select_role_to_configure', 'اختر رتبة لضبط صلاحياتها', 'Select a role to configure its permissions'),
+  ('available_permissions', 'الصلاحيات المتاحة', 'Available Permissions'),
+  ('save_permissions', 'حفظ الصلاحيات', 'Save Permissions'),
+  ('permissions_saved_success', 'تم حفظ الصلاحيات بنجاح!', 'Permissions saved successfully!')
 ON CONFLICT (key) DO NOTHING;
-`
+*/

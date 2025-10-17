@@ -102,7 +102,7 @@ const QuizPage: React.FC = () => {
     const submission = { 
         quizId: quiz.id, 
         quizTitle: t(quiz.titleKey), 
-        userId: user.id, 
+        user_id: user.id, 
         username: user.username, 
         answers: finalAnswers, 
         submittedAt: new Date().toISOString(), 
