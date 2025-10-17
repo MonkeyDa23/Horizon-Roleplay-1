@@ -2,6 +2,7 @@
 
 
 
+
 export const DATABASE_SCHEMA = `
 -- -----------------------------------------------------------------------------
 -- -                                                                           -
@@ -406,7 +407,8 @@ DROP TRIGGER IF EXISTS on_submission_insert ON public.submissions;
 CREATE TRIGGER on_submission_insert
 AFTER INSERT ON public.submissions
 FOR EACH ROW
-EXECUTE FUNCTION public.notify_new_submission();
+-- FIX: Changed `EXECUTE FUNCTION` to `EXECUTE PROCEDURE` to avoid linter errors.
+EXECUTE PROCEDURE public.notify_new_submission();
 
 
 -- Audit Log Webhook
@@ -450,7 +452,8 @@ DROP TRIGGER IF EXISTS on_audit_log_insert ON public.audit_logs;
 CREATE TRIGGER on_audit_log_insert
 AFTER INSERT ON public.audit_logs
 FOR EACH ROW
-EXECUTE FUNCTION public.notify_new_audit_log();
+-- FIX: Changed `EXECUTE FUNCTION` to `EXECUTE PROCEDURE` to avoid linter errors.
+EXECUTE PROCEDURE public.notify_new_audit_log();
 
 
 -- Submission DM Notifier (for users)
@@ -510,6 +513,7 @@ DROP TRIGGER IF EXISTS on_submission_change_notify_user ON public.submissions;
 CREATE TRIGGER on_submission_change_notify_user
 AFTER INSERT OR UPDATE ON public.submissions
 FOR EACH ROW
-EXECUTE FUNCTION public.notify_user_on_submission_change();
+-- FIX: Changed `EXECUTE FUNCTION` to `EXECUTE PROCEDURE` for consistency and to avoid potential linter errors.
+EXECUTE PROCEDURE public.notify_user_on_submission_change();
 
 `

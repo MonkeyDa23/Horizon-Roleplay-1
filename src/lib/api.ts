@@ -210,9 +210,29 @@ export const logAdminAccess = async (user: User): Promise<void> => {
     }
 };
 
+// --- Caching for Discord data ---
+interface DiscordMemberCacheEntry {
+    timestamp: number;
+    data: {
+        roles: string[];
+        discordRoles: DiscordRole[];
+        highestRole: DiscordRole | null;
+    };
+}
+const discordMemberCache = new Map<string, DiscordMemberCacheEntry>(); // Key is user ID
+const MEMBER_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
 // --- AUTH & SESSION MANAGEMENT ---
 
-const fetchDiscordMember = async (providerToken: string, guildId: string): Promise<{ roles: string[], discordRoles: DiscordRole[], highestRole: DiscordRole | null }> => {
+const fetchDiscordMember = async (providerToken: string, guildId: string, userId: string): Promise<{ roles: string[], discordRoles: DiscordRole[], highestRole: DiscordRole | null }> => {
+    // Check cache first
+    const cached = discordMemberCache.get(userId);
+    if (cached && (Date.now() - cached.timestamp < MEMBER_CACHE_TTL_MS)) {
+        console.log(`[Cache HIT] Returning cached Discord member data for user ${userId}.`);
+        return cached.data;
+    }
+    console.log(`[Cache MISS] Fetching fresh Discord member data for user ${userId}.`);
+
     if (!guildId) {
         throw new ApiError("Discord Guild ID is not configured in the database.", 500);
     }
@@ -227,11 +247,6 @@ const fetchDiscordMember = async (providerToken: string, guildId: string): Promi
     const memberData = await memberResponse.json();
     const userRoleIds: string[] = memberData.roles || [];
 
-    // The following logic assumes a Supabase Edge Function named 'get-guild-roles'
-    // has been deployed. This function should accept a 'guildId' and use a Discord Bot
-    // token to fetch all roles for that guild, returning them as an array.
-    // This is necessary because fetching all guild roles requires bot permissions,
-    // which cannot be done with a user's OAuth token on the client-side.
     if (!supabase) {
         console.warn("Supabase client not available, skipping role detail fetch.");
         return { roles: userRoleIds, discordRoles: [], highestRole: null };
@@ -261,11 +276,16 @@ const fetchDiscordMember = async (providerToken: string, guildId: string): Promi
 
         const highestUserRole = userFullRoles.length > 0 ? userFullRoles[0] : null;
 
-        return { 
+        const result = { 
             roles: userRoleIds, 
             discordRoles: userFullRoles, 
             highestRole: highestUserRole 
         };
+        
+        // Update cache
+        discordMemberCache.set(userId, { timestamp: Date.now(), data: result });
+        
+        return result;
     } catch (error) {
         console.warn("Could not fetch full role details. This may be because the 'get-guild-roles' Edge Function is not deployed or has an error. The user will be logged in with basic permissions.", error);
         return { roles: userRoleIds, discordRoles: [], highestRole: null };
@@ -312,7 +332,7 @@ export const fetchUserProfile = async (session: Session): Promise<User> => {
         if (!providerToken) throw new Error("Discord provider token not found in session.");
 
         const config = await getConfig();
-        const memberData = await fetchDiscordMember(providerToken, config.DISCORD_GUILD_ID);
+        const memberData = await fetchDiscordMember(providerToken, config.DISCORD_GUILD_ID, userId);
         
         roles = memberData.roles;
         discordRoles = memberData.discordRoles;
