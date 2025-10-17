@@ -30,7 +30,10 @@ serve(async (req) => {
 
   try {
     const supabaseClient = createClient(
+      // FIX: Suppress Deno global type errors in non-Deno environments.
+      // @ts-ignore
       Deno.env.get('SUPABASE_URL') ?? '',
+      // @ts-ignore
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
     );
@@ -43,7 +46,10 @@ serve(async (req) => {
 
     // Create a service role client for elevated permissions
     const supabaseAdmin = createClient(
+      // FIX: Suppress Deno global type errors in non-Deno environments.
+      // @ts-ignore
       Deno.env.get('SUPABASE_URL') ?? '',
+      // @ts-ignore
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 

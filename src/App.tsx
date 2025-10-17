@@ -41,21 +41,43 @@ const AppContent: React.FC = () => {
   }
 
   if (configError) {
+    const isMissingEnvVars = configError.message === 'Supabase not configured';
+
     return (
        <div className="flex flex-col gap-4 justify-center items-center h-screen w-screen bg-brand-dark p-8">
-          <AlertTriangle size={60} className="text-red-500" />
-          <h1 className="text-3xl font-bold text-white mt-4 text-center">Configuration Error</h1>
-          <p className="text-lg text-gray-300 max-w-2xl text-center">
-            The application could not connect to the database to load essential settings. This usually means the database schema has not been set up yet.
+          <AlertTriangle size={60} className="text-yellow-400" />
+          <h1 className="text-3xl font-bold text-white mt-4 text-center">
+            {isMissingEnvVars ? 'Environment Setup Incomplete' : 'Configuration Error'}
+          </h1>
+          <p className="text-lg text-gray-300 max-w-3xl text-center">
+            {isMissingEnvVars 
+              ? "The application is missing essential Supabase credentials. Please follow the steps below to connect to your database."
+              : "The application could not connect to the database to load essential settings. This usually means the database schema has not been set up yet."
+            }
           </p>
-          <div className="bg-brand-dark-blue p-4 rounded-lg mt-4 max-w-2xl w-full">
-            <p className="font-semibold text-brand-cyan mb-2">How to fix:</p>
-            <ol className="list-decimal list-inside text-gray-300 space-y-1">
-                <li>Go to your Supabase project's SQL Editor.</li>
-                <li>Copy the SQL code from the `src/lib/database_schema.ts` file.</li>
-                <li>Paste the code into a new query and click "RUN".</li>
-            </ol>
-          </div>
+          
+          {isMissingEnvVars ? (
+            <div className="bg-brand-dark-blue p-6 rounded-lg mt-4 max-w-3xl w-full text-left">
+              <p className="font-semibold text-brand-cyan mb-3 text-lg">How to fix:</p>
+              <ol className="list-decimal list-inside text-gray-200 space-y-2">
+                  <li>In your Supabase project, go to <strong className="text-white">Project Settings {'>'} API</strong>.</li>
+                  <li>Create a new file named <code className="bg-brand-dark px-2 py-1 rounded">.env</code> in the root directory of this project.</li>
+                  <li>Copy the contents of the <code className="bg-brand-dark px-2 py-1 rounded">.env.example</code> file into your new <code className="bg-brand-dark px-2 py-1 rounded">.env</code> file.</li>
+                  <li>Paste your <strong className="text-white">Project URL</strong> and <strong className="text-white">anon public API Key</strong> into the <code className="bg-brand-dark px-2 py-1 rounded">.env</code> file.</li>
+                  <li><strong className="text-white">Restart the development server</strong> to apply the changes.</li>
+              </ol>
+            </div>
+          ) : (
+            <div className="bg-brand-dark-blue p-4 rounded-lg mt-4 max-w-2xl w-full">
+              <p className="font-semibold text-brand-cyan mb-2">How to fix:</p>
+              <ol className="list-decimal list-inside text-gray-300 space-y-1">
+                  <li>Go to your Supabase project's SQL Editor.</li>
+                  <li>Copy the SQL code from the <code className="bg-brand-dark px-1 rounded">src/lib/database_schema.ts</code> file.</li>
+                  <li>Paste the code into a new query and click "RUN".</li>
+              </ol>
+            </div>
+          )}
+          
           <p className="text-gray-500 mt-4 text-sm">Error details: {configError.message}</p>
       </div>
     )
