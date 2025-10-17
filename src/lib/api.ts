@@ -12,6 +12,15 @@ export class ApiError extends Error {
   }
 }
 
+// --- User Profile Caching to prevent Rate Limiting ---
+interface UserProfileCacheEntry {
+  user: User;
+  syncError: string | null;
+  timestamp: number;
+}
+const userProfileCache = new Map<string, UserProfileCacheEntry>();
+const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
+
 // --- PUBLIC READ-ONLY FUNCTIONS ---
 
 export const getConfig = async (): Promise<AppConfig> => {
@@ -221,6 +230,15 @@ export const saveRolePermissions = async (roleId: string, permissions: Permissio
 export const fetchUserProfile = async (session: Session): Promise<{ user: User, syncError: string | null }> => {
     if (!supabase) throw new ApiError("Supabase not configured", 500);
     
+    // --- Caching Logic ---
+    const userId = session.user.id;
+    const cachedData = userProfileCache.get(userId);
+    if (cachedData && (Date.now() - cachedData.timestamp < CACHE_TTL_MS)) {
+        // Return cached data if it's fresh
+        return { user: cachedData.user, syncError: cachedData.syncError };
+    }
+    // --- End Caching Logic ---
+
     const { data: config, error: configError } = await supabase.from('config').select('DISCORD_GUILD_ID').single();
     if (configError) throw new ApiError(`Failed to fetch guild config: ${configError.message}`, 500);
 
@@ -278,12 +296,6 @@ export const fetchUserProfile = async (session: Session): Promise<{ user: User, 
         }
     }
 
-    // Super admin grants all permissions
-    if (finalPermissions.has('_super_admin')) {
-        // This is a client-side representation. The backend RLS handles the real logic.
-        // For simplicity on the client, we can just keep the _super_admin flag.
-    }
-
     const finalUser: User = {
       id: session.user.id,
       username: session.user.user_metadata.full_name,
@@ -293,7 +305,14 @@ export const fetchUserProfile = async (session: Session): Promise<{ user: User, 
       permissions: finalPermissions,
     };
 
-    return { user: finalUser, syncError };
+    const result = { user: finalUser, syncError };
+
+    // --- Caching Logic ---
+    // Store the fresh data in the cache before returning
+    userProfileCache.set(userId, { ...result, timestamp: Date.now() });
+    // --- End Caching Logic ---
+
+    return result;
 };
 
 
