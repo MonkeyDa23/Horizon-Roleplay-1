@@ -251,7 +251,8 @@ const AdminPage: React.FC = () => {
 
       // FIX: The 'roles' property on user was missing. It has been added to the User type
       // and populated in the fetchUserProfile function.
-      const isAllowed = !allowedRoles || allowedRoles.length === 0 || user.roles.some(userRole => allowedRoles.includes(userRole));
+      // FIX: Check userRole.id against the allowedRoles string array.
+      const isAllowed = !allowedRoles || allowedRoles.length === 0 || user.roles.some(userRole => allowedRoles.includes(userRole.id));
       
       if (!isAllowed) {
           return <div title={t('take_order_forbidden')}><button disabled className="bg-gray-600/50 text-gray-400 font-bold py-1 px-3 rounded-md text-sm cursor-not-allowed">{t('take_order_forbidden')}</button></div>
@@ -367,7 +368,8 @@ const AdminPage: React.FC = () => {
     <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50 mt-6">
         <div className="overflow-x-auto"><table className="w-full text-left min-w-[600px]"><thead className="border-b border-brand-light-blue/50 text-gray-300"><tr><th className="p-4">{t('log_timestamp')}</th><th className="p-4">{t('log_admin')}</th><th className="p-4">{t('log_action')}</th></tr></thead><tbody>
         {auditLogs.length === 0 ? (<tr><td colSpan={3} className="p-8 text-center text-gray-400">{t('no_logs_found')}</td></tr>) : auditLogs.map((log) => (
-            <tr key={log.id} className="border-b border-brand-light-blue/50 last:border-none"><td className="p-4 text-sm text-gray-400">{new Date(log.timestamp).toLocaleString()}</td><td className="p-4 font-semibold">{log.adminUsername} <code className="text-xs text-gray-500">({log.adminId})</code></td><td className="p-4">{log.action}</td></tr>
+            // FIX: Use snake_case properties `admin_username` and `admin_id` to match the type definition.
+            <tr key={log.id} className="border-b border-brand-light-blue/50 last:border-none"><td className="p-4 text-sm text-gray-400">{new Date(log.timestamp).toLocaleString()}</td><td className="p-4 font-semibold">{log.admin_username} <code className="text-xs text-gray-500">({log.admin_id})</code></td><td className="p-4">{log.action}</td></tr>
         ))}
         </tbody></table></div>
     </div>

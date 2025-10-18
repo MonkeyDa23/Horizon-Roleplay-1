@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useLocalization } from '../hooks/useLocalization';
 import { getSubmissionsByUserId } from '../lib/api';
-import type { QuizSubmission, SubmissionStatus } from '../types';
+import type { QuizSubmission, SubmissionStatus, DiscordRole } from '../types';
 import { useNavigate } from 'react-router-dom';
-import { User as UserIcon, Loader2, FileText, ExternalLink } from 'lucide-react';
+import { User as UserIcon, Loader2, FileText, ExternalLink, Shield } from 'lucide-react';
 import { useConfig } from '../hooks/useConfig';
 import SEO from '../components/SEO';
 
@@ -51,18 +51,15 @@ const ProfilePage: React.FC = () => {
     return <span className={`px-3 py-1 text-sm font-bold rounded-full ${color}`}>{text}</span>;
   };
 
-  const renderUserHighestRole = () => {
-    if (!user || !user.highestRole) return <span className="px-3 py-1 text-sm font-bold rounded-full bg-gray-500/20 text-gray-300">{t('member')}</span>;
-
-    const color = user.highestRole.color ? `#${user.highestRole.color.toString(16).padStart(6, '0')}` : '#99aab5';
-    // Basic contrast check
+  const RoleBadge: React.FC<{ role: DiscordRole }> = ({ role }) => {
+    const color = role.color ? `#${role.color.toString(16).padStart(6, '0')}` : '#99aab5';
     const r = parseInt(color.slice(1, 3), 16);
     const g = parseInt(color.slice(3, 5), 16);
     const b = parseInt(color.slice(5, 7), 16);
     const brightness = (r * 299 + g * 587 + b * 114) / 1000;
     const textColor = brightness > 125 ? 'text-black' : 'text-white';
 
-    return <span className={`px-3 py-1 text-sm font-bold rounded-full ${textColor}`} style={{ backgroundColor: color }}>{user.highestRole.name}</span>;
+    return <span className={`px-2 py-1 text-xs font-bold rounded-md ${textColor}`} style={{ backgroundColor: color }}>{role.name}</span>;
   };
   
   if (authLoading || !user) {
@@ -89,7 +86,7 @@ const ProfilePage: React.FC = () => {
         </div>
         
         <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 space-y-8">
               <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50 text-center shadow-lg">
                   <img 
                       src={user.avatar} 
@@ -98,7 +95,7 @@ const ProfilePage: React.FC = () => {
                   />
                   <h2 className="text-3xl font-bold mt-4">{user.username}</h2>
                   <div className="mt-2 min-h-[28px] flex items-center justify-center">
-                    {renderUserHighestRole()}
+                    {user.highestRole ? <RoleBadge role={user.highestRole} /> : <span className="px-3 py-1 text-sm font-bold rounded-full bg-gray-500/20 text-gray-300">{t('member')}</span>}
                   </div>
                   
                   <a 
@@ -116,6 +113,16 @@ const ProfilePage: React.FC = () => {
                           <code className="text-xs bg-brand-dark px-2 py-1 rounded mt-1">{user.discordId}</code>
                       </div>
                   </div>
+              </div>
+              <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50 shadow-lg">
+                <h3 className="text-xl font-bold mb-4 flex items-center gap-3"><Shield className="text-brand-cyan" /> {t('discord_roles')}</h3>
+                <div className="flex flex-wrap gap-2">
+                  {user.roles && user.roles.length > 0 ? (
+                    user.roles.map(role => <RoleBadge key={role.id} role={role} />)
+                  ) : (
+                    <p className="text-gray-400 text-sm">{t('member')}</p>
+                  )}
+                </div>
               </div>
           </div>
 

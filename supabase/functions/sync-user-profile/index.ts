@@ -42,7 +42,7 @@ serve(async (req) => {
     let userMetadata: any;
     try {
       const payload = await verify(token, jwtSecret);
-      userId = payload.sub as string; // This is the Supabase UUID
+      userId = payload.sub as string;
       userMetadata = payload.user_metadata;
       if (!userId) throw new Error("Invalid JWT payload: missing 'sub' claim.");
     } catch (e) {
@@ -74,11 +74,20 @@ serve(async (req) => {
 
     // 4. Check if we have fresh, cached data.
     if (profile.last_synced_at && (new Date().getTime() - new Date(profile.last_synced_at).getTime() < CACHE_TTL_MS)) {
-      const { data: permsData } = await supabaseAdmin.from('role_permissions').select('permissions').in('role_id', profile.roles || []);
+      const { data: permsData } = await supabaseAdmin.from('role_permissions').select('permissions').in('role_id', profile.roles.map(r => r.id) || []);
       const finalPermissions = new Set<string>();
       if (permsData) {
         permsData.forEach(p => p.permissions.forEach(key => finalPermissions.add(key)));
       }
+
+      // Bootstrap Super Admin check
+      // @ts-ignore
+      const superAdminRoles = (Deno.env.get('SUPER_ADMIN_ROLE_IDS') || '').split(',').filter(Boolean);
+      const userRoleIds = profile.roles.map(r => r.id);
+      if (superAdminRoles.some(roleId => userRoleIds.includes(roleId))) {
+        finalPermissions.add('_super_admin');
+      }
+
       const cachedUser = {
         id: userId,
         discordId: discordUserId,
@@ -93,11 +102,11 @@ serve(async (req) => {
 
     // --- CACHE MISS: Fetch fresh data from Discord ---
     let syncError: string | null = null;
-    let memberData;
     let finalUsername = userMetadata.full_name;
     let finalAvatar = userMetadata.avatar_url;
-    let finalRoles: string[] = profile.roles || [];
+    let finalRoles: any[] = profile.roles || [];
     let finalHighestRole = profile.highest_role || null;
+    let memberRoleIds: string[] = [];
 
     try {
       // @ts-ignore
@@ -115,7 +124,8 @@ serve(async (req) => {
         throw new Error(`Failed to fetch Discord member data (HTTP ${memberResponse.status}).`);
       }
       
-      memberData = await memberResponse.json();
+      const memberData = await memberResponse.json();
+      memberRoleIds = memberData.roles || [];
       const discordUser = memberData?.user;
       finalUsername = memberData.nick || discordUser?.global_name || discordUser?.username || finalUsername;
       if (memberData.avatar) {
@@ -123,17 +133,19 @@ serve(async (req) => {
       } else if (discordUser?.avatar) {
           finalAvatar = `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`
       }
-      finalRoles = memberData.roles || [];
 
-      // Determine highest role
+      // Determine roles and highest role
       const { data: allGuildRoles, error: rolesError } = await supabaseAdmin.functions.invoke('get-guild-roles');
       if (rolesError) {
-        syncError = "Could not fetch guild roles to determine highest role.";
-      } else if (Array.isArray(allGuildRoles) && finalRoles.length > 0) {
-        const userRolesDetails = allGuildRoles.filter(role => finalRoles.includes(role.id)).sort((a, b) => b.position - a.position);
+        syncError = "Could not fetch guild roles to determine user roles.";
+      } else if (Array.isArray(allGuildRoles) && memberRoleIds.length > 0) {
+        const userRolesDetails = allGuildRoles
+          .filter(role => memberRoleIds.includes(role.id))
+          .sort((a, b) => b.position - a.position);
+        
+        finalRoles = userRolesDetails; // Store all rich role objects
         if (userRolesDetails.length > 0) {
-          const topRole = userRolesDetails[0];
-          finalHighestRole = { id: topRole.id, name: topRole.name, color: topRole.color };
+          finalHighestRole = userRolesDetails[0];
         }
       }
 
@@ -143,7 +155,7 @@ serve(async (req) => {
 
     // 6. Update our DB and Auth cache with the new info.
     await supabaseAdmin.auth.admin.updateUserById(userId, {
-      user_metadata: { ...userMetadata, full_name: finalUsername, avatar_url: finalAvatar, roles: finalRoles }
+      user_metadata: { ...userMetadata, full_name: finalUsername, avatar_url: finalAvatar, roles: memberRoleIds }
     });
     const { error: upsertError } = await supabaseAdmin.from('profiles').upsert({
       id: userId,
@@ -155,11 +167,19 @@ serve(async (req) => {
     if (upsertError) console.error("Error updating profile cache:", upsertError.message);
 
     // 7. Calculate final permissions and return the complete user object.
-    const { data: permsData } = await supabaseAdmin.from('role_permissions').select('permissions').in('role_id', finalRoles);
+    const { data: permsData } = await supabaseAdmin.from('role_permissions').select('permissions').in('role_id', memberRoleIds);
     const finalPermissions = new Set<string>();
     if (permsData) {
       permsData.forEach(p => p.permissions.forEach(key => finalPermissions.add(key)));
     }
+    
+    // Bootstrap Super Admin check
+    // @ts-ignore
+    const superAdminRoles = (Deno.env.get('SUPER_ADMIN_ROLE_IDS') || '').split(',').filter(Boolean);
+    if (superAdminRoles.some(roleId => memberRoleIds.includes(roleId))) {
+      finalPermissions.add('_super_admin');
+    }
+
     const finalUser = {
       id: userId,
       discordId: discordUserId,

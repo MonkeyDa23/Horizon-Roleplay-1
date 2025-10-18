@@ -348,17 +348,18 @@ $$;
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
-  -- Insert a new profile, and fetch the discord_id from auth.identities
+  -- Insert a new profile, and fetch the discord_id from auth.users raw_user_meta_data
   INSERT INTO public.profiles (id, discord_id)
   VALUES (
     new.id,
-    (SELECT raw_user_meta_data->>'provider_id' FROM auth.users WHERE id = new.id)
+    new.raw_user_meta_data->>'provider_id'
   )
   ON CONFLICT (id) DO UPDATE SET
-    -- This allows fixing a profile if the discord_id was missed on the first pass
+    -- This self-healing clause ensures that if a profile was somehow created
+    -- without a discord_id, it will be populated on a subsequent login.
     discord_id = COALESCE(
-      (SELECT raw_user_meta_data->>'provider_id' FROM auth.users WHERE id = new.id),
-      profiles.discord_id
+        profiles.discord_id, 
+        (SELECT u.raw_user_meta_data->>'provider_id' FROM auth.users u WHERE u.id = new.id)
     );
   RETURN new;
 END;

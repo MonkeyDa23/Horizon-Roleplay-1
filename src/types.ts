@@ -35,8 +35,8 @@ export interface User {
   discordId: string; // This is the user's actual Discord ID (Snowflake)
   username: string;
   avatar: string;
-  roles: string[];
-  highestRole: { id: string; name: string; color: number } | null;
+  roles: DiscordRole[]; // Now an array of rich role objects
+  highestRole: DiscordRole | null;
   permissions: Set<PermissionKey>; // The new source of truth for all user permissions
 }
 
