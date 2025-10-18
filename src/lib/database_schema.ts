@@ -20,6 +20,7 @@ DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 
 -- Drop triggers and policies before tables
 DROP TRIGGER IF EXISTS on_submission_insert ON public.submissions;
+-- FIX: Corrected typo from "IF IF EXISTS" to "IF EXISTS"
 DROP TRIGGER IF EXISTS on_submission_update ON public.submissions;
 ALTER TABLE IF EXISTS public.submissions DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.quizzes DISABLE ROW LEVEL SECURITY;

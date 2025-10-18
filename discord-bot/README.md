@@ -11,17 +11,17 @@ This upgraded version uses TypeScript for enhanced stability and type safety.
 
 By having this bot run 24/7, it keeps a fresh list of your server's roles in its memory (a "cache"). When the website needs the roles (e.g., on the Admin Permissions page), it asks this bot instead of asking Discord directly. This is much faster and prevents the website from hitting Discord's API rate limits.
 
----
-
-## ✅ Setup Instructions - PLEASE READ CAREFULLY
+## Setup Instructions
 
 Follow these steps to get your bot up and running on your hosting service (like Wispbyte).
 
-### **Step 1: CRITICAL - Configure Environment Variables**
+### 1. Configure Environment Variables
 
-Hosting services like Wispbyte/Pterodactyl **DO NOT** use `.env` files. You **MUST** set your secrets in the web control panel. This application is correctly built to read variables from the host environment.
+This is the most important step. This application reads its configuration from **Environment Variables**, which you must set in your hosting provider's control panel.
 
-Go to your server's control panel (e.g., the Wispbyte panel) and find the section for **"Variables"** or **"Startup"** and add the following:
+**Do NOT use an `.env` or `env.ts` file for configuration on your live server.**
+
+Go to your server's control panel (e.g., the Wispbyte panel) and find the section for "Variables" or "Environment Variables" and add the following:
 
 -   `DISCORD_BOT_TOKEN`:
     -   Go to the [Discord Developer Portal](https://discord.com/developers/applications).
@@ -42,7 +42,7 @@ Go to your server's control panel (e.g., the Wispbyte panel) and find the sectio
 
 Your hosting provider will automatically provide the `PORT` variable. You do not need to set it.
 
-### Step 2: Deployment
+### 2. Deployment
 
 Your work is mostly done! When you upload this `discord-bot` folder to your host, the startup scripts should automatically:
 
@@ -59,7 +59,7 @@ You should see logs in your hosting console like:
 ✅ Successfully cached 52 roles from guild "Your Server Name".
 ```
 
-### Step 3: Configure the Main Website
+### 3. Configure the Main Website
 
 Now that your bot is running, you need to tell the website how to connect to it.
 

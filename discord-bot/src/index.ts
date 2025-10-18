@@ -1,7 +1,7 @@
 import { Client, GatewayIntentBits, Guild } from 'discord.js';
 // FIX: Changed Express import to separate runtime from types for better type resolution.
-// FIX: Reverted to a combined import to resolve type definition errors.
-import express, { Request, Response, NextFunction } from 'express';
+import express from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import type { DiscordRole } from './types';
 
