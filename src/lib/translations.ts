@@ -235,6 +235,9 @@ export const translations: Translations = {
   role: { ar: 'الرتبة', en: 'Role' },
   admin: { ar: 'مشرف', en: 'Admin' },
   member: { ar: 'عضو', en: 'Member' },
+  profile_synced_success: { ar: 'تم تحديث ملفك الشخصي بنجاح!', en: 'Profile successfully updated!' },
+  profile_synced_error: { ar: 'فشل تحديث الملف الشخصي.', en: 'Failed to update profile.' },
+  refresh_profile_tooltip: { ar: 'تحديث البيانات من ديسكورد', en: 'Refresh data from Discord' },
 
   // Homepage Announcements
   community_announcements: { ar: 'إعلانات المجتمع', en: 'Community Announcements' },

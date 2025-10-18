@@ -28,17 +28,28 @@ CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
 CREATE OR REPLACE FUNCTION public.get_current_user_roles()
 RETURNS text[] AS $$
 DECLARE
-  roles text[];
+    roles_jsonb jsonb;
 BEGIN
-  -- Fallback to an empty array if user_metadata or roles are null
-  SELECT COALESCE(jsonb_array_to_text_array(auth.jwt()->'user_metadata'->'roles'), '{}') INTO roles;
-  RETURN roles;
+    -- Extract the roles array from the JWT's user_metadata
+    roles_jsonb := auth.jwt()->'user_metadata'->'roles';
+    
+    -- Check if roles_jsonb is actually a JSON array. If not, or if it's null, return an empty text array.
+    IF roles_jsonb IS NULL OR jsonb_typeof(roles_jsonb) <> 'array' THEN
+        RETURN '{}'::text[];
+    END IF;
+
+    -- Aggregate the elements of the JSON array into a PostgreSQL text array.
+    RETURN (SELECT COALESCE(array_agg(value), '{}'::text[]) FROM jsonb_array_elements_text(roles_jsonb));
+EXCEPTION
+    -- In case of any other unexpected error during conversion, return an empty array.
+    WHEN others THEN
+        RETURN '{}'::text[];
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 
 -- The core permission checking function for all RLS policies
-DROP FUNCTION IF EXISTS public.has_permission(text);
+DROP FUNCTION IF EXISTS public.has_permission(text) CASCADE;
 CREATE OR REPLACE FUNCTION public.has_permission(permission_key text)
 RETURNS boolean AS $$
 DECLARE
@@ -75,7 +86,8 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   id uuid NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   discord_id text UNIQUE,
   updated_at timestamp with time zone DEFAULT now() NOT NULL,
-  roles text[] DEFAULT '{}',
+  -- Changed from text[] to jsonb to store rich role objects from Discord
+  roles jsonb DEFAULT '[]'::jsonb,
   highest_role jsonb,
   last_synced_at timestamp with time zone
 );

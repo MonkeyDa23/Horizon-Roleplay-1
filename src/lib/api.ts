@@ -216,12 +216,14 @@ export const saveRolePermissions = async (roleId: string, permissions: Permissio
 
 // --- AUTH & SESSION MANAGEMENT ---
 
-export const fetchUserProfile = async (): Promise<{ user: User, syncError: string | null }> => {
+export const fetchUserProfile = async (force = false): Promise<{ user: User, syncError: string | null }> => {
     if (!supabase) throw new ApiError("Supabase not configured", 500);
 
     // The new `sync-user-profile` edge function handles all caching and syncing logic
     // to prevent Discord API rate limiting. It gets the user from the session's JWT.
-    const { data, error } = await supabase.functions.invoke('sync-user-profile');
+    const { data, error } = await supabase.functions.invoke('sync-user-profile', {
+        body: { force }
+    });
 
     if (error) {
         // The function will throw specific errors we can catch.
@@ -240,6 +242,10 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
     }
 
     return data as { user: User, syncError: string | null };
+};
+
+export const forceRefreshUserProfile = async (): Promise<{ user: User, syncError: string | null }> => {
+    return fetchUserProfile(true);
 };
 
 export const revalidateSession = async (): Promise<User> => {

@@ -1,22 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useLocalization } from '../hooks/useLocalization';
-import { getSubmissionsByUserId } from '../lib/api';
+import { getSubmissionsByUserId, forceRefreshUserProfile } from '../lib/api';
 import type { QuizSubmission, SubmissionStatus, DiscordRole } from '../types';
 import { useNavigate } from 'react-router-dom';
-import { User as UserIcon, Loader2, FileText, ExternalLink, Shield } from 'lucide-react';
+import { User as UserIcon, Loader2, FileText, ExternalLink, Shield, RefreshCw } from 'lucide-react';
 import { useConfig } from '../hooks/useConfig';
 import SEO from '../components/SEO';
+import { useToast } from '../hooks/useToast';
 
 const ProfilePage: React.FC = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, updateUser } = useAuth();
   const { t } = useLocalization();
   const navigate = useNavigate();
   const { config } = useConfig();
+  const { showToast } = useToast();
   const communityName = config.COMMUNITY_NAME;
   
   const [submissions, setSubmissions] = useState<QuizSubmission[]>([]);
   const [submissionsLoading, setSubmissionsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -39,6 +42,23 @@ const ProfilePage: React.FC = () => {
       fetchSubmissions();
     }
   }, [user, authLoading, navigate]);
+
+  const handleRefresh = async () => {
+    setIsSyncing(true);
+    try {
+        const { user: freshUser, syncError } = await forceRefreshUserProfile();
+        updateUser(freshUser); // Update the global state
+        showToast(t('profile_synced_success'), 'success');
+        if (syncError) {
+            showToast(syncError, 'warning');
+        }
+    } catch (error) {
+        showToast(t('profile_synced_error'), 'error');
+        console.error(error);
+    } finally {
+        setIsSyncing(false);
+    }
+  };
 
   const renderStatusBadge = (status: SubmissionStatus) => {
     const statusMap = {
@@ -87,7 +107,15 @@ const ProfilePage: React.FC = () => {
         
         <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1 space-y-8">
-              <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50 text-center shadow-lg">
+              <div className="relative bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50 text-center shadow-lg">
+                  <button 
+                      onClick={handleRefresh} 
+                      disabled={isSyncing} 
+                      title={t('refresh_profile_tooltip')}
+                      className="absolute top-4 end-4 text-gray-400 hover:text-brand-cyan transition-colors disabled:cursor-wait disabled:text-gray-600"
+                  >
+                      <RefreshCw size={20} className={isSyncing ? 'animate-spin' : ''} />
+                  </button>
                   <img 
                       src={user.avatar} 
                       alt={user.username}
