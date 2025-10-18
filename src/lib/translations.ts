@@ -194,6 +194,38 @@ export const translations: Translations = {
   save_permissions: { ar: 'حفظ الصلاحيات', en: 'Save Permissions' },
   permissions_saved_success: { ar: 'تم حفظ الصلاحيات بنجاح!', en: 'Permissions saved successfully!' },
 
+  // Permission Names
+  perm__super_admin: { ar: 'مشرف خارق', en: 'Super Admin' },
+  perm_page_store: { ar: 'الوصول لصفحة المتجر', en: 'Access Store Page' },
+  perm_page_rules: { ar: 'الوصول لصفحة القوانين', en: 'Access Rules Page' },
+  perm_page_applies: { ar: 'الوصول لصفحة التقديمات', en: 'Access Applies Page' },
+  perm_admin_panel: { ar: 'الوصول للوحة التحكم', en: 'Access Admin Panel' },
+  perm_admin_submissions: { ar: 'إدارة التقديمات', en: 'Manage Submissions' },
+  perm_admin_quizzes: { ar: 'إدارة نماذج التقديم', en: 'Manage Quizzes' },
+  perm_admin_rules: { ar: 'إدارة القوانين', en: 'Manage Rules' },
+  perm_admin_store: { ar: 'إدارة المتجر', en: 'Manage Store' },
+  perm_admin_translations: { ar: 'إدارة الترجمات', en: 'Manage Translations' },
+  perm_admin_appearance: { ar: 'إدارة المظهر', en: 'Manage Appearance' },
+  perm_admin_audit_log: { ar: 'عرض سجل التدقيق', en: 'View Audit Log' },
+  perm_admin_permissions: { ar: 'إدارة الصلاحيات', en: 'Manage Permissions' },
+  perm_admin_lookup: { ar: 'بحث عن مستخدم', en: 'User Lookup' },
+
+  // Permission Descriptions
+  perm__super_admin_desc: { ar: 'يمنح جميع الصلاحيات الأخرى تلقائيًا.', en: 'Grants all other permissions automatically.' },
+  perm_page_store_desc: { ar: 'السماح للمستخدم برؤية صفحة المتجر والوصول إليها.', en: 'Allow user to see and access the Store page.' },
+  perm_page_rules_desc: { ar: 'السماح للمستخدم برؤية صفحة القوانين والوصول إليها.', en: 'Allow user to see and access the Rules page.' },
+  perm_page_applies_desc: { ar: 'السماح للمستخدم برؤية صفحة التقديمات والوصول إليها.', en: 'Allow user to see and access the Applies page.' },
+  perm_admin_panel_desc: { ar: 'السماح للمستخدم برؤية زر "لوحة التحكم" والوصول لمسار /admin.', en: 'Allow user to see the "Admin Panel" button and access the /admin route.' },
+  perm_admin_submissions_desc: { ar: 'السماح للمستخدم بعرض ومعالجة جميع طلبات التقديم.', en: 'Allow user to view and handle all application submissions.' },
+  perm_admin_quizzes_desc: { ar: 'السماح للمستخدم بإنشاء وتعديل وحذف نماذج التقديم (الاختبارات).', en: 'Allow user to create, edit, and delete application forms (quizzes).' },
+  perm_admin_rules_desc: { ar: 'السماح للمستخدم بتعديل قوانين السيرفر.', en: 'Allow user to edit the server rules.' },
+  perm_admin_store_desc: { ar: 'السماح للمستخدم بإدارة العناصر في المتجر.', en: 'Allow user to manage items in the store.' },
+  perm_admin_translations_desc: { ar: 'السماح للمستخدم بتعديل جميع نصوص الموقع وترجماتها.', en: 'Allow user to edit all website text and translations.' },
+  perm_admin_appearance_desc: { ar: 'السماح للمستخدم بتغيير إعدادات الموقع العامة مثل الاسم والشعار والمظهر.', en: 'Allow user to change site-wide settings like name, logo, and theme.' },
+  perm_admin_audit_log_desc: { ar: 'السماح للمستخدم بعرض سجل جميع إجراءات المشرفين.', en: 'Allow user to view the log of all admin actions.' },
+  perm_admin_permissions_desc: { ar: 'السماح للمستخدم بتغيير صلاحيات رتب ديسكورد الأخرى.', en: 'Allow user to change permissions for other Discord roles.' },
+  perm_admin_lookup_desc: { ar: 'السماح للمستخدم بالبحث عن ملفات تعريف المستخدمين بواسطة معرف ديسكورد.', en: 'Allow user to look up user profiles by Discord ID.' },
+
 
   // Admin Page - new keys
   save: { ar: 'حفظ', en: 'Save' },
