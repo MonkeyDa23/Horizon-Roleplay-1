@@ -15,7 +15,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const handleSession = useCallback(async (session: Session | null) => {
     if (session) {
       try {
-        const { user: fullUserProfile, syncError } = await fetchUserProfile(session);
+        const { user: fullUserProfile, syncError } = await fetchUserProfile();
         setUser(fullUserProfile);
         if (syncError) {
             showToast(`Warning: ${syncError}`, 'warning');

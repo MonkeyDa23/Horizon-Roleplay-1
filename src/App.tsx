@@ -87,6 +87,12 @@ const AppContent: React.FC = () => {
     <Router>
       <div 
         className="flex flex-col min-h-screen text-white font-sans"
+        style={{ 
+          backgroundImage: config.BACKGROUND_IMAGE_URL ? `url(${config.BACKGROUND_IMAGE_URL})` : 'none',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundAttachment: 'fixed',
+        }}
       >
         <HexagonBackground />
         <div className="flex flex-col min-h-screen relative z-10 bg-brand-dark/90 backdrop-blur-sm">
@@ -109,10 +115,12 @@ const AppContent: React.FC = () => {
               <Route path="/my-applications" element={user ? <MyApplicationsPage /> : <Navigate to="/" />} />
               <Route path="/profile" element={user ? <ProfilePage /> : <Navigate to="/" />} />
               
-              <Route 
-                path="/health-check" 
-                element={<HealthCheckPage />} 
-              />
+              {config.SHOW_HEALTH_CHECK && (
+                <Route 
+                  path="/health-check" 
+                  element={<HealthCheckPage />} 
+                />
+              )}
               {/* Fallback route for any undefined paths */}
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>

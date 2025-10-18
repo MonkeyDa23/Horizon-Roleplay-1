@@ -18,9 +18,7 @@ export const getConfig = async (): Promise<AppConfig> => {
   if (!supabase) throw new ApiError("Supabase not configured", 500);
   const { data, error } = await supabase.from('config').select('*').single();
   if (error) throw new ApiError(error.message, 500);
-  // SUPER_ADMIN_ROLE_IDS and HANDLER_ROLE_IDS are deprecated and no longer part of the type
-  const { SUPER_ADMIN_ROLE_IDS, HANDLER_ROLE_IDS, ...rest } = data as any;
-  return rest as AppConfig;
+  return data as AppConfig;
 };
 
 export const getProducts = async (): Promise<Product[]> => {
@@ -218,7 +216,7 @@ export const saveRolePermissions = async (roleId: string, permissions: Permissio
 
 // --- AUTH & SESSION MANAGEMENT ---
 
-export const fetchUserProfile = async (session: Session): Promise<{ user: User, syncError: string | null }> => {
+export const fetchUserProfile = async (): Promise<{ user: User, syncError: string | null }> => {
     if (!supabase) throw new ApiError("Supabase not configured", 500);
 
     // The new `sync-user-profile` edge function handles all caching and syncing logic
@@ -248,12 +246,12 @@ export const revalidateSession = async (): Promise<User> => {
     if (!supabase) throw new ApiError("Supabase not configured", 500);
     
     // Refreshing the session gets a new JWT, which is important.
-    const { data: { session }, error } = await supabase.auth.refreshSession();
+    const { error } = await supabase.auth.refreshSession();
     
-    if (error || !session) throw new ApiError("No active session.", 401);
+    if (error) throw new ApiError("No active session.", 401);
     
     // After refreshing, fetch the profile, which will trigger a sync if needed.
-    const { user } = await fetchUserProfile(session);
+    const { user } = await fetchUserProfile();
     return user;
 }
 

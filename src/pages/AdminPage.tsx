@@ -204,7 +204,7 @@ const AdminPage: React.FC = () => {
             </select>
         </div>
 
-        {selectedRoleId && (
+        {selectedRoleId && !isTabLoading && (
             <div className="mt-8 animate-fade-in-up">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-xl font-bold">{t('available_permissions')}</h3>
@@ -221,7 +221,7 @@ const AdminPage: React.FC = () => {
                                 <label className="flex items-center justify-between cursor-pointer">
                                     <div className="flex-grow pr-4">
                                         <p className={`font-bold ${isChecked ? 'text-brand-cyan' : 'text-white'}`}>{t(`perm_${key}`)}</p>
-                                        <p className="text-xs text-gray-400">{description}</p>
+                                        <p className="text-xs text-gray-400">{t(`perm_${key}_desc`, { default: description })}</p>
                                     </div>
                                     <div className="relative inline-block w-12 flex-shrink-0 align-middle select-none transition duration-200 ease-in">
                                         <input

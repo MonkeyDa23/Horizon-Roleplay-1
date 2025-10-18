@@ -41,7 +41,7 @@ serve(async (req) => {
     let userId: string;
     let userMetadata: any;
     try {
-      const payload = await verify(token, jwtSecret, 'HS256');
+      const payload = await verify(token, jwtSecret);
       userId = payload.sub as string; // This is the Supabase UUID
       userMetadata = payload.user_metadata;
       if (!userId) throw new Error("Invalid JWT payload: missing 'sub' claim.");
@@ -143,7 +143,7 @@ serve(async (req) => {
 
     // 6. Update our DB and Auth cache with the new info.
     await supabaseAdmin.auth.admin.updateUserById(userId, {
-      user_metadata: { ...userMetadata, full_name: finalUsername, avatar_url: finalAvatar }
+      user_metadata: { ...userMetadata, full_name: finalUsername, avatar_url: finalAvatar, roles: finalRoles }
     });
     const { error: upsertError } = await supabaseAdmin.from('profiles').upsert({
       id: userId,

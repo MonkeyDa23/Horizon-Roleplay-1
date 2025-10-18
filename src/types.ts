@@ -108,7 +108,7 @@ export interface QuizSubmission {
   id: string;
   quizId: string;
   quizTitle: string;
-  userId: string;
+  user_id: string; // Switched to user_id to match DB schema
   username: string;
   answers: Answer[];
   submittedAt: string;
@@ -124,8 +124,8 @@ export interface QuizSubmission {
 export interface AuditLogEntry {
     id: string;
     timestamp: string;
-    adminId: string;
-    adminUsername: string;
+    admin_id: string; // Switched to admin_id
+    admin_username: string; // Switched to admin_username
     action: string;
 }
 export interface Rule {

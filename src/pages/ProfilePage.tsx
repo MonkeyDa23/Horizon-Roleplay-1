@@ -51,17 +51,18 @@ const ProfilePage: React.FC = () => {
     return <span className={`px-3 py-1 text-sm font-bold rounded-full ${color}`}>{text}</span>;
   };
 
-  const renderUserRole = () => {
-    if (!user) return null;
-    // FIX: Replaced user.isSuperAdmin with a check on the permissions set.
-    if (user.permissions.has('_super_admin')) {
-        return <span className="px-3 py-1 text-sm font-bold rounded-full bg-red-500/20 text-red-400 border border-red-500">{t('grant_super_admin_access')}</span>;
-    }
-    // FIX: Replaced user.isAdmin with a check on the permissions set.
-    if (user.permissions.has('admin_panel')) {
-        return <span className="px-3 py-1 text-sm font-bold rounded-full bg-brand-cyan/20 text-brand-cyan">{t('admin')}</span>;
-    }
-    return <span className="px-3 py-1 text-sm font-bold rounded-full bg-gray-500/20 text-gray-300">{t('member')}</span>;
+  const renderUserHighestRole = () => {
+    if (!user || !user.highestRole) return <span className="px-3 py-1 text-sm font-bold rounded-full bg-gray-500/20 text-gray-300">{t('member')}</span>;
+
+    const color = user.highestRole.color ? `#${user.highestRole.color.toString(16).padStart(6, '0')}` : '#99aab5';
+    // Basic contrast check
+    const r = parseInt(color.slice(1, 3), 16);
+    const g = parseInt(color.slice(3, 5), 16);
+    const b = parseInt(color.slice(5, 7), 16);
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    const textColor = brightness > 125 ? 'text-black' : 'text-white';
+
+    return <span className={`px-3 py-1 text-sm font-bold rounded-full ${textColor}`} style={{ backgroundColor: color }}>{user.highestRole.name}</span>;
   };
   
   if (authLoading || !user) {
@@ -97,7 +98,7 @@ const ProfilePage: React.FC = () => {
                   />
                   <h2 className="text-3xl font-bold mt-4">{user.username}</h2>
                   <div className="mt-2 min-h-[28px] flex items-center justify-center">
-                    {renderUserRole()}
+                    {renderUserHighestRole()}
                   </div>
                   
                   <a 
@@ -109,7 +110,7 @@ const ProfilePage: React.FC = () => {
                       <ExternalLink size={16} />
                       {t('view_on_discord')}
                   </a>
-                  <div className="mt-6 space-y-3 text-gray-300 text-sm">
+                  <div className="mt-6 pt-4 border-t border-brand-light-blue/50 space-y-3 text-gray-300 text-sm">
                       <div className="flex flex-col items-center">
                           <span className="font-semibold text-gray-400">{t('user_id')}</span>
                           <code className="text-xs bg-brand-dark px-2 py-1 rounded mt-1">{user.discordId}</code>

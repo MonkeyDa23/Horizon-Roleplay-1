@@ -54,18 +54,20 @@ const Navbar: React.FC = () => {
             ))}
           </div>
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => setCartOpen(true)}
-              className="relative text-gray-300 hover:text-brand-cyan transition-colors"
-              aria-label={t('your_cart')}
-            >
-              <ShoppingCart size={22} />
-              {totalItems > 0 && (
-                <span className="absolute -top-2 -end-2 flex h-5 w-5 items-center justify-center rounded-full bg-brand-cyan text-xs font-bold text-brand-dark">
-                  {totalItems}
-                </span>
-              )}
-            </button>
+            {hasPermission('page_store') && (
+              <button
+                onClick={() => setCartOpen(true)}
+                className="relative text-gray-300 hover:text-brand-cyan transition-colors"
+                aria-label={t('your_cart')}
+              >
+                <ShoppingCart size={22} />
+                {totalItems > 0 && (
+                  <span className="absolute -top-2 -end-2 flex h-5 w-5 items-center justify-center rounded-full bg-brand-cyan text-xs font-bold text-brand-dark">
+                    {totalItems}
+                  </span>
+                )}
+              </button>
+            )}
             <div className="relative">
               <button
                 onClick={() => setLangDropdownOpen(!langDropdownOpen)}
