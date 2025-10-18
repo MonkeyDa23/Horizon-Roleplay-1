@@ -1,4 +1,5 @@
-// FIX: Replaced triple-slash directive with @deno-types to resolve Deno type errors.
+// supabase/functions/sync-user-profile/index.ts
+
 // @deno-types="https://esm.sh/@supabase/functions-js@2"
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -77,18 +78,12 @@ serve(async (req) => {
     }
 
     // --- CACHE MISS ---
-    // 3. Get Discord provider token from the identities table
-    const { data: identity, error: identityError } = await supabaseAdmin
-      .from('auth.identities')
-      .select('provider_token')
-      .eq('user_id', user.id)
-      .eq('provider', 'discord')
-      .single();
-
-    if (identityError || !identity?.provider_token) {
-        throw new Error('Could not find Discord provider token for user.');
+    // 3. Get the Discord Bot Token from environment variables
+    // @ts-ignore
+    const botToken = Deno.env.get('DISCORD_BOT_TOKEN');
+    if (!botToken) {
+        throw new Error('DISCORD_BOT_TOKEN is not configured on the server.');
     }
-    const providerToken = identity.provider_token;
 
     // 4. Get Guild ID from the public config table
     const { data: config } = await supabaseAdmin.from('config').select('DISCORD_GUILD_ID').single();
@@ -97,14 +92,14 @@ serve(async (req) => {
     }
     const guildId = config.DISCORD_GUILD_ID;
 
-    // 5. Fetch fresh user data from Discord API
+    // 5. Fetch fresh user data from Discord API using the Bot Token
     let syncError: string | null = null;
     let memberData;
 
     try {
-        const memberUrl = `${DISCORD_API_BASE}/users/@me/guilds/${guildId}/member`;
+        const memberUrl = `${DISCORD_API_BASE}/guilds/${guildId}/members/${user.id}`;
         const memberResponse = await fetch(memberUrl, {
-            headers: { 'Authorization': `Bearer ${providerToken}` },
+            headers: { 'Authorization': `Bot ${botToken}` },
         });
 
         if (!memberResponse.ok) {
@@ -131,59 +126,72 @@ serve(async (req) => {
         throw e;
     }
 
-    const roles = memberData.roles || [];
-    let highestRole = null;
+    // --- Start of Resilient User Object Construction ---
+    // Start with a base user object from the reliable JWT data.
+    let finalUsername = user.user_metadata.full_name;
+    let finalAvatar = user.user_metadata.avatar_url;
+    let finalRoles: string[] = user.user_metadata.roles || []; // Get roles from JWT if possible
+    let finalHighestRole = null;
 
-    // 6. Calculate highest role
-    if (roles.length > 0) {
+    // Safely enhance with guild-specific data if the member object is valid
+    // The bot endpoint returns a `user` object inside the member object.
+    const discordUser = memberData?.user;
+    if (memberData && typeof memberData === 'object') {
+        finalUsername = memberData.nick || discordUser?.global_name || discordUser?.username || finalUsername;
+        if (memberData.avatar) {
+            finalAvatar = `https://cdn.discordapp.com/guilds/${guildId}/users/${user.id}/avatars/${memberData.avatar}.png`;
+        } else if (discordUser?.avatar) {
+            finalAvatar = `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`
+        }
+        // Always prefer the roles list from the live API call as it's most current
+        finalRoles = memberData.roles || [];
+    }
+
+    // Calculate highest role using the determined roles
+    if (finalRoles.length > 0) {
         const { data: allGuildRoles, error: rolesError } = await supabaseClient.functions.invoke('get-guild-roles');
         if (rolesError) {
           syncError = "Could not fetch guild roles to determine highest role.";
         } else if (Array.isArray(allGuildRoles)) {
-          const userRolesDetails = allGuildRoles.filter(role => roles.includes(role.id)).sort((a, b) => b.position - a.position);
+          const userRolesDetails = allGuildRoles
+              .filter(role => finalRoles.includes(role.id))
+              .sort((a, b) => b.position - a.position);
           if (userRolesDetails.length > 0) {
               const topRole = userRolesDetails[0];
-              highestRole = { id: topRole.id, name: topRole.name, color: topRole.color };
+              finalHighestRole = { id: topRole.id, name: topRole.name, color: topRole.color };
           }
         }
     }
 
-    // 7. Update Supabase Auth metadata and profiles table (the cache)
+    // Update Supabase Auth metadata and profiles table (the cache)
     await supabaseAdmin.auth.admin.updateUserById(user.id, {
-        user_metadata: { ...user.user_metadata, roles: roles }
+        user_metadata: { ...user.user_metadata, roles: finalRoles }
     });
     const { error: upsertError } = await supabaseAdmin.from('profiles').upsert({
         id: user.id,
-        roles: roles,
-        highest_role: highestRole,
+        roles: finalRoles,
+        highest_role: finalHighestRole,
         last_synced_at: new Date().toISOString()
     });
     if (upsertError) console.error("Error updating profile cache:", upsertError.message);
 
-
-    // 8. Calculate final permissions and construct the full user object to return
-    const { data: permsData } = await supabaseAdmin.from('role_permissions').select('permissions').in('role_id', roles);
+    // Calculate final permissions from the roles
+    const { data: permsData } = await supabaseAdmin.from('role_permissions').select('permissions').in('role_id', finalRoles);
     const finalPermissions = new Set<string>();
     if (permsData) {
         permsData.forEach(p => p.permissions.forEach(key => finalPermissions.add(key)));
     }
-    
-    // Construct the avatar URL, prioritizing the guild-specific one.
-    const getAvatarUrl = () => {
-      if (memberData.avatar) {
-        return `https://cdn.discordapp.com/guilds/${guildId}/users/${user.id}/avatars/${memberData.avatar}.png`;
-      }
-      return user.user_metadata.avatar_url;
-    }
 
+    // Construct the final user object
     const finalUser = {
         id: user.id,
-        username: memberData.nick || user.user_metadata.full_name,
-        avatar: getAvatarUrl(),
-        roles: roles,
-        highestRole: highestRole,
-        permissions: Array.from(finalPermissions), // Convert Set to array for JSON response
+        username: finalUsername,
+        avatar: finalAvatar,
+        roles: finalRoles,
+        highestRole: finalHighestRole,
+        permissions: Array.from(finalPermissions),
     };
+    // --- End of Resilient User Object Construction ---
 
     return createResponse({ user: finalUser, syncError });
 
