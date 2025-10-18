@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient';
+import { env } from '../env';
 import type { Session } from '@supabase/gotrue-js';
 import type { User, Product, Quiz, QuizSubmission, SubmissionStatus, MtaServerStatus, AuditLogEntry, RuleCategory, AppConfig, MtaLogEntry, UserLookupResult, DiscordAnnouncement, DiscordRole, PermissionKey, RolePermission } from '../types';
 
@@ -194,10 +195,33 @@ export const lookupDiscordUser = async (userId: string): Promise<UserLookupResul
 }
 
 export const getGuildRoles = async (): Promise<DiscordRole[]> => {
-    if (!supabase) throw new ApiError("Database not configured", 500);
-    const { data, error } = await supabase.functions.invoke('get-guild-roles');
-    if (error) throw new ApiError(error.message, 500);
-    return data;
+    const botUrl = env.VITE_DISCORD_BOT_URL;
+    const apiKey = env.VITE_DISCORD_BOT_API_KEY;
+
+    if (!botUrl || !apiKey || botUrl === 'YOUR_DISCORD_BOT_API_URL') {
+        console.error("Discord Bot URL or API Key is not configured in src/env.ts file.");
+        throw new ApiError("Bot integration is not configured. Please check environment variables.", 500);
+    }
+    
+    try {
+        const response = await fetch(`${botUrl}/roles`, {
+            headers: {
+                'Authorization': `Bearer ${apiKey}`
+            }
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
+            throw new ApiError(`Failed to fetch roles from bot: ${errorData.error || response.statusText}`, response.status);
+        }
+
+        const roles: DiscordRole[] = await response.json();
+        return roles;
+    } catch (error) {
+        if (error instanceof ApiError) throw error;
+        console.error("Network error fetching roles from bot:", error);
+        throw new ApiError("Could not connect to the Discord Bot service.", 503);
+    }
 };
 
 export const getRolePermissions = async (roleId: string): Promise<RolePermission | null> => {
@@ -219,24 +243,17 @@ export const saveRolePermissions = async (roleId: string, permissions: Permissio
 export const fetchUserProfile = async (force = false): Promise<{ user: User, syncError: string | null }> => {
     if (!supabase) throw new ApiError("Supabase not configured", 500);
 
-    // The new `sync-user-profile` edge function handles all caching and syncing logic
-    // to prevent Discord API rate limiting. It gets the user from the session's JWT.
     const { data, error } = await supabase.functions.invoke('sync-user-profile', {
         body: { force }
     });
 
     if (error) {
-        // The function will throw specific errors we can catch.
         if (error.message.includes("User not found in Discord guild")) {
-            // This specific error tells the AuthContext to log the user out.
             throw new ApiError(error.message, 404);
         }
-        // For other errors, we throw a generic one.
         throw new ApiError(`Failed to sync user profile: ${error.message}`, 500);
     }
     
-    // The function returns the exact structure we need, but permissions need to be
-    // converted from an array back into a Set.
     if (data.user && data.user.permissions) {
         data.user.permissions = new Set(data.user.permissions);
     }
@@ -251,22 +268,15 @@ export const forceRefreshUserProfile = async (): Promise<{ user: User, syncError
 export const revalidateSession = async (): Promise<User> => {
     if (!supabase) throw new ApiError("Supabase not configured", 500);
     
-    // Refreshing the session gets a new JWT, which is important.
     const { error } = await supabase.auth.refreshSession();
     
     if (error) throw new ApiError("No active session.", 401);
     
-    // After refreshing, fetch the profile, which will trigger a sync if needed.
     const { user } = await fetchUserProfile();
     return user;
 }
 
-
-// --- HEALTH CHECK FUNCTIONS ---
-// ... (omitted for brevity, no changes needed)
-
-// --- MOCKED FUNCTIONS ---
-// ... (omitted for brevity, no changes needed)
+// --- MOCKED/HEALTHCHECK FUNCTIONS ---
 export const getMtaServerStatus = async (): Promise<MtaServerStatus> => {
     const config = await getConfig();
     return {

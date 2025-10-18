@@ -20,7 +20,6 @@ DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 
 -- Drop triggers and policies before tables
 DROP TRIGGER IF EXISTS on_submission_insert ON public.submissions;
--- FIX: Corrected typo from "IF IF EXISTS" to "IF EXISTS"
 DROP TRIGGER IF EXISTS on_submission_update ON public.submissions;
 ALTER TABLE IF EXISTS public.submissions DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.quizzes DISABLE ROW LEVEL SECURITY;
@@ -154,15 +153,6 @@ CREATE TABLE public.translations (
     key text PRIMARY KEY,
     en text,
     ar text
-);
-
-
--- DISCORD_ROLES_CACHE: Caches Discord guild roles to avoid rate limits
-CREATE TABLE public.discord_roles_cache (
-    id smallint PRIMARY KEY DEFAULT 1,
-    roles jsonb,
-    updated_at timestamptz,
-    CONSTRAINT id_check CHECK (id = 1)
 );
 
 
@@ -411,9 +401,10 @@ BEGIN
   -- Log the action
   PERFORM public.log_audit_action(
     CONCAT(
-      'Updated permissions for role ', 
-      (SELECT name FROM public.discord_roles_cache, jsonb_to_recordset(roles) AS r(id text, name text) WHERE r.id = p_role_id LIMIT 1),
-      ' (', p_role_id, '). New perms: ', array_to_string(p_permissions, ', ')
+      'Updated permissions for role ID ', 
+      p_role_id, 
+      '. New perms: ', 
+      array_to_string(p_permissions, ', ')
     )
   );
 
