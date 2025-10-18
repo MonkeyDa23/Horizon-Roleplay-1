@@ -108,7 +108,31 @@ const AdminPage: React.FC = () => {
                 case 'translations': if(hasPermission('admin_translations')) setTranslations(await getTranslations()); break;
                 case 'appearance': if (hasPermission('admin_appearance')) setEditableConfig({ ...config }); break;
                 case 'audit': if (hasPermission('admin_audit_log')) setAuditLogs(await getAuditLogs()); break;
-                case 'permissions': if (hasPermission('admin_permissions')) setGuildRoles(await getGuildRoles()); break;
+                case 'permissions':
+                    if (hasPermission('admin_permissions')) {
+                        let cacheLoaded = false;
+                        try {
+                            const cachedRolesRaw = localStorage.getItem('vixel_guildRolesCache');
+                            if (cachedRolesRaw) {
+                                const { roles: cachedRoles } = JSON.parse(cachedRolesRaw);
+                                setGuildRoles(cachedRoles);
+                                setIsTabLoading(false); // We have data, no need to show loader
+                                cacheLoaded = true;
+                            }
+                        } catch (e) { console.error("Failed to load guild roles from cache", e); }
+
+                        try {
+                            const freshRoles = await getGuildRoles();
+                            setGuildRoles(freshRoles);
+                            localStorage.setItem('vixel_guildRolesCache', JSON.stringify({ roles: freshRoles }));
+                        } catch (err) {
+                            console.error("Failed to refresh guild roles:", err);
+                            if (!cacheLoaded) {
+                                throw err; // Re-throw to be caught by the outer catch block
+                            }
+                        }
+                    }
+                    break;
                 case 'lookup': break; // No initial data load needed
             }
         } catch (error) {

@@ -5,7 +5,6 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const DISCORD_API_BASE = 'https://discord.com/api/v10'
-// Cache is now shorter to allow for more frequent role updates if needed.
 const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
 
 const corsHeaders = {
@@ -28,7 +27,6 @@ serve(async (req) => {
   try {
     let force = false;
     try {
-      // Check if the request has a body and handle potential errors.
       if (req.headers.get("content-type")?.includes("application/json")) {
         const body = await req.json();
         if (body && body.force === true) {
@@ -36,8 +34,7 @@ serve(async (req) => {
         }
       }
     } catch (e) {
-      // This is expected if no body is sent (e.g., from background session validation).
-      // We can safely ignore the error and proceed without forcing a refresh.
+      // Ignore errors from parsing an empty body.
     }
 
     const supabaseClient = createClient(
@@ -72,33 +69,10 @@ serve(async (req) => {
       .from('profiles')
       .select('discord_id, roles, highest_role, last_synced_at')
       .eq('id', userId)
-      .single();
+      .maybeSingle(); // Use maybeSingle() to prevent error if profile doesn't exist yet
 
-    if (!profile) {
-      throw new Error(`Profile not found for user ${userId}. A profile should be created automatically on signup.`);
-    }
-
-    let discordUserId = profile.discord_id;
-    
-    if (!discordUserId) {
-        const providerId = userMetadata?.provider_id;
-        if (providerId) {
-            console.log(`Profile for user ${userId} is missing discord_id. Attempting to self-heal with provider_id from JWT.`);
-            const { error: updateError } = await supabaseAdmin
-              .from('profiles')
-              .update({ discord_id: providerId })
-              .eq('id', userId);
-            
-            if (updateError) {
-                throw new Error(`Failed to self-heal discord_id for user ${userId}: ${updateError.message}`);
-            }
-            discordUserId = providerId;
-        } else {
-            throw new Error(`Discord ID not found in profile or JWT for user ${userId}. This may indicate an issue with the initial signup process.`);
-        }
-    }
-    
-    if (!force && profile.last_synced_at && (new Date().getTime() - new Date(profile.last_synced_at).getTime() < CACHE_TTL_MS)) {
+    // If cache is valid, construct user object and return early
+    if (!force && profile?.last_synced_at && (new Date().getTime() - new Date(profile.last_synced_at).getTime() < CACHE_TTL_MS)) {
       const userRoleIds = (profile.roles || []).map((r: any) => r.id);
       const finalPermissions = new Set<string>();
 
@@ -111,7 +85,7 @@ serve(async (req) => {
 
       const cachedUser = {
         id: userId,
-        discordId: discordUserId,
+        discordId: profile.discord_id,
         username: userMetadata.full_name,
         avatar: userMetadata.avatar_url,
         roles: profile.roles || [],
@@ -120,13 +94,19 @@ serve(async (req) => {
       };
       return createResponse({ user: cachedUser, syncError: null });
     }
-    
+
+    // --- Start Full Sync with Discord ---
+    let discordUserId = profile?.discord_id || userMetadata?.provider_id;
+    if (!discordUserId) {
+      throw new Error(`Could not determine Discord ID for user ${userId}. Critical signup failure.`);
+    }
+
     let syncError: string | null = null;
     let finalUsername = userMetadata.full_name || 'New User';
     let finalAvatar = userMetadata.avatar_url;
-    let finalRoles: any[] = profile.roles || []; 
-    let finalHighestRole: any | null = profile.highest_role || null;
-    let memberRoleIds: string[] = (profile.roles || []).map((r: any) => r.id);
+    let finalRoles: any[] = profile?.roles || []; 
+    let finalHighestRole: any | null = profile?.highest_role || null;
+    let memberRoleIds: string[] = (profile?.roles || []).map((r: any) => r.id);
 
     try {
       // @ts-ignore
@@ -155,25 +135,18 @@ serve(async (req) => {
           finalAvatar = `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`
       }
 
-      const { data: allGuildRoles, error: rolesError } = await supabaseAdmin.functions.invoke('get-guild-roles', {
-        headers: {
-          'Authorization': req.headers.get('Authorization')!,
-        },
-      });
-
-      if (rolesError) {
+      const { data: allGuildRoles, error: rolesError } = await supabaseAdmin.functions.invoke('get-guild-roles');
+      if (rolesError || !Array.isArray(allGuildRoles)) {
         throw new Error("Could not fetch guild roles to determine user roles.");
       } 
       
-      if (Array.isArray(allGuildRoles)) {
-        const userRolesDetails = allGuildRoles
-          .filter(role => freshMemberRoleIds.includes(role.id))
-          .sort((a, b) => b.position - a.position);
-        
-        finalRoles = userRolesDetails;
-        finalHighestRole = userRolesDetails.length > 0 ? userRolesDetails[0] : null;
-        memberRoleIds = freshMemberRoleIds;
-      }
+      const userRolesDetails = allGuildRoles
+        .filter(role => freshMemberRoleIds.includes(role.id))
+        .sort((a, b) => b.position - a.position);
+      
+      finalRoles = userRolesDetails;
+      finalHighestRole = userRolesDetails.length > 0 ? userRolesDetails[0] : null;
+      memberRoleIds = freshMemberRoleIds;
 
     } catch (e) {
       syncError = `Could not sync with Discord: ${e.message}. Displaying last known data.`;
@@ -181,50 +154,32 @@ serve(async (req) => {
     }
     
     // --- Automatic Permission Bootstrap Logic ---
-    const { count: permissionCount, error: countError } = await supabaseAdmin
-      .from('role_permissions')
-      .select('*', { count: 'exact', head: true });
-
+    const { count: permissionCount, error: countError } = await supabaseAdmin.from('role_permissions').select('*', { count: 'exact', head: true });
     if (countError) {
       console.error(`Error checking permissions table count: ${countError.message}`);
-    } else if (permissionCount === 0 && finalHighestRole) {
+    } else if (permissionCount === 0 && finalHighestRole?.id) {
       console.log(`First run detected. Granting Super Admin to role: ${finalHighestRole.name} (${finalHighestRole.id})`);
-      const { error: grantError } = await supabaseAdmin
-        .from('role_permissions')
-        .insert({
-          role_id: finalHighestRole.id,
-          permissions: ['_super_admin']
-        });
-      
+      const { error: grantError } = await supabaseAdmin.from('role_permissions').insert({ role_id: finalHighestRole.id, permissions: ['_super_admin'] });
       if (grantError) {
-        syncError = `Failed to bootstrap initial admin role: ${grantError.message}`;
-        console.error(syncError);
+        syncError = (syncError ? syncError + "\n" : "") + `Failed to bootstrap initial admin role: ${grantError.message}`;
       } else {
         syncError = `Initial setup complete. The '${finalHighestRole.name}' role has been granted Super Admin permissions.`;
       }
     }
-    // --- End of Bootstrap Logic ---
-
-    await supabaseAdmin.auth.admin.updateUserById(userId, {
-      user_metadata: { 
-        ...userMetadata, 
-        full_name: finalUsername, 
-        avatar_url: finalAvatar,
-        roles: memberRoleIds 
-      }
-    });
     
-    const { error: upsertError } = await supabaseAdmin.from('profiles').upsert({
-      id: userId,
-      discord_id: discordUserId,
-      roles: finalRoles,
-      highest_role: finalHighestRole,
-      last_synced_at: new Date().toISOString()
-    });
-    if (upsertError) console.error("Error updating profile cache:", upsertError.message);
+    // --- Update Auth User and Profile ---
+    const { error: updateUserError } = await supabaseAdmin.auth.admin.updateUserById(userId, { user_metadata: { ...userMetadata, full_name: finalUsername, avatar_url: finalAvatar, roles: memberRoleIds } });
+    if (updateUserError) {
+      throw new Error(`Failed to update auth user metadata: ${updateUserError.message}`);
+    }
+    
+    const { error: upsertError } = await supabaseAdmin.from('profiles').upsert({ id: userId, discord_id: discordUserId, roles: finalRoles, highest_role: finalHighestRole, last_synced_at: new Date().toISOString() });
+    if (upsertError) {
+      console.error("Error updating profile cache:", upsertError.message);
+    }
 
     const finalPermissions = new Set<string>();
-    if (memberRoleIds && memberRoleIds.length > 0) {
+    if (memberRoleIds.length > 0) {
         const { data: permsData } = await supabaseAdmin.from('role_permissions').select('permissions').in('role_id', memberRoleIds);
         if (permsData) {
           permsData.forEach(p => p.permissions.forEach((key: string) => finalPermissions.add(key)));
