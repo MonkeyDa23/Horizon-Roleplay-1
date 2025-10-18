@@ -168,12 +168,18 @@ serve(async (req) => {
         permsData.forEach(p => p.permissions.forEach(key => finalPermissions.add(key)));
     }
     
+    // Construct the avatar URL, prioritizing the guild-specific one.
+    const getAvatarUrl = () => {
+      if (memberData.avatar) {
+        return `https://cdn.discordapp.com/guilds/${guildId}/users/${user.id}/avatars/${memberData.avatar}.png`;
+      }
+      return user.user_metadata.avatar_url;
+    }
+
     const finalUser = {
         id: user.id,
-        username: memberData.user.global_name || memberData.user.username,
-        avatar: memberData.user.avatar
-            ? `https://cdn.discordapp.com/avatars/${memberData.user.id}/${memberData.user.avatar}.png`
-            : `https://cdn.discordapp.com/embed/avatars/${parseInt(memberData.user.discriminator || '0') % 5}.png`,
+        username: memberData.nick || user.user_metadata.full_name,
+        avatar: getAvatarUrl(),
         roles: roles,
         highestRole: highestRole,
         permissions: Array.from(finalPermissions), // Convert Set to array for JSON response
