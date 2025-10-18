@@ -73,6 +73,7 @@ $$ LANGUAGE plpgsql STABLE;
 -- 2.1. PROFILES & AUTHENTICATION
 CREATE TABLE IF NOT EXISTS public.profiles (
   id uuid NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  discord_id text UNIQUE,
   updated_at timestamp with time zone DEFAULT now() NOT NULL,
   roles text[] DEFAULT '{}',
   highest_role jsonb,
@@ -347,7 +348,18 @@ $$;
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
-  INSERT INTO public.profiles (id) VALUES (new.id) ON CONFLICT (id) DO NOTHING;
+  -- Insert a new profile, and fetch the discord_id from auth.identities
+  INSERT INTO public.profiles (id, discord_id)
+  VALUES (
+    new.id,
+    (SELECT id FROM auth.identities WHERE user_id = new.id AND provider = 'discord' LIMIT 1)
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    -- This allows fixing a profile if the discord_id was missed on the first pass
+    discord_id = COALESCE(
+      (SELECT id FROM auth.identities WHERE user_id = new.id AND provider = 'discord' LIMIT 1),
+      profiles.discord_id
+    );
   RETURN new;
 END;
 $$;

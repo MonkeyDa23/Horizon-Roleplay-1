@@ -101,7 +101,7 @@ const ProfilePage: React.FC = () => {
                   </div>
                   
                   <a 
-                      href={`https://discord.com/users/${user.id}`}
+                      href={`https://discord.com/users/${user.discordId}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="mt-6 inline-flex items-center gap-2 bg-[#5865F2] text-white font-bold py-2 px-4 rounded-md hover:bg-[#4f5bda] transition-colors"
@@ -112,7 +112,7 @@ const ProfilePage: React.FC = () => {
                   <div className="mt-6 space-y-3 text-gray-300 text-sm">
                       <div className="flex flex-col items-center">
                           <span className="font-semibold text-gray-400">{t('user_id')}</span>
-                          <code className="text-xs bg-brand-dark px-2 py-1 rounded mt-1">{user.id}</code>
+                          <code className="text-xs bg-brand-dark px-2 py-1 rounded mt-1">{user.discordId}</code>
                       </div>
                   </div>
               </div>

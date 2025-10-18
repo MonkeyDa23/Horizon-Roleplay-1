@@ -31,7 +31,8 @@ export type PermissionKey =
 
 
 export interface User {
-  id: string;
+  id: string; // This is the Supabase auth.users.id (UUID)
+  discordId: string; // This is the user's actual Discord ID (Snowflake)
   username: string;
   avatar: string;
   roles: string[];
