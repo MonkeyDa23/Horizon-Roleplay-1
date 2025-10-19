@@ -137,21 +137,8 @@ export const deleteQuiz = async (quizId: string): Promise<void> => {
 
 export const saveRules = async (rulesData: RuleCategory[]): Promise<void> => {
     if (!supabase) throw new ApiError("Database not configured", 500);
-    const categoryIds = rulesData.map(cat => cat.id);
-    if (categoryIds.length > 0) {
-        const { error: deleteError } = await supabase.from('rules').delete().in('category_id', categoryIds);
-        if (deleteError) throw new ApiError(`Failed to delete old rules: ${deleteError.message}`, 500);
-    }
-    const categoriesToUpsert = rulesData.map(({ rules, ...cat }) => cat);
-    if (categoriesToUpsert.length > 0) {
-        const { error: catError } = await supabase.from('rule_categories').upsert(categoriesToUpsert);
-        if (catError) throw new ApiError(`Failed to save rule categories: ${catError.message}`, 500);
-    }
-    const allRules = rulesData.flatMap(cat => cat.rules.map(rule => ({ ...rule, category_id: cat.id })));
-    if (allRules.length > 0) {
-        const { error: ruleError } = await supabase.from('rules').insert(allRules);
-        if (ruleError) throw new ApiError(`Failed to save new rules: ${ruleError.message}`, 500);
-    }
+    const { error } = await supabase.rpc('save_rules', { p_rules_data: rulesData });
+    if (error) throw new ApiError(error.message, 500);
 }
 
 export const saveProduct = async (product: Product): Promise<Product> => {
@@ -274,6 +261,13 @@ export const revalidateSession = async (): Promise<User> => {
     
     const { user } = await fetchUserProfile();
     return user;
+}
+
+export const checkBotHealth = async (): Promise<any> => {
+    if (!supabase) throw new ApiError("Database not configured", 500);
+    const { data, error } = await supabase.functions.invoke('check-bot-health');
+    if (error) throw new ApiError(error.message, 500);
+    return data;
 }
 
 // --- MOCKED/HEALTHCHECK FUNCTIONS ---

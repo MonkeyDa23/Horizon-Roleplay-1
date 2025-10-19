@@ -3,46 +3,84 @@
 This is a professional, high-performance Node.js application built with TypeScript. It serves two critical functions:
 
 1.  **Acts as a Discord Bot:** It logs into Discord and maintains a 24/7 connection to your server.
-2.  **Runs a Web API:** It provides a secure, lightning-fast API endpoint that the main Vixel website calls to get a list of all roles in your server.
+2.  **Runs a Web API:** It provides a secure, lightning-fast API that the main Vixel website calls to get guild data (like roles and member info) and to send all notifications (DMs and channel messages).
 
 This upgraded version uses TypeScript for enhanced stability and type safety.
 
+## ❗ CRITICAL STEP: FIXING "INVALID TOKEN" OR "USER NOT FOUND" ERRORS
+
+The most common problems when setting up the bot are login failures, often with misleading error messages.
+
+**This is almost always caused by a required permission that has not been enabled on the Discord Developer Portal.**
+
+To fix this, you **MUST** do the following:
+
+1.  Go to the **[Discord Developer Portal](https://discord.com/developers/applications)**.
+2.  Select your bot application from the list.
+3.  Click the **"Bot"** tab on the left-side menu.
+4.  Scroll down to the **"Privileged Gateway Intents"** section.
+5.  Find the **"SERVER MEMBERS INTENT"** and **turn the switch ON**.
+6.  Click the green **"Save Changes"** button at the bottom of the page.
+
+
+
+After enabling this intent, **restart your bot**. The login and user sync should now succeed.
+
 ## Why is this needed?
 
-By having this bot run 24/7, it keeps a fresh list of your server's roles in its memory (a "cache"). When the website needs the roles (e.g., on the Admin Permissions page), it asks this bot instead of asking Discord directly. This is much faster and prevents the website from hitting Discord's API rate limits.
+This bot acts as the central brain for all Discord interactions. It keeps a fresh list of your server's roles in memory (a "cache"). When the website needs roles, member data, or needs to send a notification, it makes a quick, secure call to this bot. This is much faster and more reliable than other methods and avoids hitting Discord's API rate limits.
 
 ## Setup Instructions
 
-Follow these steps to get your bot up and running on your hosting service (like Wispbyte).
+Follow these steps to get your bot up and running on your hosting service.
 
-### 1. Configure Environment Variables
+### Configuration Method 1: Environment Variables (Recommended & Secure)
 
-This is the most important step. This application reads its configuration from **Environment Variables**, which you must set in your hosting provider's control panel.
+This is the **best and most secure** way to configure the bot. Most professional hosting panels support this method.
 
-**Do NOT use an `.env` or `env.ts` file for configuration on your live server.**
-
-Go to your server's control panel (e.g., the Wispbyte panel) and find the section for "Variables" or "Environment Variables" and add the following:
+1.  Log into your server's control panel.
+2.  Look for a tab or menu item named **"Startup"** or **"Startup Parameters"**.
+3.  On that page, you should find a section called **"ENVIRONMENT VARIABLES"**.
+4.  Add the following variables:
 
 -   `DISCORD_BOT_TOKEN`:
     -   Go to the [Discord Developer Portal](https://discord.com/developers/applications).
-    -   Select your bot's application.
-    -   Go to the "Bot" page from the menu on the left.
-    -   Click the "Reset Token" button to reveal your token. **Treat this like a password!**
-    -   **CRITICAL:** On the same "Bot" page, scroll down to "Privileged Gateway Intents" and **enable the SERVER MEMBERS INTENT**. The bot cannot see roles without this.
+    -   Select your bot's application -> "Bot" page.
+    -   Click "Reset Token". **Treat this like a password!**
+    -   **Remember to enable the Gateway Intents as described in the critical step above!**
 
 -   `DISCORD_GUILD_ID`:
-    -   In your Discord app, go to User Settings > Advanced and enable **Developer Mode**.
+    -   In your Discord app, enable Developer Mode (User Settings > Advanced).
     -   Right-click on your server's icon and click "Copy Server ID".
-    -   Paste the ID here.
 
 -   `API_SECRET_KEY`:
-    -   This is a password you create to protect your API.
+    -   This is a password **you create** to protect your API.
     -   Use a strong, random password (e.g., from a password generator).
-    -   You will need to put this **exact same key** into the main website's environment variables (`VITE_DISCORD_BOT_API_KEY`).
+    -   You must put this **exact same key** into the main website's environment variables (`VITE_DISCORD_BOT_API_KEY`).
 
-Your hosting provider will automatically provide the `PORT` variable. You do not need to set it.
+-   `SUBMISSIONS_CHANNEL_ID`: **(New & Required)**
+    -   The ID of the channel where you want the bot to post a notification for every new application submitted.
+    -   Right-click the channel in Discord and "Copy Channel ID".
 
-### 2. Deployment
+-   `AUDIT_LOG_CHANNEL_ID`: **(New & Required)**
+    -   The ID of the channel where you want the bot to log all admin actions (e.g., application decisions).
+    -   Right-click the channel in Discord and "Copy Channel ID".
+
+5.  After adding the variables, **restart your server** from the panel's console.
+
+### Configuration Method 2: `config.json` File (Workaround)
+
+Use this method **only if you are absolutely sure** that your hosting panel does not have a "Startup" or "Variables" page.
+
+**WARNING: This method is less secure.** It involves placing your secrets in a file. **NEVER share this file with anyone.**
+
+1.  Navigate to the `discord-bot/src` folder.
+2.  Create a new file named `config.json`.
+3.  Copy the contents from `config.example.json` and paste them into your new `config.json`.
+4.  Replace the placeholder text with your actual token, server ID, secret key, and channel IDs.
+5.  Save the `config.json` file and restart your bot.
+
+### Deployment
 
 Your work is mostly done! When you upload this `discord-bot` folder to your host, the startup scripts should automatically:
 
@@ -54,18 +92,17 @@ You should see logs in your hosting console like:
 ```
 > node dist/index.js
 
+ℹ️ No local config.json found. Relying solely on environment variables.
 ✅ Logged in as YourBotName#1234!
-🚀 API server is listening on port 2077 (or whichever port the host assigned)
+🚀 API server is listening on port 3001 (or whichever port the host assigned)
 ✅ Successfully cached 52 roles from guild "Your Server Name".
 ```
 
-### 3. Configure the Main Website
+### Configure the Main Website
 
 Now that your bot is running, you need to tell the website how to connect to it.
 
-1.  Go to your main website's project and configure its environment variables (e.g., in Vercel or your Supabase project settings).
+1.  Go to your main website's project and configure its environment variables (e.g., in your Supabase project settings for the Edge Functions).
 2.  Fill in the values:
-    -   `VITE_DISCORD_BOT_URL`: This is the public URL of your bot's API. Your hosting provider gives you this (e.g., `https://my-bot.wispbyte.com`).
-    -   `VITE_DISCORD_BOT_API_KEY`: This must be the **exact same** `API_SECRET_KEY` you created in Step 1.
-
-After deploying your website with these variables, it will now fetch roles from your super-fast bot!
+    -   `VITE_DISCORD_BOT_URL`: This is the public URL of your bot's API. Your hosting provider gives you this (e.g., `http://123.45.67.89:3001`).
+    -   `VITE_DISCORD_BOT_API_KEY`: This must be the **exact same** `API_SECRET_KEY` you created.

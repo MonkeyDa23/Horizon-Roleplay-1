@@ -4,7 +4,6 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const DISCORD_API_BASE = 'https://discord.com/api/v10'
 const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
 
 const corsHeaders = {
@@ -110,39 +109,54 @@ serve(async (req) => {
 
     try {
       // @ts-ignore
-      const botToken = Deno.env.get('DISCORD_BOT_TOKEN');
-      if (!botToken) throw new Error('DISCORD_BOT_TOKEN is not configured.');
+      const botUrl = Deno.env.get('VITE_DISCORD_BOT_URL');
+      // @ts-ignore
+      const apiKey = Deno.env.get('VITE_DISCORD_BOT_API_KEY');
 
+      if (!botUrl || !apiKey) {
+        throw new Error("VITE_DISCORD_BOT_URL or VITE_DISCORD_BOT_API_KEY is not configured in the Supabase Function's environment variables. Please set them in your project settings.");
+      }
+      
+      const authHeader = { 'Authorization': `Bearer ${apiKey}` };
       const { data: config } = await supabaseAdmin.from('config').select('DISCORD_GUILD_ID').single();
       if (!config?.DISCORD_GUILD_ID) throw new Error('DISCORD_GUILD_ID is not configured in DB.');
-      
-      const memberUrl = `${DISCORD_API_BASE}/guilds/${config.DISCORD_GUILD_ID}/members/${discordUserId}`;
-      const memberResponse = await fetch(memberUrl, { headers: { 'Authorization': `Bot ${botToken}` } });
 
-      if (!memberResponse.ok) {
-        if (memberResponse.status === 404) throw new Error("User not found in Discord guild. Session invalid.");
-        throw new Error(`Failed to fetch Discord member data (HTTP ${memberResponse.status}).`);
+      // --- Fetch member and role data concurrently from the bot API ---
+      const [memberResult, rolesResult] = await Promise.all([
+        fetch(`${botUrl}/member/${discordUserId}`, { headers: authHeader }),
+        fetch(`${botUrl}/roles`, { headers: authHeader })
+      ]);
+
+      if (!memberResult.ok) {
+        if (memberResult.status === 404) throw new Error("User not found in Discord guild. Session invalid.");
+        const errorBody = await memberResult.text();
+        throw new Error(`Failed to fetch Discord member data from bot (HTTP ${memberResult.status}): ${errorBody}`);
       }
-      
-      const memberData = await memberResponse.json();
+      const memberData = await memberResult.json();
+
+      if (!rolesResult.ok) {
+          const errorBody = await rolesResult.text();
+          throw new Error(`Failed to fetch roles from bot API (HTTP ${rolesResult.status}): ${errorBody}`);
+      }
+      const allGuildRoles = await rolesResult.json();
+      if (!Array.isArray(allGuildRoles)) {
+        throw new Error("Could not determine user roles: Bot API returned invalid format for roles.");
+      }
+      // --- End data fetching ---
+
       const freshMemberRoleIds = memberData.roles || [];
-      const discordUser = memberData?.user;
       
-      finalUsername = memberData.nick || discordUser?.global_name || discordUser?.username || finalUsername;
-      if (memberData.avatar) {
-          finalAvatar = `https://cdn.discordapp.com/guilds/${config.DISCORD_GUILD_ID}/users/${discordUserId}/avatars/${memberData.avatar}.png`;
-      } else if (discordUser?.avatar) {
-          finalAvatar = `https://cdn.discordapp.com/avatars/${discordUser.id}/${discordUser.avatar}.png`
+      finalUsername = memberData.nick || memberData.global_name || memberData.username || finalUsername;
+      
+      if (memberData.guild_avatar) {
+          finalAvatar = `https://cdn.discordapp.com/guilds/${config.DISCORD_GUILD_ID}/users/${discordUserId}/avatars/${memberData.guild_avatar}.png`;
+      } else if (memberData.avatar) {
+          finalAvatar = `https://cdn.discordapp.com/avatars/${discordUserId}/${memberData.avatar}.png`;
       }
 
-      const { data: allGuildRoles, error: rolesError } = await supabaseAdmin.functions.invoke('get-guild-roles');
-      if (rolesError || !Array.isArray(allGuildRoles)) {
-        throw new Error("Could not fetch guild roles to determine user roles.");
-      } 
-      
       const userRolesDetails = allGuildRoles
-        .filter(role => freshMemberRoleIds.includes(role.id))
-        .sort((a, b) => b.position - a.position);
+        .filter((role: any) => freshMemberRoleIds.includes(role.id))
+        .sort((a: any, b: any) => b.position - a.position);
       
       finalRoles = userRolesDetails;
       finalHighestRole = userRolesDetails.length > 0 ? userRolesDetails[0] : null;

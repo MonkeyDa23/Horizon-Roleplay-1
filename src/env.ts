@@ -1,5 +1,4 @@
-// FIX: Add a triple-slash directive to include Vite's client types, which are necessary for `import.meta.env`.
-/// <reference types="vite/client" />
+// FIX: The triple-slash reference to 'vite/client' was removed because the type definition file could not be found, causing an error. The `declare global` block below provides the necessary types.
 
 // In environments where the Vite client types aren't automatically resolved,
 // this manual declaration provides the necessary type information to TypeScript,
