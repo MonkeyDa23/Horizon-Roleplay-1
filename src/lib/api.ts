@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient';
-import { env } from '../env';
+import { env } from '../env.ts';
 import type { Session } from '@supabase/gotrue-js';
 import type { User, Product, Quiz, QuizSubmission, SubmissionStatus, MtaServerStatus, AuditLogEntry, RuleCategory, AppConfig, MtaLogEntry, UserLookupResult, DiscordAnnouncement, DiscordRole, PermissionKey, RolePermission } from '../types';
 

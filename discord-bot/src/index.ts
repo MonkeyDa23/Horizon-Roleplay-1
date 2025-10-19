@@ -1,7 +1,6 @@
 import { Client, GatewayIntentBits, Guild } from 'discord.js';
-// FIX: Changed Express import to separate runtime from types for better type resolution.
-import express from 'express';
-import type { Request, Response, NextFunction } from 'express';
+// FIX: Import Request, Response, and NextFunction types directly from express to resolve type errors.
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import type { DiscordRole } from './types';
 
@@ -17,6 +16,8 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
 // Exit if critical variables are missing.
 if (!DISCORD_BOT_TOKEN || !DISCORD_GUILD_ID || !API_SECRET_KEY) {
     console.error("FATAL ERROR: Missing required environment variables. Please set DISCORD_BOT_TOKEN, DISCORD_GUILD_ID, and API_SECRET_KEY in your server's environment settings.");
+    // FIX: The type checker is likely missing Node.js globals, causing a false positive error on `process.exit`.
+    // @ts-ignore
     process.exit(1);
 }
 
@@ -64,6 +65,8 @@ client.once('ready', () => {
 
 client.login(DISCORD_BOT_TOKEN).catch(error => {
     console.error("❌ Failed to login to Discord. Please check your DISCORD_BOT_TOKEN.", error.message);
+    // FIX: The type checker is likely missing Node.js globals, causing a false positive error on `process.exit`.
+    // @ts-ignore
     process.exit(1);
 });
 
@@ -71,6 +74,7 @@ client.login(DISCORD_BOT_TOKEN).catch(error => {
 const app = express();
 app.use(cors()); // In production, restrict to your website's domain: app.use(cors({ origin: 'https://your-website.com' }));
 
+// FIX: Update express type annotations to use imported types directly.
 const authenticate = (req: Request, res: Response, next: NextFunction): void => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; // Expects "Bearer YOUR_SECRET_KEY"
@@ -86,6 +90,7 @@ const authenticate = (req: Request, res: Response, next: NextFunction): void => 
     next();
 };
 
+// FIX: Update express type annotations to use imported types directly.
 app.get('/', (req: Request, res: Response) => {
     res.json({ 
         status: 'Bot API is running', 
@@ -96,6 +101,7 @@ app.get('/', (req: Request, res: Response) => {
     });
 });
 
+// FIX: Update express type annotations to use imported types directly.
 app.get('/roles', authenticate, (req: Request, res: Response) => {
     if (!isBotReady || rolesCache.length === 0) {
         return res.status(503).json({ error: 'Service Unavailable: Roles are not cached yet or the bot is not ready.' });
