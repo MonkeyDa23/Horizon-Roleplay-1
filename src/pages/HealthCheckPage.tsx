@@ -18,6 +18,24 @@ interface HealthCheckData {
   };
 }
 
+const ChannelCheckItem: React.FC<{ channel: any; name: string }> = ({ channel, name }) => {
+  const isOk = channel.status.startsWith('✅');
+  return (
+    <div className={`p-3 rounded-md border text-sm ${isOk ? 'bg-green-500/10 border-green-500/30' : 'bg-red-500/10 border-red-500/30'}`}>
+      <div className="flex justify-between items-center">
+        <span className="font-semibold text-gray-200">{name}</span>
+        <span className={`font-bold ${isOk ? 'text-green-400' : 'text-red-400'}`}>{channel.status}</span>
+      </div>
+      <div className="text-xs mt-1">
+        <code className="text-gray-400">{channel.id}</code>
+        {channel.name && <span className="text-gray-300 ml-2">(#{channel.name})</span>}
+      </div>
+      {channel.error && <p className="text-red-300/80 mt-1 text-xs">{channel.error}</p>}
+    </div>
+  );
+};
+
+
 const HealthCheckPage: React.FC = () => {
   const { t } = useLocalization();
   const { config, configLoading } = useConfig();
@@ -132,7 +150,7 @@ const HealthCheckPage: React.FC = () => {
         <div className={`p-4 rounded-md border ${isIntentProblem ? 'bg-yellow-500/10 border-yellow-500/30' : 'bg-green-500/10 border-green-500/30'}`}>
             <h4 className={`font-bold mb-3 flex items-center gap-2 ${isIntentProblem ? 'text-yellow-300' : 'text-green-300'}`}>
                 {isIntentProblem ? <AlertTriangle /> : <CheckCircle />}
-                Test Result
+                {t('health_check_test_result')}
             </h4>
             <div className="space-y-2 text-sm">
                 <p className="flex justify-between"><span>Guild Name:</span> <strong className="text-white">{details.guildName}</strong></p>
@@ -143,6 +161,15 @@ const HealthCheckPage: React.FC = () => {
                  <div className="mt-4 p-3 rounded-md bg-yellow-900/40 border border-yellow-500/50">
                     <p className="font-bold text-yellow-300">🚨 Likely Problem Found!</p>
                     <p className="text-yellow-200 text-sm mt-1">The bot can only see itself (and maybe one other member). This is a classic sign that the **Server Members Intent** is disabled for your bot in the Discord Developer Portal. Please enable it and restart the bot.</p>
+                </div>
+            )}
+             {details.channels && (
+                <div className="mt-4 pt-4 border-t border-brand-light-blue/50">
+                    <h5 className="font-bold mb-2 text-gray-200">{t('health_check_log_channels')}</h5>
+                    <div className="space-y-2">
+                        <ChannelCheckItem channel={details.channels.submissions} name={t('health_check_submissions_channel')} />
+                        <ChannelCheckItem channel={details.channels.audit} name={t('health_check_audit_channel')} />
+                    </div>
                 </div>
             )}
         </div>

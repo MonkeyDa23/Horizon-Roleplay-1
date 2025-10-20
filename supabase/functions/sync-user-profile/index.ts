@@ -128,7 +128,7 @@ serve(async (req) => {
       ]);
 
       if (!memberResult.ok) {
-        if (memberResult.status === 404) throw new Error("User not found in Discord guild. Session invalid.");
+        if (memberResult.status === 404) throw new Error("User not found in Discord guild. This often means the 'Server Members Intent' is disabled for your bot, or the DISCORD_GUILD_ID is wrong. Use the Health Check page to diagnose.");
         const errorBody = await memberResult.text();
         throw new Error(`Failed to fetch Discord member data from bot (HTTP ${memberResult.status}): ${errorBody}`);
       }

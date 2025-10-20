@@ -296,6 +296,9 @@ export const translations: Translations = {
   health_check_supabase_connection: { ar: 'اتصال Supabase', en: 'Supabase Connection' },
   health_check_supabase_desc: { ar: 'يتحقق هذا من أن الموقع يمكنه الاتصال بقاعدة بيانات Supabase باستخدام مفاتيحك.', en: 'This checks that the site can connect to your Supabase database using your keys.' },
   health_check_db_status: { ar: 'DB Connection', en: 'DB Connection' },
+  health_check_log_channels: { ar: 'حالة قنوات السجلات', en: 'Log Channel Status' },
+  health_check_submissions_channel: { ar: 'قناة التقديمات', en: 'Submissions Channel' },
+  health_check_audit_channel: { ar: 'قناة سجل التدقيق', en: 'Audit Log Channel' },
   
   // MOCK DATA TRANSLATIONS
   // Products

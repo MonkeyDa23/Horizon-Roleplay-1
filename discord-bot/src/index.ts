@@ -2,11 +2,13 @@
 import { Client, GatewayIntentBits, Guild, TextChannel } from 'discord.js';
 // To prevent type conflicts with global Request/Response types (from Deno or DOM),
 // we use aliased imports for Express types.
-import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction as ExpressNextFunction } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import type { DiscordRole } from './types';
 import fs from 'fs';
 import path from 'path';
+// FIX: Add imports for ESM-compatible path resolution
+import { fileURLToPath } from 'url';
 
 // --- Configuration Loading ---
 // Prioritize environment variables, but fall back to a local config.json for hosts without variable support.
@@ -19,6 +21,9 @@ const config = {
     PORT: process.env.PORT ? parseInt(process.env.PORT, 10) : 3001,
 };
 
+// FIX: Define __dirname for ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const configPath = path.join(__dirname, 'config.json');
 if (fs.existsSync(configPath)) {
     try {
@@ -44,7 +49,8 @@ const { DISCORD_BOT_TOKEN, DISCORD_GUILD_ID, API_SECRET_KEY, PORT, SUBMISSIONS_C
 // --- Environment Variable Validation ---
 if (!DISCORD_BOT_TOKEN || !DISCORD_GUILD_ID || !API_SECRET_KEY || !SUBMISSIONS_CHANNEL_ID || !AUDIT_LOG_CHANNEL_ID) {
     console.error("FATAL ERROR: Missing required configuration. Please set DISCORD_BOT_TOKEN, DISCORD_GUILD_ID, API_SECRET_KEY, SUBMISSIONS_CHANNEL_ID, and AUDIT_LOG_CHANNEL_ID in your server's environment settings or in a 'src/config.json' file.");
-    process.exit(1);
+    // FIX: Cast process to any to resolve TypeScript error on 'exit'
+    (process as any).exit(1);
 }
 
 // --- Discord Client Setup ---
@@ -121,16 +127,16 @@ client.login(DISCORD_BOT_TOKEN).catch(error => {
     Please verify these steps. This will solve the problem.
     ================================================================================
     `);
-    process.exit(1);
+    // FIX: Cast process to any to resolve TypeScript error on 'exit'
+    (process as any).exit(1);
 });
 
 // --- Express API Server Setup ---
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // Increase body limit for potential large payloads
 app.use(cors());
 
-// FIX: Use aliased Express types to avoid global type conflicts and fix type errors.
-const authenticate = (req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction): void => {
+const authenticate = (req: Request, res: Response, next: NextFunction): void => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
@@ -145,8 +151,7 @@ const authenticate = (req: ExpressRequest, res: ExpressResponse, next: ExpressNe
     next();
 };
 
-// FIX: Use aliased Express types to avoid global type conflicts and fix type errors.
-app.get('/', (req: ExpressRequest, res: ExpressResponse) => {
+app.get('/', (req: Request, res: Response) => {
     res.json({ 
         status: 'Bot API is running', 
         bot_ready: isBotReady, 
@@ -156,16 +161,14 @@ app.get('/', (req: ExpressRequest, res: ExpressResponse) => {
     });
 });
 
-// FIX: Use aliased Express types to avoid global type conflicts and fix type errors.
-app.get('/roles', authenticate, (req: ExpressRequest, res: ExpressResponse) => {
+app.get('/roles', authenticate, (req: Request, res: Response) => {
     if (!isBotReady || rolesCache.length === 0) {
         return res.status(503).json({ error: 'Service Unavailable: Roles are not cached yet or the bot is not ready.' });
     }
     res.json(rolesCache);
 });
 
-// FIX: Use aliased Express types to avoid global type conflicts and fix type errors.
-app.get('/member/:id', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
+app.get('/member/:id', authenticate, async (req: Request, res: Response) => {
     if (!isBotReady) {
         return res.status(503).json({ error: 'Service Unavailable: Bot is not ready.' });
     }
@@ -198,8 +201,7 @@ app.get('/member/:id', authenticate, async (req: ExpressRequest, res: ExpressRes
     }
 });
 
-// FIX: Use aliased Express types to avoid global type conflicts and fix type errors.
-app.post('/notify', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/notify', authenticate, async (req: Request, res: Response) => {
     if (!isBotReady) {
         return res.status(503).json({ error: 'Service Unavailable: Bot is not ready.' });
     }
@@ -224,12 +226,13 @@ app.post('/notify', authenticate, async (req: ExpressRequest, res: ExpressRespon
                 if (!channelEmbed) return res.status(400).json({ error: 'Invalid payload for channel message. "embed" is required.' });
                 
                 const channelId = type === 'submissions' ? SUBMISSIONS_CHANNEL_ID : AUDIT_LOG_CHANNEL_ID;
+                console.log(`Attempting to send notification to channel ID: ${channelId}`);
                 const channel = await client.channels.fetch(channelId!);
                 
                 if (channel?.isTextBased()) {
                     await (channel as TextChannel).send({ embeds: [channelEmbed] });
                 } else {
-                    throw new Error(`Channel with ID ${channelId} is not a text channel or was not found.`);
+                    throw new Error(`Channel with ID ${channelId} is not a text channel or was not found. Please ensure the bot is a member of the server containing this channel.`);
                 }
                 break;
 
@@ -243,14 +246,13 @@ app.post('/notify', authenticate, async (req: ExpressRequest, res: ExpressRespon
             return res.status(403).json({ error: `Could not send DM. User ${payload.userId} may have DMs disabled.` });
         }
         if (error.code === 10003) { // Unknown Channel
-             return res.status(404).json({ error: `Notification channel not found. Please check the Channel ID.` });
+             return res.status(404).json({ error: `Notification channel not found. Please check the Channel ID and ensure the bot is a member of the server containing this channel.` });
         }
         res.status(500).json({ error: 'An internal server error occurred while sending the notification.' });
     }
 });
 
-// FIX: Use aliased Express types to avoid global type conflicts and fix type errors.
-app.get('/health', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
+app.get('/health', authenticate, async (req: Request, res: Response) => {
     if (!isBotReady) {
         return res.status(503).json({
             ok: false,
@@ -269,6 +271,35 @@ app.get('/health', authenticate, async (req: ExpressRequest, res: ExpressRespons
         }
 
         const members = await guild.members.fetch();
+
+        const channelChecks = {
+            submissions: { id: SUBMISSIONS_CHANNEL_ID, status: '❌ Not Found', name: null, error: null },
+            audit: { id: AUDIT_LOG_CHANNEL_ID, status: '❌ Not Found', name: null, error: null }
+        };
+    
+        try {
+            const submissionsChannel = await client.channels.fetch(SUBMISSIONS_CHANNEL_ID!);
+            if (submissionsChannel && submissionsChannel.isTextBased()) {
+                channelChecks.submissions.status = '✅ Found';
+                channelChecks.submissions.name = (submissionsChannel as TextChannel).name;
+            } else {
+                channelChecks.submissions.error = 'Channel is not a text-based channel.';
+            }
+        } catch (e) {
+            channelChecks.submissions.error = 'Channel ID is invalid or bot does not have access.';
+        }
+    
+        try {
+            const auditChannel = await client.channels.fetch(AUDIT_LOG_CHANNEL_ID!);
+            if (auditChannel && auditChannel.isTextBased()) {
+                channelChecks.audit.status = '✅ Found';
+                channelChecks.audit.name = (auditChannel as TextChannel).name;
+            } else {
+                channelChecks.audit.error = 'Channel is not a text-based channel.';
+            }
+        } catch (e) {
+            channelChecks.audit.error = 'Channel ID is invalid or bot does not have access.';
+        }
         
         return res.status(200).json({
             ok: true,
@@ -277,6 +308,7 @@ app.get('/health', authenticate, async (req: ExpressRequest, res: ExpressRespons
                 guildName: guild.name,
                 guildId: guild.id,
                 memberCount: members.size,
+                channels: channelChecks
             }
         });
 

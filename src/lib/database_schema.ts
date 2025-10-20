@@ -352,7 +352,7 @@ DECLARE
   v_payload jsonb; v_dm_embed jsonb; v_community_name text; v_logo_url text;
   v_admin_username text;
 BEGIN
-  -- FIX: Initialize admin username here to avoid potential linter parsing errors in the DECLARE block.
+  -- FIX: Initialize admin username in BEGIN block to avoid potential linter parsing errors.
   v_admin_username := auth.jwt()->>'user_name';
   SELECT "COMMUNITY_NAME", "LOGO_URL" INTO v_community_name, v_logo_url FROM public.config WHERE id = 1;
   SELECT * INTO v_submission FROM public.submissions WHERE id = p_submission_id;
