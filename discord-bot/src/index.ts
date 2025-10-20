@@ -1,8 +1,8 @@
-
 import { Client, GatewayIntentBits, Guild, TextChannel } from 'discord.js';
 // To prevent type conflicts with global Request/Response types (from Deno or DOM),
-// we use aliased imports for Express types.
-import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
+// we explicitly import the required types from Express.
+// FIX: Aliased Express types to prevent conflicts with global/DOM types.
+import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction as ExpressNextFunction } from 'express';
 import cors from 'cors';
 import type { DiscordRole } from './types';
 import fs from 'fs';
@@ -127,8 +127,8 @@ const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(cors());
 
-// FIX: Use aliased Express types to avoid conflicts and ensure correct property access.
-const authenticate = (req: ExpressRequest, res: ExpressResponse, next: NextFunction): void => {
+// FIX: Changed express types to explicit imports to resolve type conflicts
+const authenticate = (req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction): void => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
@@ -143,7 +143,7 @@ const authenticate = (req: ExpressRequest, res: ExpressResponse, next: NextFunct
     next();
 };
 
-// FIX: Use aliased Express types to avoid conflicts and ensure correct property access.
+// FIX: Changed express types to explicit imports to resolve type conflicts
 app.get('/', (req: ExpressRequest, res: ExpressResponse) => {
     res.json({ 
         status: 'Bot API is running', 
@@ -154,7 +154,7 @@ app.get('/', (req: ExpressRequest, res: ExpressResponse) => {
     });
 });
 
-// FIX: Use aliased Express types to avoid conflicts and ensure correct property access.
+// FIX: Changed express types to explicit imports to resolve type conflicts
 app.get('/roles', authenticate, (req: ExpressRequest, res: ExpressResponse) => {
     if (!isBotReady || rolesCache.length === 0) {
         return res.status(503).json({ error: 'Service Unavailable: Roles are not cached yet or the bot is not ready.' });
@@ -162,7 +162,7 @@ app.get('/roles', authenticate, (req: ExpressRequest, res: ExpressResponse) => {
     res.json(rolesCache);
 });
 
-// FIX: Use aliased Express types to avoid conflicts and ensure correct property access.
+// FIX: Changed express types to explicit imports to resolve type conflicts
 app.get('/member/:id', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
     if (!isBotReady) {
         return res.status(503).json({ error: 'Service Unavailable: Bot is not ready.' });
@@ -196,7 +196,7 @@ app.get('/member/:id', authenticate, async (req: ExpressRequest, res: ExpressRes
     }
 });
 
-// FIX: Use aliased Express types to avoid conflicts and ensure correct property access.
+// FIX: Changed express types to explicit imports to resolve type conflicts
 app.post('/notify', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
     if (!isBotReady) {
         return res.status(503).json({ error: 'Service Unavailable: Bot is not ready.' });
@@ -245,7 +245,7 @@ app.post('/notify', authenticate, async (req: ExpressRequest, res: ExpressRespon
     }
 });
 
-// FIX: Use aliased Express types to avoid conflicts and ensure correct property access.
+// FIX: Changed express types to explicit imports to resolve type conflicts
 app.get('/health', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
     if (!isBotReady) {
         return res.status(503).json({
@@ -265,6 +265,46 @@ app.get('/health', authenticate, async (req: ExpressRequest, res: ExpressRespons
         }
 
         const members = await guild.members.fetch();
+        const hasMembersIntent = client.options.intents.has(GatewayIntentBits.GuildMembers);
+        
+        const { submissionsChannelId, auditChannelId } = req.query;
+
+        const checkChannel = async (channelId: string | undefined | any, channelNameForLog: string) => {
+            if (!channelId || typeof channelId !== 'string') {
+                return { id: channelId || 'N/A', status: '❔ Not Configured', error: null, name: null };
+            }
+            try {
+                const channel = await client.channels.fetch(channelId);
+                if (!channel) {
+                    return { id: channelId, status: '❌ Not Found', error: 'The channel with this ID does not exist.', name: null };
+                }
+                if (!channel.isTextBased()) {
+                    // FIX: Safely access channel name using a type guard.
+                    return { id: channelId, status: '❌ Wrong Type', error: 'The channel is not a text-based channel.', name: 'name' in channel ? channel.name : null };
+                }
+                
+                const me = await guild.members.fetch(client.user!.id);
+                const permissions = (channel as TextChannel).permissionsFor(me);
+                if (!permissions.has('ViewChannel') || !permissions.has('SendMessages') || !permissions.has('EmbedLinks')) {
+                    // FIX: Safely access channel name using a type guard.
+                    return { id: channelId, status: '❌ No Permissions', error: 'The bot lacks permissions (View, Send, Embed Links) for this channel.', name: 'name' in channel ? channel.name : null };
+                }
+                
+                // FIX: Safely access channel name using a type guard.
+                return { id: channelId, status: '✅ OK', error: null, name: 'name' in channel ? channel.name : null };
+            } catch (error: any) {
+                if (error.code === 10003) { // Unknown Channel
+                    return { id: channelId, status: '❌ Not Found', error: 'The channel with this ID does not exist.', name: null };
+                }
+                console.error(`Error checking ${channelNameForLog} channel ${channelId}:`, error);
+                return { id: channelId, status: '❌ Error', error: 'An unexpected error occurred while checking the channel.', name: null };
+            }
+        };
+
+        const [submissionsChannelStatus, auditChannelStatus] = await Promise.all([
+            checkChannel(submissionsChannelId, 'Submissions'),
+            checkChannel(auditChannelId, 'Audit Log')
+        ]);
         
         return res.status(200).json({
             ok: true,
@@ -273,6 +313,13 @@ app.get('/health', authenticate, async (req: ExpressRequest, res: ExpressRespons
                 guildName: guild.name,
                 guildId: guild.id,
                 memberCount: members.size,
+                intents: {
+                    guildMembers: hasMembersIntent,
+                },
+                channels: {
+                    submissions: submissionsChannelStatus,
+                    audit: auditChannelStatus,
+                }
             }
         });
 

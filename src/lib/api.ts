@@ -275,6 +275,13 @@ export const checkBotHealth = async (): Promise<any> => {
     return data;
 }
 
+export const checkFunctionSecrets = async (): Promise<any> => {
+    if (!supabase) throw new ApiError("Database not configured", 500);
+    const { data, error } = await supabase.functions.invoke('check-function-secrets');
+    if (error) throw new ApiError(error.message, 500);
+    return data;
+};
+
 // --- MOCKED/HEALTHCHECK FUNCTIONS ---
 export const getMtaServerStatus = async (): Promise<MtaServerStatus> => {
     const config = await getConfig();

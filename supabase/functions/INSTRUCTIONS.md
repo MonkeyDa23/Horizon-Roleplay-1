@@ -10,11 +10,12 @@ Supabase Edge Functions are pieces of code (written in TypeScript/Deno) that run
 -   **`sync-user-profile`**: The most important function. It runs every time a user logs in. It securely communicates with your Discord bot to fetch the user's latest username, avatar, and roles from your **main guild**, then updates their profile in your database. This is how permissions are granted.
 -   **`get-discord-user-profile`**: Used by the Admin Panel's "User Lookup" feature to fetch a specific user's profile from Discord.
 -   **`check-bot-health`**: Used by the "Health Check" page to diagnose connection issues with your Discord bot.
+-   **`check-function-secrets`**: A simple diagnostic tool for the "Health Check" page to verify if essential secrets are available to the functions.
 -   **`discord-proxy`**: A secure messenger. Your database triggers call this function to tell your Discord bot to send notifications (like DMs or channel messages for new submissions and admin actions).
 
 ## Step 1: Deploying the Functions
 
-You need to deploy each function using the Supabase Dashboard. Repeat these steps for **all four** functions listed in the `supabase/functions` directory (`sync-user-profile`, `get-discord-user-profile`, `check-bot-health`, and `discord-proxy`).
+You need to deploy each function using the Supabase Dashboard. Repeat these steps for **all five** functions listed in the `supabase/functions` directory.
 
 1.  Go to your Supabase Project Dashboard.
 2.  Click on the **Edge Functions** icon in the left sidebar (it looks like a lambda λ symbol).
@@ -27,11 +28,11 @@ You need to deploy each function using the Supabase Dashboard. Repeat these step
 9.  **Paste the code** into the Supabase editor.
 10. Click **"Deploy"** in the top right corner.
 
-**Repeat this process for all four functions.**
+**Repeat this process for all five functions.**
 
-## Step 2: Setting Secrets (The New Way)
+## Step 2: Setting Secrets (Project-Level)
 
-Supabase has updated how secrets work. They are now managed at the **project level**, meaning you only need to add each secret **once**, and all your functions can access it.
+Supabase secrets are managed at the **project level**, meaning you only need to add each secret **once**, and all your functions can access it.
 
 1.  In your Supabase project, click the **Settings** icon (a gear ⚙️) in the left sidebar.
 2.  Click on **"Edge Functions"** in the settings menu.
@@ -40,7 +41,7 @@ Supabase has updated how secrets work. They are now managed at the **project lev
 
 ### Secrets to Add
 
-You need to add the following three secrets. They will be used by all your functions.
+You need to add the following three secrets. They will be used by all your functions. **The names must be an exact match.**
 
 | Secret Name                | How to Get the Value                                               |
 | -------------------------- | ------------------------------------------------------------------ |
@@ -48,7 +49,7 @@ You need to add the following three secrets. They will be used by all your funct
 | `VITE_DISCORD_BOT_API_KEY` | The secret password you created to protect your bot's API.         |
 | `DISCORD_BOT_TOKEN`        | Your actual Discord Bot Token from the Discord Developer Portal.   |
 
-After adding these three secrets, all four of your functions will be able to access them automatically.
+After adding these three secrets, all of your functions will be able to access them automatically.
 
 ## Step 3: Configure the Database for the Proxy
 

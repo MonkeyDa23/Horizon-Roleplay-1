@@ -51,7 +51,7 @@ CREATE TABLE public.config (
     "DISCORD_GUILD_ID" text,
     "DISCORD_INVITE_URL" text,
     "MTA_SERVER_URL" text,
-    "SHOW_HEALTH_CHECK" boolean DEFAULT false,
+    "SHOW_HEALTH_CHECK" boolean DEFAULT true,
     "SUBMISSIONS_CHANNEL_ID" text,
     "AUDIT_LOG_CHANNEL_ID" text,
     CONSTRAINT id_check CHECK (id = 1)
@@ -364,6 +364,7 @@ RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   v_submission record; v_allowed_roles text[]; v_user_roles text[]; v_is_allowed boolean := false; v_is_super_admin boolean := false;
   v_payload jsonb; v_dm_embed jsonb; v_community_name text; v_logo_url text;
+  -- FIX: Removed faulty initialization and comma from variable declaration.
   v_admin_username text;
 BEGIN
   -- FIX: Use SELECT INTO to avoid TypeScript linter errors with complex assignments.
