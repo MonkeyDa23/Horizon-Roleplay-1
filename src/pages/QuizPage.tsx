@@ -77,13 +77,11 @@ const QuizPage: React.FC = () => {
         setIsLoading(true);
         try {
           const fetchedQuiz = await getQuizById(quizId);
-          // Add a check for questions array being valid
           if (fetchedQuiz && fetchedQuiz.isOpen && Array.isArray(fetchedQuiz.questions) && fetchedQuiz.questions.length > 0) {
               setQuiz(fetchedQuiz);
               setTimeLeft(fetchedQuiz.questions[0].timeLimit);
               setQuizState('rules');
           } else {
-              // If quiz is not valid for taking, redirect
               navigate('/applies');
           }
         } catch (error) { 
@@ -98,7 +96,7 @@ const QuizPage: React.FC = () => {
   const handleSubmit = useCallback(async (finalAnswers: Answer[]) => {
     if (!quiz || !user || isSubmitting) return;
     setIsSubmitting(true);
-    setFinalCheatLog(cheatLog); // Store the final log for the success page
+    setFinalCheatLog(cheatLog);
     const submission = { 
         quizId: quiz.id, 
         quizTitle: t(quiz.titleKey), 
@@ -138,7 +136,7 @@ const QuizPage: React.FC = () => {
         } else {
             handleSubmit(newAnswers);
         }
-    }, 500); // Wait for fade-out animation
+    }, 500);
   }, [quiz, currentQuestionIndex, answers, currentAnswer, t, handleSubmit]);
   
   useEffect(() => {
@@ -151,7 +149,6 @@ const QuizPage: React.FC = () => {
     return () => clearInterval(timerId);
   }, [timeLeft, quizState, quiz, handleNextQuestion]);
   
-  // Anti-cheat useEffect
   useEffect(() => {
     if (quizState !== 'taking') return;
 
@@ -159,7 +156,6 @@ const QuizPage: React.FC = () => {
         setCheatLog(prev => [...prev, { method, timestamp: new Date().toISOString() }]);
         showToast(t('cheat_attempt_detected'), 'error');
         
-        // Reset quiz state
         setAnswers([]);
         setCurrentAnswer('');
         setCurrentQuestionIndex(0);
@@ -175,7 +171,6 @@ const QuizPage: React.FC = () => {
         }
     };
     const handleBlur = () => {
-        // We check visibility state as well because some interactions (like alerts) can cause blur without tab switching.
         if (document.visibilityState === 'hidden') {
            handleCheat(t('cheat_method_lost_focus'));
         }
@@ -325,6 +320,8 @@ const QuizPage: React.FC = () => {
         <style>{`
           @keyframes slide-up { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
           .animate-slide-up { animation: slide-up 0.8s ease-out forwards; }
+          @keyframes question-fade-in { from { opacity: 0; } to { opacity: 1; } }
+          .animate-question-fade-in { animation: question-fade-in 0.5s ease-out forwards; }
         `}</style>
       </div>
     </>

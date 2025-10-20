@@ -25,8 +25,8 @@ const AppliesPage: React.FC = () => {
             setQuizzes(fetchedQuizzes);
 
             if (user) {
-                const fetchedSubmissions = await getSubmissionsByUserId(user.id);
-                setUserSubmissions(fetchedSubmissions);
+                const userSubmissions = await getSubmissionsByUserId(user.id);
+                setUserSubmissions(userSubmissions);
             }
         } catch (error) {
             console.error("Failed to fetch application data:", error);

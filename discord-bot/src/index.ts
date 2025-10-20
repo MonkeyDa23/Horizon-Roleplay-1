@@ -1,13 +1,12 @@
-
 import { Client, GatewayIntentBits, Guild, TextChannel } from 'discord.js';
 // To prevent type conflicts with global Request/Response types (from Deno or DOM),
 // we use aliased imports for Express types.
-import express, { Request, Response, NextFunction } from 'express';
+// FIX: Aliased Request and Response to avoid conflicts with global types.
+import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
 import cors from 'cors';
 import type { DiscordRole } from './types';
 import fs from 'fs';
 import path from 'path';
-// FIX: Add imports for ESM-compatible path resolution
 import { fileURLToPath } from 'url';
 
 // --- Configuration Loading ---
@@ -21,7 +20,6 @@ const config = {
     PORT: process.env.PORT ? parseInt(process.env.PORT, 10) : 3001,
 };
 
-// FIX: Define __dirname for ES Modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const configPath = path.join(__dirname, 'config.json');
@@ -49,7 +47,6 @@ const { DISCORD_BOT_TOKEN, DISCORD_GUILD_ID, API_SECRET_KEY, PORT, SUBMISSIONS_C
 // --- Environment Variable Validation ---
 if (!DISCORD_BOT_TOKEN || !DISCORD_GUILD_ID || !API_SECRET_KEY || !SUBMISSIONS_CHANNEL_ID || !AUDIT_LOG_CHANNEL_ID) {
     console.error("FATAL ERROR: Missing required configuration. Please set DISCORD_BOT_TOKEN, DISCORD_GUILD_ID, API_SECRET_KEY, SUBMISSIONS_CHANNEL_ID, and AUDIT_LOG_CHANNEL_ID in your server's environment settings or in a 'src/config.json' file.");
-    // FIX: Cast process to any to resolve TypeScript error on 'exit'
     (process as any).exit(1);
 }
 
@@ -118,7 +115,6 @@ client.login(DISCORD_BOT_TOKEN).catch(error => {
     4. Scroll down to the "Privileged Gateway Intents" section.
 
     5. ENABLE the "SERVER MEMBERS INTENT" toggle. It MUST be turned on.
-       (You should probably enable "MESSAGE CONTENT INTENT" as well).
 
     6. Click the green "Save Changes" button at the bottom.
 
@@ -127,16 +123,16 @@ client.login(DISCORD_BOT_TOKEN).catch(error => {
     Please verify these steps. This will solve the problem.
     ================================================================================
     `);
-    // FIX: Cast process to any to resolve TypeScript error on 'exit'
     (process as any).exit(1);
 });
 
 // --- Express API Server Setup ---
 const app = express();
-app.use(express.json({ limit: '10mb' })); // Increase body limit for potential large payloads
+app.use(express.json({ limit: '10mb' }));
 app.use(cors());
 
-const authenticate = (req: Request, res: Response, next: NextFunction): void => {
+// FIX: Used aliased types to avoid conflicts.
+const authenticate = (req: ExpressRequest, res: ExpressResponse, next: NextFunction): void => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
@@ -151,7 +147,8 @@ const authenticate = (req: Request, res: Response, next: NextFunction): void => 
     next();
 };
 
-app.get('/', (req: Request, res: Response) => {
+// FIX: Used aliased types to avoid conflicts.
+app.get('/', (req: ExpressRequest, res: ExpressResponse) => {
     res.json({ 
         status: 'Bot API is running', 
         bot_ready: isBotReady, 
@@ -161,14 +158,16 @@ app.get('/', (req: Request, res: Response) => {
     });
 });
 
-app.get('/roles', authenticate, (req: Request, res: Response) => {
+// FIX: Used aliased types to avoid conflicts.
+app.get('/roles', authenticate, (req: ExpressRequest, res: ExpressResponse) => {
     if (!isBotReady || rolesCache.length === 0) {
         return res.status(503).json({ error: 'Service Unavailable: Roles are not cached yet or the bot is not ready.' });
     }
     res.json(rolesCache);
 });
 
-app.get('/member/:id', authenticate, async (req: Request, res: Response) => {
+// FIX: Used aliased types to avoid conflicts.
+app.get('/member/:id', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
     if (!isBotReady) {
         return res.status(503).json({ error: 'Service Unavailable: Bot is not ready.' });
     }
@@ -201,7 +200,8 @@ app.get('/member/:id', authenticate, async (req: Request, res: Response) => {
     }
 });
 
-app.post('/notify', authenticate, async (req: Request, res: Response) => {
+// FIX: Used aliased types to avoid conflicts.
+app.post('/notify', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
     if (!isBotReady) {
         return res.status(503).json({ error: 'Service Unavailable: Bot is not ready.' });
     }
@@ -252,7 +252,8 @@ app.post('/notify', authenticate, async (req: Request, res: Response) => {
     }
 });
 
-app.get('/health', authenticate, async (req: Request, res: Response) => {
+// FIX: Used aliased types to avoid conflicts.
+app.get('/health', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
     if (!isBotReady) {
         return res.status(503).json({
             ok: false,

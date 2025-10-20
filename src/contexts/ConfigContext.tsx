@@ -9,14 +9,13 @@ interface ConfigContextType {
 }
 
 const defaultConfig: AppConfig = {
-    COMMUNITY_NAME: 'Horizon',
+    COMMUNITY_NAME: 'Vixel Roleplay',
     LOGO_URL: '',
     DISCORD_GUILD_ID: '',
     DISCORD_INVITE_URL: '',
     MTA_SERVER_URL: '',
     BACKGROUND_IMAGE_URL: '',
     SHOW_HEALTH_CHECK: false,
-    // FIX: Removed deprecated role ID arrays. Permissions are now handled by the RBAC system.
     SUBMISSIONS_WEBHOOK_URL: '',
     AUDIT_LOG_WEBHOOK_URL: '',
 };

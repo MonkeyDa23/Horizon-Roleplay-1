@@ -1,9 +1,6 @@
-// FIX: The triple-slash reference to 'vite/client' was removed because the type definition file could not be found, causing an error. The `declare global` block below provides the necessary types.
-
-// In environments where the Vite client types aren't automatically resolved,
+// In environments where Vite's client types aren't automatically resolved,
 // this manual declaration provides the necessary type information to TypeScript,
 // resolving errors about 'env' not existing on 'import.meta'.
-// FIX: Encapsulate interface declarations in `declare global` to correctly augment the global ImportMeta type.
 declare global {
   interface ImportMetaEnv {
     readonly VITE_SUPABASE_URL: string;
