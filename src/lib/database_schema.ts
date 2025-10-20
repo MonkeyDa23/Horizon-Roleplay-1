@@ -51,8 +51,6 @@ CREATE TABLE public.config (
     "DISCORD_INVITE_URL" text,
     "MTA_SERVER_URL" text,
     "SHOW_HEALTH_CHECK" boolean DEFAULT false,
-    "SUBMISSIONS_WEBHOOK_URL" text,
-    "AUDIT_LOG_WEBHOOK_URL" text,
     CONSTRAINT id_check CHECK (id = 1)
 );
 INSERT INTO public.config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
@@ -354,7 +352,8 @@ DECLARE
   v_payload jsonb; v_dm_embed jsonb; v_community_name text; v_logo_url text;
   v_admin_username text;
 BEGIN
-  v_admin_username := auth.jwt()->>'user_name';
+-- FIX: Wrap auth.jwt() in parentheses to avoid linter parsing errors.
+  v_admin_username := (auth.jwt())->>'user_name';
   SELECT "COMMUNITY_NAME", "LOGO_URL" INTO v_community_name, v_logo_url FROM public.config WHERE id = 1;
   SELECT * INTO v_submission FROM public.submissions WHERE id = p_submission_id;
   IF NOT FOUND THEN RAISE EXCEPTION 'Submission not found'; END IF;

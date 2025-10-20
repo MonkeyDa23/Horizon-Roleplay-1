@@ -1,7 +1,6 @@
 import { Client, GatewayIntentBits, Guild, TextChannel } from 'discord.js';
 // To prevent type conflicts with global Request/Response types (from Deno or DOM),
 // we use aliased imports for Express types.
-// FIX: Aliased Request and Response to avoid conflicts with global types.
 import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
 import cors from 'cors';
 import type { DiscordRole } from './types';
@@ -131,7 +130,6 @@ const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(cors());
 
-// FIX: Used aliased types to avoid conflicts.
 const authenticate = (req: ExpressRequest, res: ExpressResponse, next: NextFunction): void => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -147,7 +145,6 @@ const authenticate = (req: ExpressRequest, res: ExpressResponse, next: NextFunct
     next();
 };
 
-// FIX: Used aliased types to avoid conflicts.
 app.get('/', (req: ExpressRequest, res: ExpressResponse) => {
     res.json({ 
         status: 'Bot API is running', 
@@ -158,7 +155,6 @@ app.get('/', (req: ExpressRequest, res: ExpressResponse) => {
     });
 });
 
-// FIX: Used aliased types to avoid conflicts.
 app.get('/roles', authenticate, (req: ExpressRequest, res: ExpressResponse) => {
     if (!isBotReady || rolesCache.length === 0) {
         return res.status(503).json({ error: 'Service Unavailable: Roles are not cached yet or the bot is not ready.' });
@@ -166,7 +162,6 @@ app.get('/roles', authenticate, (req: ExpressRequest, res: ExpressResponse) => {
     res.json(rolesCache);
 });
 
-// FIX: Used aliased types to avoid conflicts.
 app.get('/member/:id', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
     if (!isBotReady) {
         return res.status(503).json({ error: 'Service Unavailable: Bot is not ready.' });
@@ -200,7 +195,6 @@ app.get('/member/:id', authenticate, async (req: ExpressRequest, res: ExpressRes
     }
 });
 
-// FIX: Used aliased types to avoid conflicts.
 app.post('/notify', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
     if (!isBotReady) {
         return res.status(503).json({ error: 'Service Unavailable: Bot is not ready.' });
@@ -252,7 +246,6 @@ app.post('/notify', authenticate, async (req: ExpressRequest, res: ExpressRespon
     }
 });
 
-// FIX: Used aliased types to avoid conflicts.
 app.get('/health', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
     if (!isBotReady) {
         return res.status(503).json({

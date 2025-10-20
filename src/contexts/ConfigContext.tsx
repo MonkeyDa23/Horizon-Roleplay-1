@@ -16,8 +16,6 @@ const defaultConfig: AppConfig = {
     MTA_SERVER_URL: '',
     BACKGROUND_IMAGE_URL: '',
     SHOW_HEALTH_CHECK: false,
-    SUBMISSIONS_WEBHOOK_URL: '',
-    AUDIT_LOG_WEBHOOK_URL: '',
 };
 
 export const ConfigContext = createContext<ConfigContextType>({

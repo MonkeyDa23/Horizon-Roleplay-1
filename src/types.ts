@@ -169,8 +169,6 @@ export interface AppConfig {
     MTA_SERVER_URL: string;
     BACKGROUND_IMAGE_URL: string;
     SHOW_HEALTH_CHECK: boolean;
-    SUBMISSIONS_WEBHOOK_URL: string;
-    AUDIT_LOG_WEBHOOK_URL: string;
 }
 
 export interface UserLookupResult {
