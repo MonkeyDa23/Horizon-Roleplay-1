@@ -196,7 +196,7 @@ app.get('/member/:id', authenticate, async (req: ExpressRequest, res: ExpressRes
     }
 });
 
-// FIX: Changed express types to explicit imports to resolve type conflicts
+// FIX: Added explicit types to req and res to prevent type conflicts and resolve errors.
 app.post('/notify', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
     if (!isBotReady) {
         return res.status(503).json({ error: 'Service Unavailable: Bot is not ready.' });
@@ -245,7 +245,7 @@ app.post('/notify', authenticate, async (req: ExpressRequest, res: ExpressRespon
     }
 });
 
-// FIX: Changed express types to explicit imports to resolve type conflicts
+// FIX: Added explicit types to req and res to prevent type conflicts and resolve errors.
 app.get('/health', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
     if (!isBotReady) {
         return res.status(503).json({

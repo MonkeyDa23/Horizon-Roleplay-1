@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Loader2, CheckCircle, XCircle, AlertTriangle, Info, Copy, Bot, KeyRound } from 'lucide-react';
 import { useLocalization } from '../hooks/useLocalization';
@@ -101,11 +100,28 @@ const HealthCheckPage: React.FC = () => {
   const BotHealthResult = () => {
     if (!botHealth) return null;
     if (!botHealth.ok) {
+        const isConnectionRefused = botHealth.details?.includes('Connection refused');
         return (
              <div className="p-4 rounded-md border bg-red-500/10 border-red-500/30 text-red-300">
                 <h4 className="font-bold mb-2 flex items-center gap-2"><XCircle /> Test Failed</h4>
                 <p className="font-semibold">{botHealth.message}</p>
-                <p className="text-sm opacity-80 mt-1">{botHealth.details}</p>
+                {botHealth.details && (
+                  <p className="text-sm opacity-80 mt-2 font-mono bg-brand-dark p-2 rounded-md break-all">
+                      {botHealth.details}
+                  </p>
+                )}
+                
+                {isConnectionRefused && (
+                    <div className="mt-4 p-3 rounded-md bg-yellow-900/40 border border-yellow-500/50 text-left">
+                        <p className="font-bold text-yellow-300 flex items-center gap-2"><AlertTriangle size={18} /> Tip: "Connection Refused" is a common setup issue!</p>
+                        <p className="text-yellow-200 text-sm mt-2">This error means your website's backend successfully reached your bot's server address, but the server **actively rejected** the connection. Here are the most likely causes:</p>
+                        <ul className="list-decimal list-inside text-yellow-200 text-sm mt-2 space-y-1 pl-2">
+                            <li><strong>The bot application is not running.</strong> Check your hosting provider's logs to see if the bot has crashed or failed to start.</li>
+                            <li><strong>A firewall is blocking the port.</strong> Ensure the port your bot is using (e.g., 3001) is open to public traffic in your server's firewall settings.</li>
+                            <li><strong>Incorrect Bot URL in Supabase.</strong> Double-check the <code className="bg-yellow-900/80 px-1 rounded">VITE_DISCORD_BOT_URL</code> secret in your Supabase project settings.</li>
+                        </ul>
+                    </div>
+                )}
             </div>
         )
     }

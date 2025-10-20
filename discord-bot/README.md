@@ -100,3 +100,27 @@ Now that your bot is running, you need to tell the website how to connect to it.
 2.  Fill in the values:
     -   `VITE_DISCORD_BOT_URL`: This is the public URL of your bot's API. Your hosting provider gives you this (e.g., `http://123.45.67.89:3001`).
     -   `VITE_DISCORD_BOT_API_KEY`: This must be the **exact same** `API_SECRET_KEY` you created.
+
+## Troubleshooting
+
+### API Test Fails with "Connection Refused"
+
+If the Health Check page shows an error like `Connection refused`, it means your Supabase function was able to find your bot's server, but the server actively rejected the connection. This is a problem with your bot's hosting environment, not the website code.
+
+Here are the most common causes and how to fix them:
+
+1.  **The Bot is Not Running:**
+    -   **Symptom:** The connection is instantly refused because no program is listening on that port.
+    -   **Solution:** Check the logs on your hosting provider (e.g., Pterodactyl, a VPS `pm2 logs` command, etc.). Look for crash errors. If the bot is stopped, start it.
+
+2.  **Firewall is Blocking the Port:**
+    -   **Symptom:** The bot is running, but the server's firewall is preventing outside connections from reaching it.
+    -   **Solution:** Go to your server or hosting provider's firewall settings (this might be called "Networking" or "Firewall"). You must create a rule to **ALLOW incoming TCP traffic** on the port your bot is using (e.g., `3001`).
+
+3.  **Incorrect URL/Port:**
+    -   **Symptom:** You've checked the two points above, but it's still failing.
+    -   **Solution:** Go to your Supabase project's **Settings > Edge Functions** page. Carefully check the value for the `VITE_DISCORD_BOT_URL` secret. Ensure the IP address and port number are exactly correct and do not have any typos. Remember to include `http://`.
+
+4.  **Bot Listening on the Wrong Interface (Less Common):**
+    -   **Symptom:** The bot is only listening for connections from `localhost` (itself).
+    -   **Solution:** The provided `index.ts` code is already configured to listen on `0.0.0.0`, which means it accepts connections from any IP. If you have modified this, ensure it is listening on `0.0.0.0` and not `127.0.0.1` or `localhost`.
