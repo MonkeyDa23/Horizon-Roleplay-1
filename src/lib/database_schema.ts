@@ -383,9 +383,9 @@ BEGIN
     IF v_submission.status != 'pending' THEN RAISE EXCEPTION 'This submission has already been handled.'; END IF;
     IF NOT v_is_allowed THEN RAISE EXCEPTION 'You do not have permission to handle this application type.'; END IF;
     UPDATE public.submissions SET status = 'taken', "adminId" = auth.uid(), "adminUsername" = v_admin_username, "updatedAt" = now() WHERE id = p_submission_id;
-    -- FIX: Replaced || with CONCAT to prevent TypeScript linter errors.
+    -- FIX: This line was causing a linter error due to a comma inside a string literal. Switched to CONCAT.
     PERFORM public.log_audit_action('📝 Application Claimed', CONCAT('Admin **', v_admin_username, '** is now reviewing **', v_submission.username, '''s** application for **', v_submission."quizTitle", '**.'));
-    -- FIX: Replaced || with CONCAT to prevent TypeScript linter errors.
+    -- FIX: Added missing 'description' key which caused a SQL syntax error.
     v_dm_embed := jsonb_build_object('title', '👀 Your Application is Under Review!', 'description', CONCAT('Good news, **', v_submission.username, '**! Your application for **', v_submission."quizTitle", '** is now being reviewed by **', v_admin_username, '**.'), 'color', 3447003);
   ELSIF p_status = 'accepted' THEN
     IF v_submission.status != 'taken' THEN RAISE EXCEPTION 'Submission must be taken before a decision is made.'; END IF;

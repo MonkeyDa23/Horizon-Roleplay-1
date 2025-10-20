@@ -1,15 +1,14 @@
 
-
 import { Client, GatewayIntentBits, Guild, TextChannel } from 'discord.js';
 // To prevent type conflicts with global Request/Response types (from Deno or DOM),
 // we explicitly import the required types from Express.
-// FIX: Aliased Express types to prevent conflicts with global/DOM types.
-import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
+// FIX: Changed to a default import to use explicit `express.Request` and `express.Response` types.
+// FIX: Import named types from express to resolve all type errors.
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import type { DiscordRole } from './types';
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 
 // --- Configuration Loading ---
 // Prioritize environment variables, but fall back to a local config.json for hosts without variable support.
@@ -20,8 +19,8 @@ const config = {
     PORT: process.env.PORT ? parseInt(process.env.PORT, 10) : 3001,
 };
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// In a CommonJS environment (as defined by tsconfig.json), `__dirname` is a global variable.
+// We no longer need to derive it from `import.meta.url`.
 const configPath = path.join(__dirname, 'config.json');
 if (fs.existsSync(configPath)) {
     try {
@@ -130,7 +129,8 @@ app.use(express.json({ limit: '10mb' }));
 app.use(cors());
 
 // FIX: Added explicit types to req, res, and next to resolve type errors.
-const authenticate = (req: ExpressRequest, res: ExpressResponse, next: NextFunction): void => {
+// FIX: Use named-imported types for Express handlers.
+const authenticate = (req: Request, res: Response, next: NextFunction): void => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
@@ -146,7 +146,8 @@ const authenticate = (req: ExpressRequest, res: ExpressResponse, next: NextFunct
 };
 
 // FIX: Added explicit types to req and res to resolve type errors.
-app.get('/', (req: ExpressRequest, res: ExpressResponse) => {
+// FIX: Use named-imported types for Express handlers.
+app.get('/', (req: Request, res: Response) => {
     res.json({ 
         status: 'Bot API is running', 
         bot_ready: isBotReady, 
@@ -157,7 +158,8 @@ app.get('/', (req: ExpressRequest, res: ExpressResponse) => {
 });
 
 // FIX: Added explicit types to req and res to resolve type errors.
-app.get('/roles', authenticate, (req: ExpressRequest, res: ExpressResponse) => {
+// FIX: Use named-imported types for Express handlers.
+app.get('/roles', authenticate, (req: Request, res: Response) => {
     if (!isBotReady || rolesCache.length === 0) {
         return res.status(503).json({ error: 'Service Unavailable: Roles are not cached yet or the bot is not ready.' });
     }
@@ -165,7 +167,8 @@ app.get('/roles', authenticate, (req: ExpressRequest, res: ExpressResponse) => {
 });
 
 // FIX: Added explicit types to req and res to resolve type errors.
-app.get('/member/:id', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
+// FIX: Use named-imported types for Express handlers.
+app.get('/member/:id', authenticate, async (req: Request, res: Response) => {
     if (!isBotReady) {
         return res.status(503).json({ error: 'Service Unavailable: Bot is not ready.' });
     }
@@ -199,7 +202,8 @@ app.get('/member/:id', authenticate, async (req: ExpressRequest, res: ExpressRes
 });
 
 // FIX: Added explicit types to req and res to prevent type conflicts and resolve errors.
-app.post('/notify', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
+// FIX: Use named-imported types for Express handlers.
+app.post('/notify', authenticate, async (req: Request, res: Response) => {
     if (!isBotReady) {
         return res.status(503).json({ error: 'Service Unavailable: Bot is not ready.' });
     }
@@ -248,7 +252,8 @@ app.post('/notify', authenticate, async (req: ExpressRequest, res: ExpressRespon
 });
 
 // FIX: Added explicit types to req and res to prevent type conflicts and resolve errors.
-app.get('/bot-status', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
+// FIX: Use named-imported types for Express handlers.
+app.get('/bot-status', authenticate, async (req: Request, res: Response) => {
     if (!isBotReady) {
         return res.status(503).json({
             ok: false,

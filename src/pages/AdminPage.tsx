@@ -385,7 +385,6 @@ const AdminPage: React.FC = () => {
                 type="text"
                 id={name}
                 name={name}
-                // FIX: Convert potential boolean values to string to satisfy the input's `value` prop type.
                 value={String(localConfig?.[name] ?? '')}
                 onChange={handleChange}
                 className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan"
