@@ -1,3 +1,4 @@
+
 import { Translations } from '../types';
 
 // This file serves as a fallback for translations if the database connection fails.
@@ -153,9 +154,9 @@ export const translations: Translations = {
   super_admin_role_ids_desc: { ar: 'مفصولة بفاصلة. هؤلاء يمكنهم تغيير إعدادات الموقع.', en: 'Comma-separated. These can change site settings.' },
   handler_role_ids: { ar: 'أرقام رتب المعالجين', en: 'Handler Role IDs' },
   handler_role_ids_desc: { ar: 'مفصولة بفاصلة. هؤلاء يمكنهم رؤية جميع التقديمات.', en: 'Comma-separated. These can view all submissions.' },
-  submissions_webhook_url: { ar: 'رابط ويبهوك التقديمات', en: 'Submissions Webhook URL' },
+  submissions_webhook_url: { ar: 'معرف قناة التقديمات', en: 'Submissions Channel ID' },
   submissions_webhook_url_desc: { ar: 'سيتم إرسال إشعار فوري عند تقديم طلب جديد.', en: 'Get instant notifications when a new application is submitted.' },
-  audit_log_webhook_url: { ar: 'رابط ويبهوك السجلات', en: 'Audit Log Webhook URL' },
+  audit_log_webhook_url: { ar: 'معرف قناة السجلات', en: 'Audit Log Channel ID' },
   audit_log_webhook_url_desc: { ar: 'سيتم إرسال جميع إجراءات المشرفين إلى هذه القناة.', en: 'All admin actions will be logged to this channel.' },
   show_health_check_page: { ar: 'عرض صفحة فحص الحالة', en: 'Show Health Check Page' },
   enter_discord_id: { ar: 'أدخل معرف ديسكورد...', en: 'Enter Discord ID...' },
@@ -295,7 +296,7 @@ export const translations: Translations = {
   health_check_env_vars_desc: { ar: 'يتم تحميل هذه المتغيرات من ملف .env الخاص بك.', en: 'These are loaded from your .env file.' },
   health_check_supabase_connection: { ar: 'اتصال Supabase', en: 'Supabase Connection' },
   health_check_supabase_desc: { ar: 'يتحقق هذا من أن الموقع يمكنه الاتصال بقاعدة بيانات Supabase باستخدام مفاتيحك.', en: 'This checks that the site can connect to your Supabase database using your keys.' },
-  health_check_db_status: { ar: 'DB Connection', en: 'DB Connection' },
+  health_check_db_status: { ar: 'حالة الاتصال بالداتا بيس', en: 'DB Connection Status' },
   health_check_log_channels: { ar: 'حالة قنوات السجلات', en: 'Log Channel Status' },
   health_check_submissions_channel: { ar: 'قناة التقديمات', en: 'Submissions Channel' },
   health_check_audit_channel: { ar: 'قناة سجل التدقيق', en: 'Audit Log Channel' },

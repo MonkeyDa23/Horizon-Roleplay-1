@@ -58,13 +58,7 @@ This is the **best and most secure** way to configure the bot. Most professional
     -   Use a strong, random password (e.g., from a password generator).
     -   You must put this **exact same key** into the main website's environment variables (`VITE_DISCORD_BOT_API_KEY`).
 
--   `SUBMISSIONS_CHANNEL_ID`: **(New & Required)**
-    -   The ID of the channel where you want the bot to post a notification for every new application submitted.
-    -   Right-click the channel in Discord and "Copy Channel ID".
-
--   `AUDIT_LOG_CHANNEL_ID`: **(New & Required)**
-    -   The ID of the channel where you want the bot to log all admin actions (e.g., application decisions).
-    -   Right-click the channel in Discord and "Copy Channel ID".
+**Note:** Channel IDs for notifications (submissions, audit logs) are now configured in the website's **Admin Panel** under the **Settings** tab, not here.
 
 5.  After adding the variables, **restart your server** from the panel's console.
 
@@ -77,7 +71,7 @@ Use this method **only if you are absolutely sure** that your hosting panel does
 1.  Navigate to the `discord-bot/src` folder.
 2.  Create a new file named `config.json`.
 3.  Copy the contents from `config.example.json` and paste them into your new `config.json`.
-4.  Replace the placeholder text with your actual token, server ID, secret key, and channel IDs.
+4.  Replace the placeholder text with your actual token, server ID, and secret key.
 5.  Save the `config.json` file and restart your bot.
 
 ### Deployment

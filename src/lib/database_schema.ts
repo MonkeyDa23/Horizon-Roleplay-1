@@ -1,5 +1,6 @@
+
 // Vixel Roleplay - Supabase Database Schema
-// Version: 1.7.0
+// Version: 1.8.0
 // Description: This file contains all the SQL commands to set up the database schema,
 // tables, roles, functions, and RLS policies required for the Vixel website.
 // To use, copy the entire content of this file and run it in the Supabase SQL Editor.
@@ -51,6 +52,8 @@ CREATE TABLE public.config (
     "DISCORD_INVITE_URL" text,
     "MTA_SERVER_URL" text,
     "SHOW_HEALTH_CHECK" boolean DEFAULT false,
+    "SUBMISSIONS_CHANNEL_ID" text,
+    "AUDIT_LOG_CHANNEL_ID" text,
     CONSTRAINT id_check CHECK (id = 1)
 );
 INSERT INTO public.config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
@@ -212,17 +215,24 @@ CREATE OR REPLACE FUNCTION log_audit_action(p_title text, p_description text)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   v_user_id uuid := auth.uid();
-  v_username text := auth.jwt()->>'user_name';
-  v_discord_id text := auth.jwt()->'user_metadata'->>'provider_id';
+  v_username text := (auth.jwt())->>'user_name';
+  v_discord_id text := (auth.jwt())->'user_metadata'->>'provider_id';
   v_payload jsonb;
+  v_channel_id text;
   v_full_action text := CONCAT(p_title, ': ', p_description);
 BEGIN
+  -- Log to database
   INSERT INTO public.audit_logs (admin_id, admin_username, admin_discord_id, action)
   VALUES (v_user_id, v_username, v_discord_id, v_full_action);
 
+  -- Send notification to Discord
+  SELECT "AUDIT_LOG_CHANNEL_ID" INTO v_channel_id FROM public.config WHERE id=1;
+  IF v_channel_id IS NULL THEN RETURN; END IF;
+
   v_payload := jsonb_build_object(
-    'type', 'audit',
+    'type', 'channel_message',
     'payload', jsonb_build_object(
+      'channelId', v_channel_id,
       'embed', jsonb_build_object(
         'author', jsonb_build_object('name', v_username),
         'title', p_title,
@@ -255,28 +265,32 @@ DECLARE
   payload jsonb;
   v_community_name text;
   v_logo_url text;
+  v_submissions_channel_id text;
 BEGIN
-  SELECT "COMMUNITY_NAME", "LOGO_URL" INTO v_community_name, v_logo_url FROM public.config WHERE id = 1;
+  SELECT "COMMUNITY_NAME", "LOGO_URL", "SUBMISSIONS_CHANNEL_ID" INTO v_community_name, v_logo_url, v_submissions_channel_id FROM public.config WHERE id = 1;
   
-  -- Notify submissions channel
-  payload := jsonb_build_object(
-    'type', 'submissions',
-    'payload', jsonb_build_object(
-      'embed', jsonb_build_object(
-        'author', jsonb_build_object('name', new.username, 'icon_url', (SELECT raw_user_meta_data->>'avatar_url' FROM auth.users WHERE id = new.user_id)),
-        'title', 'New Application Submitted',
-        'description', '**' || new.username || '** has submitted an application for **' || new."quizTitle" || '**. An admin can now claim it from the website.',
-        'color', 15105570,
-        'footer', jsonb_build_object('text', v_community_name, 'icon_url', v_logo_url),
-        'timestamp', new."submittedAt"
+  -- Notify submissions channel if configured
+  IF v_submissions_channel_id IS NOT NULL THEN
+    payload := jsonb_build_object(
+      'type', 'channel_message',
+      'payload', jsonb_build_object(
+        'channelId', v_submissions_channel_id,
+        'embed', jsonb_build_object(
+          'author', jsonb_build_object('name', new.username, 'icon_url', (SELECT raw_user_meta_data->>'avatar_url' FROM auth.users WHERE id = new.user_id)),
+          'title', 'New Application Submitted',
+          'description', '**' || new.username || '** has submitted an application for **' || new."quizTitle" || '**. An admin can now claim it from the website.',
+          'color', 15105570,
+          'footer', jsonb_build_object('text', v_community_name, 'icon_url', v_logo_url),
+          'timestamp', new."submittedAt"
+        )
       )
-    )
-  );
-  PERFORM net.http_post(
-    url:=(SELECT value FROM private.env_vars WHERE name = 'SUPABASE_DISCORD_PROXY_URL'),
-    headers:='{"Content-Type": "application/json", "Authorization": "Bearer ' || (SELECT value FROM private.env_vars WHERE name = 'SUPABASE_SERVICE_ROLE_KEY') || '"}'::jsonb,
-    body:=payload
-  );
+    );
+    PERFORM net.http_post(
+      url:=(SELECT value FROM private.env_vars WHERE name = 'SUPABASE_DISCORD_PROXY_URL'),
+      headers:='{"Content-Type": "application/json", "Authorization": "Bearer ' || (SELECT value FROM private.env_vars WHERE name = 'SUPABASE_SERVICE_ROLE_KEY') || '"}'::jsonb,
+      body:=payload
+    );
+  END IF;
 
   -- Send DM to user
   payload := jsonb_build_object(
@@ -352,8 +366,8 @@ DECLARE
   v_payload jsonb; v_dm_embed jsonb; v_community_name text; v_logo_url text;
   v_admin_username text;
 BEGIN
--- FIX: Wrap auth.jwt() in parentheses to avoid linter parsing errors.
-  v_admin_username := (auth.jwt())->>'user_name';
+  -- FIX: Use SELECT INTO to avoid TypeScript linter errors with complex assignments.
+  SELECT (auth.jwt())->>'user_name' INTO v_admin_username;
   SELECT "COMMUNITY_NAME", "LOGO_URL" INTO v_community_name, v_logo_url FROM public.config WHERE id = 1;
   SELECT * INTO v_submission FROM public.submissions WHERE id = p_submission_id;
   IF NOT FOUND THEN RAISE EXCEPTION 'Submission not found'; END IF;

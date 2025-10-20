@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { getConfig } from '../lib/api';
 import type { AppConfig } from '../types';
 
@@ -6,6 +6,7 @@ interface ConfigContextType {
   config: AppConfig;
   configLoading: boolean;
   configError: Error | null;
+  refreshConfig: () => Promise<void>;
 }
 
 const defaultConfig: AppConfig = {
@@ -16,12 +17,15 @@ const defaultConfig: AppConfig = {
     MTA_SERVER_URL: '',
     BACKGROUND_IMAGE_URL: '',
     SHOW_HEALTH_CHECK: false,
+    SUBMISSIONS_CHANNEL_ID: null,
+    AUDIT_LOG_CHANNEL_ID: null,
 };
 
 export const ConfigContext = createContext<ConfigContextType>({
   config: defaultConfig,
   configLoading: true,
   configError: null,
+  refreshConfig: async () => {},
 });
 
 export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -29,25 +33,30 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [configLoading, setConfigLoading] = useState(true);
   const [configError, setConfigError] = useState<Error | null>(null);
 
-  useEffect(() => {
-    const fetchAndSetConfig = async () => {
-      try {
-        const configData = await getConfig();
-        setConfig(configData);
-        setConfigError(null);
-      } catch (error) {
-        console.error("Fatal: Could not fetch remote config. Using fallback.", error);
-        setConfigError(error as Error);
-      } finally {
-        setConfigLoading(false);
-      }
-    };
-
-    fetchAndSetConfig();
+  const fetchAndSetConfig = useCallback(async () => {
+    try {
+      const configData = await getConfig();
+      setConfig(configData);
+      setConfigError(null);
+    } catch (error) {
+      console.error("Fatal: Could not fetch remote config. Using fallback.", error);
+      setConfigError(error as Error);
+    } finally {
+      setConfigLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    fetchAndSetConfig();
+  }, [fetchAndSetConfig]);
+
+  const refreshConfig = async () => {
+    setConfigLoading(true);
+    await fetchAndSetConfig();
+  };
+
   return (
-    <ConfigContext.Provider value={{ config, configLoading, configError }}>
+    <ConfigContext.Provider value={{ config, configLoading, configError, refreshConfig }}>
       {children}
     </ConfigContext.Provider>
   );

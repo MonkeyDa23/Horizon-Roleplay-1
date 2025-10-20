@@ -18,19 +18,21 @@ import {
   saveProduct,
   deleteProduct,
   logAdminAccess,
+  saveConfig,
 } from '../lib/api';
-import type { Quiz, QuizQuestion, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule, Product } from '../types';
+import type { Quiz, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, AppConfig } from '../types';
 import { useNavigate } from 'react-router-dom';
-import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store, AlertTriangle } from 'lucide-react';
+import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store, AlertTriangle, Paintbrush } from 'lucide-react';
 import Modal from '../components/Modal';
 
-type AdminTab = 'submissions' | 'quizzes' | 'rules' | 'store' | 'audit';
+type AdminTab = 'submissions' | 'quizzes' | 'rules' | 'store' | 'appearance' | 'audit';
 
 const TABS: { id: AdminTab; labelKey: string; icon: React.ElementType; permission: string }[] = [
   { id: 'submissions', labelKey: 'submission_management', icon: FileText, permission: 'admin_submissions' },
   { id: 'quizzes', labelKey: 'quiz_management', icon: Server, permission: 'admin_quizzes' },
   { id: 'rules', labelKey: 'rules_management', icon: BookCopy, permission: 'admin_rules' },
   { id: 'store', labelKey: 'store_management', icon: Store, permission: 'admin_store' },
+  { id: 'appearance', labelKey: 'appearance_settings', icon: Paintbrush, permission: 'admin_appearance' },
   { id: 'audit', labelKey: 'audit_log', icon: ShieldCheck, permission: 'admin_audit_log' },
 ];
 
@@ -52,8 +54,7 @@ const AdminPage: React.FC = () => {
   
   const [editableRules, setEditableRules] = useState<RuleCategory[] | null>(null);
 
-  const [products, setProducts] = useState<Product[]>([]);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [products, setProducts] = useState<any[]>([]);
 
   const [isTabLoading, setIsTabLoading] = useState(true);
   const [isPageLoading, setIsPageLoading] = useState(true);
@@ -128,6 +129,7 @@ const AdminPage: React.FC = () => {
                 case 'quizzes': if (hasPermission('admin_quizzes')) setQuizzes(await getQuizzes()); break;
                 case 'rules': if (hasPermission('admin_rules')) setEditableRules(JSON.parse(JSON.stringify(await getRules()))); break;
                 case 'store': if (hasPermission('admin_store')) setProducts(await getProducts()); break;
+                case 'appearance': /* No data to fetch, handled by ConfigContext */ break;
                 case 'audit': if (hasPermission('admin_audit_log')) setAuditLogs(await getAuditLogs()); break;
             }
         } catch (error) {
@@ -233,7 +235,7 @@ const AdminPage: React.FC = () => {
   };
   
   const TabContent: React.FC<{children: React.ReactNode}> = ({ children }) => {
-      if (isTabLoading) {
+      if (isTabLoading && activeTab !== 'appearance') {
         return (
             <div className="flex flex-col gap-4 justify-center items-center py-20 min-h-[300px]">
                 <Loader2 size={40} className="text-brand-cyan animate-spin" />
@@ -345,6 +347,76 @@ const AdminPage: React.FC = () => {
         </tbody></table></div>
     </div>
   );
+  
+  const AppearancePanel = () => {
+    const { config, configLoading, refreshConfig } = useConfig();
+    const [localConfig, setLocalConfig] = useState<AppConfig | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
+  
+    useEffect(() => {
+      if (config) setLocalConfig(JSON.parse(JSON.stringify(config)));
+    }, [config]);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      if (!localConfig) return;
+      const { name, value, type } = e.target;
+      const isCheckbox = type === 'checkbox';
+      setLocalConfig({ ...localConfig, [name]: isCheckbox ? (e.target as HTMLInputElement).checked : value });
+    };
+  
+    const handleSave = async () => {
+      if (!localConfig) return;
+      setIsSaving(true);
+      try {
+        await saveConfig(localConfig);
+        await refreshConfig();
+        showToast(t('config_updated_success'), 'success');
+      } catch (e) {
+        showToast(e instanceof Error ? e.message : 'Failed to save settings', 'error');
+      } finally {
+        setIsSaving(false);
+      }
+    };
+
+    const ConfigInput: React.FC<{name: keyof AppConfig; labelKey: string; descKey?: string;}> = ({ name, labelKey, descKey }) => (
+        <div>
+            <label htmlFor={name} className="block mb-1 font-semibold text-gray-300">{t(labelKey)}</label>
+            <input
+                type="text"
+                id={name}
+                name={name}
+                // FIX: Convert potential boolean values to string to satisfy the input's `value` prop type.
+                value={String(localConfig?.[name] ?? '')}
+                onChange={handleChange}
+                className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan"
+            />
+            {descKey && <p className="text-xs text-gray-400 mt-1">{t(descKey)}</p>}
+        </div>
+    );
+  
+    if (configLoading || !localConfig) {
+      return ( <div className="flex justify-center items-center py-20"> <Loader2 size={40} className="text-brand-cyan animate-spin" /> </div> );
+    }
+  
+    return (
+      <div className="mt-6">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold">{t('appearance_settings')}</h2>
+          <button onClick={handleSave} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white transition-colors min-w-[9rem] flex justify-center">
+            {isSaving ? <Loader2 className="animate-spin" /> : t('save_settings')}
+          </button>
+        </div>
+        <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50 p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <ConfigInput name="COMMUNITY_NAME" labelKey="community_name" />
+            <ConfigInput name="LOGO_URL" labelKey="logo_url" />
+            <ConfigInput name="BACKGROUND_IMAGE_URL" labelKey="background_image_url" descKey="background_image_url_desc" />
+            <ConfigInput name="DISCORD_GUILD_ID" labelKey="discord_guild_id" descKey="discord_guild_id_desc" />
+            <ConfigInput name="SUBMISSIONS_CHANNEL_ID" labelKey="submissions_webhook_url" descKey="submissions_webhook_url_desc" />
+            <ConfigInput name="AUDIT_LOG_CHANNEL_ID" labelKey="audit_log_webhook_url" descKey="audit_log_webhook_url_desc" />
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="container mx-auto px-6 py-16">
@@ -368,6 +440,7 @@ const AdminPage: React.FC = () => {
             {activeTab === 'quizzes' && hasPermission('admin_quizzes') && <QuizzesPanel />}
             {activeTab === 'rules' && hasPermission('admin_rules') && <RulesPanel />}
             {activeTab === 'store' && hasPermission('admin_store') && <StorePanel />}
+            {activeTab === 'appearance' && hasPermission('admin_appearance') && <AppearancePanel />}
             {activeTab === 'audit' && hasPermission('admin_audit_log') && <AuditLogPanel />}
           </TabContent>
           </>

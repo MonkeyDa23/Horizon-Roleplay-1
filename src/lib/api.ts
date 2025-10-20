@@ -1,3 +1,4 @@
+
 import { supabase } from './supabaseClient';
 import { env } from '../env.ts';
 import type { Session } from '@supabase/gotrue-js';
@@ -158,6 +159,10 @@ export const saveConfig = async (config: Partial<AppConfig>): Promise<void> => {
     if (!supabase) throw new ApiError("Database not configured", 500);
     const { error } = await supabase.from('config').update(config).eq('id', 1);
     if (error) throw new ApiError(error.message, 500);
+    await supabase.rpc('log_audit_action', {
+        p_title: '⚙️ Site Settings Updated',
+        p_description: 'The global website configuration has been changed.'
+    });
 }
 
 export const saveTranslations = async (translations: Record<string, { ar: string; en: string }>): Promise<void> => {

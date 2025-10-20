@@ -1,3 +1,4 @@
+
 export type Language = 'ar' | 'en';
 
 export interface Translations {
@@ -169,6 +170,8 @@ export interface AppConfig {
     MTA_SERVER_URL: string;
     BACKGROUND_IMAGE_URL: string;
     SHOW_HEALTH_CHECK: boolean;
+    SUBMISSIONS_CHANNEL_ID: string | null;
+    AUDIT_LOG_CHANNEL_ID: string | null;
 }
 
 export interface UserLookupResult {
