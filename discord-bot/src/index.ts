@@ -1,8 +1,10 @@
+
+
 import { Client, GatewayIntentBits, Guild, TextChannel } from 'discord.js';
 // To prevent type conflicts with global Request/Response types (from Deno or DOM),
 // we explicitly import the required types from Express.
 // FIX: Aliased Express types to prevent conflicts with global/DOM types.
-import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction as ExpressNextFunction } from 'express';
+import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
 import cors from 'cors';
 import type { DiscordRole } from './types';
 import fs from 'fs';
@@ -127,8 +129,8 @@ const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(cors());
 
-// FIX: Changed express types to explicit imports to resolve type conflicts
-const authenticate = (req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction): void => {
+// FIX: Added explicit types to req, res, and next to resolve type errors.
+const authenticate = (req: ExpressRequest, res: ExpressResponse, next: NextFunction): void => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
@@ -143,7 +145,7 @@ const authenticate = (req: ExpressRequest, res: ExpressResponse, next: ExpressNe
     next();
 };
 
-// FIX: Changed express types to explicit imports to resolve type conflicts
+// FIX: Added explicit types to req and res to resolve type errors.
 app.get('/', (req: ExpressRequest, res: ExpressResponse) => {
     res.json({ 
         status: 'Bot API is running', 
@@ -154,7 +156,7 @@ app.get('/', (req: ExpressRequest, res: ExpressResponse) => {
     });
 });
 
-// FIX: Changed express types to explicit imports to resolve type conflicts
+// FIX: Added explicit types to req and res to resolve type errors.
 app.get('/roles', authenticate, (req: ExpressRequest, res: ExpressResponse) => {
     if (!isBotReady || rolesCache.length === 0) {
         return res.status(503).json({ error: 'Service Unavailable: Roles are not cached yet or the bot is not ready.' });
@@ -162,7 +164,7 @@ app.get('/roles', authenticate, (req: ExpressRequest, res: ExpressResponse) => {
     res.json(rolesCache);
 });
 
-// FIX: Changed express types to explicit imports to resolve type conflicts
+// FIX: Added explicit types to req and res to resolve type errors.
 app.get('/member/:id', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
     if (!isBotReady) {
         return res.status(503).json({ error: 'Service Unavailable: Bot is not ready.' });
@@ -246,7 +248,7 @@ app.post('/notify', authenticate, async (req: ExpressRequest, res: ExpressRespon
 });
 
 // FIX: Added explicit types to req and res to prevent type conflicts and resolve errors.
-app.get('/health', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
+app.get('/bot-status', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
     if (!isBotReady) {
         return res.status(503).json({
             ok: false,

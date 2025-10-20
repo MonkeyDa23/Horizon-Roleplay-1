@@ -29,7 +29,10 @@ serve(async (req) => {
     );
     
     const { data: { user } } = await supabaseAdmin.auth.getUser();
-    if (!user) return createResponse({ error: 'Not authenticated' }, 401);
+    if (!user) {
+        // Return 200 but with an error payload so the frontend can handle it.
+        return createResponse({ ok: false, message: 'Not authenticated', details: 'User must be logged in to perform a health check.' }, 200);
+    }
     
     // 1. Get channel IDs from config
     const { data: config, error: configError } = await supabaseAdmin.from('config').select('SUBMISSIONS_CHANNEL_ID, AUDIT_LOG_CHANNEL_ID').single();
@@ -47,7 +50,7 @@ serve(async (req) => {
     }
     
     // 2. Build URL with query params
-    const url = new URL(`${botUrl}/health`);
+    const url = new URL(`${botUrl}/bot-status`);
     if (config.SUBMISSIONS_CHANNEL_ID) {
         url.searchParams.append('submissionsChannelId', config.SUBMISSIONS_CHANNEL_ID);
     }
@@ -59,15 +62,25 @@ serve(async (req) => {
     const botResponse = await fetch(url.toString(), {
         headers: { 'Authorization': `Bearer ${apiKey}` }
     });
+    
+    // We attempt to parse the JSON regardless of the status code.
+    const botData = await botResponse.json().catch(e => ({ 
+        ok: false,
+        message: `Bot returned a non-JSON response (Status: ${botResponse.status}).`,
+        details: `This could mean the bot is running but has a critical error, or there's a proxy/firewall issue. Check bot logs.`
+    }));
 
-    const botData = await botResponse.json();
-    return createResponse(botData, botResponse.status);
+    // IMPORTANT: We always return a 200 OK from this function.
+    // The success/failure is determined by the `ok` property in the JSON payload.
+    // This ensures the detailed error from the bot always reaches the frontend client.
+    return createResponse(botData, 200);
 
   } catch (error) {
+    // This catches network errors, like "Connection refused".
     return createResponse({ 
       ok: false,
       message: 'Failed to connect to the bot API.',
       details: error.message
-    }, 500)
+    }, 200) // Also return 200 OK here.
   }
 })

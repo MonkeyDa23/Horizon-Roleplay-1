@@ -309,7 +309,7 @@ BEGIN
   PERFORM net.http_post(
     url:=(SELECT value FROM private.env_vars WHERE name = 'SUPABASE_DISCORD_PROXY_URL'),
     headers:='{"Content-Type": "application/json", "Authorization": "Bearer ' || (SELECT value FROM private.env_vars WHERE name = 'SUPABASE_SERVICE_ROLE_KEY') || '"}'::jsonb,
-    body:=payload
+    body:=v_payload
   );
   RETURN new;
 END;
@@ -322,6 +322,7 @@ CREATE OR REPLACE FUNCTION save_role_permissions(p_role_id text, p_permissions t
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   IF NOT public.has_permission('admin_permissions') THEN RAISE EXCEPTION 'Forbidden'; END IF;
+  -- FIX: Reverted to using CONCAT function to resolve TypeScript linter parsing errors with the || operator.
   PERFORM public.log_audit_action('🔐 Permissions Updated', CONCAT('Updated permissions for role ID `', p_role_id, '`. New permissions: `', array_to_string(p_permissions, ', '), '`'));
   INSERT INTO public.role_permissions (role_id, permissions) VALUES (p_role_id, p_permissions)
   ON CONFLICT (role_id) DO UPDATE SET permissions = EXCLUDED.permissions;
@@ -364,18 +365,15 @@ RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   v_submission record; v_allowed_roles text[]; v_user_roles text[]; v_is_allowed boolean := false; v_is_super_admin boolean := false;
   v_payload jsonb; v_dm_embed jsonb; v_community_name text; v_logo_url text;
-  -- FIX: Removed faulty initialization and comma from variable declaration.
   v_admin_username text;
 BEGIN
-  -- FIX: Use SELECT INTO to avoid TypeScript linter errors with complex assignments.
-  SELECT (auth.jwt())->>'user_name' INTO v_admin_username;
+  v_admin_username := (auth.jwt())->>'user_name';
   SELECT "COMMUNITY_NAME", "LOGO_URL" INTO v_community_name, v_logo_url FROM public.config WHERE id = 1;
   SELECT * INTO v_submission FROM public.submissions WHERE id = p_submission_id;
   IF NOT FOUND THEN RAISE EXCEPTION 'Submission not found'; END IF;
   SELECT "allowedTakeRoles" INTO v_allowed_roles FROM public.quizzes WHERE id = v_submission."quizId";
-  -- FIX: Changed SELECT ... INTO to direct assignment to avoid linter errors.
   v_user_roles := get_current_user_roles();
-  SELECT public.has_permission('_super_admin') INTO v_is_super_admin;
+  v_is_super_admin := public.has_permission('_super_admin');
   
   IF v_is_super_admin OR v_allowed_roles IS NULL OR array_length(v_allowed_roles, 1) IS NULL THEN v_is_allowed := true;
   ELSE SELECT EXISTS (SELECT 1 FROM unnest(v_user_roles) r WHERE r = ANY(v_allowed_roles)) INTO v_is_allowed;
@@ -385,20 +383,26 @@ BEGIN
     IF v_submission.status != 'pending' THEN RAISE EXCEPTION 'This submission has already been handled.'; END IF;
     IF NOT v_is_allowed THEN RAISE EXCEPTION 'You do not have permission to handle this application type.'; END IF;
     UPDATE public.submissions SET status = 'taken', "adminId" = auth.uid(), "adminUsername" = v_admin_username, "updatedAt" = now() WHERE id = p_submission_id;
-    PERFORM public.log_audit_action('📝 Application Claimed', 'Admin **' || v_admin_username || '** is now reviewing **' || v_submission.username || '''s** application for **' || v_submission."quizTitle" || '**.');
-    v_dm_embed := jsonb_build_object('title', '👀 Your Application is Under Review!', 'description', 'Good news, **' || v_submission.username || '**! Your application for **' || v_submission."quizTitle" || '** is now being reviewed by **' || v_admin_username || '**.', 'color', 3447003);
+    -- FIX: Replaced || with CONCAT to prevent TypeScript linter errors.
+    PERFORM public.log_audit_action('📝 Application Claimed', CONCAT('Admin **', v_admin_username, '** is now reviewing **', v_submission.username, '''s** application for **', v_submission."quizTitle", '**.'));
+    -- FIX: Replaced || with CONCAT to prevent TypeScript linter errors.
+    v_dm_embed := jsonb_build_object('title', '👀 Your Application is Under Review!', 'description', CONCAT('Good news, **', v_submission.username, '**! Your application for **', v_submission."quizTitle", '** is now being reviewed by **', v_admin_username, '**.'), 'color', 3447003);
   ELSIF p_status = 'accepted' THEN
     IF v_submission.status != 'taken' THEN RAISE EXCEPTION 'Submission must be taken before a decision is made.'; END IF;
     IF v_submission."adminId" != auth.uid() AND NOT v_is_super_admin THEN RAISE EXCEPTION 'You are not the assigned handler for this submission.'; END IF;
     UPDATE public.submissions SET status = 'accepted', "updatedAt" = now() WHERE id = p_submission_id;
-    PERFORM public.log_audit_action('✅ Application Accepted', 'Admin **' || v_admin_username || '** accepted **' || v_submission.username || '''s** application for **' || v_submission."quizTitle" || '**.');
-    v_dm_embed := jsonb_build_object('title', '🎉 Congratulations! Your Application was Accepted!', 'description', 'Excellent news, **' || v_submission.username || '**! Your application for **' || v_submission."quizTitle" || '** has been **accepted**. Please check the relevant channels on Discord for further instructions.', 'color', 5763719);
+    -- FIX: Replaced || with CONCAT to prevent TypeScript linter errors.
+    PERFORM public.log_audit_action('✅ Application Accepted', CONCAT('Admin **', v_admin_username, '** accepted **', v_submission.username, '''s** application for **', v_submission."quizTitle", '**.'));
+    -- FIX: Replaced || with CONCAT to prevent TypeScript linter errors.
+    v_dm_embed := jsonb_build_object('title', '🎉 Congratulations! Your Application was Accepted!', 'description', CONCAT('Excellent news, **', v_submission.username, '**! Your application for **', v_submission."quizTitle", '** has been **accepted**. Please check the relevant channels on Discord for further instructions.'), 'color', 5763719);
   ELSIF p_status = 'refused' THEN
     IF v_submission.status != 'taken' THEN RAISE EXCEPTION 'Submission must be taken before a decision is made.'; END IF;
     IF v_submission."adminId" != auth.uid() AND NOT v_is_super_admin THEN RAISE EXCEPTION 'You are not the assigned handler for this submission.'; END IF;
     UPDATE public.submissions SET status = 'refused', "updatedAt" = now() WHERE id = p_submission_id;
-    PERFORM public.log_audit_action('❌ Application Refused', 'Admin **' || v_admin_username || '** refused **' || v_submission.username || '''s** application for **' || v_submission."quizTitle" || '**.');
-    v_dm_embed := jsonb_build_object('title', '📄 Application Update', 'description', 'Hello **' || v_submission.username || '**, after careful review, your application for **' || v_submission."quizTitle" || '** was not accepted at this time. Don''t be discouraged! You may be able to re-apply in the future.', 'color', 15548997);
+    -- FIX: Replaced || with CONCAT to prevent TypeScript linter errors.
+    PERFORM public.log_audit_action('❌ Application Refused', CONCAT('Admin **', v_admin_username, '** refused **', v_submission.username, '''s** application for **', v_submission."quizTitle", '**.'));
+    -- FIX: Replaced || with CONCAT to prevent TypeScript linter errors.
+    v_dm_embed := jsonb_build_object('title', '📄 Application Update', 'description', CONCAT('Hello **', v_submission.username, '**, after careful review, your application for **', v_submission."quizTitle", '** was not accepted at this time. Don''t be discouraged! You may be able to re-apply in the future.'), 'color', 15548997);
   ELSE RAISE EXCEPTION 'Invalid status provided.';
   END IF;
 

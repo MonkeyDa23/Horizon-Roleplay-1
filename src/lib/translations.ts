@@ -300,6 +300,19 @@ export const translations: Translations = {
   health_check_log_channels: { ar: 'حالة قنوات السجلات', en: 'Log Channel Status' },
   health_check_submissions_channel: { ar: 'قناة التقديمات', en: 'Submissions Channel' },
   health_check_audit_channel: { ar: 'قناة سجل التدقيق', en: 'Audit Log Channel' },
+  health_check_step4: { ar: 'الخطوة 4: اختبار المزامنة اليدوي للمستخدم', en: 'Step 4: Manual User Sync Test' },
+  health_check_step4_desc: { ar: 'هذا هو الاختبار النهائي. وهو يحاكي بالضبط الخطوة التي تفشل أثناء تسجيل الدخول. أدخل معرف ديسكورد الخاص بك لتشغيل اختبار مزامنة مباشر ضد البوت.', en: 'This is the ultimate test. It simulates the exact step that fails during login. Enter your own Discord ID to run a live sync test against the bot.' },
+  health_check_get_discord_id: { ar: 'كيفية الحصول على معرف ديسكورد الخاص بك', en: 'How to get your Discord ID' },
+  health_check_get_discord_id_steps: { ar: '1. في ديسكورد، اذهب إلى إعدادات المستخدم > خيارات متقدمة. 2. قم بتفعيل "وضع المطور". 3. انقر بزر الماوس الأيمن على اسم المستخدم الخاص بك في أي مكان و "انسخ معرف المستخدم".', en: '1. In Discord, go to User Settings > Advanced. 2. Enable "Developer Mode". 3. Right-click your own username anywhere and "Copy User ID".' },
+  health_check_discord_id_input: { ar: 'معرف مستخدم ديسكورد', en: 'Discord User ID' },
+  health_check_run_sync_test: { ar: 'تشغيل اختبار المزامنة', en: 'Run Sync Test' },
+  health_check_sync_test_result: { ar: 'نتيجة اختبار المزامنة', en: 'Sync Test Result' },
+  health_check_result_interpretation: { ar: 'تفسير النتيجة', en: 'Result Interpretation' },
+  health_check_result_success: { ar: '✅ **نجاح:** إذا رأيت بياناتك (اسم المستخدم، الأدوار، إلخ)، فهذا يعني أن الاتصال بالبوت يعمل! المشكلة قد تكون في خطوة مصادقة Supabase. تأكد من أن Redirect URI في الخطوة 1 صحيح.', en: '✅ **Success:** If you see your data (username, roles, etc.), the bot connection is working! The problem might be with the Supabase authentication step. Ensure the Redirect URI in Step 1 is correct.' },
+  health_check_result_404: { ar: '❌ **خطأ 404 (لم يتم العثور على العضو):** هذا يؤكد بنسبة 99% أن صلاحية **SERVER MEMBERS INTENT** معطلة في بوابة مطوري ديسكورد. يرجى تفعيلها وحفظها ثم إعادة تشغيل البوت.', en: '❌ **Error 404 (Member not found):** This is a 99% confirmation that the **SERVER MEMBERS INTENT** is disabled in the Discord Developer Portal. Please enable it, save, and then RESTART your bot.' },
+  health_check_result_503: { ar: '❌ **خطأ 503 (فشل الاتصال):** هذا يعني أن موقع الويب لا يمكنه الوصول إلى البوت الخاص بك. الأسباب الأكثر شيوعًا هي أن البوت لا يعمل، أو أن جدار الحماية يحظر المنفذ، أو أن `VITE_DISCORD_BOT_URL` غير صحيح.', en: '❌ **Error 503 (Connection Failed):** This means the website cannot reach your bot. The most common causes are the bot is not running, a firewall is blocking the port, or the `VITE_DISCORD_BOT_URL` is incorrect.' },
+  health_check_result_other: { ar: '❌ **أخطاء أخرى:** تحقق من رسالة الخطأ التفصيلية. إذا كانت "Invalid API key"، فتحقق من سر `VITE_DISCORD_BOT_API_KEY`. للأخطاء الأخرى، تحقق من سجلات البوت الخاص بك.', en: '❌ **Other Errors:** Check the detailed error message. If it says "Invalid API key", check your `VITE_DISCORD_BOT_API_KEY` secret. For other errors, check your bot logs.' },
+
   
   // MOCK DATA TRANSLATIONS
   // Products

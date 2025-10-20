@@ -279,7 +279,6 @@ export const checkFunctionSecrets = async (): Promise<any> => {
     if (!supabase) throw new ApiError("Database not configured", 500);
     const { data, error } = await supabase.functions.invoke('check-function-secrets');
     if (error) throw new ApiError(error.message, 500);
-    return data;
 };
 
 // --- MOCKED/HEALTHCHECK FUNCTIONS ---
@@ -296,3 +295,19 @@ export const getMtaPlayerLogs = async (userId: string): Promise<MtaLogEntry[]> =
     return Promise.resolve([]);
 };
 export const testDiscordApi = async (session: Session): Promise<string> => { return "Test not implemented for RBAC yet."}
+
+export const troubleshootUserSync = async (discordId: string): Promise<any> => {
+    if (!supabase) throw new ApiError("Database not configured", 500);
+    const { data, error } = await supabase.functions.invoke('troubleshoot-user-sync', { body: { discordId } });
+
+    if (error) {
+      try {
+        // The error object from supabase-js contains the response context
+        const errorBody = await (error as any).context.json();
+        return { status: (error as any).context.status, error: `Function returned status ${(error as any).context.status}`, details: errorBody };
+      } catch (e) {
+        return { status: 500, error: `Function returned status ${(error as any).context.status}`, details: error.message };
+      }
+    }
+    return { status: 200, data };
+}

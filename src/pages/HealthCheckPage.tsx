@@ -1,10 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
-import { Loader2, CheckCircle, XCircle, AlertTriangle, Info, Copy, Bot, KeyRound } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, AlertTriangle, Info, Copy, Bot, KeyRound, TestTube2 } from 'lucide-react';
 import { useLocalization } from '../hooks/useLocalization';
 import { useConfig } from '../hooks/useConfig';
 import { useAuth } from '../hooks/useAuth';
-import { supabase } from '../lib/supabaseClient';
-import { checkBotHealth, ApiError, checkFunctionSecrets } from '../lib/api';
+import { checkBotHealth, ApiError, checkFunctionSecrets, troubleshootUserSync } from '../lib/api';
 import SEO from '../components/SEO';
 
 interface SecretsHealth {
@@ -42,6 +42,10 @@ const HealthCheckPage: React.FC = () => {
 
   const [botHealth, setBotHealth] = useState<any>(null);
   const [isTestingBot, setIsTestingBot] = useState(false);
+
+  const [syncTestId, setSyncTestId] = useState('');
+  const [syncTestResult, setSyncTestResult] = useState<any>(null);
+  const [isTestingSync, setIsTestingSync] = useState(false);
   
   const preflightCheckPassed = secretsHealth && secretsHealth.VITE_DISCORD_BOT_URL.found && secretsHealth.VITE_DISCORD_BOT_API_KEY.found;
 
@@ -85,6 +89,20 @@ const HealthCheckPage: React.FC = () => {
         setIsTestingBot(false);
     }
   };
+
+  const handleRunSyncTest = async () => {
+      if (!syncTestId) return;
+      setIsTestingSync(true);
+      setSyncTestResult(null);
+      try {
+          const result = await troubleshootUserSync(syncTestId);
+          setSyncTestResult(result);
+      } catch (error) {
+          setSyncTestResult({ error: 'Caught a critical error in the API handler.', details: error });
+      } finally {
+          setIsTestingSync(false);
+      }
+  }
   
   const ConfigItem: React.FC<{ label: string; value: string | undefined | null }> = ({ label, value }) => {
     const displayValue = value || t('health_check_not_set');
@@ -174,6 +192,34 @@ const HealthCheckPage: React.FC = () => {
             )}
         </div>
     )
+  }
+
+  const SyncTestResult = () => {
+      if (!syncTestResult) return null;
+
+      const getInterpretation = () => {
+          if (syncTestResult.status === 200) return <p dangerouslySetInnerHTML={{ __html: t('health_check_result_success')}} />;
+          if (syncTestResult.status === 404) return <p dangerouslySetInnerHTML={{ __html: t('health_check_result_404')}} />;
+          if (syncTestResult.status === 503) return <p dangerouslySetInnerHTML={{ __html: t('health_check_result_503')}} />;
+          return <p dangerouslySetInnerHTML={{ __html: t('health_check_result_other')}} />;
+      };
+
+      const resultColor = syncTestResult.status === 200 ? 'border-green-500/30' : 'border-red-500/30';
+
+      return (
+          <div className={`mt-4 p-4 rounded-lg border ${resultColor}`}>
+              <h4 className="font-bold mb-2 text-gray-200">{t('health_check_sync_test_result')}</h4>
+              <pre className="bg-brand-dark p-3 rounded-md text-xs text-white overflow-auto">
+                  {JSON.stringify(syncTestResult, null, 2)}
+              </pre>
+              <div className="mt-4 pt-4 border-t border-brand-light-blue/50">
+                  <h5 className="font-bold text-brand-cyan mb-2">{t('health_check_result_interpretation')}</h5>
+                  <div className="text-sm text-gray-300 space-y-2 prose">
+                      {getInterpretation()}
+                  </div>
+              </div>
+          </div>
+      )
   }
 
   const PreFlightCheck = () => {
@@ -291,6 +337,36 @@ const HealthCheckPage: React.FC = () => {
                     )}
                 </div>
               </div>
+
+              {/* NEW DIAGNOSTIC TOOL */}
+              <div className={`transition-opacity duration-500 ${!preflightCheckPassed ? 'opacity-30 pointer-events-none' : ''}`}>
+                <div className="bg-brand-dark-blue p-6 rounded-lg border-2 border-brand-cyan/50 shadow-lg">
+                    <h2 className="text-2xl font-bold text-brand-cyan mb-3 flex items-center gap-3"><TestTube2 /> {t('health_check_step4')}</h2>
+                    <p className="text-gray-300 mb-4">{t('health_check_step4_desc')}</p>
+                    
+                    <div className="bg-brand-dark p-3 rounded-md text-sm mb-4">
+                      <p className="font-bold text-brand-cyan mb-1">{t('health_check_get_discord_id')}</p>
+                      <p className="text-gray-300">{t('health_check_get_discord_id_steps')}</p>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-stretch gap-2">
+                        <input 
+                            type="text"
+                            value={syncTestId}
+                            onChange={(e) => setSyncTestId(e.target.value)}
+                            placeholder={t('health_check_discord_id_input')}
+                            className="flex-grow bg-brand-light-blue p-3 rounded border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan placeholder-gray-500"
+                        />
+                        <button onClick={handleRunSyncTest} disabled={isTestingSync || !syncTestId || !preflightCheckPassed} className="bg-brand-cyan text-brand-dark font-bold py-3 px-6 rounded-md hover:bg-white transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-wait">
+                            {isTestingSync ? <Loader2 className="animate-spin" /> : <TestTube2 />}
+                            <span>{isTestingSync ? t('health_check_test_running') : t('health_check_run_sync_test')}</span>
+                        </button>
+                    </div>
+
+                    <SyncTestResult />
+                </div>
+              </div>
+
           </div>
         </div>
       </div>
