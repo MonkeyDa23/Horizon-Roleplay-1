@@ -1,4 +1,5 @@
-import { Client, GatewayIntentBits, Partials, TextChannel, EmbedBuilder } from 'discord.js';
+// FIX: Added 'Role' to imports to provide explicit type information.
+import { Client, GatewayIntentBits, Partials, TextChannel, EmbedBuilder, Role } from 'discord.js';
 // FIX: Explicitly import Request, Response, and NextFunction types from express to resolve type errors.
 // FIX: Aliased Request and Response to avoid conflicts with global DOM types which can cause errors.
 import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
@@ -95,8 +96,9 @@ app.get('/api/user/:userId', authenticate, async (req: ExpressRequest, res: Expr
             return res.status(404).json({ error: `Member with ID ${userId} not found in guild.` });
         }
         
+        // FIX: Added explicit `Role` type to the `role` parameter to resolve type errors.
         const roles = Array.from(member.roles.cache.values())
-            .filter(role => role.id !== guild.id) // Exclude @everyone role
+            .filter((role: Role) => role.id !== guild.id) // Exclude @everyone role
             .sort((a, b) => b.position - a.position)
             .map(role => ({
                 id: role.id,
@@ -139,8 +141,9 @@ app.get('/api/user/:userId', authenticate, async (req: ExpressRequest, res: Expr
 app.get('/api/roles', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const guild = await client.guilds.fetch(DISCORD_GUILD_ID);
+        // FIX: Added explicit `Role` type to the `role` parameter to resolve type errors.
         const roles = Array.from(guild.roles.cache.values())
-            .filter(role => role.id !== guild.id) // Exclude @everyone role
+            .filter((role: Role) => role.id !== guild.id) // Exclude @everyone role
             .sort((a, b) => b.position - a.position)
             .map(role => ({
                 id: role.id,

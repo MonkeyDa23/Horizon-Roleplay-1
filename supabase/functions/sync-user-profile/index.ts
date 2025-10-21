@@ -128,18 +128,7 @@ serve(async (req) => {
     }
     
     // =================================================================
-    // 4. BOOTSTRAP FIRST ADMIN (if needed)
-    // =================================================================
-    const { count: permissionCount } = await supabaseAdmin.from('role_permissions').select('*', { count: 'exact', head: true });
-    if (permissionCount === 0 && finalHighestRole?.id) {
-        console.log(`First run detected. Granting Super Admin to role: ${finalHighestRole.name} (${finalHighestRole.id})`);
-        const { error: grantError } = await supabaseAdmin.from('role_permissions').insert({ role_id: finalHighestRole.id, permissions: ['_super_admin'] });
-        if (grantError) syncError = (syncError ? syncError + "\n" : "") + `Failed to bootstrap initial admin role: ${grantError.message}`;
-        else syncError = (syncError ? syncError + "\n" : "") + `Initial setup: The '${finalHighestRole.name}' role has been granted Super Admin.`;
-    }
-    
-    // =================================================================
-    // 5. UPDATE DATABASE & CALCULATE FINAL PERMISSIONS
+    // 4. UPDATE DATABASE & CALCULATE FINAL PERMISSIONS
     // =================================================================
     await supabaseAdmin.auth.admin.updateUserById(userId, { user_metadata: { ...authUser.user_metadata, full_name: finalUsername, avatar_url: finalAvatar } });
     await supabaseAdmin.from('profiles').upsert({ id: userId, discord_id: discordUserId, roles: finalRoles, highest_role: finalHighestRole, last_synced_at: new Date().toISOString() });

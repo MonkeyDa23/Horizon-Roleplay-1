@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useLocalization } from '../hooks/useLocalization';
@@ -16,25 +15,31 @@ import {
   saveRules as apiSaveRules,
   revalidateSession,
   getProducts,
-  saveProduct,
-  deleteProduct,
-  logAdminAccess,
   saveConfig,
+  getGuildRoles,
+  getRolePermissions,
+  saveRolePermissions,
+  // FIX: Added missing import for logAdminAccess.
+  logAdminAccess,
 } from '../lib/api';
-import type { Quiz, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, AppConfig } from '../types';
-// FIX: Changed to namespace import to fix module resolution issues.
+import type { Quiz, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, AppConfig, DiscordRole, PermissionKey, RolePermission } from '../types';
 import * as ReactRouterDOM from 'react-router-dom';
-import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store, AlertTriangle, Paintbrush } from 'lucide-react';
+import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store, AlertTriangle, Paintbrush, Languages, UserSearch, LockKeyhole } from 'lucide-react';
 import Modal from '../components/Modal';
+import { PERMISSIONS } from '../lib/permissions';
+import { supabase } from '../lib/supabaseClient';
 
-type AdminTab = 'submissions' | 'quizzes' | 'rules' | 'store' | 'appearance' | 'audit';
+type AdminTab = 'submissions' | 'quizzes' | 'rules' | 'store' | 'appearance' | 'translations' | 'permissions' | 'audit' | 'lookup';
 
-const TABS: { id: AdminTab; labelKey: string; icon: React.ElementType; permission: string }[] = [
+const TABS: { id: AdminTab; labelKey: string; icon: React.ElementType; permission: PermissionKey }[] = [
   { id: 'submissions', labelKey: 'submission_management', icon: FileText, permission: 'admin_submissions' },
   { id: 'quizzes', labelKey: 'quiz_management', icon: Server, permission: 'admin_quizzes' },
   { id: 'rules', labelKey: 'rules_management', icon: BookCopy, permission: 'admin_rules' },
   { id: 'store', labelKey: 'store_management', icon: Store, permission: 'admin_store' },
   { id: 'appearance', labelKey: 'appearance_settings', icon: Paintbrush, permission: 'admin_appearance' },
+  { id: 'translations', labelKey: 'translations_management', icon: Languages, permission: 'admin_translations' },
+  { id: 'permissions', labelKey: 'permissions_management', icon: LockKeyhole, permission: 'admin_permissions' },
+  { id: 'lookup', labelKey: 'user_lookup', icon: UserSearch, permission: 'admin_lookup' },
   { id: 'audit', labelKey: 'audit_log', icon: ShieldCheck, permission: 'admin_audit_log' },
 ];
 
@@ -93,6 +98,9 @@ const AdminPage: React.FC = () => {
                 await logAdminAccess();
                 accessLoggedRef.current = true;
             }
+            
+            const firstAllowedTab = TABS.find(tab => freshUser.permissions.has(tab.permission));
+            if(firstAllowedTab) setActiveTab(firstAllowedTab.id);
 
             setIsAuthorized(true);
         } catch (error) {
@@ -131,7 +139,6 @@ const AdminPage: React.FC = () => {
                 case 'quizzes': if (hasPermission('admin_quizzes')) setQuizzes(await getQuizzes()); break;
                 case 'rules': if (hasPermission('admin_rules')) setEditableRules(JSON.parse(JSON.stringify(await getRules()))); break;
                 case 'store': if (hasPermission('admin_store')) setProducts(await getProducts()); break;
-                case 'appearance': /* No data to fetch, handled by ConfigContext */ break;
                 case 'audit': if (hasPermission('admin_audit_log')) setAuditLogs(await getAuditLogs()); break;
             }
         } catch (error) {
@@ -237,7 +244,7 @@ const AdminPage: React.FC = () => {
   };
   
   const TabContent: React.FC<{children: React.ReactNode}> = ({ children }) => {
-      if (isTabLoading && activeTab !== 'appearance') {
+      if (isTabLoading && !['appearance', 'translations', 'permissions', 'lookup'].includes(activeTab)) {
         return (
             <div className="flex flex-col gap-4 justify-center items-center py-20 min-h-[300px]">
                 <Loader2 size={40} className="text-brand-cyan animate-spin" />
@@ -339,6 +346,136 @@ const AdminPage: React.FC = () => {
          <p className="text-center text-gray-400 py-10">Store management UI is coming soon.</p>
     </div>
   );
+  
+  const PermissionsPanel = () => {
+    const [roles, setRoles] = useState<DiscordRole[]>([]);
+    const [selectedRoleId, setSelectedRoleId] = useState<string>('');
+    const [permissions, setPermissions] = useState<Set<PermissionKey>>(new Set());
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
+    const [hasInitialPermissions, setHasInitialPermissions] = useState(false);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            setIsLoading(true);
+            try {
+                const fetchedRoles = await getGuildRoles();
+                setRoles(fetchedRoles);
+                const firstRole = fetchedRoles[0]?.id;
+                if(firstRole) {
+                    setSelectedRoleId(firstRole);
+                    const rolePerms = await getRolePermissions(firstRole);
+                    setPermissions(new Set(rolePerms?.permissions || []));
+                }
+                // Check if any permissions are set at all to change instruction text
+                // FIX: Replaced flawed getRolePermissions call with a direct Supabase query to check for any existing permissions.
+                if (supabase) {
+                    const { count } = await supabase.from('role_permissions').select('*', { count: 'exact', head: true });
+                    if (count && count > 0) {
+                        setHasInitialPermissions(true);
+                    }
+                }
+            } catch (error) {
+                showToast(error instanceof Error ? error.message : "Failed to load roles/permissions.", "error");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchData();
+    }, []);
+
+    const handleRoleChange = async (roleId: string) => {
+        setSelectedRoleId(roleId);
+        if(!roleId) {
+            setPermissions(new Set());
+            return;
+        }
+        try {
+            const rolePerms = await getRolePermissions(roleId);
+            setPermissions(new Set(rolePerms?.permissions || []));
+        } catch (error) {
+            showToast(error instanceof Error ? error.message : "Failed to load permissions for role.", "error");
+        }
+    };
+    
+    const handlePermissionChange = (key: PermissionKey, checked: boolean) => {
+        const newPerms = new Set(permissions);
+        if(checked) newPerms.add(key);
+        else newPerms.delete(key);
+        setPermissions(newPerms);
+    };
+
+    const handleSavePermissions = async () => {
+        if(!selectedRoleId) return;
+        setIsSaving(true);
+        try {
+            await saveRolePermissions(selectedRoleId, Array.from(permissions));
+            showToast(t('permissions_saved_success'), 'success');
+        } catch (error) {
+            showToast(error instanceof Error ? error.message : "Failed to save permissions.", "error");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const RoleBadge: React.FC<{ role: DiscordRole, isSelected?: boolean }> = ({ role, isSelected }) => {
+      const color = role.color ? `#${role.color.toString(16).padStart(6, '0')}` : '#99aab5';
+      const r = parseInt(color.slice(1, 3), 16), g = parseInt(color.slice(3, 5), 16), b = parseInt(color.slice(5, 7), 16);
+      const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+      const textColor = brightness > 125 ? 'text-black' : 'text-white';
+      return <span className={`w-full text-left px-3 py-2 text-sm font-bold rounded-md ${textColor} ${isSelected ? 'ring-2 ring-offset-2 ring-offset-brand-dark-blue ring-brand-cyan' : ''}`} style={{ backgroundColor: color }}>{role.name}</span>;
+    };
+    
+    if(isLoading) return <div className="flex justify-center items-center py-20"><Loader2 className="animate-spin text-brand-cyan" size={40} /></div>
+
+    return (
+      <div className="mt-6">
+          <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold">{t('permissions_management')}</h2>
+              <button onClick={handleSavePermissions} disabled={isSaving || !selectedRoleId} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white transition-colors min-w-[9rem] flex justify-center disabled:opacity-50 disabled:cursor-not-allowed">
+                  {isSaving ? <Loader2 className="animate-spin" /> : t('save_permissions')}
+              </button>
+          </div>
+          <div className="p-4 rounded-md bg-brand-light-blue/50 border border-brand-light-blue text-gray-300 text-sm mb-6">
+             {t(hasInitialPermissions ? 'admin_permissions_instructions' : 'admin_permissions_instructions_initial')}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="md:col-span-1 bg-brand-dark-blue p-4 rounded-lg border border-brand-light-blue/50">
+                  <h3 className="font-bold mb-3 text-lg text-brand-cyan">{t('discord_roles')}</h3>
+                  <div className="space-y-2 max-h-96 overflow-y-auto pr-2">
+                      {roles.map(role => (
+                          <button key={role.id} onClick={() => handleRoleChange(role.id)} className="w-full">
+                              <RoleBadge role={role} isSelected={selectedRoleId === role.id} />
+                          </button>
+                      ))}
+                  </div>
+              </div>
+              <div className="md:col-span-2 bg-brand-dark-blue p-4 rounded-lg border border-brand-light-blue/50">
+                  <h3 className="font-bold mb-3 text-lg text-brand-cyan">{t('available_permissions')}</h3>
+                  {selectedRoleId ? (
+                  <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+                      {Object.entries(PERMISSIONS).map(([key, desc]) => (
+                          <label key={key} className="flex items-start gap-3 p-3 rounded-md bg-brand-light-blue/30 hover:bg-brand-light-blue/60 cursor-pointer">
+                              <input 
+                                  type="checkbox"
+                                  className="mt-1 h-5 w-5 rounded bg-brand-dark border-gray-500 text-brand-cyan focus:ring-brand-cyan"
+                                  checked={permissions.has(key as PermissionKey)}
+                                  onChange={(e) => handlePermissionChange(key as PermissionKey, e.target.checked)}
+                              />
+                              <div>
+                                  <span className="font-bold text-white">{key}</span>
+                                  <p className="text-sm text-gray-400">{desc}</p>
+                              </div>
+                          </label>
+                      ))}
+                  </div>
+                  ) : <p className="text-gray-400">{t('select_role_to_manage')}</p>}
+              </div>
+          </div>
+      </div>
+    );
+  };
+  
 
   const AuditLogPanel = () => (
     <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50 mt-6">
@@ -418,6 +555,9 @@ const AdminPage: React.FC = () => {
       </div>
     );
   };
+  
+    const TranslationsPanel = () => <div className="mt-6 text-center text-gray-400 py-10">Translations Panel coming soon.</div>
+    const UserLookupPanel = () => <div className="mt-6 text-center text-gray-400 py-10">User Lookup Panel coming soon.</div>
 
   return (
     <div className="container mx-auto px-6 py-16">
@@ -442,6 +582,9 @@ const AdminPage: React.FC = () => {
             {activeTab === 'rules' && hasPermission('admin_rules') && <RulesPanel />}
             {activeTab === 'store' && hasPermission('admin_store') && <StorePanel />}
             {activeTab === 'appearance' && hasPermission('admin_appearance') && <AppearancePanel />}
+            {activeTab === 'translations' && hasPermission('admin_translations') && <TranslationsPanel />}
+            {activeTab === 'permissions' && hasPermission('admin_permissions') && <PermissionsPanel />}
+            {activeTab === 'lookup' && hasPermission('admin_lookup') && <UserLookupPanel />}
             {activeTab === 'audit' && hasPermission('admin_audit_log') && <AuditLogPanel />}
           </TabContent>
           </>

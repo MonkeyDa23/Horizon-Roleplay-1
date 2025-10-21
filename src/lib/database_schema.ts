@@ -156,6 +156,19 @@ CREATE TABLE public.role_permissions (
     permissions text[] NOT NULL
 );
 
+-- =================================================================
+-- IMPORTANT: INITIAL ADMIN SETUP (MANUAL)
+-- =================================================================
+-- This system does NOT automatically grant admin permissions. You MUST set up the first admin role manually.
+-- 1. Get the Discord Role ID for your main admin/owner role. (Enable Developer Mode in Discord, right-click the role, click "Copy Role ID").
+-- 2. Run the following command in the SQL Editor, replacing 'YOUR_ADMIN_ROLE_ID' with the actual ID.
+--
+-- INSERT INTO public.role_permissions (role_id, permissions)
+-- VALUES ('YOUR_ADMIN_ROLE_ID', '{"_super_admin"}');
+--
+-- This will grant the specified role all permissions. You can then manage other roles from the website's admin panel.
+-- =================================================================
+
 
 -- ========== RLS HELPER FUNCTIONS ==========
 
