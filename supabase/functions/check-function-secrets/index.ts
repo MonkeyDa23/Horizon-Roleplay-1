@@ -22,12 +22,10 @@ serve(async (req) => {
   }
 
   try {
-    // These variables must be set as secrets in the Supabase project settings
+    // This variable must be set as a secret in the Supabase project settings
     // under Settings > Edge Functions.
     // @ts-ignore
-    const botUrl = Deno.env.get('VITE_DISCORD_BOT_URL');
-    // @ts-ignore
-    const apiKey = Deno.env.get('VITE_DISCORD_BOT_API_KEY');
+    const botToken = Deno.env.get('DISCORD_BOT_TOKEN');
 
     // For security, we only show a portion of the secret key.
     const maskValue = (value: string | undefined) => {
@@ -37,13 +35,9 @@ serve(async (req) => {
     };
 
     const secrets = {
-      VITE_DISCORD_BOT_URL: {
-        found: !!botUrl,
-        value: botUrl || null, // Show the full URL as it's not a secret
-      },
-      VITE_DISCORD_BOT_API_KEY: {
-        found: !!apiKey,
-        value: maskValue(apiKey), // Mask the key
+      DISCORD_BOT_TOKEN: {
+        found: !!botToken,
+        value: maskValue(botToken), // Mask the token
       },
     };
 

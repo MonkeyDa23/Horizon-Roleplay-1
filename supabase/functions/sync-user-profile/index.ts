@@ -1,3 +1,4 @@
+
 // supabase/functions/sync-user-profile/index.ts
 
 // @deno-types="https://esm.sh/@supabase/functions-js@2"
@@ -32,9 +33,7 @@ serve(async (req) => {
           force = true;
         }
       }
-    } catch (e) {
-      // Ignore errors from parsing an empty body.
-    }
+    } catch (e) { /* Ignore parsing errors */ }
 
     const supabaseClient = createClient(
       // @ts-ignore
@@ -68,9 +67,8 @@ serve(async (req) => {
       .from('profiles')
       .select('discord_id, roles, highest_role, last_synced_at')
       .eq('id', userId)
-      .maybeSingle(); // Use maybeSingle() to prevent error if profile doesn't exist yet
+      .maybeSingle();
 
-    // If cache is valid, construct user object and return early
     if (!force && profile?.last_synced_at && (new Date().getTime() - new Date(profile.last_synced_at).getTime() < CACHE_TTL_MS)) {
       const userRoleIds = (profile.roles || []).map((r: any) => r.id);
       const finalPermissions = new Set<string>();
@@ -94,10 +92,18 @@ serve(async (req) => {
       return createResponse({ user: cachedUser, syncError: null });
     }
 
-    // --- Start Full Sync with Discord ---
+    // --- Start Full Sync with Bot ---
     let discordUserId = profile?.discord_id || userMetadata?.provider_id;
     if (!discordUserId) {
       throw new Error(`Could not determine Discord ID for user ${userId}. Critical signup failure.`);
+    }
+
+    // @ts-ignore
+    const botUrl = Deno.env.get('VITE_DISCORD_BOT_URL');
+    // @ts-ignore
+    const botApiKey = Deno.env.get('VITE_DISCORD_BOT_API_KEY');
+    if (!botUrl || !botApiKey) {
+        throw new Error("Bot integration is not configured in this function's environment variables.");
     }
 
     let syncError: string | null = null;
@@ -108,90 +114,70 @@ serve(async (req) => {
     let memberRoleIds: string[] = (profile?.roles || []).map((r: any) => r.id);
 
     try {
-      // @ts-ignore
-      const botUrl = Deno.env.get('VITE_DISCORD_BOT_URL');
-      // @ts-ignore
-      const apiKey = Deno.env.get('VITE_DISCORD_BOT_API_KEY');
+        // Step 1: Fetch member data from the bot
+        const memberResponse = await fetch(`${botUrl}/member/${discordUserId}`, {
+            headers: { 'Authorization': `Bearer ${botApiKey}` }
+        });
 
-      if (!botUrl || !apiKey) {
-        throw new Error("VITE_DISCORD_BOT_URL or VITE_DISCORD_BOT_API_KEY is not configured in the Supabase Function's environment variables. Please set them in your project settings.");
-      }
-      
-      const authHeader = { 'Authorization': `Bearer ${apiKey}` };
-      const { data: config } = await supabaseAdmin.from('config').select('DISCORD_GUILD_ID').single();
-      if (!config?.DISCORD_GUILD_ID) throw new Error('DISCORD_GUILD_ID is not configured in DB.');
+        if (!memberResponse.ok) {
+            const errorBody = await memberResponse.json().catch(() => ({error: "Unknown error from bot"}));
+            throw new Error(`Bot returned error (HTTP ${memberResponse.status}): ${errorBody.error}`);
+        }
+        const memberData = await memberResponse.json();
 
-      // --- Fetch member and role data concurrently from the bot API ---
-      const [memberResult, rolesResult] = await Promise.all([
-        fetch(`${botUrl}/member/${discordUserId}`, { headers: authHeader }),
-        fetch(`${botUrl}/roles`, { headers: authHeader })
-      ]);
+        // Step 2: Fetch all guild roles from the bot
+        const rolesResponse = await fetch(`${botUrl}/roles`, {
+            headers: { 'Authorization': `Bearer ${botApiKey}` }
+        });
+        if (!rolesResponse.ok) {
+            throw new Error(`Could not fetch guild roles from bot.`);
+        }
+        const allGuildRoles = await rolesResponse.json();
 
-      if (!memberResult.ok) {
-        if (memberResult.status === 404) throw new Error("User not found in Discord guild. This often means the 'Server Members Intent' is disabled for your bot, or the DISCORD_GUILD_ID is wrong. Use the Health Check page to diagnose.");
-        const errorBody = await memberResult.text();
-        throw new Error(`Failed to fetch Discord member data from bot (HTTP ${memberResult.status}): ${errorBody}`);
-      }
-      const memberData = await memberResult.json();
+        // Step 3: Process and combine the data
+        const freshMemberRoleIds = memberData.roles || [];
+        
+        finalUsername = memberData.nick || memberData.global_name || memberData.username || finalUsername;
+        
+        const { data: guildConfig } = await supabaseAdmin.from('config').select('DISCORD_GUILD_ID').single();
+        const guildId = guildConfig?.DISCORD_GUILD_ID;
 
-      if (!rolesResult.ok) {
-          const errorBody = await rolesResult.text();
-          throw new Error(`Failed to fetch roles from bot API (HTTP ${rolesResult.status}): ${errorBody}`);
-      }
-      const allGuildRoles = await rolesResult.json();
-      if (!Array.isArray(allGuildRoles)) {
-        throw new Error("Could not determine user roles: Bot API returned invalid format for roles.");
-      }
-      // --- End data fetching ---
-
-      const freshMemberRoleIds = memberData.roles || [];
-      
-      finalUsername = memberData.nick || memberData.global_name || memberData.username || finalUsername;
-      
-      if (memberData.guild_avatar) {
-          finalAvatar = `https://cdn.discordapp.com/guilds/${config.DISCORD_GUILD_ID}/users/${discordUserId}/avatars/${memberData.guild_avatar}.png`;
-      } else if (memberData.avatar) {
-          finalAvatar = `https://cdn.discordapp.com/avatars/${discordUserId}/${memberData.avatar}.png`;
-      }
-
-      const userRolesDetails = allGuildRoles
-        .filter((role: any) => freshMemberRoleIds.includes(role.id))
-        .sort((a: any, b: any) => b.position - a.position);
-      
-      finalRoles = userRolesDetails;
-      finalHighestRole = userRolesDetails.length > 0 ? userRolesDetails[0] : null;
-      memberRoleIds = freshMemberRoleIds;
+        if (memberData.guild_avatar && guildId) {
+            finalAvatar = `https://cdn.discordapp.com/guilds/${guildId}/users/${discordUserId}/avatars/${memberData.guild_avatar}.png`;
+        } else if (memberData.avatar) {
+            finalAvatar = `https://cdn.discordapp.com/avatars/${discordUserId}/${memberData.avatar}.png`;
+        }
+        
+        const userRolesDetails = allGuildRoles
+          .filter((role: any) => freshMemberRoleIds.includes(role.id))
+          .sort((a: any, b: any) => b.position - a.position);
+        
+        finalRoles = userRolesDetails;
+        finalHighestRole = userRolesDetails.length > 0 ? userRolesDetails[0] : null;
+        memberRoleIds = freshMemberRoleIds;
 
     } catch (e) {
-      syncError = `Could not sync with Discord: ${e.message}. Displaying last known data.`;
+      syncError = `Could not sync with Discord Bot: ${e.message}. Displaying last known data. Please check bot logs.`;
       console.warn(`Sync error for user ${userId}:`, e.message);
     }
     
-    // --- Automatic Permission Bootstrap Logic ---
-    const { count: permissionCount, error: countError } = await supabaseAdmin.from('role_permissions').select('*', { count: 'exact', head: true });
-    if (countError) {
-      console.error(`Error checking permissions table count: ${countError.message}`);
-    } else if (permissionCount === 0 && finalHighestRole?.id) {
-      console.log(`First run detected. Granting Super Admin to role: ${finalHighestRole.name} (${finalHighestRole.id})`);
-      const { error: grantError } = await supabaseAdmin.from('role_permissions').insert({ role_id: finalHighestRole.id, permissions: ['_super_admin'] });
-      if (grantError) {
-        syncError = (syncError ? syncError + "\n" : "") + `Failed to bootstrap initial admin role: ${grantError.message}`;
-      } else {
-        syncError = `Initial setup complete. The '${finalHighestRole.name}' role has been granted Super Admin permissions.`;
-      }
+    // Step 4: Bootstrap first admin if necessary
+    const { count: permissionCount } = await supabaseAdmin.from('role_permissions').select('*', { count: 'exact', head: true });
+    if (permissionCount === 0 && finalHighestRole?.id) {
+        console.log(`First run detected. Granting Super Admin to role: ${finalHighestRole.name} (${finalHighestRole.id})`);
+        const { error: grantError } = await supabaseAdmin.from('role_permissions').insert({ role_id: finalHighestRole.id, permissions: ['_super_admin'] });
+        if (grantError) {
+          syncError = (syncError ? syncError + "\n" : "") + `Failed to bootstrap initial admin role: ${grantError.message}`;
+        } else {
+          syncError = `Initial setup complete. The '${finalHighestRole.name}' role has been granted Super Admin permissions.`;
+        }
     }
     
-    // --- Update Auth User and Profile ---
-    const { error: updateUserError } = await supabaseAdmin.auth.admin.updateUserById(userId, { user_metadata: { ...userMetadata, full_name: finalUsername, avatar_url: finalAvatar, roles: memberRoleIds } });
-    if (updateUserError) {
-      throw new Error(`Failed to update auth user metadata: ${updateUserError.message}`);
-    }
-    
-    const { error: upsertError } = await supabaseAdmin.from('profiles').upsert({ id: userId, discord_id: discordUserId, roles: finalRoles, highest_role: finalHighestRole, last_synced_at: new Date().toISOString() });
-    if (upsertError) {
-      console.error("Error updating profile cache:", upsertError.message);
-    }
+    // Step 5: Update Supabase data
+    await supabaseAdmin.auth.admin.updateUserById(userId, { user_metadata: { ...userMetadata, full_name: finalUsername, avatar_url: finalAvatar } });
+    await supabaseAdmin.from('profiles').upsert({ id: userId, discord_id: discordUserId, roles: finalRoles, highest_role: finalHighestRole, last_synced_at: new Date().toISOString() });
 
+    // Step 6: Calculate final permissions
     const finalPermissions = new Set<string>();
     if (memberRoleIds.length > 0) {
         const { data: permsData } = await supabaseAdmin.from('role_permissions').select('permissions').in('role_id', memberRoleIds);

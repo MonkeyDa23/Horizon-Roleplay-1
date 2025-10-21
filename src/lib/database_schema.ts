@@ -1,11 +1,13 @@
 
 // Vixel Roleplay - Supabase Database Schema
-// Version: 1.8.0
+// Version: 2.0.0
 // Description: This file contains all the SQL commands to set up the database schema,
 // tables, roles, functions, and RLS policies required for the Vixel website.
+// This version introduces a dedicated external Discord bot for all interactions.
 // To use, copy the entire content of this file and run it in the Supabase SQL Editor.
 
-export const DATABASE_SCHEMA = `
+// FIX: The SQL content was not valid TypeScript. It has been wrapped in a template literal string to resolve parsing errors.
+export const databaseSchema = `
 -- Drop existing functions and tables to ensure a clean slate.
 -- This is safe to run multiple times.
 DROP FUNCTION IF EXISTS public.get_current_user_roles() CASCADE;
@@ -24,6 +26,7 @@ DROP TRIGGER IF EXISTS on_submission_insert ON public.submissions;
 ALTER TABLE IF EXISTS public.submissions DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.quizzes DISABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.products DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.config DISABLE ROW LEVEL SECURITY;
 
 DROP TABLE IF EXISTS public.role_permissions;
 DROP TABLE IF EXISTS public.translations;
@@ -220,12 +223,13 @@ DECLARE
   v_payload jsonb;
   v_channel_id text;
   v_full_action text := CONCAT(p_title, ': ', p_description);
+  v_proxy_url text;
 BEGIN
   -- Log to database
   INSERT INTO public.audit_logs (admin_id, admin_username, admin_discord_id, action)
   VALUES (v_user_id, v_username, v_discord_id, v_full_action);
 
-  -- Send notification to Discord
+  -- Send notification to Discord via proxy function
   SELECT "AUDIT_LOG_CHANNEL_ID" INTO v_channel_id FROM public.config WHERE id=1;
   IF v_channel_id IS NULL THEN RETURN; END IF;
 
@@ -242,8 +246,13 @@ BEGIN
       )
     )
   );
+  
+  -- The URL for the discord-proxy function must be set in private.env_vars
+  SELECT value INTO v_proxy_url FROM private.env_vars WHERE name = 'SUPABASE_DISCORD_PROXY_URL';
+  IF v_proxy_url IS NULL THEN RAISE WARNING 'SUPABASE_DISCORD_PROXY_URL is not set'; RETURN; END IF;
+
   PERFORM net.http_post(
-    url:=(SELECT value FROM private.env_vars WHERE name = 'SUPABASE_DISCORD_PROXY_URL'),
+    url:=v_proxy_url,
     headers:='{"Content-Type": "application/json", "Authorization": "Bearer ' || (SELECT value FROM private.env_vars WHERE name = 'SUPABASE_SERVICE_ROLE_KEY') || '"}'::jsonb,
     body:=v_payload
   );
@@ -266,8 +275,11 @@ DECLARE
   v_community_name text;
   v_logo_url text;
   v_submissions_channel_id text;
+  v_proxy_url text;
 BEGIN
   SELECT "COMMUNITY_NAME", "LOGO_URL", "SUBMISSIONS_CHANNEL_ID" INTO v_community_name, v_logo_url, v_submissions_channel_id FROM public.config WHERE id = 1;
+  SELECT value INTO v_proxy_url FROM private.env_vars WHERE name = 'SUPABASE_DISCORD_PROXY_URL';
+  IF v_proxy_url IS NULL THEN RAISE WARNING 'SUPABASE_DISCORD_PROXY_URL is not set'; RETURN new; END IF;
   
   -- Notify submissions channel if configured
   IF v_submissions_channel_id IS NOT NULL THEN
@@ -286,7 +298,7 @@ BEGIN
       )
     );
     PERFORM net.http_post(
-      url:=(SELECT value FROM private.env_vars WHERE name = 'SUPABASE_DISCORD_PROXY_URL'),
+      url:=v_proxy_url,
       headers:='{"Content-Type": "application/json", "Authorization": "Bearer ' || (SELECT value FROM private.env_vars WHERE name = 'SUPABASE_SERVICE_ROLE_KEY') || '"}'::jsonb,
       body:=payload
     );
@@ -307,9 +319,9 @@ BEGIN
       )
   );
   PERFORM net.http_post(
-    url:=(SELECT value FROM private.env_vars WHERE name = 'SUPABASE_DISCORD_PROXY_URL'),
+    url:=v_proxy_url,
     headers:='{"Content-Type": "application/json", "Authorization": "Bearer ' || (SELECT value FROM private.env_vars WHERE name = 'SUPABASE_SERVICE_ROLE_KEY') || '"}'::jsonb,
-    body:=v_payload
+    body:=payload
   );
   RETURN new;
 END;
@@ -322,7 +334,6 @@ CREATE OR REPLACE FUNCTION save_role_permissions(p_role_id text, p_permissions t
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   IF NOT public.has_permission('admin_permissions') THEN RAISE EXCEPTION 'Forbidden'; END IF;
-  -- FIX: Reverted to using CONCAT function to resolve TypeScript linter parsing errors with the || operator.
   PERFORM public.log_audit_action('🔐 Permissions Updated', CONCAT('Updated permissions for role ID `', p_role_id, '`. New permissions: `', array_to_string(p_permissions, ', '), '`'));
   INSERT INTO public.role_permissions (role_id, permissions) VALUES (p_role_id, p_permissions)
   ON CONFLICT (role_id) DO UPDATE SET permissions = EXCLUDED.permissions;
@@ -366,9 +377,12 @@ DECLARE
   v_submission record; v_allowed_roles text[]; v_user_roles text[]; v_is_allowed boolean := false; v_is_super_admin boolean := false;
   v_payload jsonb; v_dm_embed jsonb; v_community_name text; v_logo_url text;
   v_admin_username text;
+  v_proxy_url text;
 BEGIN
   v_admin_username := (auth.jwt())->>'user_name';
   SELECT "COMMUNITY_NAME", "LOGO_URL" INTO v_community_name, v_logo_url FROM public.config WHERE id = 1;
+  SELECT value INTO v_proxy_url FROM private.env_vars WHERE name = 'SUPABASE_DISCORD_PROXY_URL';
+
   SELECT * INTO v_submission FROM public.submissions WHERE id = p_submission_id;
   IF NOT FOUND THEN RAISE EXCEPTION 'Submission not found'; END IF;
   SELECT "allowedTakeRoles" INTO v_allowed_roles FROM public.quizzes WHERE id = v_submission."quizId";
@@ -383,36 +397,33 @@ BEGIN
     IF v_submission.status != 'pending' THEN RAISE EXCEPTION 'This submission has already been handled.'; END IF;
     IF NOT v_is_allowed THEN RAISE EXCEPTION 'You do not have permission to handle this application type.'; END IF;
     UPDATE public.submissions SET status = 'taken', "adminId" = auth.uid(), "adminUsername" = v_admin_username, "updatedAt" = now() WHERE id = p_submission_id;
-    -- FIX: This line was causing a linter error due to a comma inside a string literal. Switched to CONCAT.
     PERFORM public.log_audit_action('📝 Application Claimed', CONCAT('Admin **', v_admin_username, '** is now reviewing **', v_submission.username, '''s** application for **', v_submission."quizTitle", '**.'));
-    -- FIX: Added missing 'description' key which caused a SQL syntax error.
     v_dm_embed := jsonb_build_object('title', '👀 Your Application is Under Review!', 'description', CONCAT('Good news, **', v_submission.username, '**! Your application for **', v_submission."quizTitle", '** is now being reviewed by **', v_admin_username, '**.'), 'color', 3447003);
   ELSIF p_status = 'accepted' THEN
     IF v_submission.status != 'taken' THEN RAISE EXCEPTION 'Submission must be taken before a decision is made.'; END IF;
     IF v_submission."adminId" != auth.uid() AND NOT v_is_super_admin THEN RAISE EXCEPTION 'You are not the assigned handler for this submission.'; END IF;
     UPDATE public.submissions SET status = 'accepted', "updatedAt" = now() WHERE id = p_submission_id;
-    -- FIX: Replaced || with CONCAT to prevent TypeScript linter errors.
     PERFORM public.log_audit_action('✅ Application Accepted', CONCAT('Admin **', v_admin_username, '** accepted **', v_submission.username, '''s** application for **', v_submission."quizTitle", '**.'));
-    -- FIX: Replaced || with CONCAT to prevent TypeScript linter errors.
     v_dm_embed := jsonb_build_object('title', '🎉 Congratulations! Your Application was Accepted!', 'description', CONCAT('Excellent news, **', v_submission.username, '**! Your application for **', v_submission."quizTitle", '** has been **accepted**. Please check the relevant channels on Discord for further instructions.'), 'color', 5763719);
   ELSIF p_status = 'refused' THEN
     IF v_submission.status != 'taken' THEN RAISE EXCEPTION 'Submission must be taken before a decision is made.'; END IF;
     IF v_submission."adminId" != auth.uid() AND NOT v_is_super_admin THEN RAISE EXCEPTION 'You are not the assigned handler for this submission.'; END IF;
     UPDATE public.submissions SET status = 'refused', "updatedAt" = now() WHERE id = p_submission_id;
-    -- FIX: Replaced || with CONCAT to prevent TypeScript linter errors.
     PERFORM public.log_audit_action('❌ Application Refused', CONCAT('Admin **', v_admin_username, '** refused **', v_submission.username, '''s** application for **', v_submission."quizTitle", '**.'));
-    -- FIX: Replaced || with CONCAT to prevent TypeScript linter errors.
     v_dm_embed := jsonb_build_object('title', '📄 Application Update', 'description', CONCAT('Hello **', v_submission.username, '**, after careful review, your application for **', v_submission."quizTitle", '** was not accepted at this time. Don''t be discouraged! You may be able to re-apply in the future.'), 'color', 15548997);
   ELSE RAISE EXCEPTION 'Invalid status provided.';
   END IF;
 
   v_dm_embed := v_dm_embed || jsonb_build_object('footer', jsonb_build_object('text', v_community_name, 'icon_url', v_logo_url), 'timestamp', now());
   v_payload := jsonb_build_object('type', 'dm', 'payload', jsonb_build_object('userId', (SELECT discord_id FROM public.profiles WHERE id = v_submission.user_id), 'embed', v_dm_embed));
-  PERFORM net.http_post(
-    url:=(SELECT value FROM private.env_vars WHERE name = 'SUPABASE_DISCORD_PROXY_URL'),
-    headers:='{"Content-Type": "application/json", "Authorization": "Bearer ' || (SELECT value FROM private.env_vars WHERE name = 'SUPABASE_SERVICE_ROLE_KEY') || '"}'::jsonb,
-    body:=v_payload
-  );
+
+  IF v_proxy_url IS NOT NULL THEN
+    PERFORM net.http_post(
+      url:=v_proxy_url,
+      headers:='{"Content-Type": "application/json", "Authorization": "Bearer ' || (SELECT value FROM private.env_vars WHERE name = 'SUPABASE_SERVICE_ROLE_KEY') || '"}'::jsonb,
+      body:=v_payload
+    );
+  END IF;
 END;
 $$;
 GRANT EXECUTE ON FUNCTION public.update_submission_status(uuid, text) TO authenticated;
@@ -443,5 +454,4 @@ ALTER TABLE private.env_vars ENABLE ROW LEVEL SECURITY;
 -- Example:
 -- INSERT INTO private.env_vars (name, value) VALUES ('SUPABASE_SERVICE_ROLE_KEY', 'your_actual_service_role_key');
 -- INSERT INTO private.env_vars (name, value) VALUES ('SUPABASE_DISCORD_PROXY_URL', 'https://project-ref.supabase.co/functions/v1/discord-proxy');
-
 `;

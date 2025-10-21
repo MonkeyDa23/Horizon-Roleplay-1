@@ -8,12 +8,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const createResponse = (data: unknown, status = 200) => {
-  return new Response(JSON.stringify(data), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    status,
-  })
-}
+// Helper function to create a standardized JSON response
+const createJsonResponse = (data: any, status: number) => {
+    return new Response(JSON.stringify({ data, status }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200, // Always return 200 from the function itself
+    });
+};
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -23,7 +24,7 @@ serve(async (req) => {
   try {
     const { discordId } = await req.json();
     if (!discordId || typeof discordId !== 'string' || !/^\d{17,19}$/.test(discordId)) {
-        return createResponse({ error: 'A valid Discord User ID is required.' }, 400);
+        return createJsonResponse({ error: 'A valid Discord User ID is required.' }, 400);
     }
 
     // @ts-ignore
@@ -43,14 +44,14 @@ serve(async (req) => {
         error: `Bot returned a non-JSON response (Status: ${botResponse.status}). Check bot logs for critical errors.`
     }));
 
-    // Pass the bot's status code through to the client for more accurate diagnosis
-    return createResponse(responseData, botResponse.status);
+    // Pass the bot's status code and data through to the client for accurate diagnosis
+    return createJsonResponse(responseData, botResponse.status);
 
   } catch (error) {
     // This catches network errors, e.g., "Connection refused".
-    return createResponse({ 
+    return createJsonResponse({ 
       error: 'Failed to connect to the bot API.',
       details: error.message
-    }, 503) // Use 503 Service Unavailable for connection errors.
+    }, 503); // Use 503 Service Unavailable for connection errors.
   }
 })

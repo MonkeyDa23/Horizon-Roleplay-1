@@ -1,14 +1,17 @@
 
+
 import { Client, GatewayIntentBits, Guild, TextChannel } from 'discord.js';
-// To prevent type conflicts with global Request/Response types (from Deno or DOM),
-// we explicitly import the required types from Express.
-// FIX: Changed to a default import to use explicit `express.Request` and `express.Response` types.
-// FIX: Import named types from express to resolve all type errors.
-import express, { Request, Response, NextFunction } from 'express';
+import express from 'express';
 import cors from 'cors';
 import type { DiscordRole } from './types';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+// In an ES Module environment, __dirname is not a global variable.
+// We derive it from `import.meta.url` to get the current file's directory.
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // --- Configuration Loading ---
 // Prioritize environment variables, but fall back to a local config.json for hosts without variable support.
@@ -19,8 +22,6 @@ const config = {
     PORT: process.env.PORT ? parseInt(process.env.PORT, 10) : 3001,
 };
 
-// In a CommonJS environment (as defined by tsconfig.json), `__dirname` is a global variable.
-// We no longer need to derive it from `import.meta.url`.
 const configPath = path.join(__dirname, 'config.json');
 if (fs.existsSync(configPath)) {
     try {
@@ -44,6 +45,7 @@ const { DISCORD_BOT_TOKEN, DISCORD_GUILD_ID, API_SECRET_KEY, PORT } = config;
 // --- Environment Variable Validation ---
 if (!DISCORD_BOT_TOKEN || !DISCORD_GUILD_ID || !API_SECRET_KEY) {
     console.error("FATAL ERROR: Missing required configuration. Please set DISCORD_BOT_TOKEN, DISCORD_GUILD_ID, and API_SECRET_KEY in your server's environment settings or in a 'src/config.json' file.");
+    // FIX: Cast process to any to resolve TypeScript error in non-Node environments.
     (process as any).exit(1);
 }
 
@@ -120,6 +122,7 @@ client.login(DISCORD_BOT_TOKEN).catch(error => {
     Please verify these steps. This will solve the problem.
     ================================================================================
     `);
+    // FIX: Cast process to any to resolve TypeScript error in non-Node environments.
     (process as any).exit(1);
 });
 
@@ -128,9 +131,7 @@ const app = express();
 app.use(express.json({ limit: '10mb' }));
 app.use(cors());
 
-// FIX: Added explicit types to req, res, and next to resolve type errors.
-// FIX: Use named-imported types for Express handlers.
-const authenticate = (req: Request, res: Response, next: NextFunction): void => {
+const authenticate = (req: express.Request, res: express.Response, next: express.NextFunction): void => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
@@ -145,9 +146,7 @@ const authenticate = (req: Request, res: Response, next: NextFunction): void => 
     next();
 };
 
-// FIX: Added explicit types to req and res to resolve type errors.
-// FIX: Use named-imported types for Express handlers.
-app.get('/', (req: Request, res: Response) => {
+app.get('/', (req, res) => {
     res.json({ 
         status: 'Bot API is running', 
         bot_ready: isBotReady, 
@@ -157,18 +156,14 @@ app.get('/', (req: Request, res: Response) => {
     });
 });
 
-// FIX: Added explicit types to req and res to resolve type errors.
-// FIX: Use named-imported types for Express handlers.
-app.get('/roles', authenticate, (req: Request, res: Response) => {
+app.get('/roles', authenticate, (req, res) => {
     if (!isBotReady || rolesCache.length === 0) {
         return res.status(503).json({ error: 'Service Unavailable: Roles are not cached yet or the bot is not ready.' });
     }
     res.json(rolesCache);
 });
 
-// FIX: Added explicit types to req and res to resolve type errors.
-// FIX: Use named-imported types for Express handlers.
-app.get('/member/:id', authenticate, async (req: Request, res: Response) => {
+app.get('/member/:id', authenticate, async (req, res) => {
     if (!isBotReady) {
         return res.status(503).json({ error: 'Service Unavailable: Bot is not ready.' });
     }
@@ -201,9 +196,7 @@ app.get('/member/:id', authenticate, async (req: Request, res: Response) => {
     }
 });
 
-// FIX: Added explicit types to req and res to prevent type conflicts and resolve errors.
-// FIX: Use named-imported types for Express handlers.
-app.post('/notify', authenticate, async (req: Request, res: Response) => {
+app.post('/notify', authenticate, async (req, res) => {
     if (!isBotReady) {
         return res.status(503).json({ error: 'Service Unavailable: Bot is not ready.' });
     }
@@ -251,9 +244,7 @@ app.post('/notify', authenticate, async (req: Request, res: Response) => {
     }
 });
 
-// FIX: Added explicit types to req and res to prevent type conflicts and resolve errors.
-// FIX: Use named-imported types for Express handlers.
-app.get('/bot-status', authenticate, async (req: Request, res: Response) => {
+app.get('/bot-status', authenticate, async (req, res) => {
     if (!isBotReady) {
         return res.status(503).json({
             ok: false,
@@ -272,46 +263,6 @@ app.get('/bot-status', authenticate, async (req: Request, res: Response) => {
         }
 
         const members = await guild.members.fetch();
-        const hasMembersIntent = client.options.intents.has(GatewayIntentBits.GuildMembers);
-        
-        const { submissionsChannelId, auditChannelId } = req.query;
-
-        const checkChannel = async (channelId: string | undefined | any, channelNameForLog: string) => {
-            if (!channelId || typeof channelId !== 'string') {
-                return { id: channelId || 'N/A', status: '❔ Not Configured', error: null, name: null };
-            }
-            try {
-                const channel = await client.channels.fetch(channelId);
-                if (!channel) {
-                    return { id: channelId, status: '❌ Not Found', error: 'The channel with this ID does not exist.', name: null };
-                }
-                if (!channel.isTextBased()) {
-                    // FIX: Safely access channel name using a type guard.
-                    return { id: channelId, status: '❌ Wrong Type', error: 'The channel is not a text-based channel.', name: 'name' in channel ? channel.name : null };
-                }
-                
-                const me = await guild.members.fetch(client.user!.id);
-                const permissions = (channel as TextChannel).permissionsFor(me);
-                if (!permissions.has('ViewChannel') || !permissions.has('SendMessages') || !permissions.has('EmbedLinks')) {
-                    // FIX: Safely access channel name using a type guard.
-                    return { id: channelId, status: '❌ No Permissions', error: 'The bot lacks permissions (View, Send, Embed Links) for this channel.', name: 'name' in channel ? channel.name : null };
-                }
-                
-                // FIX: Safely access channel name using a type guard.
-                return { id: channelId, status: '✅ OK', error: null, name: 'name' in channel ? channel.name : null };
-            } catch (error: any) {
-                if (error.code === 10003) { // Unknown Channel
-                    return { id: channelId, status: '❌ Not Found', error: 'The channel with this ID does not exist.', name: null };
-                }
-                console.error(`Error checking ${channelNameForLog} channel ${channelId}:`, error);
-                return { id: channelId, status: '❌ Error', error: 'An unexpected error occurred while checking the channel.', name: null };
-            }
-        };
-
-        const [submissionsChannelStatus, auditChannelStatus] = await Promise.all([
-            checkChannel(submissionsChannelId, 'Submissions'),
-            checkChannel(auditChannelId, 'Audit Log')
-        ]);
         
         return res.status(200).json({
             ok: true,
@@ -320,13 +271,6 @@ app.get('/bot-status', authenticate, async (req: Request, res: Response) => {
                 guildName: guild.name,
                 guildId: guild.id,
                 memberCount: members.size,
-                intents: {
-                    guildMembers: hasMembersIntent,
-                },
-                channels: {
-                    submissions: submissionsChannelStatus,
-                    audit: auditChannelStatus,
-                }
             }
         });
 

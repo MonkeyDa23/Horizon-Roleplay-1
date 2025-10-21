@@ -1,7 +1,5 @@
 
 import { supabase } from './supabaseClient';
-import { env } from '../env.ts';
-import type { Session } from '@supabase/gotrue-js';
 import type { User, Product, Quiz, QuizSubmission, SubmissionStatus, MtaServerStatus, AuditLogEntry, RuleCategory, AppConfig, MtaLogEntry, UserLookupResult, DiscordAnnouncement, DiscordRole, PermissionKey, RolePermission } from '../types';
 
 // --- API Error Handling ---
@@ -179,41 +177,11 @@ export const getAuditLogs = async (): Promise<AuditLogEntry[]> => {
     return data;
 }
 
-export const lookupDiscordUser = async (userId: string): Promise<UserLookupResult> => {
+export const getGuildRoles = async (): Promise<DiscordRole[]> => {
     if (!supabase) throw new ApiError("Database not configured", 500);
-    const { data, error } = await supabase.functions.invoke('get-discord-user-profile', { body: { userId } });
+    const { data, error } = await supabase.functions.invoke('get-guild-roles');
     if (error) throw new ApiError(error.message, 500);
     return data;
-}
-
-export const getGuildRoles = async (): Promise<DiscordRole[]> => {
-    const botUrl = env.VITE_DISCORD_BOT_URL;
-    const apiKey = env.VITE_DISCORD_BOT_API_KEY;
-
-    if (!botUrl || !apiKey || botUrl === 'YOUR_DISCORD_BOT_API_URL') {
-        console.error("Discord Bot URL or API Key is not configured in src/env.ts file.");
-        throw new ApiError("Bot integration is not configured. Please check environment variables.", 500);
-    }
-    
-    try {
-        const response = await fetch(`${botUrl}/roles`, {
-            headers: {
-                'Authorization': `Bearer ${apiKey}`
-            }
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
-            throw new ApiError(`Failed to fetch roles from bot: ${errorData.error || response.statusText}`, response.status);
-        }
-
-        const roles: DiscordRole[] = await response.json();
-        return roles;
-    } catch (error) {
-        if (error instanceof ApiError) throw error;
-        console.error("Network error fetching roles from bot:", error);
-        throw new ApiError("Could not connect to the Discord Bot service.", 503);
-    }
 };
 
 export const getRolePermissions = async (roleId: string): Promise<RolePermission | null> => {
@@ -268,20 +236,43 @@ export const revalidateSession = async (): Promise<User> => {
     return user;
 }
 
+
+// --- HEALTHCHECK & DIAGNOSTICS ---
+
 export const checkBotHealth = async (): Promise<any> => {
     if (!supabase) throw new ApiError("Database not configured", 500);
     const { data, error } = await supabase.functions.invoke('check-bot-health');
-    if (error) throw new ApiError(error.message, 500);
-    return data;
+    if (error) {
+        // The function itself might fail to invoke
+        throw new ApiError(error.message, 500);
+    }
+    return data; // Return the full response from the function
 }
 
-export const checkFunctionSecrets = async (): Promise<any> => {
+export const troubleshootUserSync = async (discordId: string): Promise<{ data: any, status: number }> => {
     if (!supabase) throw new ApiError("Database not configured", 500);
-    const { data, error } = await supabase.functions.invoke('check-function-secrets');
-    if (error) throw new ApiError(error.message, 500);
+    const { data, error } = await supabase.functions.invoke('troubleshoot-user-sync', {
+        body: { discordId }
+    });
+
+    if (error) {
+        // This is a network-level error, like the bot being offline (connection refused)
+        return { 
+            data: { error: 'Failed to connect to the bot API.', details: error.message },
+            status: 503 // Service Unavailable
+        };
+    }
+
+    // The function was invoked, but the bot might have returned an error (e.g., 404 Member not found)
+    // The Supabase function is designed to pass through the bot's response and status code.
+    return {
+        data: data.data,
+        status: data.status,
+    };
 };
 
-// --- MOCKED/HEALTHCHECK FUNCTIONS ---
+
+// --- MOCKED/FALLBACK FUNCTIONS ---
 export const getMtaServerStatus = async (): Promise<MtaServerStatus> => {
     const config = await getConfig();
     return {
@@ -294,20 +285,3 @@ export const getMtaPlayerLogs = async (userId: string): Promise<MtaLogEntry[]> =
     console.warn(`getMtaPlayerLogs is mocked for user ID: ${userId}`);
     return Promise.resolve([]);
 };
-export const testDiscordApi = async (session: Session): Promise<string> => { return "Test not implemented for RBAC yet."}
-
-export const troubleshootUserSync = async (discordId: string): Promise<any> => {
-    if (!supabase) throw new ApiError("Database not configured", 500);
-    const { data, error } = await supabase.functions.invoke('troubleshoot-user-sync', { body: { discordId } });
-
-    if (error) {
-      try {
-        // The error object from supabase-js contains the response context
-        const errorBody = await (error as any).context.json();
-        return { status: (error as any).context.status, error: `Function returned status ${(error as any).context.status}`, details: errorBody };
-      } catch (e) {
-        return { status: 500, error: `Function returned status ${(error as any).context.status}`, details: error.message };
-      }
-    }
-    return { status: 200, data };
-}
