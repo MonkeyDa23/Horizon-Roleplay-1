@@ -2,7 +2,6 @@
 
 // @deno-types="https://esm.sh/@supabase/functions-js@2"
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,48 +21,40 @@ serve(async (req) => {
   }
 
   try {
-     const supabaseClient = createClient(
-      // @ts-ignore
-      Deno.env.get('SUPABASE_URL') ?? '',
-      // @ts-ignore
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
-    );
-    const { data: { user } } = await supabaseClient.auth.getUser();
-    if (!user) {
-      return createResponse({ ok: false, message: 'Not authenticated' }, 401);
-    }
-    
+    // These secrets must be set in the Supabase project settings
     // @ts-ignore
-    const botUrl = Deno.env.get('VITE_DISCORD_BOT_URL');
+    const BOT_URL = Deno.env.get('VITE_DISCORD_BOT_URL');
     // @ts-ignore
-    const apiKey = Deno.env.get('VITE_DISCORD_BOT_API_KEY');
+    const BOT_API_KEY = Deno.env.get('VITE_DISCORD_BOT_API_KEY');
 
-    if (!botUrl || !apiKey) {
-      throw new Error("Bot integration is not configured in this function's environment variables.");
+    if (!BOT_URL || !BOT_API_KEY) {
+        return createResponse({
+            error: "Configuration Error in Supabase Secrets.",
+            details: "One or more required secrets (VITE_DISCORD_BOT_URL, VITE_DISCORD_BOT_API_KEY) are missing from your Supabase project settings. Please go to Settings > Edge Functions to add them.",
+        });
     }
     
-    // Fetch the bot's own health check endpoint
-    const botResponse = await fetch(`${botUrl}/bot-status`, {
-      headers: {
-        'Authorization': `Bearer ${apiKey}`
-      }
+    // Perform a health check against the external bot
+    const botResponse = await fetch(`${BOT_URL}/health`, {
+      headers: { 'Authorization': `Bearer ${BOT_API_KEY}` }
     });
 
-    const responseData = await botResponse.json().catch(() => ({ 
-        ok: false,
-        message: `Bot returned a non-JSON response (Status: ${botResponse.status}). Check bot logs for critical errors.`,
-        details: null,
-    }));
+    if (!botResponse.ok) {
+        let errorDetails = `The Supabase function tried to contact your bot at ${BOT_URL} but received an error (Status: ${botResponse.status}). Common causes: the bot is not running, a firewall is blocking the port, or the URL is incorrect.`;
+        return createResponse({ 
+            error: "Could not connect to the Discord Bot.",
+            details: errorDetails 
+        });
+    }
 
-    return createResponse(responseData, 200);
+    const botData = await botResponse.json();
+    return createResponse(botData);
 
   } catch (error) {
-    // This catches network errors, e.g., "Connection refused".
+    // This catches errors like DNS resolution failure, meaning the URL is likely wrong
     return createResponse({ 
-      ok: false,
-      message: 'Failed to connect to the bot API.',
+      error: 'The Supabase function failed to execute. This often means the Bot URL is invalid or unreachable.',
       details: error.message
-    }, 200)
+    })
   }
 })

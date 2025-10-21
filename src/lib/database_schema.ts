@@ -1,16 +1,13 @@
-
-/*
+// FIX: The entire content of this file, which is SQL code, was being parsed as TypeScript, causing numerous errors. It has been wrapped in a template literal and exported as a string constant to resolve these errors.
+export const DATABASE_SCHEMA = `
 -- Vixel Roleplay - Supabase Database Schema
--- Version: 2.0.0
--- Description: This file contains all the SQL commands to set up the database schema,
--- tables, roles, functions, and RLS policies required for the Vixel website.
--- This version introduces a dedicated external Discord bot for all interactions.
+-- Version: 2.5.0 (Bot-Dependent Architecture)
+-- Description: This file contains all the SQL commands to set up the database schema for a system that relies on an external, user-hosted Discord bot for notifications and data fetching.
+-- All Discord API interactions are proxied through Supabase Edge Functions which in turn call the external bot's API.
 -- To use, copy the entire content of this file and run it in the Supabase SQL Editor.
-*/
 
-export const databaseSchema = `
+
 -- Drop existing functions and tables to ensure a clean slate.
--- This is safe to run multiple times.
 DROP FUNCTION IF EXISTS public.get_current_user_roles() CASCADE;
 DROP FUNCTION IF EXISTS public.has_permission(text) CASCADE;
 DROP FUNCTION IF EXISTS public.log_audit_action(text,text) CASCADE;
@@ -40,13 +37,9 @@ DROP TABLE IF EXISTS public.products;
 DROP TABLE IF EXISTS public.profiles;
 DROP TABLE IF EXISTS public.config;
 
--- ========== EXTENSIONS ==========
-CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
-
-
 -- ========== TABLES ==========
 
--- CONFIG: Stores global site configuration
+-- CONFIG: Stores global site configuration. Uses Channel IDs for the bot.
 CREATE TABLE public.config (
     id smallint PRIMARY KEY DEFAULT 1,
     "COMMUNITY_NAME" text NOT NULL DEFAULT 'Vixel',
@@ -224,7 +217,6 @@ DECLARE
   v_payload jsonb;
   v_channel_id text;
   v_full_action text := p_title || ': ' || p_description;
-  v_proxy_url text;
 BEGIN
   -- Log to database
   INSERT INTO public.audit_logs (admin_id, admin_username, admin_discord_id, action)
@@ -232,30 +224,26 @@ BEGIN
 
   -- Send notification to Discord via proxy function
   SELECT "AUDIT_LOG_CHANNEL_ID" INTO v_channel_id FROM public.config WHERE id=1;
-  IF v_channel_id IS NULL THEN RETURN; END IF;
-
+  IF v_channel_id IS NULL OR v_channel_id = '' THEN RETURN; END IF;
+  
   v_payload := jsonb_build_object(
-    'type', 'channel_message',
-    'payload', jsonb_build_object(
-      'channelId', v_channel_id,
+      'type', 'channel',
+      'targetId', v_channel_id,
       'embed', jsonb_build_object(
-        'author', jsonb_build_object('name', v_username),
-        'title', p_title,
-        'description', p_description,
-        'color', 15158332,
-        'timestamp', now()
+          'author', jsonb_build_object('name', v_username),
+          'title', p_title,
+          'description', p_description,
+          'color', 15158332, -- Red
+          'timestamp', now()
       )
-    )
   );
   
-  -- The URL for the discord-proxy function must be set in private.env_vars
-  SELECT value INTO v_proxy_url FROM private.env_vars WHERE name = 'SUPABASE_DISCORD_PROXY_URL';
-  IF v_proxy_url IS NULL THEN RAISE WARNING 'SUPABASE_DISCORD_PROXY_URL is not set'; RETURN; END IF;
-
-  PERFORM net.http_post(
-    url:=v_proxy_url,
-    headers:='{"Content-Type": "application/json", "Authorization": "Bearer ' || (SELECT value FROM private.env_vars WHERE name = 'SUPABASE_SERVICE_ROLE_KEY') || '"}'::jsonb,
-    body:=v_payload
+  PERFORM supabase_functions.http_request(
+    'discord-proxy',
+    'POST',
+    '{"Content-Type":"application/json"}',
+    '{}',
+    v_payload::text
   );
 END;
 $$;
@@ -275,55 +263,27 @@ DECLARE
   payload jsonb;
   v_community_name text;
   v_logo_url text;
-  v_submissions_channel_id text;
-  v_proxy_url text;
+  v_channel_id text;
 BEGIN
-  SELECT "COMMUNITY_NAME", "LOGO_URL", "SUBMISSIONS_CHANNEL_ID" INTO v_community_name, v_logo_url, v_submissions_channel_id FROM public.config WHERE id = 1;
-  SELECT value INTO v_proxy_url FROM private.env_vars WHERE name = 'SUPABASE_DISCORD_PROXY_URL';
-  IF v_proxy_url IS NULL THEN RAISE WARNING 'SUPABASE_DISCORD_PROXY_URL is not set'; RETURN new; END IF;
-  
+  SELECT "COMMUNITY_NAME", "LOGO_URL", "SUBMISSIONS_CHANNEL_ID" INTO v_community_name, v_logo_url, v_channel_id FROM public.config WHERE id = 1;
+
   -- Notify submissions channel if configured
-  IF v_submissions_channel_id IS NOT NULL THEN
+  IF v_channel_id IS NOT NULL AND v_channel_id <> '' THEN
     payload := jsonb_build_object(
-      'type', 'channel_message',
-      'payload', jsonb_build_object(
-        'channelId', v_submissions_channel_id,
-        'embed', jsonb_build_object(
+      'type', 'channel',
+      'targetId', v_channel_id,
+      'embed', jsonb_build_object(
           'author', jsonb_build_object('name', new.username, 'icon_url', (SELECT raw_user_meta_data->>'avatar_url' FROM auth.users WHERE id = new.user_id)),
           'title', 'New Application Submitted',
-          'description', '**' || new.username || '** has submitted an application for **' || new."quizTitle" || '**. An admin can now claim it from the website.',
-          'color', 15105570,
+          'description', format('**%s** has submitted an application for **%s**. An admin can now claim it from the website.', new.username, new."quizTitle"),
+          'color', 15105570, -- Orange
           'footer', jsonb_build_object('text', v_community_name, 'icon_url', v_logo_url),
           'timestamp', new."submittedAt"
-        )
       )
     );
-    PERFORM net.http_post(
-      url:=v_proxy_url,
-      headers:='{"Content-Type": "application/json", "Authorization": "Bearer ' || (SELECT value FROM private.env_vars WHERE name = 'SUPABASE_SERVICE_ROLE_KEY') || '"}'::jsonb,
-      body:=payload
-    );
+    PERFORM supabase_functions.http_request('discord-proxy', 'POST', '{"Content-Type":"application/json"}', '{}', payload::text);
   END IF;
 
-  -- Send DM to user
-  payload := jsonb_build_object(
-      'type', 'dm',
-      'payload', jsonb_build_object(
-          'userId', (SELECT discord_id FROM public.profiles WHERE id = new.user_id),
-          'embed', jsonb_build_object(
-            'title', '✅ Your Application has been Received!',
-            'description', 'Thank you, **' || new.username || '**! We have successfully received your application for **' || new."quizTitle" || '**. Our staff will review it soon. You can check the status on the "My Applications" page on our website.',
-            'color', 5763719,
-            'footer', jsonb_build_object('text', v_community_name, 'icon_url', v_logo_url),
-            'timestamp', now()
-          )
-      )
-  );
-  PERFORM net.http_post(
-    url:=v_proxy_url,
-    headers:='{"Content-Type": "application/json", "Authorization": "Bearer ' || (SELECT value FROM private.env_vars WHERE name = 'SUPABASE_SERVICE_ROLE_KEY') || '"}'::jsonb,
-    body:=payload
-  );
   RETURN new;
 END;
 $$;
@@ -338,7 +298,7 @@ DECLARE
 BEGIN
   IF NOT public.has_permission('admin_permissions') THEN RAISE EXCEPTION 'Forbidden'; END IF;
   
-  v_action_desc := 'Updated permissions for role ID `' || p_role_id || '`. New permissions: `' || array_to_string(p_permissions, ', ') || '`';
+  v_action_desc := 'Updated permissions for role ID \`' || p_role_id || '\`. New permissions: \`' || array_to_string(p_permissions, ', ') || '\`';
   PERFORM public.log_audit_action('🔐 Permissions Updated', v_action_desc);
 
   INSERT INTO public.role_permissions (role_id, permissions) VALUES (p_role_id, p_permissions)
@@ -349,29 +309,15 @@ GRANT EXECUTE ON FUNCTION public.save_role_permissions(text, text[]) TO authenti
 
 CREATE OR REPLACE FUNCTION save_rules(p_rules_data jsonb)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE
-  category_record record;
-  rule_record record;
 BEGIN
   IF NOT public.has_permission('admin_rules') THEN RAISE EXCEPTION 'Forbidden'; END IF;
-  
   PERFORM public.log_audit_action('📚 Rules Updated', 'The server rules have been updated from the admin panel.');
-  
   TRUNCATE TABLE public.rules, public.rule_categories RESTART IDENTITY;
-
-  FOR category_record IN SELECT * FROM jsonb_to_recordset(p_rules_data) AS x(id uuid, "titleKey" text, "order" int)
-  LOOP
-    INSERT INTO public.rule_categories(id, "titleKey", "order") 
-    VALUES (category_record.id, category_record."titleKey", category_record."order");
-
-    FOR rule_record IN SELECT * FROM jsonb_to_recordset(
-        (SELECT rules FROM jsonb_to_record(category_record) AS y(rules jsonb))
-    ) AS z(id uuid, "textKey" text, "order" int)
-    LOOP
-      INSERT INTO public.rules(id, category_id, "textKey", "order")
-      VALUES (rule_record.id, category_record.id, rule_record."textKey", rule_record."order");
-    END LOOP;
-  END LOOP;
+  INSERT INTO public.rule_categories (id, "titleKey", "order")
+  SELECT (d->>'id')::uuid, d->>'titleKey', (d->>'order')::smallint FROM jsonb_array_elements(p_rules_data) d;
+  INSERT INTO public.rules (id, category_id, "textKey", "order")
+  SELECT (r->>'id')::uuid, (d->>'id')::uuid, r->>'textKey', (r->>'order')::smallint
+  FROM jsonb_array_elements(p_rules_data) d, jsonb_array_elements(d->'rules') r;
 END;
 $$;
 GRANT EXECUTE ON FUNCTION public.save_rules(jsonb) TO authenticated;
@@ -381,14 +327,9 @@ CREATE OR REPLACE FUNCTION update_submission_status(p_submission_id uuid, p_stat
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   v_submission record; v_allowed_roles text[]; v_user_roles text[]; v_is_allowed boolean := false; v_is_super_admin boolean := false;
-  v_payload jsonb; v_dm_embed jsonb; v_community_name text; v_logo_url text;
-  v_admin_username text;
-  v_proxy_url text;
+  v_admin_username text := (auth.jwt())->>'user_name';
+  v_user_discord_id text; v_community_name text; v_logo_url text; v_payload jsonb; v_action_title text; v_action_desc text; v_action_color int;
 BEGIN
-  v_admin_username := (auth.jwt())->>'user_name';
-  SELECT "COMMUNITY_NAME", "LOGO_URL" INTO v_community_name, v_logo_url FROM public.config WHERE id = 1;
-  SELECT value INTO v_proxy_url FROM private.env_vars WHERE name = 'SUPABASE_DISCORD_PROXY_URL';
-
   SELECT * INTO v_submission FROM public.submissions WHERE id = p_submission_id;
   IF NOT FOUND THEN RAISE EXCEPTION 'Submission not found'; END IF;
   SELECT "allowedTakeRoles" INTO v_allowed_roles FROM public.quizzes WHERE id = v_submission."quizId";
@@ -401,35 +342,43 @@ BEGIN
 
   IF p_status = 'taken' THEN
     IF v_submission.status != 'pending' THEN RAISE EXCEPTION 'This submission has already been handled.'; END IF;
-    IF NOT v_is_allowed THEN RAISE EXCEPTION 'You do not have permission to handle this application type.'; END IF;
+    IF NOT v_is_allowed THEN RAISE EXCEPTION 'Do not have permission to handle this application type.'; END IF;
     UPDATE public.submissions SET status = 'taken', "adminId" = auth.uid(), "adminUsername" = v_admin_username, "updatedAt" = now() WHERE id = p_submission_id;
-    PERFORM public.log_audit_action('📝 Application Claimed', 'Admin **' || v_admin_username || '** is now reviewing **' || v_submission.username || '''s** application for **' || v_submission."quizTitle" || '**.');
-    v_dm_embed := jsonb_build_object('title', '👀 Your Application is Under Review!', 'description', 'Good news, **' || v_submission.username || '**! Your application for **' || v_submission."quizTitle" || '** is now being reviewed by **' || v_admin_username || '**.', 'color', 3447003);
-  ELSIF p_status = 'accepted' THEN
+    PERFORM public.log_audit_action('📝 Application Claimed', format('Admin **%s** is now reviewing **%s''s** application for **%s**.', v_admin_username, v_submission.username, v_submission."quizTitle"));
+  ELSE
     IF v_submission.status != 'taken' THEN RAISE EXCEPTION 'Submission must be taken before a decision is made.'; END IF;
     IF v_submission."adminId" != auth.uid() AND NOT v_is_super_admin THEN RAISE EXCEPTION 'You are not the assigned handler for this submission.'; END IF;
-    UPDATE public.submissions SET status = 'accepted', "updatedAt" = now() WHERE id = p_submission_id;
-    PERFORM public.log_audit_action('✅ Application Accepted', 'Admin **' || v_admin_username || '** accepted **' || v_submission.username || '''s** application for **' || v_submission."quizTitle" || '**.');
-    v_dm_embed := jsonb_build_object('title', '🎉 Congratulations! Your Application was Accepted!', 'description', 'Excellent news, **' || v_submission.username || '**! Your application for **' || v_submission."quizTitle" || '** has been **accepted**. Please check the relevant channels on Discord for further instructions.', 'color', 5763719);
-  ELSIF p_status = 'refused' THEN
-    IF v_submission.status != 'taken' THEN RAISE EXCEPTION 'Submission must be taken before a decision is made.'; END IF;
-    IF v_submission."adminId" != auth.uid() AND NOT v_is_super_admin THEN RAISE EXCEPTION 'You are not the assigned handler for this submission.'; END IF;
-    UPDATE public.submissions SET status = 'refused', "updatedAt" = now() WHERE id = p_submission_id;
-    PERFORM public.log_audit_action('❌ Application Refused', 'Admin **' || v_admin_username || '** refused **' || v_submission.username || '''s** application for **' || v_submission."quizTitle" || '**.');
-    -- FIX: Changed "Don''t" to "Do not" to avoid potential template literal parsing issues in the frontend.
-    v_dm_embed := jsonb_build_object('title', '📄 Application Update', 'description', 'Hello **' || v_submission.username || '**, after careful review, your application for **' || v_submission."quizTitle" || '** was not accepted at this time. Do not be discouraged! You may be able to re-apply in the future.', 'color', 15548997);
-  ELSE RAISE EXCEPTION 'Invalid status provided.';
-  END IF;
+    UPDATE public.submissions SET status = p_status, "updatedAt" = now() WHERE id = p_submission_id;
 
-  v_dm_embed := v_dm_embed || jsonb_build_object('footer', jsonb_build_object('text', v_community_name, 'icon_url', v_logo_url), 'timestamp', now());
-  v_payload := jsonb_build_object('type', 'dm', 'payload', jsonb_build_object('userId', (SELECT discord_id FROM public.profiles WHERE id = v_submission.user_id), 'embed', v_dm_embed));
+    IF p_status = 'accepted' THEN
+      v_action_title := '✅ Application Accepted';
+      v_action_desc := format('Admin **%s** accepted **%s''s** application for **%s**.', v_admin_username, v_submission.username, v_submission."quizTitle");
+      v_action_color := 5763719; -- Green
+    ELSIF p_status = 'refused' THEN
+      v_action_title := '❌ Application Refused';
+      v_action_desc := format('Admin **%s** refused **%s''s** application for **%s**.', v_admin_username, v_submission.username, v_submission."quizTitle");
+      v_action_color := 15548997; -- Dark Red
+    ELSE RAISE EXCEPTION 'Invalid status provided.';
+    END IF;
+    PERFORM public.log_audit_action(v_action_title, v_action_desc);
 
-  IF v_proxy_url IS NOT NULL THEN
-    PERFORM net.http_post(
-      url:=v_proxy_url,
-      headers:='{"Content-Type": "application/json", "Authorization": "Bearer ' || (SELECT value FROM private.env_vars WHERE name = 'SUPABASE_SERVICE_ROLE_KEY') || '"}'::jsonb,
-      body:=v_payload
-    );
+    -- Send DM to the user
+    SELECT p.discord_id INTO v_user_discord_id FROM public.profiles p WHERE p.id = v_submission.user_id;
+    SELECT "COMMUNITY_NAME", "LOGO_URL" INTO v_community_name, v_logo_url FROM public.config WHERE id=1;
+
+    IF v_user_discord_id IS NOT NULL THEN
+      v_payload := jsonb_build_object(
+        'type', 'dm',
+        'targetId', v_user_discord_id,
+        'embed', jsonb_build_object(
+            'title', format('Your application for "%s" has been updated!', v_submission."quizTitle"),
+            'description', format('Hello %s,\nYour application has been **%s**.\n\nThank you for your interest in our community.', v_submission.username, p_status),
+            'color', v_action_color,
+            'footer', jsonb_build_object('text', v_community_name, 'icon_url', v_logo_url)
+        )
+      );
+      PERFORM supabase_functions.http_request('discord-proxy', 'POST', '{"Content-Type":"application/json"}', '{}', v_payload::text);
+    END IF;
   END IF;
 END;
 $$;
@@ -447,18 +396,4 @@ BEGIN
 END;
 $$;
 GRANT EXECUTE ON FUNCTION public.update_translations(jsonb) TO authenticated;
-
--- Create the private schema if it doesn't exist to store secrets securely.
-CREATE SCHEMA IF NOT EXISTS private;
-
--- Add a private table for storing environment variables securely
-CREATE TABLE IF NOT EXISTS private.env_vars (name text primary key, value text);
-ALTER TABLE private.env_vars ENABLE ROW LEVEL SECURITY;
-
--- IMPORTANT: YOU MUST MANUALLY INSERT YOUR SECRETS INTO THIS TABLE
--- REPLACE THE PLACEHOLDERS WITH YOUR ACTUAL VALUES
--- THIS IS A ONE-TIME SETUP
--- Example:
--- INSERT INTO private.env_vars (name, value) VALUES ('SUPABASE_SERVICE_ROLE_KEY', 'your_actual_service_role_key');
--- INSERT INTO private.env_vars (name, value) VALUES ('SUPABASE_DISCORD_PROXY_URL', 'https://project-ref.supabase.co/functions/v1/discord-proxy');
 `;

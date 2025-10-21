@@ -1,25 +1,32 @@
 {
-  "name": "vixel-discord-bot-api",
-  "version": "1.1.0",
-  "description": "High-performance Discord bot to serve guild roles and other data via a secure API for the Vixel website.",
+  "name": "vixel-discord-bot",
+  "version": "1.0.0",
+  "description": "Backend Discord bot for the Vixel Roleplay website",
   "main": "dist/index.js",
+  "type": "module",
   "scripts": {
-    "start": "node dist/index.js",
     "build": "tsc",
-    "dev": "ts-node-dev src/index.ts"
+    "start": "node dist/index.js",
+    "dev": "tsc -w & nodemon dist/index.js"
   },
-  "author": "Vixel Development",
+  "keywords": [
+    "discord",
+    "bot",
+    "vixel",
+    "roleplay"
+  ],
+  "author": "",
   "license": "ISC",
   "dependencies": {
     "cors": "^2.8.5",
-    "discord.js": "^14.15.3",
+    "discord.js": "^14.15.2",
     "express": "^4.19.2"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/node": "^20.12.12",
-    "ts-node-dev": "^2.0.0",
+    "nodemon": "^3.1.0",
     "typescript": "^5.4.5"
   }
 }

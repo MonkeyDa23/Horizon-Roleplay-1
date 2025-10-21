@@ -1,4 +1,3 @@
-
 import { supabase } from './supabaseClient';
 import type { User, Product, Quiz, QuizSubmission, SubmissionStatus, MtaServerStatus, AuditLogEntry, RuleCategory, AppConfig, MtaLogEntry, UserLookupResult, DiscordAnnouncement, DiscordRole, PermissionKey, RolePermission } from '../types';
 
@@ -62,11 +61,6 @@ export const getTranslations = async (): Promise<Record<string, { ar: string, en
         translationsObject[item.key] = { ar: item.ar, en: item.en };
     }
     return translationsObject;
-};
-
-export const getDiscordAnnouncements = async (): Promise<DiscordAnnouncement[]> => {
-    console.warn('getDiscordAnnouncements is mocked and will return empty data.');
-    return Promise.resolve([]);
 };
 
 // --- USER-SPECIFIC FUNCTIONS ---
@@ -181,7 +175,8 @@ export const getGuildRoles = async (): Promise<DiscordRole[]> => {
     if (!supabase) throw new ApiError("Database not configured", 500);
     const { data, error } = await supabase.functions.invoke('get-guild-roles');
     if (error) throw new ApiError(error.message, 500);
-    return data;
+    if (data.error) throw new ApiError(data.error, 500);
+    return data.roles;
 };
 
 export const getRolePermissions = async (roleId: string): Promise<RolePermission | null> => {
@@ -239,40 +234,34 @@ export const revalidateSession = async (): Promise<User> => {
 
 // --- HEALTHCHECK & DIAGNOSTICS ---
 
-export const checkBotHealth = async (): Promise<any> => {
+export const checkDiscordApiHealth = async (): Promise<any> => {
     if (!supabase) throw new ApiError("Database not configured", 500);
     const { data, error } = await supabase.functions.invoke('check-bot-health');
     if (error) {
-        // The function itself might fail to invoke
         throw new ApiError(error.message, 500);
     }
-    return data; // Return the full response from the function
+    return data;
 }
 
-export const troubleshootUserSync = async (discordId: string): Promise<{ data: any, status: number }> => {
+export const troubleshootUserSync = async (discordId: string): Promise<any> => {
     if (!supabase) throw new ApiError("Database not configured", 500);
     const { data, error } = await supabase.functions.invoke('troubleshoot-user-sync', {
         body: { discordId }
     });
-
-    if (error) {
-        // This is a network-level error, like the bot being offline (connection refused)
-        return { 
-            data: { error: 'Failed to connect to the bot API.', details: error.message },
-            status: 503 // Service Unavailable
-        };
+     if (error) {
+        return { error: 'Failed to invoke Supabase function.', details: error.message };
     }
-
-    // The function was invoked, but the bot might have returned an error (e.g., 404 Member not found)
-    // The Supabase function is designed to pass through the bot's response and status code.
-    return {
-        data: data.data,
-        status: data.status,
-    };
+    return data;
 };
 
 
 // --- MOCKED/FALLBACK FUNCTIONS ---
+// FIX: Added mocked implementation for getDiscordAnnouncements to resolve import error.
+export const getDiscordAnnouncements = async (): Promise<DiscordAnnouncement[]> => {
+    console.warn('getDiscordAnnouncements is mocked and returns an empty array.');
+    return [];
+};
+
 export const getMtaServerStatus = async (): Promise<MtaServerStatus> => {
     const config = await getConfig();
     return {

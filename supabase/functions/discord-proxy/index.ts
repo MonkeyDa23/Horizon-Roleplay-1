@@ -15,7 +15,7 @@ serve(async (req) => {
   }
 
   try {
-    // These variables must be set in the Supabase Function's environment settings.
+    // These variables must be set as a secret in the Supabase project settings.
     // @ts-ignore
     const botUrl = Deno.env.get('VITE_DISCORD_BOT_URL');
     // @ts-ignore
@@ -26,9 +26,10 @@ serve(async (req) => {
       throw new Error("Internal server configuration error.");
     }
     
+    // The database trigger sends the payload in the 'record' property of the body
     const body = await req.json();
 
-    const botResponse = await fetch(`${botUrl}/notify`, {
+    const botResponse = await fetch(`${botUrl}/api/notify`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -57,7 +58,7 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Fatal error in discord-proxy function:', error.message)
-    // Also return 200 OK here for database triggers
+    // Also return 200 OK here for database triggers to prevent them from failing.
     return new Response(JSON.stringify({ success: false, reason: error.message }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,

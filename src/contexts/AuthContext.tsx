@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabaseClient';
 import { fetchUserProfile } from '../lib/api';
 import type { User, AuthContextType, PermissionKey } from '../types';
 import { useToast } from '../hooks/useToast';
-import type { Session } from '@supabase/gotrue-js';
+import type { Session } from '@supabase/supabase-js';
+import { Loader2 } from 'lucide-react';
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -22,7 +23,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } catch (error) {
         console.error("Critical error fetching user profile:", error);
-        showToast("A critical error occurred during login.", 'error');
+        showToast("A critical error occurred during login. The bot may be offline or misconfigured.", 'error');
         await supabase?.auth.signOut();
         setUser(null);
       }
@@ -43,6 +44,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        // Show loading spinner during the user sync process after login
+        if (_event === 'SIGNED_IN') {
+          setLoading(true);
+        }
         handleSession(session);
     });
 
@@ -86,6 +91,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (user.permissions.has('_super_admin')) return true;
     return user.permissions.has(key);
   }, [user]);
+
+  // Render a full-page loader while the initial session is being processed.
+  if (loading && !user) {
+    return (
+       <div className="flex flex-col gap-4 justify-center items-center h-screen w-screen bg-brand-dark">
+        <Loader2 size={48} className="text-brand-cyan animate-spin" />
+        <p className="text-xl text-gray-300">Connecting...</p>
+      </div>
+    );
+  }
 
 
   const value = { user, login, logout, loading, updateUser, hasPermission };
