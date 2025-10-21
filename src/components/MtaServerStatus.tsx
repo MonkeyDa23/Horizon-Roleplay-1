@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useLocalization } from '../hooks/useLocalization';
 import { useConfig } from '../hooks/useConfig';

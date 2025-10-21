@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useLocalization } from '../hooks/useLocalization';
@@ -21,7 +22,8 @@ import {
   saveConfig,
 } from '../lib/api';
 import type { Quiz, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, AppConfig } from '../types';
-import { useNavigate } from 'react-router-dom';
+// FIX: Changed to namespace import to fix module resolution issues.
+import * as ReactRouterDOM from 'react-router-dom';
 import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store, AlertTriangle, Paintbrush } from 'lucide-react';
 import Modal from '../components/Modal';
 
@@ -40,7 +42,7 @@ const AdminPage: React.FC = () => {
   const { user, logout, updateUser, loading: authLoading, hasPermission } = useAuth();
   const { t } = useLocalization();
   const { showToast } = useToast();
-  const navigate = useNavigate();
+  const navigate = ReactRouterDOM.useNavigate();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('submissions');
   

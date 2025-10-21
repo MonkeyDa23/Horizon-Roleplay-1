@@ -1,12 +1,13 @@
 
-// Vixel Roleplay - Supabase Database Schema
-// Version: 2.0.0
-// Description: This file contains all the SQL commands to set up the database schema,
-// tables, roles, functions, and RLS policies required for the Vixel website.
-// This version introduces a dedicated external Discord bot for all interactions.
-// To use, copy the entire content of this file and run it in the Supabase SQL Editor.
+/*
+-- Vixel Roleplay - Supabase Database Schema
+-- Version: 2.0.0
+-- Description: This file contains all the SQL commands to set up the database schema,
+-- tables, roles, functions, and RLS policies required for the Vixel website.
+-- This version introduces a dedicated external Discord bot for all interactions.
+-- To use, copy the entire content of this file and run it in the Supabase SQL Editor.
+*/
 
-// FIX: The SQL content was not valid TypeScript. It has been wrapped in a template literal string to resolve parsing errors.
 export const databaseSchema = `
 -- Drop existing functions and tables to ensure a clean slate.
 -- This is safe to run multiple times.
@@ -222,7 +223,7 @@ DECLARE
   v_discord_id text := (auth.jwt())->'user_metadata'->>'provider_id';
   v_payload jsonb;
   v_channel_id text;
-  v_full_action text := CONCAT(p_title, ': ', p_description);
+  v_full_action text := p_title || ': ' || p_description;
   v_proxy_url text;
 BEGIN
   -- Log to database
@@ -332,9 +333,14 @@ CREATE TRIGGER on_submission_insert
 
 CREATE OR REPLACE FUNCTION save_role_permissions(p_role_id text, p_permissions text[])
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  v_action_desc text;
 BEGIN
   IF NOT public.has_permission('admin_permissions') THEN RAISE EXCEPTION 'Forbidden'; END IF;
-  PERFORM public.log_audit_action('🔐 Permissions Updated', CONCAT('Updated permissions for role ID `', p_role_id, '`. New permissions: `', array_to_string(p_permissions, ', '), '`'));
+  
+  v_action_desc := 'Updated permissions for role ID `' || p_role_id || '`. New permissions: `' || array_to_string(p_permissions, ', ') || '`';
+  PERFORM public.log_audit_action('🔐 Permissions Updated', v_action_desc);
+
   INSERT INTO public.role_permissions (role_id, permissions) VALUES (p_role_id, p_permissions)
   ON CONFLICT (role_id) DO UPDATE SET permissions = EXCLUDED.permissions;
 END;
@@ -397,20 +403,21 @@ BEGIN
     IF v_submission.status != 'pending' THEN RAISE EXCEPTION 'This submission has already been handled.'; END IF;
     IF NOT v_is_allowed THEN RAISE EXCEPTION 'You do not have permission to handle this application type.'; END IF;
     UPDATE public.submissions SET status = 'taken', "adminId" = auth.uid(), "adminUsername" = v_admin_username, "updatedAt" = now() WHERE id = p_submission_id;
-    PERFORM public.log_audit_action('📝 Application Claimed', CONCAT('Admin **', v_admin_username, '** is now reviewing **', v_submission.username, '''s** application for **', v_submission."quizTitle", '**.'));
-    v_dm_embed := jsonb_build_object('title', '👀 Your Application is Under Review!', 'description', CONCAT('Good news, **', v_submission.username, '**! Your application for **', v_submission."quizTitle", '** is now being reviewed by **', v_admin_username, '**.'), 'color', 3447003);
+    PERFORM public.log_audit_action('📝 Application Claimed', 'Admin **' || v_admin_username || '** is now reviewing **' || v_submission.username || '''s** application for **' || v_submission."quizTitle" || '**.');
+    v_dm_embed := jsonb_build_object('title', '👀 Your Application is Under Review!', 'description', 'Good news, **' || v_submission.username || '**! Your application for **' || v_submission."quizTitle" || '** is now being reviewed by **' || v_admin_username || '**.', 'color', 3447003);
   ELSIF p_status = 'accepted' THEN
     IF v_submission.status != 'taken' THEN RAISE EXCEPTION 'Submission must be taken before a decision is made.'; END IF;
     IF v_submission."adminId" != auth.uid() AND NOT v_is_super_admin THEN RAISE EXCEPTION 'You are not the assigned handler for this submission.'; END IF;
     UPDATE public.submissions SET status = 'accepted', "updatedAt" = now() WHERE id = p_submission_id;
-    PERFORM public.log_audit_action('✅ Application Accepted', CONCAT('Admin **', v_admin_username, '** accepted **', v_submission.username, '''s** application for **', v_submission."quizTitle", '**.'));
-    v_dm_embed := jsonb_build_object('title', '🎉 Congratulations! Your Application was Accepted!', 'description', CONCAT('Excellent news, **', v_submission.username, '**! Your application for **', v_submission."quizTitle", '** has been **accepted**. Please check the relevant channels on Discord for further instructions.'), 'color', 5763719);
+    PERFORM public.log_audit_action('✅ Application Accepted', 'Admin **' || v_admin_username || '** accepted **' || v_submission.username || '''s** application for **' || v_submission."quizTitle" || '**.');
+    v_dm_embed := jsonb_build_object('title', '🎉 Congratulations! Your Application was Accepted!', 'description', 'Excellent news, **' || v_submission.username || '**! Your application for **' || v_submission."quizTitle" || '** has been **accepted**. Please check the relevant channels on Discord for further instructions.', 'color', 5763719);
   ELSIF p_status = 'refused' THEN
     IF v_submission.status != 'taken' THEN RAISE EXCEPTION 'Submission must be taken before a decision is made.'; END IF;
     IF v_submission."adminId" != auth.uid() AND NOT v_is_super_admin THEN RAISE EXCEPTION 'You are not the assigned handler for this submission.'; END IF;
     UPDATE public.submissions SET status = 'refused', "updatedAt" = now() WHERE id = p_submission_id;
-    PERFORM public.log_audit_action('❌ Application Refused', CONCAT('Admin **', v_admin_username, '** refused **', v_submission.username, '''s** application for **', v_submission."quizTitle", '**.'));
-    v_dm_embed := jsonb_build_object('title', '📄 Application Update', 'description', CONCAT('Hello **', v_submission.username, '**, after careful review, your application for **', v_submission."quizTitle", '** was not accepted at this time. Don''t be discouraged! You may be able to re-apply in the future.'), 'color', 15548997);
+    PERFORM public.log_audit_action('❌ Application Refused', 'Admin **' || v_admin_username || '** refused **' || v_submission.username || '''s** application for **' || v_submission."quizTitle" || '**.');
+    -- FIX: Changed "Don''t" to "Do not" to avoid potential template literal parsing issues in the frontend.
+    v_dm_embed := jsonb_build_object('title', '📄 Application Update', 'description', 'Hello **' || v_submission.username || '**, after careful review, your application for **' || v_submission."quizTitle" || '** was not accepted at this time. Do not be discouraged! You may be able to re-apply in the future.', 'color', 15548997);
   ELSE RAISE EXCEPTION 'Invalid status provided.';
   END IF;
 

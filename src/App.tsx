@@ -1,6 +1,7 @@
 
 import React, { Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+// FIX: Changed to namespace import to fix module resolution issues.
+import * as ReactRouterDOM from 'react-router-dom';
 import { LocalizationProvider } from './contexts/LocalizationContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
@@ -85,7 +86,7 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <Router>
+    <ReactRouterDOM.BrowserRouter>
       <div 
         className="flex flex-col min-h-screen text-white font-sans"
         style={{ 
@@ -99,37 +100,37 @@ const AppContent: React.FC = () => {
         <div className="flex flex-col min-h-screen relative z-10 bg-brand-dark/90 backdrop-blur-sm">
           <Navbar />
           <main className="flex-grow">
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              {hasPermission('page_store') && <Route path="/store" element={<StorePage />} />}
-              {hasPermission('page_rules') && <Route path="/rules" element={<RulesPage />} />}
-              {hasPermission('page_applies') && <Route path="/applies" element={<AppliesPage />} />}
-              {hasPermission('page_applies') && <Route path="/applies/:quizId" element={<QuizPage />} />}
-              <Route path="/about" element={<AboutUsPage />} />
+            <ReactRouterDOM.Routes>
+              <ReactRouterDOM.Route path="/" element={<HomePage />} />
+              {hasPermission('page_store') && <ReactRouterDOM.Route path="/store" element={<StorePage />} />}
+              {hasPermission('page_rules') && <ReactRouterDOM.Route path="/rules" element={<RulesPage />} />}
+              {hasPermission('page_applies') && <ReactRouterDOM.Route path="/applies" element={<AppliesPage />} />}
+              {hasPermission('page_applies') && <ReactRouterDOM.Route path="/applies/:quizId" element={<QuizPage />} />}
+              <ReactRouterDOM.Route path="/about" element={<AboutUsPage />} />
               {hasPermission('admin_panel') && (
-                <Route path="/admin" element={
+                <ReactRouterDOM.Route path="/admin" element={
                   <Suspense fallback={<div className="flex justify-center items-center h-full w-full py-20"><Loader2 className="animate-spin text-brand-cyan" size={48}/></div>}>
                     <AdminPage />
                   </Suspense>
                 } />
               )}
-              <Route path="/my-applications" element={user ? <MyApplicationsPage /> : <Navigate to="/" />} />
-              <Route path="/profile" element={user ? <ProfilePage /> : <Navigate to="/" />} />
+              <ReactRouterDOM.Route path="/my-applications" element={user ? <MyApplicationsPage /> : <ReactRouterDOM.Navigate to="/" />} />
+              <ReactRouterDOM.Route path="/profile" element={user ? <ProfilePage /> : <ReactRouterDOM.Navigate to="/" />} />
               
               {config.SHOW_HEALTH_CHECK && (
-                <Route 
+                <ReactRouterDOM.Route 
                   path="/health-check" 
                   element={<HealthCheckPage />} 
                 />
               )}
               {/* Fallback route for any undefined paths */}
-              <Route path="*" element={<Navigate to="/" />} />
-            </Routes>
+              <ReactRouterDOM.Route path="*" element={<ReactRouterDOM.Navigate to="/" />} />
+            </ReactRouterDOM.Routes>
           </main>
           <Footer />
         </div>
       </div>
-    </Router>
+    </ReactRouterDOM.BrowserRouter>
   );
 };
 

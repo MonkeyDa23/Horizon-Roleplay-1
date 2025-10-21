@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useLocalization } from '../hooks/useLocalization';
 import { useCart } from '../hooks/useCart';
