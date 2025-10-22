@@ -94,7 +94,12 @@ const AdminPage: React.FC = () => {
                 return;
             }
 
-            if (JSON.stringify(freshUser) !== JSON.stringify(user)) {
+            // More robust check to prevent infinite re-render loops.
+            // Only update the user context if key data has actually changed.
+            const permissionsChanged = user.permissions.size !== freshUser.permissions.size || ![...user.permissions].every(p => freshUser.permissions.has(p));
+            const profileDataChanged = user.username !== freshUser.username || user.avatar !== freshUser.avatar;
+
+            if (permissionsChanged || profileDataChanged) {
                 updateUser(freshUser);
             }
             

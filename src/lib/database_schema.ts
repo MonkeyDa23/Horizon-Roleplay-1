@@ -1,11 +1,8 @@
-// FIX: The entire content of this file, which is SQL code, was being parsed as TypeScript, causing numerous errors. It has been wrapped in a template literal and exported as a string constant to resolve these errors.
-export const DATABASE_SCHEMA = `
+// @ts-nocheck
 -- Vixel Roleplay - Supabase Database Schema
--- Version: 2.5.0 (Bot-Dependent Architecture)
--- Description: This file contains all the SQL commands to set up the database schema for a system that relies on an external, user-hosted Discord bot for notifications and data fetching.
--- All Discord API interactions are proxied through Supabase Edge Functions which in turn call the external bot's API.
--- To use, copy the entire content of this file and run it in the Supabase SQL Editor.
-
+-- Version: 2.5.1 (Bot-Dependent Architecture with Fail-Safes)
+-- Description: This version adds exception handling to all Discord notification calls.
+-- This prevents the entire database transaction from failing if the Discord bot is unreachable or the 'supabase_functions' extension is not enabled.
 
 -- Drop existing functions and tables to ensure a clean slate.
 DROP FUNCTION IF EXISTS public.get_current_user_roles() CASCADE;
@@ -225,39 +222,43 @@ CREATE OR REPLACE FUNCTION log_audit_action(p_title text, p_description text)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   v_user_id uuid := auth.uid();
-  v_username text := (auth.jwt())->>'user_name';
+  v_username text := COALESCE(
+    (auth.jwt())->'user_metadata'->>'full_name',
+    (auth.jwt())->>'user_name'
+  );
   v_discord_id text := (auth.jwt())->'user_metadata'->>'provider_id';
   v_payload jsonb;
   v_channel_id text;
   v_full_action text := p_title || ': ' || p_description;
 BEGIN
-  -- Log to database
+  IF v_user_id IS NULL OR v_username IS NULL THEN
+    RAISE LOG 'log_audit_action called with null user_id or username. Skipping audit log insert.';
+    RETURN;
+  END IF;
+
   INSERT INTO public.audit_logs (admin_id, admin_username, admin_discord_id, action)
   VALUES (v_user_id, v_username, v_discord_id, v_full_action);
 
-  -- Send notification to Discord via proxy function
   SELECT "AUDIT_LOG_CHANNEL_ID" INTO v_channel_id FROM public.config WHERE id=1;
-  IF v_channel_id IS NULL OR v_channel_id = '' THEN RETURN; END IF;
-  
-  v_payload := jsonb_build_object(
-      'type', 'channel',
-      'targetId', v_channel_id,
-      'embed', jsonb_build_object(
-          'author', jsonb_build_object('name', v_username),
-          'title', p_title,
-          'description', p_description,
-          'color', 15158332, -- Red
-          'timestamp', now()
-      )
-  );
-  
-  PERFORM supabase_functions.http_request(
-    'discord-proxy',
-    'POST',
-    '{"Content-Type":"application/json"}',
-    '{}',
-    v_payload::text
-  );
+  IF v_channel_id IS NOT NULL AND v_channel_id <> '' THEN
+    BEGIN
+      v_payload := jsonb_build_object(
+          'type', 'channel',
+          'targetId', v_channel_id,
+          'embed', jsonb_build_object(
+              'author', jsonb_build_object('name', v_username),
+              'title', p_title,
+              'description', p_description,
+              'color', 15158332, -- Red
+              'timestamp', now()
+          )
+      );
+      PERFORM supabase_functions.http_request('discord-proxy', 'POST', '{"Content-Type":"application/json"}', '{}', v_payload::text);
+    EXCEPTION
+        WHEN OTHERS THEN
+            RAISE WARNING 'Failed to send Discord notification in log_audit_action. Error: %', SQLERRM;
+    END;
+  END IF;
 END;
 $$;
 GRANT EXECUTE ON FUNCTION public.log_audit_action(text,text) TO authenticated;
@@ -280,21 +281,25 @@ DECLARE
 BEGIN
   SELECT "COMMUNITY_NAME", "LOGO_URL", "SUBMISSIONS_CHANNEL_ID" INTO v_community_name, v_logo_url, v_channel_id FROM public.config WHERE id = 1;
 
-  -- Notify submissions channel if configured
   IF v_channel_id IS NOT NULL AND v_channel_id <> '' THEN
-    payload := jsonb_build_object(
-      'type', 'channel',
-      'targetId', v_channel_id,
-      'embed', jsonb_build_object(
-          'author', jsonb_build_object('name', new.username, 'icon_url', (SELECT raw_user_meta_data->>'avatar_url' FROM auth.users WHERE id = new.user_id)),
-          'title', 'New Application Submitted',
-          'description', format('**%s** has submitted an application for **%s**. An admin can now claim it from the website.', new.username, new."quizTitle"),
-          'color', 15105570, -- Orange
-          'footer', jsonb_build_object('text', v_community_name, 'icon_url', v_logo_url),
-          'timestamp', new."submittedAt"
-      )
-    );
-    PERFORM supabase_functions.http_request('discord-proxy', 'POST', '{"Content-Type":"application/json"}', '{}', payload::text);
+    BEGIN
+      payload := jsonb_build_object(
+        'type', 'channel',
+        'targetId', v_channel_id,
+        'embed', jsonb_build_object(
+            'author', jsonb_build_object('name', new.username, 'icon_url', (SELECT raw_user_meta_data->>'avatar_url' FROM auth.users WHERE id = new.user_id)),
+            'title', 'New Application Submitted',
+            'description', format('**%s** has submitted an application for **%s**. An admin can now claim it from the website.', new.username, new."quizTitle"),
+            'color', 15105570, -- Orange
+            'footer', jsonb_build_object('text', v_community_name, 'icon_url', v_logo_url),
+            'timestamp', new."submittedAt"
+        )
+      );
+      PERFORM supabase_functions.http_request('discord-proxy', 'POST', '{"Content-Type":"application/json"}', '{}', payload::text);
+    EXCEPTION
+        WHEN OTHERS THEN
+            RAISE WARNING 'Failed to send new submission notification. Error: %', SQLERRM;
+    END;
   END IF;
 
   RETURN new;
@@ -380,17 +385,22 @@ BEGIN
     SELECT "COMMUNITY_NAME", "LOGO_URL" INTO v_community_name, v_logo_url FROM public.config WHERE id=1;
 
     IF v_user_discord_id IS NOT NULL THEN
-      v_payload := jsonb_build_object(
-        'type', 'dm',
-        'targetId', v_user_discord_id,
-        'embed', jsonb_build_object(
-            'title', format('Your application for "%s" has been updated!', v_submission."quizTitle"),
-            'description', format('Hello %s,\nYour application has been **%s**.\n\nThank you for your interest in our community.', v_submission.username, p_status),
-            'color', v_action_color,
-            'footer', jsonb_build_object('text', v_community_name, 'icon_url', v_logo_url)
-        )
-      );
-      PERFORM supabase_functions.http_request('discord-proxy', 'POST', '{"Content-Type":"application/json"}', '{}', v_payload::text);
+      BEGIN
+        v_payload := jsonb_build_object(
+          'type', 'dm',
+          'targetId', v_user_discord_id,
+          'embed', jsonb_build_object(
+              'title', format('Your application for "%s" has been updated!', v_submission."quizTitle"),
+              'description', format('Hello %s,\nYour application has been **%s**.\n\nThank you for your interest in our community.', v_submission.username, p_status),
+              'color', v_action_color,
+              'footer', jsonb_build_object('text', v_community_name, 'icon_url', v_logo_url)
+          )
+        );
+        PERFORM supabase_functions.http_request('discord-proxy', 'POST', '{"Content-Type":"application/json"}', '{}', v_payload::text);
+      EXCEPTION
+        WHEN OTHERS THEN
+          RAISE WARNING 'Failed to send submission status DM. Error: %', SQLERRM;
+      END;
     END IF;
   END IF;
 END;
@@ -409,4 +419,3 @@ BEGIN
 END;
 $$;
 GRANT EXECUTE ON FUNCTION public.update_translations(jsonb) TO authenticated;
-`;
