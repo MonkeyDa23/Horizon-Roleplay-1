@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useLocalization } from '../hooks/useLocalization';
@@ -14,7 +13,6 @@ import {
   getAuditLogs,
   getRules,
   saveRules as apiSaveRules,
-  revalidateSession,
   getProducts,
   saveConfig,
   getGuildRoles,
@@ -44,10 +42,9 @@ const TABS: { id: AdminTab; labelKey: string; icon: React.ElementType; permissio
 ];
 
 const AdminPage: React.FC = () => {
-  const { user, logout, updateUser, loading: authLoading, hasPermission } = useAuth();
+  const { user, loading: authLoading, hasPermission } = useAuth();
   const { t } = useLocalization();
   const { showToast } = useToast();
-  // FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('submissions');
@@ -66,77 +63,49 @@ const AdminPage: React.FC = () => {
 
   const [isTabLoading, setIsTabLoading] = useState(true);
   const [isPageLoading, setIsPageLoading] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const accessLoggedRef = useRef(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Gatekeeper effect to check authorization on page load
+  // Gatekeeper effect to check authorization and set initial state
   useEffect(() => {
-    const gateCheck = async () => {
-        if (authLoading) return;
+    if (authLoading) return;
 
-        if (!user || !hasPermission('admin_panel')) {
-            navigate('/');
-            return;
+    if (!user || !hasPermission('admin_panel')) {
+      navigate('/');
+      return;
+    }
+    
+    // This effect runs only once after the user is confirmed to be an admin.
+    if (isInitialLoad) {
+        if (!accessLoggedRef.current) {
+            logAdminAccess().catch(err => console.error("Failed to log admin access:", err));
+            accessLoggedRef.current = true;
+        }
+
+        const firstAllowedTab = TABS.find(tab => hasPermission(tab.permission as any));
+        if (firstAllowedTab) {
+            setActiveTab(firstAllowedTab.id);
         }
         
-        // Don't set page loading to true here to avoid full-screen loader
-
-        try {
-            const freshUser = await revalidateSession();
-            
-            const hasAdminAccess = freshUser.permissions.has('admin_panel') || freshUser.permissions.has('_super_admin');
-
-            if (!hasAdminAccess) {
-                showToast(t('admin_revoked'), 'error');
-                updateUser(freshUser);
-                navigate('/');
-                return;
-            }
-
-            // More robust check to prevent infinite re-render loops.
-            const permissionsChanged = user.permissions.size !== freshUser.permissions.size || ![...user.permissions].every(p => freshUser.permissions.has(p));
-            const profileDataChanged = user.username !== freshUser.username || user.avatar !== freshUser.avatar;
-
-            if (permissionsChanged || profileDataChanged) {
-                updateUser(freshUser);
-            }
-            
-            if (!accessLoggedRef.current) {
-                await logAdminAccess();
-                accessLoggedRef.current = true;
-            }
-            
-            const firstAllowedTab = TABS.find(tab => freshUser.permissions.has(tab.permission) || freshUser.permissions.has('_super_admin'));
-            if(firstAllowedTab) setActiveTab(firstAllowedTab.id);
-
-            setIsAuthorized(true);
-        } catch (error) {
-            console.error("Admin access check failed", error);
-            if (error instanceof ApiError && (error.status === 401 || error.status === 403 || error.status === 404)) {
-                showToast(t('admin_permissions_error'), "error");
-                logout();
-            } else {
-                showToast(t('admin_session_error_warning'), "warning");
-                setIsAuthorized(true); 
-            }
-        } finally {
-            setIsPageLoading(false);
-        }
-    };
-
-    gateCheck();
-  }, [user, authLoading, navigate, logout, showToast, t, hasPermission, updateUser]);
+        setIsAuthorized(true);
+        setIsPageLoading(false);
+        setIsInitialLoad(false); // Prevent this from running on subsequent re-renders
+    }
+  }, [user, authLoading, navigate, hasPermission, isInitialLoad]);
 
 
+  // Data fetching effect based on the active tab
   useEffect(() => {
-    if (!isAuthorized || !user || isPageLoading) return;
+    if (!isAuthorized) return;
 
     const fetchDataForTab = async () => {
         setIsTabLoading(true);
         try {
             const currentTabPermission = TABS.find(t => t.id === activeTab)?.permission;
             if (currentTabPermission && !hasPermission(currentTabPermission as any)) {
+                // If permissions changed and current tab is no longer allowed, switch to the first available one.
                 const firstAllowedTab = TABS.find(t => hasPermission(t.permission as any));
                 setActiveTab(firstAllowedTab?.id || 'submissions');
                 return;
@@ -158,7 +127,7 @@ const AdminPage: React.FC = () => {
     };
 
     fetchDataForTab();
-  }, [activeTab, isAuthorized, isPageLoading, showToast, user, hasPermission]);
+  }, [activeTab, isAuthorized, showToast, user, hasPermission]);
 
   const refreshSubmissions = useCallback(async () => {
       if (!user) return;
@@ -215,8 +184,7 @@ const AdminPage: React.FC = () => {
       }
   };
 
-  if (isPageLoading && !isAuthorized) {
-    // Show a minimal loader only during the very initial check
+  if (isPageLoading) {
     return (
         <div className="flex flex-col gap-4 justify-center items-center h-[calc(100vh-200px)] w-full">
             <Loader2 size={48} className="text-brand-cyan animate-spin" />
@@ -252,7 +220,7 @@ const AdminPage: React.FC = () => {
   };
   
   const TabContent: React.FC<{children: React.ReactNode}> = ({ children }) => {
-      if (isTabLoading || (isPageLoading && isAuthorized)) {
+      if (isTabLoading) {
         return (
             <div className="flex flex-col gap-4 justify-center items-center py-20 min-h-[300px]">
                 <Loader2 size={40} className="text-brand-cyan animate-spin" />
@@ -569,32 +537,22 @@ const AdminPage: React.FC = () => {
     <div className="container mx-auto px-6 py-16">
       <div className="text-center mb-12"><div className="inline-block p-4 bg-brand-light-blue rounded-full mb-4"><UserCog className="text-brand-cyan" size={48} /></div><h1 className="text-4xl md:text-5xl font-bold mb-4">{t('page_title_admin')}</h1></div>
       <div className="max-w-6xl mx-auto">
-        {!isAuthorized ? (
-          <div className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-300 p-6 rounded-lg text-center">
-            <AlertTriangle className="mx-auto mb-4" size={40} />
-            <h2 className="text-xl font-bold mb-2">Session Warning</h2>
-            <p>{t('admin_session_error_warning')}</p>
-          </div>
-        ) : (
-          <>
-          <div className="flex border-b border-brand-light-blue/50 mb-6 overflow-x-auto">
-              {visibleTabs.map((tab) => (
-                  <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`py-3 px-6 font-bold flex-shrink-0 flex items-center gap-2 transition-colors ${activeTab === tab.id ? 'text-brand-cyan border-b-2 border-brand-cyan' : 'text-gray-400 hover:text-brand-cyan'}`}><tab.icon size={18}/> {t(tab.labelKey)}</button>
-              ))}
-          </div>
-          <TabContent>
-            {activeTab === 'submissions' && hasPermission('admin_submissions') && <SubmissionsPanel />}
-            {activeTab === 'quizzes' && hasPermission('admin_quizzes') && <QuizzesPanel />}
-            {activeTab === 'rules' && hasPermission('admin_rules') && <RulesPanel />}
-            {activeTab === 'store' && hasPermission('admin_store') && <StorePanel />}
-            {activeTab === 'appearance' && hasPermission('admin_appearance') && <AppearancePanel />}
-            {activeTab === 'translations' && hasPermission('admin_translations') && <TranslationsPanel />}
-            {activeTab === 'permissions' && hasPermission('admin_permissions') && <PermissionsPanel />}
-            {activeTab === 'lookup' && hasPermission('admin_lookup') && <UserLookupPanel />}
-            {activeTab === 'audit' && hasPermission('admin_audit_log') && <AuditLogPanel />}
-          </TabContent>
-          </>
-        )}
+        <div className="flex border-b border-brand-light-blue/50 mb-6 overflow-x-auto">
+            {visibleTabs.map((tab) => (
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`py-3 px-6 font-bold flex-shrink-0 flex items-center gap-2 transition-colors ${activeTab === tab.id ? 'text-brand-cyan border-b-2 border-brand-cyan' : 'text-gray-400 hover:text-brand-cyan'}`}><tab.icon size={18}/> {t(tab.labelKey)}</button>
+            ))}
+        </div>
+        <TabContent>
+          {activeTab === 'submissions' && hasPermission('admin_submissions') && <SubmissionsPanel />}
+          {activeTab === 'quizzes' && hasPermission('admin_quizzes') && <QuizzesPanel />}
+          {activeTab === 'rules' && hasPermission('admin_rules') && <RulesPanel />}
+          {activeTab === 'store' && hasPermission('admin_store') && <StorePanel />}
+          {activeTab === 'appearance' && hasPermission('admin_appearance') && <AppearancePanel />}
+          {activeTab === 'translations' && hasPermission('admin_translations') && <TranslationsPanel />}
+          {activeTab === 'permissions' && hasPermission('admin_permissions') && <PermissionsPanel />}
+          {activeTab === 'lookup' && hasPermission('admin_lookup') && <UserLookupPanel />}
+          {activeTab === 'audit' && hasPermission('admin_audit_log') && <AuditLogPanel />}
+        </TabContent>
       </div>
       
       {editingQuiz && <Modal isOpen={!!editingQuiz} onClose={() => setEditingQuiz(null)} title={editingQuiz.id ? t('edit_quiz') : t('create_new_quiz')}>
