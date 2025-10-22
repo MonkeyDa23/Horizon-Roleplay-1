@@ -1,3 +1,4 @@
+
 // FIX: Added 'Role' to imports to provide explicit type information.
 import { Client, GatewayIntentBits, Partials, TextChannel, EmbedBuilder, Role } from 'discord.js';
 // FIX: Explicitly import Request, Response, and NextFunction types from express to resolve type errors.
@@ -41,7 +42,7 @@ app.use(cors());
 app.use(express.json());
 
 // API Key Authentication Middleware
-// FIX: Used aliased types for Express Request and Response.
+// FIX: Used aliased types for Express Request, Response, and NextFunction to ensure correct type inference.
 const authenticate = (req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -57,7 +58,7 @@ const authenticate = (req: ExpressRequest, res: ExpressResponse, next: NextFunct
 // --- API ENDPOINTS ---
 
 // Health check endpoint
-// FIX: Explicitly typed request and response objects.
+// FIX: Explicitly typed request and response objects to resolve overload and property access errors.
 app.get('/health', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
     try {
         const guild = await client.guilds.fetch(DISCORD_GUILD_ID);

@@ -72,7 +72,7 @@ serve(async (req) => {
     const { data: profile } = await supabaseAdmin.from('profiles').select('discord_id, roles, highest_role, last_synced_at').eq('id', userId).maybeSingle();
 
     if (!force && profile?.last_synced_at && (new Date().getTime() - new Date(profile.last_synced_at).getTime() < CACHE_TTL_MS)) {
-      const userRoleIds = (profile.roles || []).map((r: any) => r.id);
+      const userRoleIds = (profile.roles || []).map((r: any) => r.id).filter(Boolean);
       const finalPermissions = new Set<string>();
       if (userRoleIds.length > 0) {
         const { data: permsData } = await supabaseAdmin.from('role_permissions').select('permissions').in('role_id', userRoleIds);
@@ -102,7 +102,7 @@ serve(async (req) => {
     let finalAvatar = authUser.user_metadata?.avatar_url;
     let finalRoles: any[] = profile?.roles || []; 
     let finalHighestRole: any | null = profile?.highest_role || null;
-    let memberRoleIds: string[] = (profile?.roles || []).map((r: any) => r.id);
+    let memberRoleIds: string[] = (profile?.roles || []).map((r: any) => r.id).filter(Boolean);
 
     try {
       // Fetch member data from our external bot
@@ -120,7 +120,7 @@ serve(async (req) => {
       finalHighestRole = memberData.highestRole;
       finalUsername = memberData.username;
       finalAvatar = memberData.avatar;
-      memberRoleIds = finalRoles.map(r => r.id);
+      memberRoleIds = (finalRoles || []).map(r => r.id).filter(Boolean);
 
     } catch (e) {
       syncError = `Could not sync with Bot API: ${e.message}. Displaying last known data. This often means the bot is offline or the 'Server Members Intent' is disabled.`;

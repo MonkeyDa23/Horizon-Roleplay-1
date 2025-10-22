@@ -1,190 +1,109 @@
-import React, { createContext, useState, useEffect } from 'react';
-import type { User, AuthContextType } from '../types';
-import { Loader } from 'lucide-react';
+import React, { createContext, useState, useEffect, useCallback } from 'react';
+import { supabase } from '../lib/supabaseClient';
+import { fetchUserProfile } from '../lib/api';
+import type { User, AuthContextType, PermissionKey } from '../types';
+import { useToast } from '../hooks/useToast';
+import type { Session } from '@supabase/supabase-js';
+import { Loader2 } from 'lucide-react';
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// --- Discord OAuth2 Configuration ---
-const DISCORD_CLIENT_ID = '1423341328355295394';
-// Use the window's origin to dynamically set the redirect URI.
-// This makes the login work on localhost, Vercel, or any other hosting.
-const REDIRECT_URI = window.location.origin;
-// Add 'guilds.members.read' to request role information
-const OAUTH_SCOPES = 'identify guilds.members.read';
-const DISCORD_GUILD_ID = '1422936346233933980'; // <-- IMPORTANT: Replace with your actual Guild ID
-const MOCK_ADMIN_ID = "1423683069893673050"; 
-
-// --- MOCK PERMISSION DATA ---
-// In the Discord API, permissions are a bitfield. 0x8 is the ADMINISTRATOR flag.
-const PERMISSIONS = {
-  ADMINISTRATOR: (1 << 3), // 8 or 0x8
-  STANDARD_USER: 0,
-};
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [isAuthCallback, setIsAuthCallback] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const { showToast } = useToast();
+
+  const handleSession = useCallback(async (session: Session | null) => {
+    if (session) {
+      try {
+        const { user: fullUserProfile, syncError } = await fetchUserProfile();
+        setUser(fullUserProfile);
+        if (syncError) {
+            showToast(`Warning: ${syncError}`, 'warning');
+        }
+      } catch (error) {
+        console.error("Critical error fetching user profile:", error);
+        showToast("A critical error occurred during login. The bot may be offline or misconfigured.", 'error');
+        await supabase?.auth.signOut();
+        setUser(null);
+      }
+    } else {
+      setUser(null);
+    }
+    setLoading(false);
+  }, [showToast]);
 
   useEffect(() => {
-    const handleAuthCallback = async () => {
-      const params = new URLSearchParams(window.location.search);
-      const code = params.get('code');
-      const state = params.get('state');
-      
-      if (window.opener && code && state) {
-        setIsAuthCallback(true);
-        
-        try {
-          const storedState = sessionStorage.getItem('oauth_state');
-
-          if (state === storedState) {
-            sessionStorage.removeItem('oauth_state');
-
-            // --- MOCK API CALLS ---
-            // This entire block simulates what a secure backend server should do.
-            try {
-              // 1. Mock fetch user's basic identity (/users/@me)
-              await new Promise(resolve => setTimeout(resolve, 500));
-              const mockBasicUser = {
-                id: MOCK_ADMIN_ID,
-                username: 'AdminUser',
-                avatar: '1a2b3c4d5e6f7g8h9i0j', // Just an example hash
-              };
-
-              // 2. Mock fetch user's roles in your specific guild
-              await new Promise(resolve => setTimeout(resolve, 500));
-              
-              let userIsAdmin = false;
-              if (mockBasicUser.id === MOCK_ADMIN_ID) {
-                  const mockGuildMember = { roles: ['role_admin_123'] };
-                  const mockGuildRoles = [
-                      { id: 'role_admin_123', name: 'Server Admin', permissions: PERMISSIONS.ADMINISTRATOR.toString() },
-                      { id: 'role_member_456', name: 'Member', permissions: PERMISSIONS.STANDARD_USER.toString() },
-                  ];
-
-                  for (const userRoleId of mockGuildMember.roles) {
-                      const roleDetails = mockGuildRoles.find(r => r.id === userRoleId);
-                      if (roleDetails) {
-                          const permissions = parseInt(roleDetails.permissions, 10);
-                          if ((permissions & PERMISSIONS.ADMINISTRATOR) === PERMISSIONS.ADMINISTRATOR) {
-                              userIsAdmin = true;
-                              break; 
-                          }
-                      }
-                  }
-              }
-
-              // 5. Construct final user object
-              const finalUser: User = {
-                  id: mockBasicUser.id,
-                  username: mockBasicUser.username,
-                  avatar: `https://cdn.discordapp.com/avatars/${mockBasicUser.id}/${mockBasicUser.avatar}.png`,
-                  isAdmin: userIsAdmin,
-              };
-              window.opener.postMessage({ type: 'auth-success', user: finalUser }, window.location.origin);
-            } catch (e) {
-              window.opener.postMessage({ type: 'auth-error', error: 'Failed to fetch user data.' }, window.location.origin);
-            }
-          
-          } else if (params.has('error')) {
-            const error = params.get('error_description') || 'An unknown error occurred.';
-            window.opener.postMessage({ type: 'auth-error', error }, window.location.origin);
-          }
-        } catch (error) {
-          console.error("Session Storage is not available.", error);
-          window.opener.postMessage({ type: 'auth-error', error: 'Session Storage is not available.' }, window.location.origin);
-        } finally {
-          window.close();
-        }
-      }
-    };
-    
-    if (window.location.search.includes('code=')) {
-      handleAuthCallback();
+    if (!supabase) {
+        setLoading(false);
+        return;
     }
-  }, []);
 
-  const login = () => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+        handleSession(session);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        // Show loading spinner during the user sync process after login
+        if (_event === 'SIGNED_IN') {
+          setLoading(true);
+        }
+        handleSession(session);
+    });
+
+    return () => {
+        subscription?.unsubscribe();
+    };
+  }, [handleSession]);
+  
+  const login = async () => {
+    if (!supabase) {
+        alert("Login is not configured. Please add Supabase environment variables.");
+        return;
+    }
     setLoading(true);
-    try {
-      const state = Math.random().toString(36).substring(7);
-      sessionStorage.setItem('oauth_state', state);
-
-      const params = new URLSearchParams({
-        client_id: DISCORD_CLIENT_ID,
-        redirect_uri: REDIRECT_URI,
-        response_type: 'code',
-        scope: OAUTH_SCOPES,
-        state: state,
-        prompt: 'consent' 
-      });
-      
-      const discordAuthUrl = `https://discord.com/oauth2/authorize?${params.toString()}`;
-      const width = 500;
-      const height = 800;
-      const left = window.screen.width / 2 - width / 2;
-      const top = window.screen.height / 2 - height / 2;
-      
-      const popup = window.open(
-        discordAuthUrl,
-        'DiscordAuth',
-        `width=${width},height=${height},left=${left},top=${top},resizable=yes,scrollbars=yes`
-      );
-
-      if (popup) {
-        const timer = setInterval(() => {
-          if (popup.closed) {
-            clearInterval(timer);
-            setLoading(false);
-          }
-        }, 500);
-      } else {
-        alert("Popup was blocked. Please allow popups for this site to log in.");
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'discord',
+      options: {
+        scopes: 'identify guilds.members.read',
+      },
+    });
+    if (error) {
+        console.error("Error logging in:", error.message);
+        alert(`Login failed: ${error.message}`);
         setLoading(false);
-      }
-    } catch (error) {
-      console.error("Session Storage is not available.", error);
-      alert("Login failed: Session Storage is disabled in your browser.");
-      setLoading(false);
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    if (!supabase) return;
     setUser(null);
+    await supabase.auth.signOut();
+  };
+  
+  const updateUser = (newUser: User) => {
+    setUser(newUser);
   };
 
-  useEffect(() => {
-    const handleAuthMessage = (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
-      const { type, user, error } = event.data;
+  const hasPermission = useCallback((key: PermissionKey): boolean => {
+    if (!user) return false;
+    // Super admin has all permissions implicitly
+    if (user.permissions.has('_super_admin')) return true;
+    return user.permissions.has(key);
+  }, [user]);
 
-      if (type === 'auth-success' && user) {
-        setUser(user);
-        setLoading(false);
-        if (window.location.search.includes('code=')) {
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }
-      } else if (type === 'auth-error') {
-        console.error("Discord OAuth Error:", error);
-        setLoading(false);
-      }
-    };
-
-    window.addEventListener('message', handleAuthMessage);
-    return () => window.removeEventListener('message', handleAuthMessage);
-  }, []);
-
-  if (isAuthCallback) {
+  // Render a full-page loader while the initial session is being processed.
+  if (loading && !user) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen w-screen bg-brand-dark">
-        <Loader size={48} className="text-brand-cyan animate-spin" />
-        <p className="mt-4 text-white text-lg">Processing login...</p>
-        <p className="text-gray-400">Please wait, this window will close automatically.</p>
+       <div className="flex flex-col gap-4 justify-center items-center h-screen w-screen bg-brand-dark">
+        <Loader2 size={48} className="text-brand-cyan animate-spin" />
+        <p className="text-xl text-gray-300">Connecting...</p>
       </div>
     );
   }
 
-  const value = { user, login, logout, loading };
+
+  const value = { user, login, logout, loading, updateUser, hasPermission };
+
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

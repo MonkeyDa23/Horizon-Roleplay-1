@@ -1,3 +1,4 @@
+
 export type Language = 'ar' | 'en';
 
 export interface Translations {
@@ -13,11 +14,31 @@ export interface LocalizationContextType {
   dir: 'rtl' | 'ltr';
 }
 
+// FIX: Added PermissionKey type definition, which was missing.
+export type PermissionKey =
+  | '_super_admin'
+  | 'page_store'
+  | 'page_rules'
+  | 'page_applies'
+  | 'admin_panel'
+  | 'admin_submissions'
+  | 'admin_quizzes'
+  | 'admin_rules'
+  | 'admin_store'
+  | 'admin_translations'
+  | 'admin_appearance'
+  | 'admin_audit_log'
+  | 'admin_permissions'
+  | 'admin_lookup';
+
+
 export interface User {
   id: string;
   username: string;
   avatar: string;
   isAdmin: boolean;
+  // FIX: Added 'permissions' property to the User interface to match its usage in AuthContext.
+  permissions: Set<PermissionKey>;
 }
 
 export interface AuthContextType {
@@ -25,6 +46,9 @@ export interface AuthContextType {
   login: () => void;
   logout: () => void;
   loading: boolean;
+  // FIX: Added 'updateUser' and 'hasPermission' to match the implementation in AuthProvider.
+  updateUser: (user: User) => void;
+  hasPermission: (key: PermissionKey) => boolean;
 }
 
 // Store & Cart
