@@ -7,21 +7,21 @@ import { useLocalization } from '../src/hooks/useLocalization';
 // FIX: Switched from mockData to asynchronous API call
 import { getSubmissionsByUserId } from '../src/lib/api';
 import type { QuizSubmission, SubmissionStatus } from '../src/types';
-// FIX: Downgraded from react-router-dom v6 `useNavigate` to v5 `useHistory`.
-import { useHistory } from 'react-router-dom';
+// FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
+import { useNavigate } from 'react-router-dom';
 import { FileText, Loader2 } from 'lucide-react';
 
 const MyApplicationsPage: React.FC = () => {
   const { user } = useAuth();
   const { t } = useLocalization();
-  // FIX: Downgraded from react-router-dom v6 `useNavigate` to v5 `useHistory`.
-  const history = useHistory();
+  // FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
+  const navigate = useNavigate();
   const [submissions, setSubmissions] = useState<QuizSubmission[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) {
-      history.push('/');
+      navigate('/');
       return;
     }
 
@@ -39,7 +39,7 @@ const MyApplicationsPage: React.FC = () => {
     
     fetchSubmissions();
     
-  }, [user, history]);
+  }, [user, navigate]);
   
   const renderStatusBadge = (status: SubmissionStatus) => {
     const statusMap = {

@@ -5,8 +5,8 @@ import { useLocalization } from '../hooks/useLocalization';
 import { getSubmissionsByUserId } from '../lib/api';
 import type { QuizSubmission, SubmissionStatus } from '../types';
 // FIX: Switched from a namespace import to named imports to resolve component errors.
-// FIX: Downgraded from react-router-dom v6 `useNavigate` to v5 `useHistory`.
-import { useHistory } from 'react-router-dom';
+// FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
+import { useNavigate } from 'react-router-dom';
 import { FileText, Loader2 } from 'lucide-react';
 import { useConfig } from '../hooks/useConfig';
 import SEO from '../components/SEO';
@@ -14,8 +14,8 @@ import SEO from '../components/SEO';
 const MyApplicationsPage: React.FC = () => {
   const { user } = useAuth();
   const { t } = useLocalization();
-  // FIX: Downgraded from react-router-dom v6 `useNavigate` to v5 `useHistory`.
-  const history = useHistory();
+  // FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
+  const navigate = useNavigate();
   const { config } = useConfig();
   const communityName = config.COMMUNITY_NAME;
   const [submissions, setSubmissions] = useState<QuizSubmission[]>([]);
@@ -23,7 +23,7 @@ const MyApplicationsPage: React.FC = () => {
 
   useEffect(() => {
     if (!user) {
-      history.push('/');
+      navigate('/');
       return;
     }
 
@@ -41,7 +41,7 @@ const MyApplicationsPage: React.FC = () => {
     
     fetchSubmissions();
     
-  }, [user, history]);
+  }, [user, navigate]);
   
   const renderStatusBadge = (status: SubmissionStatus) => {
     const statusMap = {

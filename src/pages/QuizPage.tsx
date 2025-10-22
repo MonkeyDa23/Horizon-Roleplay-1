@@ -1,8 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-// FIX: Switched from a namespace import to named imports to resolve component errors.
-// FIX: Downgraded from react-router-dom v6 `useNavigate` to v5 `useHistory`.
-import { useParams, useHistory } from 'react-router-dom';
+// FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
+import { useParams, useNavigate } from 'react-router-dom';
 import { useLocalization } from '../hooks/useLocalization';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
@@ -53,8 +52,8 @@ const CircularTimer: React.FC<{ timeLeft: number; timeLimit: number }> = ({ time
 
 const QuizPage: React.FC = () => {
   const { quizId } = useParams<{ quizId: string }>();
-  // FIX: Downgraded from react-router-dom v6 `useNavigate` to v5 `useHistory`.
-  const history = useHistory();
+  // FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
+  const navigate = useNavigate();
   const { t } = useLocalization();
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -74,8 +73,8 @@ const QuizPage: React.FC = () => {
   const [finalCheatLog, setFinalCheatLog] = useState<CheatAttempt[]>([]);
 
   useEffect(() => {
-    if (!user) { history.push('/applies'); return; }
-    if (!quizId) { history.push('/applies'); return; }
+    if (!user) { navigate('/applies'); return; }
+    if (!quizId) { navigate('/applies'); return; }
 
     const fetchQuiz = async () => {
         setIsLoading(true);
@@ -86,16 +85,16 @@ const QuizPage: React.FC = () => {
               setTimeLeft(fetchedQuiz.questions[0].timeLimit);
               setQuizState('rules');
           } else {
-              history.push('/applies');
+              navigate('/applies');
           }
         } catch (error) { 
             console.error(`Failed to fetch quiz ${quizId}`, error); 
-            history.push('/applies');
+            navigate('/applies');
         } finally { setIsLoading(false); }
     }
     
     fetchQuiz();
-  }, [quizId, history, user]);
+  }, [quizId, navigate, user]);
   
   const handleSubmit = useCallback(async (finalAnswers: Answer[]) => {
     if (!quiz || !user || isSubmitting) return;
@@ -174,18 +173,11 @@ const QuizPage: React.FC = () => {
             handleCheat(t('cheat_method_switched_tab'));
         }
     };
-    const handleBlur = () => {
-        if (document.visibilityState === 'hidden') {
-           handleCheat(t('cheat_method_lost_focus'));
-        }
-    };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('blur', handleBlur);
 
     return () => {
         document.removeEventListener('visibilitychange', handleVisibilityChange);
-        window.removeEventListener('blur', handleBlur);
     };
   }, [quizState, quiz, showToast, t]);
   
@@ -229,7 +221,7 @@ const QuizPage: React.FC = () => {
               )}
           </div>
 
-          <button onClick={() => history.push('/my-applications')} className="mt-10 px-8 py-3 bg-brand-cyan text-brand-dark font-bold rounded-lg hover:bg-white transition-colors">
+          <button onClick={() => navigate('/my-applications')} className="mt-10 px-8 py-3 bg-brand-cyan text-brand-dark font-bold rounded-lg hover:bg-white transition-colors">
               {t('view_my_applications')}
           </button>
         </div>

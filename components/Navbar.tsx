@@ -43,9 +43,9 @@ const Navbar: React.FC = () => {
                 key={link.to}
                 to={link.to}
                 className="text-gray-300 hover:text-brand-cyan transition-colors duration-300 font-medium"
-                // FIX: Replaced v6 `style` prop with v5 `activeStyle` and `exact` props.
-                activeStyle={activeLinkStyle}
-                exact={link.to === '/'}
+                // FIX: Upgraded to react-router-dom v6 syntax. 'activeStyle' is replaced by 'style' prop with a function. 'exact' is replaced by 'end'.
+                style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
+                end={link.to === '/'}
               >
                 {link.text}
               </NavLink>

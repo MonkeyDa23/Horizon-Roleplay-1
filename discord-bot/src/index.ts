@@ -2,8 +2,7 @@
 // FIX: Added 'Role' to imports to provide explicit type information.
 import { Client, GatewayIntentBits, Partials, TextChannel, EmbedBuilder, Role } from 'discord.js';
 // FIX: Switched to a default import for express and used qualified types (e.g., `express.Request`) to resolve conflicts with global types and fix numerous property access errors.
-// FIX: Using named imports for express types to resolve type errors.
-import express, { Request, Response, NextFunction } from 'express';
+import express from 'express';
 import cors from 'cors';
 import { readFileSync } from 'fs';
 import path from 'path';
@@ -42,8 +41,8 @@ app.use(cors());
 app.use(express.json());
 
 // API Key Authentication Middleware
-// FIX: Corrected express type annotations from express.Request/Response to Request/Response.
-const authenticate = (req: Request, res: Response, next: NextFunction) => {
+// FIX: Using qualified `express` types to avoid conflicts with global types.
+const authenticate = (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({ error: 'Unauthorized: Missing Authorization header' });
@@ -58,8 +57,8 @@ const authenticate = (req: Request, res: Response, next: NextFunction) => {
 // --- API ENDPOINTS ---
 
 // Health check endpoint
-// FIX: Corrected express type annotations from express.Request/Response to Request/Response.
-app.get('/health', authenticate, async (req: Request, res: Response) => {
+// FIX: Using qualified `express` types to avoid conflicts with global types.
+app.get('/health', authenticate, async (req: express.Request, res: express.Response) => {
     try {
         const guild = await client.guilds.fetch(DISCORD_GUILD_ID);
         // Force fetch members to check intent
@@ -86,8 +85,8 @@ app.get('/health', authenticate, async (req: Request, res: Response) => {
 
 
 // Get a specific user's profile
-// FIX: Corrected express type annotations from express.Request/Response to Request/Response.
-app.get('/api/user/:userId', authenticate, async (req: Request, res: Response) => {
+// FIX: Using qualified `express` types to avoid conflicts with global types.
+app.get('/api/user/:userId', authenticate, async (req: express.Request, res: express.Response) => {
     const { userId } = req.params;
     try {
         const guild = await client.guilds.fetch(DISCORD_GUILD_ID);
@@ -138,8 +137,8 @@ app.get('/api/user/:userId', authenticate, async (req: Request, res: Response) =
 
 
 // Get all roles in the guild
-// FIX: Corrected express type annotations from express.Request/Response to Request/Response.
-app.get('/api/roles', authenticate, async (req: Request, res: Response) => {
+// FIX: Using qualified `express` types to avoid conflicts with global types.
+app.get('/api/roles', authenticate, async (req: express.Request, res: express.Response) => {
     try {
         const guild = await client.guilds.fetch(DISCORD_GUILD_ID);
         // FIX: Added explicit `Role` type to the `role` parameter to resolve type errors.
@@ -163,8 +162,8 @@ app.get('/api/roles', authenticate, async (req: Request, res: Response) => {
 
 
 // Send a notification (to channel or DM)
-// FIX: Corrected express type annotations from express.Request/Response to Request/Response.
-app.post('/api/notify', authenticate, async (req: Request, res: Response) => {
+// FIX: Using qualified `express` types to avoid conflicts with global types.
+app.post('/api/notify', authenticate, async (req: express.Request, res: express.Response) => {
     const { type, targetId, embed: embedData }: NotifyPayload = req.body;
 
     if (!type || !targetId || !embedData) {

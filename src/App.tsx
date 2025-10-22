@@ -1,8 +1,8 @@
 
 import React, { Suspense } from 'react';
 // FIX: Switched from a namespace import to named imports to resolve component errors.
-// FIX: Downgraded react-router-dom from v6 to v5 syntax to fix module resolution errors.
-import { BrowserRouter, Switch, Route, Redirect } from 'react-router-dom';
+// FIX: Upgraded react-router-dom from v5 to v6 syntax.
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LocalizationProvider } from './contexts/LocalizationContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
@@ -101,37 +101,33 @@ const AppContent: React.FC = () => {
         <div className="flex flex-col min-h-screen relative z-10 bg-brand-dark/90 backdrop-blur-sm">
           <Navbar />
           <main className="flex-grow">
-            {/* FIX: Downgraded from v6 <Routes> and <Route element={...}> to v5 <Switch> and <Route component={...}> or render props. */}
-            <Switch>
-              <Route exact path="/" component={HomePage} />
-              {hasPermission('page_store') && <Route path="/store" component={StorePage} />}
-              {hasPermission('page_rules') && <Route path="/rules" component={RulesPage} />}
-              {hasPermission('page_applies') && <Route exact path="/applies" component={AppliesPage} />}
-              {hasPermission('page_applies') && <Route path="/applies/:quizId" component={QuizPage} />}
-              <Route path="/about" component={AboutUsPage} />
+            {/* FIX: Upgraded from v5 <Switch> and <Route component> to v6 <Routes> and <Route element>. */}
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              {hasPermission('page_store') && <Route path="/store" element={<StorePage />} />}
+              {hasPermission('page_rules') && <Route path="/rules" element={<RulesPage />} />}
+              {hasPermission('page_applies') && <Route path="/applies" element={<AppliesPage />} />}
+              {hasPermission('page_applies') && <Route path="/applies/:quizId" element={<QuizPage />} />}
+              <Route path="/about" element={<AboutUsPage />} />
               {hasPermission('admin_panel') && (
-                <Route path="/admin">
+                <Route path="/admin" element={
                   <Suspense fallback={<div className="flex justify-center items-center h-full w-full py-20"><Loader2 className="animate-spin text-brand-cyan" size={48}/></div>}>
                     <AdminPage />
                   </Suspense>
-                </Route>
+                }/>
               )}
-              <Route path="/my-applications">
-                {user ? <MyApplicationsPage /> : <Redirect to="/" />}
-              </Route>
-              <Route path="/profile">
-                {user ? <ProfilePage /> : <Redirect to="/" />}
-              </Route>
+              <Route path="/my-applications" element={user ? <MyApplicationsPage /> : <Navigate to="/" replace />} />
+              <Route path="/profile" element={user ? <ProfilePage /> : <Navigate to="/" replace />} />
               
               {config.SHOW_HEALTH_CHECK && (
                 <Route 
                   path="/health-check" 
-                  component={HealthCheckPage}
+                  element={<HealthCheckPage />}
                 />
               )}
               {/* Fallback route for any undefined paths */}
-              <Redirect to="/" />
-            </Switch>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
           </main>
           <Footer />
         </div>

@@ -1,8 +1,8 @@
 
 
 import React, { useState, useEffect, useCallback } from 'react';
-// FIX: Downgraded from react-router-dom v6 `useNavigate` to v5 `useHistory`.
-import { useParams, useHistory } from 'react-router-dom';
+// FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
+import { useParams, useNavigate } from 'react-router-dom';
 // FIX: Updated import paths to point to the 'src' directory
 import { useLocalization } from '../src/hooks/useLocalization';
 import { useAuth } from '../src/hooks/useAuth';
@@ -13,8 +13,8 @@ import { CheckCircle, Clock, Loader2 } from 'lucide-react';
 
 const QuizPage: React.FC = () => {
   const { quizId } = useParams<{ quizId: string }>();
-  // FIX: Downgraded from react-router-dom v6 `useNavigate` to v5 `useHistory`.
-  const history = useHistory();
+  // FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
+  const navigate = useNavigate();
   const { t } = useLocalization();
   const { user } = useAuth();
   
@@ -29,11 +29,11 @@ const QuizPage: React.FC = () => {
 
   useEffect(() => {
     if (!user) {
-      history.push('/applies');
+      navigate('/applies');
       return;
     }
     if (!quizId) {
-        history.push('/applies');
+        navigate('/applies');
         return;
     }
 
@@ -46,18 +46,18 @@ const QuizPage: React.FC = () => {
               setTimeLeft(fetchedQuiz.questions[0].timeLimit);
               setQuizState('rules');
           } else {
-              history.push('/applies');
+              navigate('/applies');
           }
         } catch (error) {
             console.error(`Failed to fetch quiz ${quizId}`, error);
-            history.push('/applies');
+            navigate('/applies');
         } finally {
             setIsLoading(false);
         }
     }
     
     fetchQuiz();
-  }, [quizId, history, user]);
+  }, [quizId, navigate, user]);
   
   const handleSubmit = useCallback(async (finalAnswers: Answer[]) => {
     if (!quiz || !user || isSubmitting) return;
@@ -124,7 +124,7 @@ const QuizPage: React.FC = () => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden' && quizState === 'taking') {
         alert("You have switched away from the quiz tab. To ensure fairness, your application attempt has been cancelled.");
-        history.push('/applies');
+        navigate('/applies');
       }
     };
 
@@ -132,7 +132,7 @@ const QuizPage: React.FC = () => {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [quizState, history]);
+  }, [quizState, navigate]);
   
   const handleStartQuiz = () => {
     setQuizState('taking');
@@ -156,7 +156,7 @@ const QuizPage: React.FC = () => {
         <CheckCircle className="mx-auto text-green-400" size={80} />
         <h1 className="text-4xl font-bold mt-6 mb-4">{t('application_submitted')}</h1>
         <p className="text-lg text-gray-300 max-w-2xl mx-auto">{t('application_submitted_desc')}</p>
-        <button onClick={() => history.push('/my-applications')} className="mt-10 px-8 py-3 bg-brand-cyan text-brand-dark font-bold rounded-lg hover:bg-white transition-colors">
+        <button onClick={() => navigate('/my-applications')} className="mt-10 px-8 py-3 bg-brand-cyan text-brand-dark font-bold rounded-lg hover:bg-white transition-colors">
             {t('view_my_applications')}
         </button>
       </div>

@@ -20,14 +20,11 @@ import {
   getGuildRoles,
   getRolePermissions,
   saveRolePermissions,
-  // FIX: Added missing import for logAdminAccess.
   logAdminAccess,
 } from '../lib/api';
 import type { Quiz, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, AppConfig, DiscordRole, PermissionKey, RolePermission } from '../types';
-// FIX: Switched from a namespace import to named imports to resolve component errors.
-// FIX: Downgraded from react-router-dom v6 `useNavigate` to v5 `useHistory`.
-import { useHistory } from 'react-router-dom';
-import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store, AlertTriangle, Paintbrush, Languages, UserSearch, LockKeyhole } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store, AlertTriangle, Paintbrush, Languages, UserSearch, LockKeyhole, ListChecks } from 'lucide-react';
 import Modal from '../components/Modal';
 import { PERMISSIONS } from '../lib/permissions';
 import { supabase } from '../lib/supabaseClient';
@@ -50,8 +47,8 @@ const AdminPage: React.FC = () => {
   const { user, logout, updateUser, loading: authLoading, hasPermission } = useAuth();
   const { t } = useLocalization();
   const { showToast } = useToast();
-  // FIX: Downgraded from react-router-dom v6 `useNavigate` to v5 `useHistory`.
-  const history = useHistory();
+  // FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
+  const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('submissions');
   
@@ -79,27 +76,25 @@ const AdminPage: React.FC = () => {
         if (authLoading) return;
 
         if (!user || !hasPermission('admin_panel')) {
-            history.push('/');
+            navigate('/');
             return;
         }
-
-        setIsPageLoading(true);
+        
+        // Don't set page loading to true here to avoid full-screen loader
 
         try {
             const freshUser = await revalidateSession();
             
-            // A user has admin access if they have the 'admin_panel' permission OR the '_super_admin' permission.
             const hasAdminAccess = freshUser.permissions.has('admin_panel') || freshUser.permissions.has('_super_admin');
 
             if (!hasAdminAccess) {
                 showToast(t('admin_revoked'), 'error');
-                updateUser(freshUser); // Update context before navigating away
-                history.push('/');
+                updateUser(freshUser);
+                navigate('/');
                 return;
             }
 
             // More robust check to prevent infinite re-render loops.
-            // Only update the user context if key data has actually changed.
             const permissionsChanged = user.permissions.size !== freshUser.permissions.size || ![...user.permissions].every(p => freshUser.permissions.has(p));
             const profileDataChanged = user.username !== freshUser.username || user.avatar !== freshUser.avatar;
 
@@ -112,8 +107,6 @@ const AdminPage: React.FC = () => {
                 accessLoggedRef.current = true;
             }
             
-            // Determine the first tab the user is allowed to see and set it as active
-            // This prevents showing a blank page if their default tab permission was removed.
             const firstAllowedTab = TABS.find(tab => freshUser.permissions.has(tab.permission) || freshUser.permissions.has('_super_admin'));
             if(firstAllowedTab) setActiveTab(firstAllowedTab.id);
 
@@ -125,7 +118,7 @@ const AdminPage: React.FC = () => {
                 logout();
             } else {
                 showToast(t('admin_session_error_warning'), "warning");
-                setIsAuthorized(true); // Allow access with cached data
+                setIsAuthorized(true); 
             }
         } finally {
             setIsPageLoading(false);
@@ -133,11 +126,11 @@ const AdminPage: React.FC = () => {
     };
 
     gateCheck();
-  }, [user, authLoading, history, logout, showToast, t, updateUser, hasPermission]);
+  }, [user, authLoading, navigate, logout, showToast, t, hasPermission, updateUser]);
 
 
   useEffect(() => {
-    if (!isAuthorized || !user) return;
+    if (!isAuthorized || !user || isPageLoading) return;
 
     const fetchDataForTab = async () => {
         setIsTabLoading(true);
@@ -165,7 +158,7 @@ const AdminPage: React.FC = () => {
     };
 
     fetchDataForTab();
-  }, [activeTab, isAuthorized, showToast, user, hasPermission]);
+  }, [activeTab, isAuthorized, isPageLoading, showToast, user, hasPermission]);
 
   const refreshSubmissions = useCallback(async () => {
       if (!user) return;
@@ -222,11 +215,11 @@ const AdminPage: React.FC = () => {
       }
   };
 
-  if (isPageLoading) {
+  if (isPageLoading && !isAuthorized) {
+    // Show a minimal loader only during the very initial check
     return (
-        <div className="flex flex-col gap-4 justify-center items-center h-screen w-screen bg-brand-dark">
+        <div className="flex flex-col gap-4 justify-center items-center h-[calc(100vh-200px)] w-full">
             <Loader2 size={48} className="text-brand-cyan animate-spin" />
-            <p className="text-xl text-gray-300">...Verifying admin permissions</p>
         </div>
     );
   }
@@ -259,7 +252,7 @@ const AdminPage: React.FC = () => {
   };
   
   const TabContent: React.FC<{children: React.ReactNode}> = ({ children }) => {
-      if (isTabLoading && !['appearance', 'translations', 'permissions', 'lookup'].includes(activeTab)) {
+      if (isTabLoading || (isPageLoading && isAuthorized)) {
         return (
             <div className="flex flex-col gap-4 justify-center items-center py-20 min-h-[300px]">
                 <Loader2 size={40} className="text-brand-cyan animate-spin" />
@@ -382,8 +375,6 @@ const AdminPage: React.FC = () => {
                     const rolePerms = await getRolePermissions(firstRole);
                     setPermissions(new Set(rolePerms?.permissions || []));
                 }
-                // Check if any permissions are set at all to change instruction text
-                // FIX: Replaced flawed getRolePermissions call with a direct Supabase query to check for any existing permissions.
                 if (supabase) {
                     const { count } = await supabase.from('role_permissions').select('*', { count: 'exact', head: true });
                     if (count && count > 0) {
@@ -640,6 +631,21 @@ const AdminPage: React.FC = () => {
                         ))}
                     </div>
                 </div>
+
+                {viewingSubmission.cheatAttempts && viewingSubmission.cheatAttempts.length > 0 && (
+                    <div className="border-t border-brand-light-blue pt-4 mt-4">
+                        <h4 className="text-lg font-bold text-red-400 mb-2 flex items-center gap-2"><ListChecks /> {t('cheat_attempts_report')}</h4>
+                        <div className="space-y-2 max-h-40 overflow-y-auto pr-2 bg-brand-dark p-2 rounded-md">
+                            {viewingSubmission.cheatAttempts.map((attempt, i) => (
+                                <div key={i} className="text-sm">
+                                    <span className="font-semibold text-red-300">{attempt.method}</span>
+                                    <span className="text-gray-500 text-xs ml-2">({new Date(attempt.timestamp).toLocaleString()})</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {viewingSubmission.status === 'taken' && viewingSubmission.adminId === user.id && (
                     <div className="flex justify-end gap-4 pt-6 border-t border-brand-light-blue">
                         <button onClick={() => handleDecision(viewingSubmission.id, 'refused')} className="flex items-center gap-2 bg-red-600 text-white font-bold py-2 px-5 rounded-md hover:bg-red-500 transition-colors"><X size={20}/> {t('refuse')}</button>
