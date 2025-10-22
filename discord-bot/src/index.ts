@@ -1,7 +1,7 @@
 // FIX: Added 'Role' to imports to provide explicit type information.
 import { Client, GatewayIntentBits, Partials, TextChannel, EmbedBuilder, Role } from 'discord.js';
-// FIX: Combined express imports to resolve type conflicts.
-import express, { Request, Response, NextFunction } from 'express';
+// FIX: Changed express import to a default import and qualified types to resolve type conflicts.
+import express from 'express';
 import cors from 'cors';
 import { readFileSync } from 'fs';
 import path from 'path';
@@ -41,7 +41,7 @@ app.use(express.json());
 
 // API Key Authentication Middleware
 // FIX: Used imported Express types directly.
-const authenticate = (req: Request, res: Response, next: NextFunction) => {
+const authenticate = (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return res.status(401).json({ error: 'Unauthorized: Missing Authorization header' });
@@ -57,7 +57,7 @@ const authenticate = (req: Request, res: Response, next: NextFunction) => {
 
 // Health check endpoint
 // FIX: Explicitly typed request and response objects to resolve overload and property access errors.
-app.get('/health', authenticate, async (req: Request, res: Response) => {
+app.get('/health', authenticate, async (req: express.Request, res: express.Response) => {
     try {
         const guild = await client.guilds.fetch(DISCORD_GUILD_ID);
         // Force fetch members to check intent
@@ -85,7 +85,7 @@ app.get('/health', authenticate, async (req: Request, res: Response) => {
 
 // Get a specific user's profile
 // FIX: Explicitly typed request and response objects.
-app.get('/api/user/:userId', authenticate, async (req: Request, res: Response) => {
+app.get('/api/user/:userId', authenticate, async (req: express.Request, res: express.Response) => {
     const { userId } = req.params;
     try {
         const guild = await client.guilds.fetch(DISCORD_GUILD_ID);
@@ -137,7 +137,7 @@ app.get('/api/user/:userId', authenticate, async (req: Request, res: Response) =
 
 // Get all roles in the guild
 // FIX: Explicitly typed request and response objects.
-app.get('/api/roles', authenticate, async (req: Request, res: Response) => {
+app.get('/api/roles', authenticate, async (req: express.Request, res: express.Response) => {
     try {
         const guild = await client.guilds.fetch(DISCORD_GUILD_ID);
         // FIX: Added explicit `Role` type to the `role` parameter to resolve type errors.
@@ -162,7 +162,7 @@ app.get('/api/roles', authenticate, async (req: Request, res: Response) => {
 
 // Send a notification (to channel or DM)
 // FIX: Explicitly typed request and response objects.
-app.post('/api/notify', authenticate, async (req: Request, res: Response) => {
+app.post('/api/notify', authenticate, async (req: express.Request, res: express.Response) => {
     const { type, targetId, embed: embedData }: NotifyPayload = req.body;
 
     if (!type || !targetId || !embedData) {

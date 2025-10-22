@@ -84,7 +84,10 @@ const AdminPage: React.FC = () => {
         try {
             const freshUser = await revalidateSession();
             
-            if (!freshUser.permissions.has('admin_panel') && !freshUser.permissions.has('_super_admin')) {
+            // A user has admin access if they have the 'admin_panel' permission OR the '_super_admin' permission.
+            const hasAdminAccess = freshUser.permissions.has('admin_panel') || freshUser.permissions.has('_super_admin');
+
+            if (!hasAdminAccess) {
                 showToast(t('admin_revoked'), 'error');
                 updateUser(freshUser);
                 navigate('/');
