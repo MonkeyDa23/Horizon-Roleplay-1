@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 // FIX: Updated import paths to point to the 'src' directory
 import { useAuth } from '../src/hooks/useAuth';
@@ -6,19 +7,21 @@ import { useLocalization } from '../src/hooks/useLocalization';
 // FIX: Switched from mockData to asynchronous API call
 import { getSubmissionsByUserId } from '../src/lib/api';
 import type { QuizSubmission, SubmissionStatus } from '../src/types';
-import { useNavigate } from 'react-router-dom';
+// FIX: Downgraded from react-router-dom v6 `useNavigate` to v5 `useHistory`.
+import { useHistory } from 'react-router-dom';
 import { FileText, Loader2 } from 'lucide-react';
 
 const MyApplicationsPage: React.FC = () => {
   const { user } = useAuth();
   const { t } = useLocalization();
-  const navigate = useNavigate();
+  // FIX: Downgraded from react-router-dom v6 `useNavigate` to v5 `useHistory`.
+  const history = useHistory();
   const [submissions, setSubmissions] = useState<QuizSubmission[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) {
-      navigate('/');
+      history.push('/');
       return;
     }
 
@@ -36,7 +39,7 @@ const MyApplicationsPage: React.FC = () => {
     
     fetchSubmissions();
     
-  }, [user, navigate]);
+  }, [user, history]);
   
   const renderStatusBadge = (status: SubmissionStatus) => {
     const statusMap = {

@@ -1,3 +1,4 @@
+
 // FIX: Added 'Role' to imports to provide explicit type information.
 import { Client, GatewayIntentBits, Partials, TextChannel, EmbedBuilder, Role } from 'discord.js';
 // FIX: Switched to a default import for express and used qualified types (e.g., `express.Request`) to resolve conflicts with global types and fix numerous property access errors.
@@ -99,8 +100,8 @@ app.get('/api/user/:userId', authenticate, async (req: Request, res: Response) =
         // FIX: Added explicit `Role` type to the `role` parameter to resolve type errors.
         const roles = Array.from(member.roles.cache.values())
             .filter((role: Role) => role.id !== guild.id) // Exclude @everyone role
-            .sort((a, b) => b.position - a.position)
-            .map(role => ({
+            .sort((a: Role, b: Role) => b.position - a.position)
+            .map((role: Role) => ({
                 id: role.id,
                 name: role.name,
                 color: role.color,
@@ -144,8 +145,8 @@ app.get('/api/roles', authenticate, async (req: Request, res: Response) => {
         // FIX: Added explicit `Role` type to the `role` parameter to resolve type errors.
         const roles = Array.from(guild.roles.cache.values())
             .filter((role: Role) => role.id !== guild.id) // Exclude @everyone role
-            .sort((a, b) => b.position - a.position)
-            .map(role => ({
+            .sort((a: Role, b: Role) => b.position - a.position)
+            .map((role: Role) => ({
                 id: role.id,
                 name: role.name,
                 color: role.color,

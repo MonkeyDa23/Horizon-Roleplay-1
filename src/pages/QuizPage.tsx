@@ -1,6 +1,8 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 // FIX: Switched from a namespace import to named imports to resolve component errors.
-import { useParams, useNavigate } from 'react-router-dom';
+// FIX: Downgraded from react-router-dom v6 `useNavigate` to v5 `useHistory`.
+import { useParams, useHistory } from 'react-router-dom';
 import { useLocalization } from '../hooks/useLocalization';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
@@ -51,7 +53,8 @@ const CircularTimer: React.FC<{ timeLeft: number; timeLimit: number }> = ({ time
 
 const QuizPage: React.FC = () => {
   const { quizId } = useParams<{ quizId: string }>();
-  const navigate = useNavigate();
+  // FIX: Downgraded from react-router-dom v6 `useNavigate` to v5 `useHistory`.
+  const history = useHistory();
   const { t } = useLocalization();
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -71,8 +74,8 @@ const QuizPage: React.FC = () => {
   const [finalCheatLog, setFinalCheatLog] = useState<CheatAttempt[]>([]);
 
   useEffect(() => {
-    if (!user) { navigate('/applies'); return; }
-    if (!quizId) { navigate('/applies'); return; }
+    if (!user) { history.push('/applies'); return; }
+    if (!quizId) { history.push('/applies'); return; }
 
     const fetchQuiz = async () => {
         setIsLoading(true);
@@ -83,16 +86,16 @@ const QuizPage: React.FC = () => {
               setTimeLeft(fetchedQuiz.questions[0].timeLimit);
               setQuizState('rules');
           } else {
-              navigate('/applies');
+              history.push('/applies');
           }
         } catch (error) { 
             console.error(`Failed to fetch quiz ${quizId}`, error); 
-            navigate('/applies');
+            history.push('/applies');
         } finally { setIsLoading(false); }
     }
     
     fetchQuiz();
-  }, [quizId, navigate, user]);
+  }, [quizId, history, user]);
   
   const handleSubmit = useCallback(async (finalAnswers: Answer[]) => {
     if (!quiz || !user || isSubmitting) return;
@@ -226,7 +229,7 @@ const QuizPage: React.FC = () => {
               )}
           </div>
 
-          <button onClick={() => navigate('/my-applications')} className="mt-10 px-8 py-3 bg-brand-cyan text-brand-dark font-bold rounded-lg hover:bg-white transition-colors">
+          <button onClick={() => history.push('/my-applications')} className="mt-10 px-8 py-3 bg-brand-cyan text-brand-dark font-bold rounded-lg hover:bg-white transition-colors">
               {t('view_my_applications')}
           </button>
         </div>

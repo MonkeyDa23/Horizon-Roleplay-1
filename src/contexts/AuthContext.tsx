@@ -97,7 +97,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return (
        <div className="flex flex-col gap-4 justify-center items-center h-screen w-screen bg-brand-dark">
         <Loader2 size={48} className="text-brand-cyan animate-spin" />
-        <p className="text-xl text-gray-300">Connecting...</p>
+        <p className="text-xl text-gray-300">...Verifying admin permissions</p>
       </div>
     );
   }

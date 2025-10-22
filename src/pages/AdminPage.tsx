@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useLocalization } from '../hooks/useLocalization';
@@ -24,7 +25,8 @@ import {
 } from '../lib/api';
 import type { Quiz, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, AppConfig, DiscordRole, PermissionKey, RolePermission } from '../types';
 // FIX: Switched from a namespace import to named imports to resolve component errors.
-import { useNavigate } from 'react-router-dom';
+// FIX: Downgraded from react-router-dom v6 `useNavigate` to v5 `useHistory`.
+import { useHistory } from 'react-router-dom';
 import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store, AlertTriangle, Paintbrush, Languages, UserSearch, LockKeyhole } from 'lucide-react';
 import Modal from '../components/Modal';
 import { PERMISSIONS } from '../lib/permissions';
@@ -48,7 +50,8 @@ const AdminPage: React.FC = () => {
   const { user, logout, updateUser, loading: authLoading, hasPermission } = useAuth();
   const { t } = useLocalization();
   const { showToast } = useToast();
-  const navigate = useNavigate();
+  // FIX: Downgraded from react-router-dom v6 `useNavigate` to v5 `useHistory`.
+  const history = useHistory();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('submissions');
   
@@ -70,12 +73,13 @@ const AdminPage: React.FC = () => {
   const accessLoggedRef = useRef(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Gatekeeper effect to check authorization on page load
   useEffect(() => {
     const gateCheck = async () => {
         if (authLoading) return;
 
         if (!user || !hasPermission('admin_panel')) {
-            navigate('/');
+            history.push('/');
             return;
         }
 
@@ -89,8 +93,8 @@ const AdminPage: React.FC = () => {
 
             if (!hasAdminAccess) {
                 showToast(t('admin_revoked'), 'error');
-                updateUser(freshUser);
-                navigate('/');
+                updateUser(freshUser); // Update context before navigating away
+                history.push('/');
                 return;
             }
 
@@ -108,6 +112,8 @@ const AdminPage: React.FC = () => {
                 accessLoggedRef.current = true;
             }
             
+            // Determine the first tab the user is allowed to see and set it as active
+            // This prevents showing a blank page if their default tab permission was removed.
             const firstAllowedTab = TABS.find(tab => freshUser.permissions.has(tab.permission) || freshUser.permissions.has('_super_admin'));
             if(firstAllowedTab) setActiveTab(firstAllowedTab.id);
 
@@ -127,7 +133,7 @@ const AdminPage: React.FC = () => {
     };
 
     gateCheck();
-  }, [user, authLoading, navigate, logout, showToast, t, updateUser, hasPermission]);
+  }, [user, authLoading, history, logout, showToast, t, updateUser, hasPermission]);
 
 
   useEffect(() => {
@@ -218,9 +224,9 @@ const AdminPage: React.FC = () => {
 
   if (isPageLoading) {
     return (
-        <div className="flex flex-col gap-4 justify-center items-center h-screen w-screen">
+        <div className="flex flex-col gap-4 justify-center items-center h-screen w-screen bg-brand-dark">
             <Loader2 size={48} className="text-brand-cyan animate-spin" />
-            <p className="text-xl text-gray-300">Verifying admin permissions...</p>
+            <p className="text-xl text-gray-300">...Verifying admin permissions</p>
         </div>
     );
   }

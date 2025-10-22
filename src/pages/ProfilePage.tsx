@@ -1,10 +1,12 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useLocalization } from '../hooks/useLocalization';
 import { getSubmissionsByUserId, forceRefreshUserProfile } from '../lib/api';
 import type { QuizSubmission, SubmissionStatus, DiscordRole } from '../types';
 // FIX: Switched from a namespace import to named imports to resolve component errors.
-import { useNavigate } from 'react-router-dom';
+// FIX: Downgraded from react-router-dom v6 `useNavigate` to v5 `useHistory`.
+import { useHistory } from 'react-router-dom';
 import { User as UserIcon, Loader2, FileText, ExternalLink, Shield, RefreshCw } from 'lucide-react';
 import { useConfig } from '../hooks/useConfig';
 import SEO from '../components/SEO';
@@ -13,7 +15,8 @@ import { useToast } from '../hooks/useToast';
 const ProfilePage: React.FC = () => {
   const { user, loading: authLoading, updateUser } = useAuth();
   const { t } = useLocalization();
-  const navigate = useNavigate();
+  // FIX: Downgraded from react-router-dom v6 `useNavigate` to v5 `useHistory`.
+  const history = useHistory();
   const { config } = useConfig();
   const { showToast } = useToast();
   const communityName = config.COMMUNITY_NAME;
@@ -24,7 +27,7 @@ const ProfilePage: React.FC = () => {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      navigate('/');
+      history.push('/');
       return;
     }
 
@@ -42,7 +45,7 @@ const ProfilePage: React.FC = () => {
       };
       fetchSubmissions();
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, history]);
 
   const handleRefresh = async () => {
     setIsSyncing(true);

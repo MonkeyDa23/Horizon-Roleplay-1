@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 // FIX: Switched from a namespace import to named imports to resolve component errors.
 import { NavLink, Link } from 'react-router-dom';
@@ -48,7 +49,9 @@ const Navbar: React.FC = () => {
                 key={link.to}
                 to={link.to}
                 className="text-gray-300 hover:text-brand-cyan transition-colors duration-300 font-medium"
-                style={({ isActive }) => isActive ? activeLinkStyle : {}}
+                // FIX: Replaced v6 `style` prop with v5 `activeStyle` and `exact` props.
+                activeStyle={activeLinkStyle}
+                exact={link.to === '/'}
               >
                 {link.text}
               </NavLink>

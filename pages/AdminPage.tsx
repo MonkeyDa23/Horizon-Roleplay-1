@@ -25,7 +25,8 @@ import {
   logAdminAccess,
 } from '../src/lib/api';
 import type { Quiz, QuizQuestion, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule, Product } from '../src/types';
-import { useNavigate } from 'react-router-dom';
+// FIX: Downgraded from react-router-dom v6 `useNavigate` to v5 `useHistory`.
+import { useHistory } from 'react-router-dom';
 import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store, AlertTriangle } from 'lucide-react';
 import Modal from '../src/components/Modal';
 
@@ -46,7 +47,8 @@ const AdminPage: React.FC = () => {
   const { t } = useLocalization();
   const { showToast } = useToast();
   const { config } = useConfig();
-  const navigate = useNavigate();
+  // FIX: Downgraded from react-router-dom v6 `useNavigate` to v5 `useHistory`.
+  const history = useHistory();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('submissions');
   
@@ -77,7 +79,7 @@ const AdminPage: React.FC = () => {
 
         // FIX: Replaced user.isAdmin check with hasPermission('admin_panel').
         if (!user || !hasPermission('admin_panel')) {
-            navigate('/');
+            history.push('/');
             return;
         }
 
@@ -91,7 +93,7 @@ const AdminPage: React.FC = () => {
             if (!freshUser.permissions.has('admin_panel')) {
                 showToast(t('admin_revoked'), 'error');
                 updateUser(freshUser);
-                navigate('/');
+                history.push('/');
                 return;
             }
 
@@ -127,7 +129,7 @@ const AdminPage: React.FC = () => {
 
     gateCheck();
     // FIX: Removed deprecated config.SUPER_ADMIN_ROLE_IDS from dependency array.
-  }, [user, authLoading, navigate, logout, showToast, t, updateUser]);
+  }, [user, authLoading, history, logout, showToast, t, updateUser]);
 
 
   // Effect for lazy-loading data based on the active tab
