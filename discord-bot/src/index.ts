@@ -1,8 +1,7 @@
 // FIX: Added 'Role' to imports to provide explicit type information.
 import { Client, GatewayIntentBits, Partials, TextChannel, EmbedBuilder, Role } from 'discord.js';
-// FIX: Changed to use default import for express value and type-only imports for types to avoid global conflicts.
-import express from 'express';
-import type { Request, Response, NextFunction } from 'express';
+// FIX: Combined express imports to resolve type conflicts.
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { readFileSync } from 'fs';
 import path from 'path';
