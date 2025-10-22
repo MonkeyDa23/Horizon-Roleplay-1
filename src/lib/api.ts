@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient';
-import type { User, Product, Quiz, QuizSubmission, SubmissionStatus, MtaServerStatus, AuditLogEntry, RuleCategory, AppConfig, MtaLogEntry, UserLookupResult, DiscordAnnouncement, DiscordRole, PermissionKey, RolePermission } from '../types';
+import type { User, Product, Quiz, QuizSubmission, SubmissionStatus, MtaServerStatus, AuditLogEntry, RuleCategory, AppConfig, MtaLogEntry, UserLookupResult, DiscordAnnouncement, DiscordRole, PermissionKey, RolePermission, Translations } from '../types';
 
 // --- API Error Handling ---
 export class ApiError extends Error {
@@ -46,7 +46,7 @@ export const getQuizById = async (id: string): Promise<Quiz | undefined> => {
 
 export const getRules = async (): Promise<RuleCategory[]> => {
     if (!supabase) return [];
-    const { data, error } = await supabase.from('rule_categories').select(`*, rules (*)`).order('order');
+    const { data, error } = await supabase.from('rule_categories').select(`*, rules (*)`).order('order').order('order', { foreignTable: 'rules' });
     if (error) throw new ApiError(error.message, 500);
     return data;
 }
@@ -134,16 +134,16 @@ export const saveRules = async (rulesData: RuleCategory[]): Promise<void> => {
     if (error) throw new ApiError(error.message, 500);
 }
 
-export const saveProduct = async (product: Product): Promise<Product> => {
+export const saveProduct = async (product: Partial<Product>): Promise<Product> => {
     if (!supabase) throw new ApiError("Database not configured", 500);
-    const { data, error } = await supabase.from('products').upsert(product).select().single();
+    const { data, error } = await supabase.rpc('save_product', { p_product: product });
     if (error) throw new ApiError(error.message, 500);
-    return data;
+    return data[0];
 };
 
 export const deleteProduct = async (productId: string): Promise<void> => {
     if (!supabase) throw new ApiError("Database not configured", 500);
-    const { error } = await supabase.from('products').delete().eq('id', productId);
+    const { error } = await supabase.rpc('delete_product', { p_product_id: productId });
     if (error) throw new ApiError(error.message, 500);
 };
 
@@ -157,7 +157,7 @@ export const saveConfig = async (config: Partial<AppConfig>): Promise<void> => {
     });
 }
 
-export const saveTranslations = async (translations: Record<string, { ar: string; en: string }>): Promise<void> => {
+export const saveTranslations = async (translations: Translations): Promise<void> => {
     if (!supabase) throw new ApiError("Database not configured", 500);
     const translationsData = Object.entries(translations).map(([key, value]) => ({ key, ar: value.ar, en: value.en }));
     const { error } = await supabase.rpc('update_translations', { translations_data: translationsData });
@@ -192,6 +192,28 @@ export const saveRolePermissions = async (roleId: string, permissions: Permissio
     if (error) throw new ApiError(error.message, 500);
 };
 
+export const getSubmissionsByDiscordId = async (discordId: string): Promise<QuizSubmission[]> => {
+    if (!supabase) return [];
+    const { data, error } = await supabase.rpc('get_submissions_by_discord_id', { p_discord_id: discordId });
+    if (error) throw new ApiError(error.message, 500);
+    return data || [];
+};
+
+export const lookupUser = async (discordId: string): Promise<UserLookupResult> => {
+    const profileData = await troubleshootUserSync(discordId);
+    if (profileData.error) {
+        throw new ApiError(profileData.error, 404);
+    }
+    const submissions = await getSubmissionsByDiscordId(discordId);
+    return {
+        id: profileData.id,
+        username: profileData.username,
+        avatar: profileData.avatar,
+        joinedAt: profileData.joinedAt,
+        roles: profileData.roles,
+        submissions: submissions
+    };
+};
 
 // --- AUTH & SESSION MANAGEMENT ---
 
@@ -256,7 +278,6 @@ export const troubleshootUserSync = async (discordId: string): Promise<any> => {
 
 
 // --- MOCKED/FALLBACK FUNCTIONS ---
-// FIX: Added mocked implementation for getDiscordAnnouncements to resolve import error.
 export const getDiscordAnnouncements = async (): Promise<DiscordAnnouncement[]> => {
     console.warn('getDiscordAnnouncements is mocked and returns an empty array.');
     return [];

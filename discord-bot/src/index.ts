@@ -1,4 +1,3 @@
-
 // FIX: Added 'Role' to imports to provide explicit type information.
 import { Client, GatewayIntentBits, Partials, TextChannel, EmbedBuilder, Role } from 'discord.js';
 // FIX: Switched to a default import for express and used qualified types (e.g., `express.Request`) to resolve conflicts with global types and fix numerous property access errors.
@@ -57,7 +56,6 @@ const authenticate = (req: express.Request, res: express.Response, next: express
 // --- API ENDPOINTS ---
 
 // Health check endpoint
-// FIX: Using qualified `express` types to avoid conflicts with global types.
 app.get('/health', authenticate, async (req: express.Request, res: express.Response) => {
     try {
         const guild = await client.guilds.fetch(DISCORD_GUILD_ID);
@@ -85,7 +83,6 @@ app.get('/health', authenticate, async (req: express.Request, res: express.Respo
 
 
 // Get a specific user's profile
-// FIX: Using qualified `express` types to avoid conflicts with global types.
 app.get('/api/user/:userId', authenticate, async (req: express.Request, res: express.Response) => {
     const { userId } = req.params;
     try {
@@ -137,7 +134,6 @@ app.get('/api/user/:userId', authenticate, async (req: express.Request, res: exp
 
 
 // Get all roles in the guild
-// FIX: Using qualified `express` types to avoid conflicts with global types.
 app.get('/api/roles', authenticate, async (req: express.Request, res: express.Response) => {
     try {
         const guild = await client.guilds.fetch(DISCORD_GUILD_ID);
@@ -162,7 +158,6 @@ app.get('/api/roles', authenticate, async (req: express.Request, res: express.Re
 
 
 // Send a notification (to channel or DM)
-// FIX: Using qualified `express` types to avoid conflicts with global types.
 app.post('/api/notify', authenticate, async (req: express.Request, res: express.Response) => {
     const { type, targetId, embed: embedData }: NotifyPayload = req.body;
 

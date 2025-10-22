@@ -131,10 +131,12 @@ export interface AuditLogEntry {
 export interface Rule {
     id: string;
     textKey: string;
+    order: number;
 }
 export interface RuleCategory {
     id: string;
     titleKey: string;
+    order: number;
     rules: Rule[];
 }
 
@@ -178,6 +180,7 @@ export interface UserLookupResult {
   username: string;
   avatar: string;
   joinedAt: string;
+  roles: DiscordRole[];
   submissions: QuizSubmission[];
 }
 
