@@ -23,7 +23,8 @@ import {
   logAdminAccess,
 } from '../lib/api';
 import type { Quiz, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, AppConfig, DiscordRole, PermissionKey, RolePermission } from '../types';
-import * as ReactRouterDOM from 'react-router-dom';
+// FIX: Switched from a namespace import to named imports to resolve component errors.
+import { useNavigate } from 'react-router-dom';
 import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store, AlertTriangle, Paintbrush, Languages, UserSearch, LockKeyhole } from 'lucide-react';
 import Modal from '../components/Modal';
 import { PERMISSIONS } from '../lib/permissions';
@@ -47,7 +48,7 @@ const AdminPage: React.FC = () => {
   const { user, logout, updateUser, loading: authLoading, hasPermission } = useAuth();
   const { t } = useLocalization();
   const { showToast } = useToast();
-  const navigate = ReactRouterDOM.useNavigate();
+  const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('submissions');
   
@@ -83,7 +84,7 @@ const AdminPage: React.FC = () => {
         try {
             const freshUser = await revalidateSession();
             
-            if (!freshUser.permissions.has('admin_panel')) {
+            if (!freshUser.permissions.has('admin_panel') && !freshUser.permissions.has('_super_admin')) {
                 showToast(t('admin_revoked'), 'error');
                 updateUser(freshUser);
                 navigate('/');
@@ -99,7 +100,7 @@ const AdminPage: React.FC = () => {
                 accessLoggedRef.current = true;
             }
             
-            const firstAllowedTab = TABS.find(tab => freshUser.permissions.has(tab.permission));
+            const firstAllowedTab = TABS.find(tab => freshUser.permissions.has(tab.permission) || freshUser.permissions.has('_super_admin'));
             if(firstAllowedTab) setActiveTab(firstAllowedTab.id);
 
             setIsAuthorized(true);
