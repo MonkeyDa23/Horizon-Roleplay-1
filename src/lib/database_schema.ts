@@ -121,6 +121,7 @@ CREATE TABLE public.profiles (
     discord_id text NOT NULL UNIQUE,
     roles jsonb,
     highest_role jsonb,
+    is_guild_owner boolean DEFAULT false,
     last_synced_at timestamptz,
     is_banned boolean DEFAULT false,
     ban_reason text,

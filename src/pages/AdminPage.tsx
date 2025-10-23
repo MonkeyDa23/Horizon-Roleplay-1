@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useLocalization } from '../hooks/useLocalization';
 import { useToast } from '../hooks/useToast';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   ApiError, getQuizzes, saveQuiz as apiSaveQuiz, deleteQuiz as apiDeleteQuiz,
   getSubmissions, updateSubmissionStatus, getAuditLogs, getRules, saveRules as apiSaveRules,
@@ -18,7 +18,7 @@ import type {
 } from '../types';
 import { 
   UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store,
-  AlertTriangle, Palette, Languages, KeyRound, Search, ExternalLink, ShieldQuestion, Ban, GripVertical, PlusCircle, Trash
+  AlertTriangle, Palette, Languages, KeyRound, Search, ExternalLink, ShieldQuestion, Ban, GripVertical, PlusCircle, Trash, HelpCircle
 } from 'lucide-react';
 import Modal from '../components/Modal';
 import { PERMISSIONS } from '../lib/permissions';
@@ -491,8 +491,153 @@ const AppearancePanel = () => {
 
 const PermissionsPanel = () => {
     const { t } = useLocalization();
-    return <p className="text-center text-gray-400 py-10">{t('coming_soon')}</p>
+    const { showToast } = useToast();
+    const [roles, setRoles] = useState<DiscordRole[]>([]);
+    const [isLoadingRoles, setIsLoadingRoles] = useState(true);
+    const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
+    const [rolePermissions, setRolePermissions] = useState<Set<PermissionKey>>(new Set());
+    const [isLoadingPermissions, setIsLoadingPermissions] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchRoles = async () => {
+            setIsLoadingRoles(true);
+            setError(null);
+            try {
+                const guildRoles = await getGuildRoles();
+                setRoles(guildRoles);
+            } catch (e) {
+                console.error("Failed to fetch guild roles", e);
+                setError("Failed to fetch roles from the Discord bot. This is a critical error.");
+                showToast("Could not load Discord roles. The bot may be offline or misconfigured.", 'error');
+            } finally {
+                setIsLoadingRoles(false);
+            }
+        };
+        fetchRoles();
+    }, [showToast]);
+
+    useEffect(() => {
+        if (!selectedRoleId) return;
+        const fetchPermissions = async () => {
+            setIsLoadingPermissions(true);
+            try {
+                const { permissions } = await getRolePermissions(selectedRoleId);
+                setRolePermissions(new Set(permissions));
+            } catch (e) {
+                showToast(`Failed to load permissions for role: ${(e as Error).message}`, 'error');
+            } finally {
+                setIsLoadingPermissions(false);
+            }
+        };
+        fetchPermissions();
+    }, [selectedRoleId, showToast]);
+
+    const handlePermissionChange = (key: PermissionKey, checked: boolean) => {
+        setRolePermissions(prev => {
+            const newPerms = new Set(prev);
+            if (checked) newPerms.add(key);
+            else newPerms.delete(key);
+            return newPerms;
+        });
+    };
+
+    const handleSave = async () => {
+        if (!selectedRoleId) return;
+        setIsSaving(true);
+        try {
+            await saveRolePermissions(selectedRoleId, Array.from(rolePermissions));
+            showToast(t('permissions_saved_success'), 'success');
+        } catch(e) {
+            showToast(`Error: ${(e as Error).message}`, 'error');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const RoleSelectItem: React.FC<{ role: DiscordRole }> = ({ role }) => {
+        const color = role.color ? `#${role.color.toString(16).padStart(6, '0')}` : '#99aab5';
+        return (
+            <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full" style={{ backgroundColor: color }}></div>
+                <span>{role.name}</span>
+            </div>
+        );
+    };
+
+    if (error) {
+        return (
+            <div className="bg-red-500/10 border border-red-500/30 text-red-300 p-6 rounded-lg text-center">
+                <AlertTriangle className="mx-auto mb-4" size={40} />
+                <h2 className="text-xl font-bold mb-2">Critical Error</h2>
+                <p>{error}</p>
+                <p className="mt-4">The most common cause for this is the **Server Members Intent** is not enabled for your bot in the Discord Developer Portal, or the bot is offline.</p>
+                <Link to="/health-check" className="inline-block mt-4 bg-brand-cyan text-brand-dark font-bold py-2 px-4 rounded-md">Run Health Check</Link>
+            </div>
+        );
+    }
+
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="md:col-span-1">
+                <h2 className="text-xl font-bold mb-3">{t('discord_roles')}</h2>
+                {isLoadingRoles ? <Loader2 className="animate-spin" /> : (
+                    <div className="space-y-2">
+                        {roles.map(role => (
+                            <button key={role.id} onClick={() => setSelectedRoleId(role.id)}
+                                className={`w-full text-left p-3 rounded-md transition-colors border ${selectedRoleId === role.id ? 'bg-brand-cyan/20 border-brand-cyan' : 'bg-brand-dark-blue border-brand-light-blue/50 hover:bg-brand-light-blue/50'}`}
+                            >
+                                <RoleSelectItem role={role} />
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+            <div className="md:col-span-2">
+                {selectedRoleId ? (
+                    isLoadingPermissions ? <div className="flex justify-center items-center h-full"><Loader2 className="animate-spin text-brand-cyan" size={32}/></div> :
+                    <div>
+                        <div className="flex justify-between items-center mb-4">
+                             <h2 className="text-xl font-bold">{t('available_permissions')}</h2>
+                             <button onClick={handleSave} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white transition-colors min-w-[9rem] flex justify-center">{isSaving ? <Loader2 className="animate-spin" /> : t('save_permissions')}</button>
+                        </div>
+                        <p className="text-sm text-gray-400 mb-6">{t('admin_permissions_instructions')}</p>
+                        <div className="space-y-3">
+                            {(Object.keys(PERMISSIONS) as PermissionKey[]).map(key => (
+                                <label key={key} className="flex items-start gap-3 bg-brand-dark-blue p-3 rounded-md border border-brand-light-blue/50 cursor-pointer hover:bg-brand-light-blue/50 has-[:checked]:border-brand-cyan">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={rolePermissions.has(key)}
+                                        onChange={(e) => handlePermissionChange(key, e.target.checked)}
+                                        className="mt-1 w-5 h-5 accent-brand-cyan bg-brand-light-blue border-gray-500 rounded focus:ring-brand-cyan"
+                                    />
+                                    <div>
+                                        <p className="font-semibold text-white">{key}</p>
+                                        <p className="text-xs text-gray-400">{PERMISSIONS[key]}</p>
+                                    </div>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex flex-col justify-center items-center h-full text-center bg-brand-dark-blue p-8 rounded-lg border-2 border-dashed border-brand-light-blue/50">
+                        <KeyRound size={48} className="text-gray-500 mb-4" />
+                        <p className="text-lg text-gray-400">{t('select_role_to_manage')}</p>
+                    </div>
+                )}
+                 <div className="mt-8 p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+                    <h4 className="font-bold text-yellow-300 flex items-center gap-2">
+                        <HelpCircle size={20} />
+                        {t('admin_permissions_bootstrap_instructions_title')}
+                    </h4>
+                    <p className="text-sm text-yellow-200 mt-2" dangerouslySetInnerHTML={{ __html: t('admin_permissions_bootstrap_instructions_body') }} />
+                </div>
+            </div>
+        </div>
+    )
 };
+
 
 const UserLookupPanel = () => {
     const { t } = useLocalization();

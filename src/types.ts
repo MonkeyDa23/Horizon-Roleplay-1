@@ -52,6 +52,7 @@ export interface User {
   roles: DiscordRole[];
   highestRole: DiscordRole | null;
   permissions: Set<PermissionKey>;
+  isGuildOwner: boolean;
   is_banned: boolean;
   ban_reason: string | null;
   ban_expires_at: string | null;

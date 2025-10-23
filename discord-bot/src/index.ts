@@ -1,8 +1,6 @@
 // discord-bot/src/index.ts
-// FIX: Using namespaced Express types (e.g., 'express.Request') to resolve name conflicts with global DOM types and fix type errors.
-// FIX: Changed to explicit type imports to ensure correct resolution.
-// FIX: Using namespaced express types (e.g., express.Request) to resolve name conflicts with global DOM types.
-import express from 'express';
+// FIX: Using explicit type imports for Express to resolve name conflicts with global DOM types.
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { 
   Client, 
@@ -79,12 +77,10 @@ client.login(config.DISCORD_BOT_TOKEN);
 // EXPRESS MIDDLEWARE
 // =============================================
 app.use(cors());
-// FIX: Corrected Express types, allowing middleware to be recognized correctly.
 app.use(express.json());
 
 // Authentication middleware to protect API endpoints
-// FIX: Switched to explicit type imports to resolve type errors.
-const authenticateRequest = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+const authenticateRequest = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
@@ -99,8 +95,7 @@ const authenticateRequest = (req: express.Request, res: express.Response, next: 
 // =============================================
 // API ROUTES
 // =============================================
-// FIX: Switched to explicit type imports to resolve type errors.
-app.get('/health', (req: express.Request, res: express.Response) => {
+app.get('/health', (req: Request, res: Response) => {
   if (!client.isReady() || !guildCache) {
     return res.status(503).json({ status: 'error', message: 'Bot is not ready or guild not cached.' });
   }
@@ -115,8 +110,7 @@ app.get('/health', (req: express.Request, res: express.Response) => {
 });
 
 // GET USER PROFILE
-// FIX: Switched to explicit type imports to resolve type errors.
-app.get('/api/user/:id', authenticateRequest, async (req: express.Request, res: express.Response) => {
+app.get('/api/user/:id', authenticateRequest, async (req: Request, res: Response) => {
   const { id } = req.params;
   if (!guildCache) return res.status(503).json({ error: 'Guild not cached' });
 
@@ -137,6 +131,7 @@ app.get('/api/user/:id', authenticateRequest, async (req: express.Request, res: 
       .sort((a: DiscordRole, b: DiscordRole) => b.position - a.position);
 
     const highestRole = roles[0] || null;
+    const isGuildOwner = member.id === guildCache.ownerId;
 
     res.json({
       id: member.id,
@@ -144,6 +139,7 @@ app.get('/api/user/:id', authenticateRequest, async (req: express.Request, res: 
       avatar: member.displayAvatarURL({ extension: 'png', size: 256 }),
       roles,
       highestRole,
+      isGuildOwner,
     });
   } catch (error: any) {
     if (error.code === 10013) { // Unknown User
@@ -155,8 +151,7 @@ app.get('/api/user/:id', authenticateRequest, async (req: express.Request, res: 
 });
 
 // GET ALL GUILD ROLES
-// FIX: Switched to explicit type imports to resolve type errors.
-app.get('/api/roles', authenticateRequest, async (req: express.Request, res: express.Response) => {
+app.get('/api/roles', authenticateRequest, async (req: Request, res: Response) => {
   if (!guildCache) return res.status(503).json({ error: 'Guild not cached' });
   try {
     await guildCache.roles.fetch();
@@ -177,8 +172,7 @@ app.get('/api/roles', authenticateRequest, async (req: express.Request, res: exp
 });
 
 // SEND NOTIFICATION
-// FIX: Switched to explicit type imports to resolve type errors.
-app.post('/api/notify', authenticateRequest, async (req: express.Request, res: express.Response) => {
+app.post('/api/notify', authenticateRequest, async (req: Request, res: Response) => {
     const { type, payload } = req.body;
     
     if (!type || !payload) {

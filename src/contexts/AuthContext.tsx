@@ -109,7 +109,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const hasPermission = useCallback((key: PermissionKey): boolean => {
     if (!user) return false;
-    // Super admin has all permissions implicitly
+    // Super admin role also has all permissions
     if (user.permissions.has('_super_admin')) return true;
     return user.permissions.has(key);
   }, [user]);

@@ -173,8 +173,9 @@ export const translations: Translations = {
   discord_roles: { ar: 'رتب الديسكورد', en: 'Discord Roles' },
   available_permissions: { ar: 'الصلاحيات المتاحة', en: 'Available Permissions' },
   select_role_to_manage: { ar: 'اختر رتبة لعرض صلاحياتها.', en: 'Select a role to see its permissions.' },
-  admin_permissions_instructions_initial: { ar: ' لإعداد صلاحيات المشرفين لأول مرة، يجب عليك إضافة أول رتبة يدوياً مباشرة في قاعدة بيانات Supabase. بمجرد منح رتبة صلاحية `_super_admin`، ستتمكن من إدارة جميع الصلاحيات الأخرى من هنا.', en: 'To set up admin permissions for the first time, you must manually add the first role directly in your Supabase database. Once a role is granted `_super_admin`, you can manage all other permissions from here.' },
   admin_permissions_instructions: { ar: 'اختر رتبة من القائمة لعرض وتعديل صلاحياتها. صلاحية `_super_admin` تمنح جميع الصلاحيات الأخرى تلقائياً.', en: 'Select a role from the list to view and modify its permissions. The `_super_admin` permission automatically grants all other permissions.'},
+  admin_permissions_bootstrap_instructions_title: { ar: 'غير قادر على الدخول؟', en: 'Locked Out?' },
+  admin_permissions_bootstrap_instructions_body: { ar: 'لمنح صلاحيات المشرف الأولية، اذهب إلى جدول `role_permissions` في Supabase. أضف صفاً جديداً، ضع آي دي رتبة المشرف في `role_id`، واكتب `{\\"_super_admin\\"}` في حقل `permissions` ثم قم بتحديث الصفحة.', en: 'To grant initial admin access, go to your Supabase `role_permissions` table. Insert a new row, put your admin role ID in `role_id`, and type `{\\"_super_admin\\"}` into the `permissions` field, then refresh the site.' },
 
 
   // Submission Statuses

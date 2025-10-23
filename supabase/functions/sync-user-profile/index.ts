@@ -84,6 +84,7 @@ serve(async (req) => {
                 username: authUser.user_metadata?.full_name,
                 avatar: authUser.user_metadata?.avatar_url,
                 roles: [], permissions: [], highestRole: null,
+                isGuildOwner: profile.is_guild_owner || false,
                 is_banned: true,
                 ban_reason: profile.ban_reason,
                 ban_expires_at: profile.ban_expires_at
@@ -119,6 +120,7 @@ serve(async (req) => {
         avatar: authUser.user_metadata?.avatar_url,
         roles: profile.roles || [],
         highestRole: profile.highest_role || null,
+        isGuildOwner: profile.is_guild_owner || false,
         permissions: Array.from(finalPermissions),
         is_banned: false, ban_reason: null, ban_expires_at: null,
       };
@@ -136,6 +138,7 @@ serve(async (req) => {
     let finalAvatar = authUser.user_metadata?.avatar_url;
     let finalRoles: any[] = profile?.roles || []; 
     let finalHighestRole: any | null = profile?.highest_role || null;
+    let finalIsGuildOwner: boolean = profile?.is_guild_owner || false;
     let memberRoleIds: string[] = (profile?.roles || []).map((r: any) => r.id).filter(Boolean);
 
     try {
@@ -161,6 +164,7 @@ serve(async (req) => {
 
       finalRoles = memberData.roles;
       finalHighestRole = memberData.highestRole;
+      finalIsGuildOwner = memberData.isGuildOwner;
       finalUsername = memberData.username;
       finalAvatar = memberData.avatar;
       memberRoleIds = (finalRoles || []).map(r => r.id).filter(Boolean);
@@ -174,7 +178,7 @@ serve(async (req) => {
     // 5. UPDATE DATABASE & CALCULATE FINAL PERMISSIONS
     // =================================================================
     await supabaseAdmin.auth.admin.updateUserById(userId, { user_metadata: { ...authUser.user_metadata, full_name: finalUsername, avatar_url: finalAvatar } });
-    await supabaseAdmin.from('profiles').upsert({ id: userId, discord_id: discordUserId, roles: finalRoles, highest_role: finalHighestRole, last_synced_at: new Date().toISOString() });
+    await supabaseAdmin.from('profiles').upsert({ id: userId, discord_id: discordUserId, roles: finalRoles, highest_role: finalHighestRole, last_synced_at: new Date().toISOString(), is_guild_owner: finalIsGuildOwner });
 
     const finalPermissions = new Set<string>();
     if (memberRoleIds.length > 0) {
@@ -189,6 +193,7 @@ serve(async (req) => {
       avatar: finalAvatar,
       roles: finalRoles,
       highestRole: finalHighestRole,
+      isGuildOwner: finalIsGuildOwner,
       permissions: Array.from(finalPermissions),
       is_banned: false, ban_reason: null, ban_expires_at: null,
     };
