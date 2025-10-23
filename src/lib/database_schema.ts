@@ -1,11 +1,22 @@
-// FIX: Wrapped the entire file content in a template literal to treat it as a string,
-// preventing the TypeScript compiler from trying to parse SQL as TypeScript code.
+
+// Vixel Roleplay Website - Full Database Schema (V7 - Quoted Identifiers)
 export const databaseSchema = `
 /*
 ====================================================================================================
- Vixel Roleplay Website - Full Database Schema (V2 - Robust Auth Fix)
+ Vixel Roleplay Website - Full Database Schema (V7 - Quoted Identifiers)
  Author: AI
- Date: 2024-05-24
+ Date: 2024-05-28
+ 
+ !! WARNING !!
+ This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
+ functions, and data before recreating the entire schema. This is intended for development
+ or for a clean installation. DO NOT run this on a production database with live user data
+ unless you intend to wipe it completely.
+
+ !! SUPER ADMIN NOTE !!
+ The first super admin role must be set MANUALLY after running this script.
+ See the project's README or documentation for instructions on how to insert the role
+ into the 'role_permissions' table.
  
  INSTRUCTIONS:
  1. Go to your Supabase Project Dashboard.
@@ -14,289 +25,296 @@ export const databaseSchema = `
  4. Copy the ENTIRE content of this file.
  5. Paste it into the SQL Editor.
  6. Click "RUN".
- 
- This script is idempotent, meaning it can be run multiple times safely. It will create tables
- if they don't exist and will not throw errors on subsequent runs.
 ====================================================================================================
 */
 
+-- Wrap the entire script in a transaction to ensure it either completes fully or not at all.
+BEGIN;
+
 -- =================================================================
--- PRE-FLIGHT PERMISSION FIX
+-- 1. DESTRUCTIVE RESET: Drop all existing objects
 -- =================================================================
--- This command ensures the 'postgres' user, which runs this script in the Supabase SQL Editor,
--- has the necessary permissions to create tables and other objects within the 'public' schema.
--- This resolves the "permission denied for schema public" error.
+-- Drop tables with CASCADE to remove dependent objects.
+DROP TABLE IF EXISTS public.bans CASCADE;
+DROP TABLE IF EXISTS public.audit_log CASCADE;
+DROP TABLE IF EXISTS public.submissions CASCADE;
+DROP TABLE IF EXISTS public.role_permissions CASCADE;
+DROP TABLE IF EXISTS public.rules CASCADE;
+DROP TABLE IF EXISTS public.quizzes CASCADE;
+DROP TABLE IF EXISTS public.products CASCADE;
+DROP TABLE IF EXISTS public.profiles CASCADE;
+DROP TABLE IF EXISTS public.config CASCADE;
+DROP TABLE IF EXISTS public.translations CASCADE;
+
+-- Drop all custom functions to ensure a clean re-creation.
+DROP FUNCTION IF EXISTS public.get_config();
+DROP FUNCTION IF EXISTS public.get_all_submissions();
+DROP FUNCTION IF EXISTS public.add_submission(jsonb);
+DROP FUNCTION IF EXISTS public.update_submission_status(uuid, text);
+DROP FUNCTION IF EXISTS public.save_quiz(jsonb);
+DROP FUNCTION IF EXISTS public.save_rules(jsonb);
+DROP FUNCTION IF EXISTS public.update_config(jsonb);
+DROP FUNCTION IF EXISTS public.log_action(text);
+DROP FUNCTION IF EXISTS public.ban_user(uuid, text, int);
+DROP FUNCTION IF EXISTS public.unban_user(uuid);
+DROP FUNCTION IF EXISTS public.has_permission(uuid, text);
+DROP FUNCTION IF EXISTS public.get_user_id();
+
+-- Drop private schema for secrets
+DROP SCHEMA IF EXISTS private CASCADE;
+
+
+-- =================================================================
+-- 2. INITIAL SETUP & EXTENSIONS
+-- =================================================================
+-- Grant necessary permissions to the postgres role that runs this script.
 GRANT USAGE, CREATE ON SCHEMA public TO postgres;
 
+-- Enable required extensions.
+CREATE EXTENSION IF NOT EXISTS http WITH SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS pg_graphql WITH SCHEMA extensions;
+
+-- Create a private schema to store secrets.
+CREATE SCHEMA private;
+CREATE TABLE private.secrets (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+REVOKE ALL ON TABLE private.secrets FROM PUBLIC;
+
+-- Function to securely get a secret.
+CREATE OR REPLACE FUNCTION private.get_secret(secret_key text)
+RETURNS text
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  secret_value text;
+BEGIN
+  SELECT value INTO secret_value FROM private.secrets WHERE key = secret_key;
+  RETURN secret_value;
+END;
+$$;
+
 
 -- =================================================================
--- 1. EXTENSIONS & INITIAL SETUP
+-- 3. TABLE CREATION
 -- =================================================================
--- Enable the HTTP extension if it's not already enabled, for calling webhooks.
-create extension if not exists http with schema extensions;
-
--- Enable the pg_graphql extension for potential future GraphQL use.
-create extension if not exists pg_graphql with schema extensions;
-
--- =================================================================
--- 2. TABLE DEFINITIONS
--- =================================================================
-
 -- Table for storing site-wide configuration settings.
-create table if not exists public.config (
-    id smallint primary key default 1,
-    "COMMUNITY_NAME" text not null default 'Vixel Roleplay',
+CREATE TABLE public.config (
+    id smallint PRIMARY KEY DEFAULT 1,
+    "COMMUNITY_NAME" text NOT NULL DEFAULT 'Vixel Roleplay',
     "LOGO_URL" text,
     "DISCORD_GUILD_ID" text,
     "DISCORD_INVITE_URL" text,
     "MTA_SERVER_URL" text,
     "BACKGROUND_IMAGE_URL" text,
-    "SHOW_HEALTH_CHECK" boolean default false,
+    "SHOW_HEALTH_CHECK" boolean DEFAULT false,
     "SUBMISSIONS_CHANNEL_ID" text,
     "AUDIT_LOG_CHANNEL_ID" text,
-    constraint id_check check (id = 1)
+    CONSTRAINT id_check CHECK (id = 1)
 );
--- Ensure there's always a row to update.
-insert into public.config (id) values (1) on conflict (id) do nothing;
-
+INSERT INTO public.config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 
 -- Table for storing user profiles, synced with Discord data.
-create table if not exists public.profiles (
-    id uuid primary key references auth.users(id) on delete cascade,
-    discord_id text not null unique,
-    roles jsonb, -- Stores an array of Discord role objects
-    highest_role jsonb, -- Stores the single highest Discord role object
+CREATE TABLE public.profiles (
+    id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    discord_id text NOT NULL UNIQUE,
+    roles jsonb,
+    highest_role jsonb,
     last_synced_at timestamptz,
-    is_banned boolean default false,
+    is_banned boolean DEFAULT false,
     ban_reason text,
     ban_expires_at timestamptz
 );
 
-
 -- Table for store products.
-create table if not exists public.products (
-    id uuid primary key default gen_random_uuid(),
-    nameKey text not null,
-    descriptionKey text,
-    price numeric(10, 2) not null,
-    imageUrl text
+CREATE TABLE public.products (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "nameKey" text NOT NULL,
+    "descriptionKey" text,
+    price numeric(10, 2) NOT NULL,
+    "imageUrl" text
 );
-
 
 -- Table for quiz/application forms.
-create table if not exists public.quizzes (
-    id uuid primary key default gen_random_uuid(),
-    titleKey text not null,
-    descriptionKey text,
-    questions jsonb, -- Stores an array of question objects
-    isOpen boolean default false,
-    created_at timestamptz default now(),
-    allowedTakeRoles text[], -- Array of Discord Role IDs that can handle these submissions
-    logoUrl text,
-    bannerUrl text,
-    lastOpenedAt timestamptz -- Used to check for submissions within the current "season"
+CREATE TABLE public.quizzes (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "titleKey" text NOT NULL,
+    "descriptionKey" text,
+    questions jsonb,
+    "isOpen" boolean DEFAULT false,
+    created_at timestamptz DEFAULT now(),
+    "allowedTakeRoles" text[],
+    "logoUrl" text,
+    "bannerUrl" text,
+    "lastOpenedAt" timestamptz
 );
 
-
 -- Table for user submissions to quizzes.
-create table if not exists public.submissions (
-    id uuid primary key default gen_random_uuid(),
-    quizId uuid references public.quizzes(id) on delete set null,
-    quizTitle text,
-    user_id uuid references auth.users(id) on delete cascade not null,
+CREATE TABLE public.submissions (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "quizId" uuid REFERENCES public.quizzes(id) ON DELETE SET NULL,
+    "quizTitle" text,
+    user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
     username text,
     answers jsonb,
-    submittedAt timestamptz default now(),
-    status text default 'pending', -- pending, taken, accepted, refused
-    adminId uuid references auth.users(id) on delete set null,
-    adminUsername text,
-    updatedAt timestamptz, -- Tracks when the status was last changed
-    cheatAttempts jsonb, -- Stores log of anti-cheat triggers
+    "submittedAt" timestamptz DEFAULT now(),
+    status text DEFAULT 'pending',
+    "adminId" uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+    "adminUsername" text,
+    "updatedAt" timestamptz,
+    "cheatAttempts" jsonb,
     user_highest_role text
 );
 
-
 -- Table for server rules, organized by categories.
-create table if not exists public.rules (
-    id uuid primary key default gen_random_uuid(),
-    titleKey text not null,
-    position int not null,
-    rules jsonb -- Array of rule objects [{id, textKey}, ...]
+CREATE TABLE public.rules (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    "titleKey" text NOT NULL,
+    position int NOT NULL,
+    rules jsonb
 );
 
-
 -- Table for audit logs of admin actions.
-create table if not exists public.audit_log (
-    id bigint generated by default as identity primary key,
-    timestamp timestamptz default now(),
-    admin_id uuid references auth.users(id),
+CREATE TABLE public.audit_log (
+    id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    timestamp timestamptz DEFAULT now(),
+    admin_id uuid REFERENCES auth.users(id),
     admin_username text,
     action text
 );
 
-
 -- Table to map Discord role IDs to website permissions.
-create table if not exists public.role_permissions (
-    role_id text primary key,
-    permissions text[] -- Array of permission keys
+CREATE TABLE public.role_permissions (
+    role_id text PRIMARY KEY,
+    permissions text[]
 );
 
-
--- Table for website translations, allowing admin panel management.
-create table if not exists public.translations (
-    key text primary key,
+-- Table for website translations.
+CREATE TABLE public.translations (
+    key text PRIMARY KEY,
     en text,
     ar text
 );
 
 -- Table for user bans.
-create table if not exists public.bans (
-    id uuid primary key default gen_random_uuid(),
-    user_id uuid not null references auth.users(id) on delete cascade,
-    banned_by uuid references auth.users(id) on delete set null,
+CREATE TABLE public.bans (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    banned_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
     reason text,
-    expires_at timestamptz, -- Null for permanent bans
-    created_at timestamptz default now(),
-    unbanned_by uuid references auth.users(id) on delete set null,
+    expires_at timestamptz,
+    created_at timestamptz DEFAULT now(),
+    unbanned_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
     unbanned_at timestamptz,
-    is_active boolean default true
+    is_active boolean DEFAULT true
 );
 
 
 -- =================================================================
--- 3. ROW LEVEL SECURITY (RLS) POLICIES
+-- 4. ROW LEVEL SECURITY (RLS)
 -- =================================================================
-
--- Function to get the current authenticated user's ID.
-create or replace function auth.get_user_id()
-returns uuid
-language sql stable
-as $$
-  select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
+CREATE OR REPLACE FUNCTION public.get_user_id()
+RETURNS uuid
+LANGUAGE sql STABLE
+AS $$
+  SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
 $$;
 
--- Enable RLS on all tables that contain user or sensitive data.
-alter table public.config enable row level security;
-alter table public.profiles enable row level security;
-alter table public.products enable row level security;
-alter table public.quizzes enable row level security;
-alter table public.submissions enable row level security;
-alter table public.rules enable row level security;
-alter table public.audit_log enable row level security;
-alter table public.role_permissions enable row level security;
-alter table public.translations enable row level security;
-alter table public.bans enable row level security;
+ALTER TABLE public.config ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.quizzes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.submissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.rules ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.role_permissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.translations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bans ENABLE ROW LEVEL SECURITY;
 
--- Clear existing policies before creating new ones.
-drop policy if exists "Allow public read access" on public.config;
-drop policy if exists "Allow authenticated users to read their own profile" on public.profiles;
-drop policy if exists "Allow public read access to products" on public.products;
-drop policy if exists "Allow public read access to quizzes" on public.quizzes;
-drop policy if exists "Allow users to see their own submissions" on public.submissions;
-drop policy if exists "Allow public read access to rules" on public.rules;
-drop policy if exists "Allow public read access to translations" on public.translations;
+CREATE POLICY "Allow public read access" ON public.config FOR SELECT USING (true);
+CREATE POLICY "Allow public read access to products" ON public.products FOR SELECT USING (true);
+CREATE POLICY "Allow public read access to quizzes" ON public.quizzes FOR SELECT USING (true);
+CREATE POLICY "Allow public read access to rules" ON public.rules FOR SELECT USING (true);
+CREATE POLICY "Allow public read access to translations" ON public.translations FOR SELECT USING (true);
+CREATE POLICY "Allow authenticated users to read their own profile" ON public.profiles FOR SELECT USING (id = public.get_user_id());
+CREATE POLICY "Allow users to see their own submissions" ON public.submissions FOR SELECT USING (user_id = public.get_user_id());
 
--- Create POLICIES for public read access.
-create policy "Allow public read access" on public.config for select using (true);
-create policy "Allow public read access to products" on public.products for select using (true);
-create policy "Allow public read access to quizzes" on public.quizzes for select using (true);
-create policy "Allow public read access to rules" on public.rules for select using (true);
-create policy "Allow public read access to translations" on public.translations for select using (true);
-
--- Create POLICIES for user-specific data access.
-create policy "Allow authenticated users to read their own profile" on public.profiles for select
-  using (id = auth.get_user_id());
-create policy "Allow users to see their own submissions" on public.submissions for select
-  using (user_id = auth.get_user_id());
-
--- NOTE: Admin access is handled by RPC functions which run with the 'service_role' key, bypassing RLS.
--- This is a secure pattern as all admin logic is centralized in the database functions.
 
 -- =================================================================
--- 4. HELPER & PERMISSION FUNCTIONS
+-- 5. HELPER & RPC FUNCTIONS
 -- =================================================================
-
--- Function to check if a user has a specific permission.
-create or replace function public.has_permission(p_user_id uuid, p_permission_key text)
-returns boolean
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
-  user_roles text[];
+CREATE OR REPLACE FUNCTION public.has_permission(p_user_id uuid, p_permission_key text)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  user_roles_json jsonb;
+  role_ids text[];
   has_perm boolean;
-begin
-  -- Get the user's role IDs from their profile
-  select array(select jsonb_array_elements_text(roles->'roles'))
-  into user_roles
-  from public.profiles
-  where id = p_user_id;
+BEGIN
+  -- This function is SECURITY DEFINER, so it runs with the permissions of the user who defined it (postgres).
+  SELECT roles INTO user_roles_json FROM public.profiles WHERE id = p_user_id;
 
-  if user_roles is null or array_length(user_roles, 1) is null then
-    return false;
-  end if;
+  IF user_roles_json IS NULL OR jsonb_array_length(user_roles_json) = 0 THEN
+    RETURN false;
+  END IF;
 
-  -- Check if any of the user's roles have the '_super_admin' permission
-  select exists (
-    select 1
-    from public.role_permissions
-    where role_id = any(user_roles) and '_super_admin' = any(permissions)
-  ) into has_perm;
+  SELECT array_agg(r->>'id') INTO role_ids FROM jsonb_array_elements(user_roles_json) AS r;
 
-  if has_perm then
-    return true;
-  end if;
+  -- First, check for the super admin permission, as it overrides all others.
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.role_permissions
+    WHERE role_id = ANY(role_ids) AND '_super_admin' = ANY(permissions)
+  ) INTO has_perm;
 
-  -- If not a super admin, check for the specific permission
-  select exists (
-    select 1
-    from public.role_permissions
-    where role_id = any(user_roles) and p_permission_key = any(permissions)
-  ) into has_perm;
+  IF has_perm THEN
+    RETURN true;
+  END IF;
 
-  return has_perm;
-end;
+  -- If not a super admin, check for the specific permission.
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.role_permissions
+    WHERE role_id = ANY(role_ids) AND p_permission_key = ANY(permissions)
+  ) INTO has_perm;
+
+  RETURN has_perm;
+END;
 $$;
 
-
--- =================================================================
--- 5. REMOTE PROCEDURE CALLS (RPC) - MAIN API LOGIC
--- =================================================================
-
--- Get site configuration.
-create or replace function public.get_config()
-returns json
-language sql stable
-as $$
-  select row_to_json(c) from public.config c where id = 1;
+CREATE OR REPLACE FUNCTION public.get_config()
+RETURNS json
+LANGUAGE sql STABLE
+AS $$
+  SELECT row_to_json(c) FROM public.config c WHERE id = 1;
 $$;
 
--- Get all submissions (Admin Only).
-create or replace function public.get_all_submissions()
-returns setof public.submissions
-language plpgsql
-as $$
-begin
-  if not public.has_permission(auth.get_user_id(), 'admin_submissions') then
-    raise exception 'Insufficient permissions';
-  end if;
-  return query select * from public.submissions order by submittedAt desc;
-end;
+CREATE OR REPLACE FUNCTION public.get_all_submissions()
+RETURNS SETOF public.submissions
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NOT public.has_permission(public.get_user_id(), 'admin_submissions') THEN
+    RAISE EXCEPTION 'Insufficient permissions';
+  END IF;
+  RETURN QUERY SELECT * FROM public.submissions ORDER BY "submittedAt" DESC;
+END;
 $$;
 
-
--- Add a new submission.
-create or replace function public.add_submission(submission_data jsonb)
-returns public.submissions
-language plpgsql
-as $$
-declare
+CREATE OR REPLACE FUNCTION public.add_submission(submission_data jsonb)
+RETURNS public.submissions
+LANGUAGE plpgsql
+AS $$
+DECLARE
   new_submission public.submissions;
-  notification_payload jsonb;
-begin
-  insert into public.submissions (quizId, quizTitle, user_id, username, answers, cheatAttempts, user_highest_role)
-  values (
+  channel_id text;
+BEGIN
+  INSERT INTO public.submissions ("quizId", "quizTitle", user_id, username, answers, "cheatAttempts", user_highest_role)
+  VALUES (
     (submission_data->>'quizId')::uuid,
     submission_data->>'quizTitle',
     (submission_data->>'user_id')::uuid,
@@ -304,160 +322,173 @@ begin
     submission_data->'answers',
     submission_data->'cheatAttempts',
     submission_data->>'user_highest_role'
-  ) returning * into new_submission;
+  ) RETURNING * INTO new_submission;
 
-  -- Trigger notification for new submission
-  select extensions.http_post(
-    (select value from private.get_secret('VITE_SUPABASE_FUNCTIONS_URL') || '/discord-proxy'),
-    jsonb_build_object(
-      'type', 'new_submission',
-      'payload', jsonb_build_object(
-        'submissionId', new_submission.id,
-        'username', new_submission.username,
-        'quizTitle', new_submission.quizTitle,
-        'timestamp', new_submission.submittedAt
-      )
-    ),
-    'application/json'
-  );
+  SELECT "SUBMISSIONS_CHANNEL_ID" INTO channel_id FROM public.config WHERE id = 1;
 
-  return new_submission;
-end;
+  IF channel_id IS NOT NULL THEN
+    PERFORM extensions.http_post(
+      (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_URL') || '/api/notify',
+      jsonb_build_object(
+        'type', 'new_submission',
+        'payload', jsonb_build_object(
+          'submissionsChannelId', channel_id,
+          'embed', jsonb_build_object(
+            'title', 'New Application Submitted!',
+            'description', 'A new application has been submitted and is awaiting review.',
+            'color', 3447003,
+            'fields', jsonb_build_array(
+              jsonb_build_object('name', 'Applicant', 'value', new_submission.username, 'inline', true),
+              jsonb_build_object('name', 'Application Type', 'value', new_submission."quizTitle", 'inline', true)
+            ),
+            'timestamp', new_submission."submittedAt"
+          )
+        )
+      ),
+      'application/json',
+      jsonb_build_object('Authorization', 'Bearer ' || (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_API_KEY'))
+    );
+  END IF;
+
+  RETURN new_submission;
+END;
 $$;
 
-
--- Update submission status (Admin Only).
-create or replace function public.update_submission_status(p_submission_id uuid, p_new_status text)
-returns void
-language plpgsql security definer
-as $$
-declare
-  submission_owner_id uuid;
-  submission_username text;
-  submission_quiz_title text;
+CREATE OR REPLACE FUNCTION public.update_submission_status(p_submission_id uuid, p_new_status text)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  submission_record record;
   admin_user record;
-begin
-  if not public.has_permission(auth.get_user_id(), 'admin_submissions') then
-    raise exception 'Insufficient permissions';
-  end if;
+  embed_color int;
+  embed_title text;
+BEGIN
+  IF NOT public.has_permission(public.get_user_id(), 'admin_submissions') THEN
+    RAISE EXCEPTION 'Insufficient permissions';
+  END IF;
 
-  select id, raw_user_meta_data->>'full_name' as username into admin_user from auth.users where id = auth.get_user_id();
+  SELECT id, raw_user_meta_data->>'full_name' AS username INTO admin_user FROM auth.users WHERE id = public.get_user_id();
 
-  update public.submissions
-  set
+  UPDATE public.submissions
+  SET
     status = p_new_status,
-    adminId = auth.get_user_id(),
-    adminUsername = admin_user.username,
-    updatedAt = now()
-  where id = p_submission_id
-  returning user_id, username, quizTitle into submission_owner_id, submission_username, submission_quiz_title;
-  
-  -- Trigger notification for status update (DM to user)
-  perform extensions.http_post(
-    (select value from private.get_secret('VITE_SUPABASE_FUNCTIONS_URL') || '/discord-proxy'),
-    jsonb_build_object(
-      'type', 'submission_result',
-      'payload', jsonb_build_object(
-        'userId', submission_owner_id,
-        'username', submission_username,
-        'quizTitle', submission_quiz_title,
-        'status', p_new_status,
-        'adminUsername', admin_user.username,
-        'timestamp', now()
-      )
-    ),
-    'application/json'
-  );
+    "adminId" = public.get_user_id(),
+    "adminUsername" = admin_user.username,
+    "updatedAt" = now()
+  WHERE id = p_submission_id
+  RETURNING * INTO submission_record;
 
-end;
+  IF p_new_status = 'accepted' THEN
+    embed_color := 5763719;
+    embed_title := '✅ Application Accepted';
+  ELSIF p_new_status = 'refused' THEN
+    embed_color := 15548997;
+    embed_title := '❌ Application Refused';
+  END IF;
+
+  IF p_new_status IN ('accepted', 'refused') THEN
+     PERFORM extensions.http_post(
+      (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_URL') || '/api/notify',
+      jsonb_build_object(
+        'type', 'submission_result',
+        'payload', jsonb_build_object(
+          'userId', submission_record.user_id,
+          'embed', jsonb_build_object(
+            'title', embed_title,
+            'description', 'The status of your application has been updated.',
+            'color', embed_color,
+            'fields', jsonb_build_array(
+              jsonb_build_object('name', 'Application', 'value', submission_record."quizTitle"),
+              jsonb_build_object('name', 'Status', 'value', p_new_status),
+              jsonb_build_object('name', 'Reviewed By', 'value', admin_user.username)
+            ),
+            'timestamp', now()
+          )
+        )
+      ),
+      'application/json',
+      jsonb_build_object('Authorization', 'Bearer ' || (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_API_KEY'))
+    );
+  END IF;
+END;
 $$;
 
-
--- Save a quiz (create or update) (Admin Only).
-create or replace function public.save_quiz(quiz_data jsonb)
-returns public.quizzes
-language plpgsql
-as $$
-declare
+CREATE OR REPLACE FUNCTION public.save_quiz(quiz_data jsonb)
+RETURNS public.quizzes
+LANGUAGE plpgsql
+AS $$
+DECLARE
   result public.quizzes;
   q_id uuid;
-begin
-  if not public.has_permission(auth.get_user_id(), 'admin_quizzes') then
-    raise exception 'Insufficient permissions';
-  end if;
+  is_creating boolean;
+BEGIN
+  IF NOT public.has_permission(public.get_user_id(), 'admin_quizzes') THEN
+    RAISE EXCEPTION 'Insufficient permissions';
+  END IF;
 
   q_id := (quiz_data->>'id')::uuid;
+  is_creating := q_id IS NULL;
 
-  insert into public.quizzes (id, titleKey, descriptionKey, questions, isOpen, allowedTakeRoles, logoUrl, bannerUrl, lastOpenedAt)
-  values (
+  INSERT INTO public.quizzes (id, "titleKey", "descriptionKey", questions, "isOpen", "allowedTakeRoles", "logoUrl", "bannerUrl", "lastOpenedAt")
+  VALUES (
     coalesce(q_id, gen_random_uuid()),
     quiz_data->>'titleKey',
     quiz_data->>'descriptionKey',
     quiz_data->'questions',
     (quiz_data->>'isOpen')::boolean,
-    (select array_agg(elem) from jsonb_array_elements_text(quiz_data->'allowedTakeRoles') as elem),
+    (SELECT array_agg(elem) FROM jsonb_array_elements_text(quiz_data->'allowedTakeRoles') AS elem),
     quiz_data->>'logoUrl',
     quiz_data->>'bannerUrl',
-    case when (quiz_data->>'isOpen')::boolean and not exists (select 1 from quizzes where id=q_id and isOpen=true)
-         then now()
-         else (select lastOpenedAt from quizzes where id=q_id)
-    end
+    CASE WHEN (quiz_data->>'isOpen')::boolean AND is_creating THEN now() ELSE NULL END
   )
-  on conflict (id) do update set
-    titleKey = excluded.titleKey,
-    descriptionKey = excluded.descriptionKey,
+  ON CONFLICT (id) DO UPDATE SET
+    "titleKey" = excluded."titleKey",
+    "descriptionKey" = excluded."descriptionKey",
     questions = excluded.questions,
-    isOpen = excluded.isOpen,
-    allowedTakeRoles = excluded.allowedTakeRoles,
-    logoUrl = excluded.logoUrl,
-    bannerUrl = excluded.bannerUrl,
-    lastOpenedAt = case when excluded.isOpen and not quizzes.isOpen
-                        then now()
-                        else quizzes.lastOpenedAt
-                   end
-  returning * into result;
+    "isOpen" = excluded."isOpen",
+    "allowedTakeRoles" = excluded."allowedTakeRoles",
+    "logoUrl" = excluded."logoUrl",
+    "bannerUrl" = excluded."bannerUrl",
+    "lastOpenedAt" = CASE WHEN excluded."isOpen" AND NOT quizzes."isOpen" THEN now() ELSE quizzes."lastOpenedAt" END
+  RETURNING * INTO result;
 
-  return result;
-end;
+  RETURN result;
+END;
 $$;
 
-
--- Save all rules (Admin Only).
-create or replace function public.save_rules(rules_data jsonb)
-returns void
-language plpgsql
-as $$
-begin
-  if not public.has_permission(auth.get_user_id(), 'admin_rules') then
-    raise exception 'Insufficient permissions';
-  end if;
+CREATE OR REPLACE FUNCTION public.save_rules(rules_data jsonb)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NOT public.has_permission(public.get_user_id(), 'admin_rules') THEN
+    RAISE EXCEPTION 'Insufficient permissions';
+  END IF;
   
-  -- Simple approach: delete all and insert new. Good for full state updates.
-  truncate table public.rules;
+  DELETE FROM public.rules;
   
-  insert into public.rules (id, titleKey, position, rules)
-  select
+  INSERT INTO public.rules (id, "titleKey", position, rules)
+  SELECT
     (value->>'id')::uuid,
     value->>'titleKey',
     (value->>'position')::int,
     value->'rules'
-  from jsonb_array_elements(rules_data);
-end;
+  FROM jsonb_array_elements(rules_data);
+END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.update_config(new_config jsonb)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NOT public.has_permission(public.get_user_id(), 'admin_appearance') THEN
+    RAISE EXCEPTION 'Insufficient permissions';
+  END IF;
 
--- Update site configuration (Admin Only).
-create or replace function public.update_config(new_config jsonb)
-returns void
-language plpgsql
-as $$
-begin
-  if not public.has_permission(auth.get_user_id(), 'admin_appearance') then
-    raise exception 'Insufficient permissions';
-  end if;
-
-  update public.config
-  set
+  UPDATE public.config
+  SET
     "COMMUNITY_NAME" = coalesce(new_config->>'COMMUNITY_NAME', "COMMUNITY_NAME"),
     "LOGO_URL" = coalesce(new_config->>'LOGO_URL', "LOGO_URL"),
     "DISCORD_GUILD_ID" = coalesce(new_config->>'DISCORD_GUILD_ID', "DISCORD_GUILD_ID"),
@@ -467,180 +498,115 @@ begin
     "SHOW_HEALTH_CHECK" = coalesce((new_config->>'SHOW_HEALTH_CHECK')::boolean, "SHOW_HEALTH_CHECK"),
     "SUBMISSIONS_CHANNEL_ID" = coalesce(new_config->>'SUBMISSIONS_CHANNEL_ID', "SUBMISSIONS_CHANNEL_ID"),
     "AUDIT_LOG_CHANNEL_ID" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID', "AUDIT_LOG_CHANNEL_ID")
-  where id = 1;
-end;
+  WHERE id = 1;
+END;
 $$;
 
--- Log an admin action.
-create or replace function public.log_action(p_action text)
-returns void
-language plpgsql security definer
-as $$
-declare
+CREATE OR REPLACE FUNCTION public.log_action(p_action text)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+DECLARE
   admin_user record;
-begin
-  select id, raw_user_meta_data->>'full_name' as username into admin_user
-  from auth.users where id = auth.get_user_id();
+  channel_id text;
+BEGIN
+  SELECT id, raw_user_meta_data->>'full_name' AS username INTO admin_user
+  FROM auth.users WHERE id = public.get_user_id();
 
-  insert into public.audit_log(admin_id, admin_username, action)
-  values (admin_user.id, admin_user.username, p_action);
+  INSERT INTO public.audit_log(admin_id, admin_username, action)
+  VALUES (admin_user.id, admin_user.username, p_action);
 
-  -- Trigger audit log notification
-  perform extensions.http_post(
-    (select value from private.get_secret('VITE_SUPABASE_FUNCTIONS_URL') || '/discord-proxy'),
-    jsonb_build_object(
-      'type', 'audit_log',
-      'payload', jsonb_build_object(
-        'adminUsername', admin_user.username,
-        'action', p_action,
-        'timestamp', now()
-      )
-    ),
-    'application/json'
-  );
-end;
+  SELECT "AUDIT_LOG_CHANNEL_ID" INTO channel_id FROM public.config WHERE id = 1;
+
+  IF channel_id IS NOT NULL THEN
+    PERFORM extensions.http_post(
+      (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_URL') || '/api/notify',
+      jsonb_build_object(
+        'type', 'audit_log',
+        'payload', jsonb_build_object(
+          'auditLogChannelId', channel_id,
+          'embed', jsonb_build_object(
+            'title', 'Admin Action Logged',
+            'description', p_action,
+            'color', 16776960,
+            'author', jsonb_build_object(
+              'name', admin_user.username
+            ),
+            'timestamp', now()
+          )
+        )
+      ),
+      'application/json',
+      jsonb_build_object('Authorization', 'Bearer ' || (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_API_KEY'))
+    );
+  END IF;
+END;
 $$;
 
-
--- Ban a user (Admin Only)
-create or replace function public.ban_user(p_target_user_id uuid, p_reason text, p_duration_hours int)
-returns void
-language plpgsql security definer
-as $$
-declare
+CREATE OR REPLACE FUNCTION public.ban_user(p_target_user_id uuid, p_reason text, p_duration_hours int)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+DECLARE
   v_expires_at timestamptz;
   target_username text;
-begin
-  if not public.has_permission(auth.get_user_id(), 'admin_lookup') then
-    raise exception 'Insufficient permissions';
-  end if;
-
-  if p_duration_hours is not null then
-    v_expires_at := now() + (p_duration_hours * interval '1 hour');
-  else
-    v_expires_at := null; -- Permanent ban
-  end if;
-  
-  -- Update profile
-  update public.profiles
-  set is_banned = true,
-      ban_reason = p_reason,
-      ban_expires_at = v_expires_at
-  where id = p_target_user_id;
-
-  -- Deactivate previous active bans for this user
-  update public.bans set is_active = false where user_id = p_target_user_id and is_active = true;
-
-  -- Create a new ban record
-  insert into public.bans(user_id, banned_by, reason, expires_at, is_active)
-  values (p_target_user_id, auth.get_user_id(), p_reason, v_expires_at, true);
-
-  -- Log action
-  select raw_user_meta_data->>'global_name' from auth.users where id = p_target_user_id into target_username;
-  perform public.log_action('Banned user ' || coalesce(target_username, p_target_user_id::text) || ' for reason: ' || p_reason);
-end;
-$$;
-
-
--- Unban a user (Admin Only)
-create or replace function public.unban_user(p_target_user_id uuid)
-returns void
-language plpgsql security definer
-as $$
-declare
-  target_username text;
-begin
-  if not public.has_permission(auth.get_user_id(), 'admin_lookup') then
-    raise exception 'Insufficient permissions';
-  end if;
-
-  -- Update profile
-  update public.profiles
-  set is_banned = false,
-      ban_reason = null,
-      ban_expires_at = null
-  where id = p_target_user_id;
-
-  -- Deactivate ban record
-  update public.bans
-  set is_active = false,
-      unbanned_by = auth.get_user_id(),
-      unbanned_at = now()
-  where user_id = p_target_user_id and is_active = true;
-  
-  -- Log action
-  select raw_user_meta_data->>'global_name' from auth.users where id = p_target_user_id into target_username;
-  perform public.log_action('Unbanned user ' || coalesce(target_username, p_target_user_id::text));
-end;
-$$;
-
-
--- Create a private schema to store secrets.
-create schema if not exists private;
-
--- Create a table to store secrets.
-create table if not exists private.secrets (
-  key text primary key,
-  value text not null
-);
-
--- Revoke all permissions from public for the secrets table.
-revoke all on table private.secrets from public;
-
--- Function to securely get a secret.
-create or replace function private.get_secret(secret_key text)
-returns text
-language plpgsql
-as $$
-declare
-  secret_value text;
-begin
-  select value into secret_value from private.secrets where key = secret_key;
-  return secret_value;
-end;
-$$;
-
--- =================================================================
--- 6. FUNCTION OWNERSHIP & PERMISSIONS FIX (V2 - ROBUST)
--- =================================================================
--- This block fixes the "permission denied for schema auth" error by temporarily
--- elevating the script's execution role to one that can modify and own functions
--- that need to access the auth schema. This is a secure and robust solution.
-
-DO $$
 BEGIN
-  -- Grant the ability to change roles to the current user (postgres)
-  GRANT supabase_auth_admin TO postgres;
+  IF NOT public.has_permission(public.get_user_id(), 'admin_lookup') THEN
+    RAISE EXCEPTION 'Insufficient permissions';
+  END IF;
 
-  -- Temporarily switch to the auth admin role to perform ownership changes
-  SET ROLE supabase_auth_admin;
+  IF p_duration_hours IS NOT NULL THEN
+    v_expires_at := now() + (p_duration_hours * interval '1 hour');
+  ELSE
+    v_expires_at := null;
+  END IF;
+  
+  UPDATE public.profiles
+  SET is_banned = true, ban_reason = p_reason, ban_expires_at = v_expires_at
+  WHERE id = p_target_user_id;
 
-  -- Functions that need to read user metadata (like username) from auth.users
-  -- must be owned by a role that has permission to do so.
-  ALTER FUNCTION public.update_submission_status(uuid, text) OWNER TO supabase_auth_admin;
-  ALTER FUNCTION public.log_action(text) OWNER TO supabase_auth_admin;
-  ALTER FUNCTION public.ban_user(uuid, text, int) OWNER TO supabase_auth_admin;
-  ALTER FUNCTION public.unban_user(uuid) OWNER TO supabase_auth_admin;
-  ALTER FUNCTION public.has_permission(uuid, text) OWNER TO supabase_auth_admin;
+  UPDATE public.bans SET is_active = false WHERE user_id = p_target_user_id AND is_active = true;
 
-  -- Revert back to the original role
-  RESET ROLE;
+  INSERT INTO public.bans(user_id, banned_by, reason, expires_at, is_active)
+  VALUES (p_target_user_id, public.get_user_id(), p_reason, v_expires_at, true);
 
-  -- Clean up by revoking the role change permission
-  REVOKE supabase_auth_admin FROM postgres;
+  SELECT raw_user_meta_data->>'global_name' FROM auth.users WHERE id = p_target_user_id INTO target_username;
+  PERFORM public.log_action('Banned user ' || coalesce(target_username, p_target_user_id::text) || ' for reason: ' || p_reason);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.unban_user(p_target_user_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  target_username text;
+BEGIN
+  IF NOT public.has_permission(public.get_user_id(), 'admin_lookup') THEN
+    RAISE EXCEPTION 'Insufficient permissions';
+  END IF;
+
+  UPDATE public.profiles
+  SET is_banned = false, ban_reason = null, ban_expires_at = null
+  WHERE id = p_target_user_id;
+
+  UPDATE public.bans
+  SET is_active = false, unbanned_by = public.get_user_id(), unbanned_at = now()
+  WHERE user_id = p_target_user_id AND is_active = true;
+  
+  SELECT raw_user_meta_data->>'global_name' FROM auth.users WHERE id = p_target_user_id INTO target_username;
+  PERFORM public.log_action('Unbanned user ' || coalesce(target_username, p_target_user_id::text));
 END;
 $$;
 
 
 -- =================================================================
--- 7. FINALIZATION
+-- 6. FINALIZATION & GRANTS
 -- =================================================================
-grant usage on schema public to postgres, anon, authenticated, service_role;
-grant all privileges on all tables in schema public to postgres, anon, authenticated, service_role;
-grant all privileges on all functions in schema public to postgres, anon, authenticated, service_role;
-grant all privileges on all sequences in schema public to postgres, anon, authenticated, service_role;
+GRANT USAGE ON SCHEMA public TO postgres, anon, authenticated, service_role;
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO postgres, anon, authenticated, service_role;
+GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO postgres, anon, authenticated, service_role;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO postgres, anon, authenticated, service_role;
 
-alter user supabase_admin with superuser;
-
--- The schema is now complete.
+COMMIT;
 `;

@@ -64,6 +64,7 @@ export interface AuthContextType {
   loading: boolean;
   updateUser: (user: User) => void;
   hasPermission: (key: PermissionKey) => boolean;
+  permissionWarning: string | null;
 }
 
 export interface RolePermission {

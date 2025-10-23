@@ -14,6 +14,7 @@ import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import SessionWatcher from './components/SessionWatcher';
 import HexagonBackground from './components/HexagonBackground';
+import PermissionWarningBanner from './components/PermissionWarningBanner';
 
 import HomePage from './pages/HomePage';
 import StorePage from './pages/StorePage';
@@ -31,7 +32,7 @@ const AdminPage = React.lazy(() => import('./pages/AdminPage'));
 
 const AppContent: React.FC = () => {
   const { config, configLoading, configError } = useConfig();
-  const { user, hasPermission } = useAuth();
+  const { user, hasPermission, permissionWarning } = useAuth();
       
   if (configLoading) {
     return (
@@ -100,6 +101,7 @@ const AppContent: React.FC = () => {
         <HexagonBackground />
         <div className="flex flex-col min-h-screen relative z-10 bg-brand-dark/90 backdrop-blur-sm">
           <Navbar />
+          {permissionWarning && <PermissionWarningBanner message={permissionWarning} />}
           <main className="flex-grow">
             <Routes>
               <Route path="/" element={<HomePage />} />

@@ -150,6 +150,15 @@ serve(async (req) => {
       }
       const memberData = await botResponse.json();
       
+      // RESILIENCE CHECK: If the bot returns an empty role list for a user who previously had roles,
+      // treat it as a sync failure. This prevents a misconfigured Members Intent from stripping all permissions.
+      if (
+          Array.isArray(memberData.roles) && memberData.roles.length === 0 &&
+          Array.isArray(profile?.roles) && profile.roles.length > 0
+      ) {
+          throw new Error("Bot returned an empty role list for a user who previously had roles. Aborting sync to preserve existing permissions.");
+      }
+
       finalRoles = memberData.roles;
       finalHighestRole = memberData.highestRole;
       finalUsername = memberData.username;

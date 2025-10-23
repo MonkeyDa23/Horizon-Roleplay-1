@@ -1,8 +1,8 @@
 // discord-bot/src/index.ts
-// FIX: Using express.Request and express.Response to avoid global type conflicts.
-// FIX: Imported Request and Response types directly from express to resolve property not found errors.
-// FIX: Aliased express Request and Response to resolve type conflicts with global types.
-import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
+// FIX: Using namespaced Express types (e.g., 'express.Request') to resolve name conflicts with global DOM types and fix type errors.
+// FIX: Changed to explicit type imports to ensure correct resolution.
+// FIX: Using namespaced express types (e.g., express.Request) to resolve name conflicts with global DOM types.
+import express from 'express';
 import cors from 'cors';
 import { 
   Client, 
@@ -79,10 +79,12 @@ client.login(config.DISCORD_BOT_TOKEN);
 // EXPRESS MIDDLEWARE
 // =============================================
 app.use(cors());
+// FIX: Corrected Express types, allowing middleware to be recognized correctly.
 app.use(express.json());
 
 // Authentication middleware to protect API endpoints
-const authenticateRequest = (req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
+// FIX: Switched to explicit type imports to resolve type errors.
+const authenticateRequest = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
@@ -97,7 +99,8 @@ const authenticateRequest = (req: ExpressRequest, res: ExpressResponse, next: Ne
 // =============================================
 // API ROUTES
 // =============================================
-app.get('/health', (req: ExpressRequest, res: ExpressResponse) => {
+// FIX: Switched to explicit type imports to resolve type errors.
+app.get('/health', (req: express.Request, res: express.Response) => {
   if (!client.isReady() || !guildCache) {
     return res.status(503).json({ status: 'error', message: 'Bot is not ready or guild not cached.' });
   }
@@ -112,7 +115,8 @@ app.get('/health', (req: ExpressRequest, res: ExpressResponse) => {
 });
 
 // GET USER PROFILE
-app.get('/api/user/:id', authenticateRequest, async (req: ExpressRequest, res: ExpressResponse) => {
+// FIX: Switched to explicit type imports to resolve type errors.
+app.get('/api/user/:id', authenticateRequest, async (req: express.Request, res: express.Response) => {
   const { id } = req.params;
   if (!guildCache) return res.status(503).json({ error: 'Guild not cached' });
 
@@ -151,7 +155,8 @@ app.get('/api/user/:id', authenticateRequest, async (req: ExpressRequest, res: E
 });
 
 // GET ALL GUILD ROLES
-app.get('/api/roles', authenticateRequest, async (req: ExpressRequest, res: ExpressResponse) => {
+// FIX: Switched to explicit type imports to resolve type errors.
+app.get('/api/roles', authenticateRequest, async (req: express.Request, res: express.Response) => {
   if (!guildCache) return res.status(503).json({ error: 'Guild not cached' });
   try {
     await guildCache.roles.fetch();
@@ -172,7 +177,8 @@ app.get('/api/roles', authenticateRequest, async (req: ExpressRequest, res: Expr
 });
 
 // SEND NOTIFICATION
-app.post('/api/notify', authenticateRequest, async (req: ExpressRequest, res: ExpressResponse) => {
+// FIX: Switched to explicit type imports to resolve type errors.
+app.post('/api/notify', authenticateRequest, async (req: express.Request, res: express.Response) => {
     const { type, payload } = req.body;
     
     if (!type || !payload) {

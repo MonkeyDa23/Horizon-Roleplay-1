@@ -13,6 +13,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [bannedInfo, setBannedInfo] = useState<{ reason: string; expires_at: string | null } | null>(null);
+  const [permissionWarning, setPermissionWarning] = useState<string | null>(null);
   const { showToast } = useToast();
 
   const handleSession = useCallback(async (session: Session | null) => {
@@ -21,6 +22,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const { user: fullUserProfile, syncError } = await fetchUserProfile();
         
+        if (syncError) {
+            setPermissionWarning(syncError);
+        } else {
+            setPermissionWarning(null);
+        }
+
         if (fullUserProfile.is_banned) {
             setBannedInfo({ reason: fullUserProfile.ban_reason || 'No reason provided.', expires_at: fullUserProfile.ban_expires_at });
             setUser(null);
@@ -34,12 +41,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } catch (error) {
         console.error("Critical error fetching user profile:", error);
+        setPermissionWarning("A critical error occurred during login. The bot may be offline or misconfigured.");
         showToast("A critical error occurred during login. The bot may be offline or misconfigured.", 'error');
         await supabase?.auth.signOut();
         setUser(null);
       }
     } else {
       setUser(null);
+      setPermissionWarning(null);
     }
     setLoading(false);
   }, [showToast]);
@@ -90,6 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!supabase) return;
     setUser(null);
     setBannedInfo(null);
+    setPermissionWarning(null);
     await supabase.auth.signOut();
   };
   
@@ -119,7 +129,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }
 
 
-  const value = { user, login, logout, loading, updateUser, hasPermission };
+  const value = { user, login, logout, loading, updateUser, hasPermission, permissionWarning };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
