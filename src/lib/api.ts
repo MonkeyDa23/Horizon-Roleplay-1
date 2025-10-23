@@ -1,4 +1,3 @@
-
 // src/lib/api.ts
 import { supabase } from './supabaseClient';
 import type { 
@@ -92,8 +91,9 @@ export const forceRefreshUserProfile = async (): Promise<{ user: User, syncError
   };
 };
 
-export const revalidateSession = async (): Promise<User> => {
-  const { user } = await invokeFunction<{ user: User, syncError: string | null }>('sync-user-profile');
+export const revalidateSession = async (force: boolean = false): Promise<User> => {
+  const body = force ? { force: true } : undefined;
+  const { user } = await invokeFunction<{ user: User, syncError: string | null }>('sync-user-profile', body);
   return processUserPermissions(user)!;
 };
 

@@ -1,6 +1,6 @@
 // discord-bot/src/index.ts
-// FIX: Using explicit type imports for Express to resolve name conflicts with global DOM types.
-import express, { Request, Response, NextFunction } from 'express';
+// FIX: Aliased Request and Response to avoid conflicts with global DOM types.
+import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
 import cors from 'cors';
 import { 
   Client, 
@@ -80,7 +80,8 @@ app.use(cors());
 app.use(express.json());
 
 // Authentication middleware to protect API endpoints
-const authenticateRequest = (req: Request, res: Response, next: NextFunction) => {
+// FIX: Use aliased Express types to avoid conflict with DOM types.
+const authenticateRequest = (req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
@@ -95,7 +96,8 @@ const authenticateRequest = (req: Request, res: Response, next: NextFunction) =>
 // =============================================
 // API ROUTES
 // =============================================
-app.get('/health', (req: Request, res: Response) => {
+// FIX: Use aliased Express types to avoid conflict with DOM types.
+app.get('/health', (req: ExpressRequest, res: ExpressResponse) => {
   if (!client.isReady() || !guildCache) {
     return res.status(503).json({ status: 'error', message: 'Bot is not ready or guild not cached.' });
   }
@@ -110,7 +112,8 @@ app.get('/health', (req: Request, res: Response) => {
 });
 
 // GET USER PROFILE
-app.get('/api/user/:id', authenticateRequest, async (req: Request, res: Response) => {
+// FIX: Use aliased Express types to avoid conflict with DOM types.
+app.get('/api/user/:id', authenticateRequest, async (req: ExpressRequest, res: ExpressResponse) => {
   const { id } = req.params;
   if (!guildCache) return res.status(503).json({ error: 'Guild not cached' });
 
@@ -151,7 +154,8 @@ app.get('/api/user/:id', authenticateRequest, async (req: Request, res: Response
 });
 
 // GET ALL GUILD ROLES
-app.get('/api/roles', authenticateRequest, async (req: Request, res: Response) => {
+// FIX: Use aliased Express types to avoid conflict with DOM types.
+app.get('/api/roles', authenticateRequest, async (req: ExpressRequest, res: ExpressResponse) => {
   if (!guildCache) return res.status(503).json({ error: 'Guild not cached' });
   try {
     await guildCache.roles.fetch();
@@ -172,7 +176,8 @@ app.get('/api/roles', authenticateRequest, async (req: Request, res: Response) =
 });
 
 // SEND NOTIFICATION
-app.post('/api/notify', authenticateRequest, async (req: Request, res: Response) => {
+// FIX: Use aliased Express types to avoid conflict with DOM types.
+app.post('/api/notify', authenticateRequest, async (req: ExpressRequest, res: ExpressResponse) => {
     const { type, payload } = req.body;
     
     if (!type || !payload) {

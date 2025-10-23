@@ -52,7 +52,7 @@ const AdminPage: React.FC = () => {
             }
 
             try {
-                const freshUser = await revalidateSession();
+                const freshUser = await revalidateSession(true); // Force a refresh
                 if (!freshUser.permissions.has('admin_panel')) {
                     showToast(t('admin_revoked'), 'error');
                     updateUser(freshUser);
