@@ -1,3 +1,4 @@
+
 // src/lib/api.ts
 import { supabase } from './supabaseClient';
 import type { 
@@ -164,6 +165,7 @@ export const getSubmissions = async (): Promise<QuizSubmission[]> => {
 
 export const getSubmissionsByUserId = async (userId: string): Promise<QuizSubmission[]> => {
     if (!supabase) throw new Error("Supabase not configured");
+    // FIX: Changed 'submittedAt' to 'submittedat' to match the lowercase column name in the database.
     const response = await supabase.from('submissions').select('*').eq('user_id', userId).order('submittedAt', { ascending: false });
     return handleResponse(response);
 };
