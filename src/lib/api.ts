@@ -64,17 +64,36 @@ const invokeFunction = async <T>(functionName: string, body?: object, headers?: 
 // =============================================
 // AUTH & USER PROFILE API
 // =============================================
+// Helper to convert permissions array from JSON response into a Set
+const processUserPermissions = (user: User | null): User | null => {
+    if (user && Array.isArray(user.permissions)) {
+        return {
+            ...user,
+            permissions: new Set(user.permissions as any as PermissionKey[]),
+        };
+    }
+    return user;
+};
+
 export const fetchUserProfile = async (): Promise<{ user: User, syncError: string | null }> => {
-  return invokeFunction<{ user: User, syncError: string | null }>('sync-user-profile');
+  const response = await invokeFunction<{ user: User, syncError: string | null }>('sync-user-profile');
+  return {
+      ...response,
+      user: processUserPermissions(response.user)!,
+  };
 };
 
 export const forceRefreshUserProfile = async (): Promise<{ user: User, syncError: string | null }> => {
-  return invokeFunction<{ user: User, syncError: string | null }>('sync-user-profile', { force: true });
+  const response = await invokeFunction<{ user: User, syncError: string | null }>('sync-user-profile', { force: true });
+  return {
+      ...response,
+      user: processUserPermissions(response.user)!,
+  };
 };
 
 export const revalidateSession = async (): Promise<User> => {
   const { user } = await invokeFunction<{ user: User, syncError: string | null }>('sync-user-profile');
-  return user;
+  return processUserPermissions(user)!;
 };
 
 
