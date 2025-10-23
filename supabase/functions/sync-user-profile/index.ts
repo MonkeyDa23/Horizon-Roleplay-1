@@ -23,9 +23,18 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  let authUser;
+  // Use the SERVICE_ROLE_KEY to bypass RLS for internal operations
+  const supabaseAdmin = createClient(
+    // @ts-ignore
+    Deno.env.get('SUPABASE_URL') ?? '',
+    // @ts-ignore
+    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+  );
+
   try {
     // =================================================================
-    // 1. SETUP & AUTHENTICATION
+    // 1. AUTHENTICATE USER & GET PARAMS
     // =================================================================
     let force = false;
     try {
@@ -33,9 +42,9 @@ serve(async (req) => {
         const body = await req.json();
         if (body && body.force === true) force = true;
       }
-    } catch (e) { /* Ignore parsing errors */ }
+    } catch (e) { /* Ignore parsing errors if body is empty */ }
 
-    // Authenticate the user making the request
+    // Create a client with the user's auth token to identify them
     const supabaseClient = createClient(
       // @ts-ignore
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -43,164 +52,149 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
     );
-    const { data: { user: authUser }, error: authError } = await supabaseClient.auth.getUser();
-    if (authError || !authUser) {
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    if (authError || !user) {
       return createResponse({ error: 'Authentication failed.' }, 401);
     }
-    const userId = authUser.id;
-    
-    // Create an admin client to perform elevated actions
-    const supabaseAdmin = createClient(
-      // @ts-ignore
-      Deno.env.get('SUPABASE_URL') ?? '',
-      // @ts-ignore
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    authUser = user;
 
     // =================================================================
-    // 2. CHECK BAN STATUS & HANDLE EXPIRATION
+    // 2. GET TRUSTED PROFILE & PERMISSIONS FROM DATABASE
     // =================================================================
-    let { data: profile } = await supabaseAdmin.from('profiles').select('*').eq('id', userId).maybeSingle();
+    const { data: dbProfile, error: dbError } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('id', authUser.id)
+      .maybeSingle();
+    if (dbError) throw new Error(`DB Error fetching profile: ${dbError.message}`);
 
-    if (profile?.is_banned && profile.ban_expires_at && new Date(profile.ban_expires_at) < new Date()) {
-        // Ban expired, unban the user automatically
-        const { data: updatedProfile } = await supabaseAdmin.from('profiles').update({
-            is_banned: false,
-            ban_reason: null,
-            ban_expires_at: null
-        }).eq('id', userId).select().single();
-        profile = updatedProfile;
+    const getPermissionsForRoles = async (roles: any[]): Promise<Set<string>> => {
+      const perms = new Set<string>();
+      if (!Array.isArray(roles) || roles.length === 0) return perms;
 
-        // Also update the bans table
-        await supabaseAdmin.from('bans').update({ is_active: false, unbanned_at: new Date() }).eq('user_id', userId).eq('is_active', true);
+      const roleIds = roles.map(r => r.id).filter(Boolean);
+      if (roleIds.length === 0) return perms;
+
+      const { data: permsData, error } = await supabaseAdmin
+        .from('role_permissions')
+        .select('permissions')
+        .in('role_id', roleIds);
+      
+      if (error) {
+        console.error(`DB Error fetching permissions for roles ${roleIds.join(', ')}:`, error);
+        return perms; // Return empty set on error
+      }
+
+      if (permsData) {
+        permsData.forEach(p => {
+          if (Array.isArray(p.permissions)) {
+            p.permissions.forEach(key => perms.add(key));
+          }
+        });
+      }
+      return perms;
+    };
+
+    const currentPermissions = await getPermissionsForRoles(dbProfile?.roles);
+    const wasAdmin = currentPermissions.has('admin_panel') || currentPermissions.has('_super_admin');
+
+    // =================================================================
+    // 3. ATTEMPT TO SYNC WITH DISCORD BOT
+    // =================================================================
+    const needsSync = force || !dbProfile?.last_synced_at || (new Date().getTime() - new Date(dbProfile.last_synced_at).getTime() >= CACHE_TTL_MS);
+    let syncError: string | null = null;
+    let syncedMemberData = null;
+
+    if (needsSync) {
+      try {
+        const discordUserId = dbProfile?.discord_id || authUser.user_metadata?.provider_id;
+        if (!discordUserId) throw new Error('Could not determine Discord ID for user.');
+
+        // @ts-ignore
+        const BOT_URL = Deno.env.get('VITE_DISCORD_BOT_URL');
+        // @ts-ignore
+        const BOT_API_KEY = Deno.env.get('VITE_DISCORD_BOT_API_KEY');
+        if (!BOT_URL || !BOT_API_KEY) throw new Error("Bot integration secrets are not configured.");
+
+        const botResponse = await fetch(`${BOT_URL}/api/user/${discordUserId}`, {
+          headers: { 'Authorization': `Bearer ${BOT_API_KEY}` }
+        });
+
+        if (!botResponse.ok) {
+          const errBody = await botResponse.json().catch(() => ({}));
+          throw new Error(`Bot API error (${botResponse.status}): ${errBody.error || 'Unknown error'}`);
+        }
+        
+        const memberData = await botResponse.json();
+        if (!memberData || !Array.isArray(memberData.roles)) {
+            throw new Error("Bot returned invalid or malformed data.");
+        }
+        
+        // --- THE DEFINITIVE ADMIN LOCK GATEKEEPER ---
+        const newPermissions = await getPermissionsForRoles(memberData.roles);
+        const wouldBeAdmin = newPermissions.has('admin_panel') || newPermissions.has('_super_admin');
+
+        if (wasAdmin && !wouldBeAdmin) {
+          // This is the critical failure case. We throw a hard error to stop everything.
+          throw new Error("Dangerous sync rejected: This operation would remove admin permissions. Aborting.");
+        }
+        
+        // If the check passes, the sync data is safe.
+        syncedMemberData = memberData;
+      } catch (e) {
+        // Any error in the sync process (including the Admin Lock) lands here.
+        syncError = `Could not sync with Discord: ${e.message}. Using last known data.`;
+        console.warn(`[SYNC-FAIL] User ${authUser.id}: ${e.message}`);
+      }
     }
     
-    // If user is still banned after check, return immediately
-    if (profile?.is_banned) {
-        return createResponse({
-            user: {
-                id: userId,
-                discordId: profile.discord_id,
-                username: authUser.user_metadata?.full_name,
-                avatar: authUser.user_metadata?.avatar_url,
-                roles: [], permissions: [], highestRole: null,
-                isGuildOwner: profile.is_guild_owner || false,
-                is_banned: true,
-                ban_reason: profile.ban_reason,
-                ban_expires_at: profile.ban_expires_at
-            },
-            syncError: null
+    // =================================================================
+    // 4. CONSTRUCT FINAL USER OBJECT & UPDATE DB
+    // =================================================================
+    if (!dbProfile && !syncedMemberData) {
+        throw new Error("Initial profile sync failed. Please try again later. This can happen if the bot is offline during your first login.");
+    }
+    
+    const finalProfileDataSource = syncedMemberData || dbProfile!;
+    const finalPermissions = syncedMemberData 
+      ? await getPermissionsForRoles(syncedMemberData.roles) 
+      : currentPermissions;
+
+    // Update the DB in the background ONLY if the sync was successful.
+    if (syncedMemberData) {
+        const discordUserId = dbProfile?.discord_id || authUser.user_metadata?.provider_id;
+        supabaseAdmin.from('profiles').upsert({
+            id: authUser.id,
+            discord_id: discordUserId,
+            roles: syncedMemberData.roles,
+            highest_role: syncedMemberData.highest_role,
+            is_guild_owner: syncedMemberData.isGuildOwner,
+            last_synced_at: new Date().toISOString()
+        }).then(({ error }) => {
+            if (error) console.error(`[ASYNC-DB-FAIL] Profile update failed for ${authUser.id}:`, error);
         });
     }
     
-    // Get secrets for Bot API calls
-    // @ts-ignore
-    const BOT_URL = Deno.env.get('VITE_DISCORD_BOT_URL');
-    // @ts-ignore
-    const BOT_API_KEY = Deno.env.get('VITE_DISCORD_BOT_API_KEY');
-    if (!BOT_URL || !BOT_API_KEY) {
-      throw new Error("VITE_DISCORD_BOT_URL and/or VITE_DISCORD_BOT_API_KEY are not configured as secrets.");
-    }
-
-    // =================================================================
-    // 3. CACHE CHECK
-    // =================================================================
-    if (!force && profile?.last_synced_at && (new Date().getTime() - new Date(profile.last_synced_at).getTime() < CACHE_TTL_MS)) {
-      const userRoleIds = (profile.roles || []).map((r: any) => r.id).filter(Boolean);
-      const finalPermissions = new Set<string>();
-      if (userRoleIds.length > 0) {
-        const { data: permsData } = await supabaseAdmin.from('role_permissions').select('permissions').in('role_id', userRoleIds);
-        if (permsData) permsData.forEach(p => p.permissions.forEach((key: string) => finalPermissions.add(key)));
-      }
-
-      const cachedUser = {
-        id: userId,
-        discordId: profile.discord_id,
-        username: authUser.user_metadata?.full_name,
-        avatar: authUser.user_metadata?.avatar_url,
-        roles: profile.roles || [],
-        highestRole: profile.highest_role || null,
-        isGuildOwner: profile.is_guild_owner || false,
-        permissions: Array.from(finalPermissions),
-        is_banned: false, ban_reason: null, ban_expires_at: null,
-      };
-      return createResponse({ user: cachedUser, syncError: null });
-    }
-
-    // =================================================================
-    // 4. FULL SYNC WITH BOT API
-    // =================================================================
-    const discordUserId = profile?.discord_id || authUser.user_metadata?.provider_id;
-    if (!discordUserId) throw new Error(`Could not determine Discord ID for user ${userId}.`);
-
-    let syncError: string | null = null;
-    let finalUsername = authUser.user_metadata?.full_name || 'New User';
-    let finalAvatar = authUser.user_metadata?.avatar_url;
-    let finalRoles: any[] = profile?.roles || []; 
-    let finalHighestRole: any | null = profile?.highest_role || null;
-    let finalIsGuildOwner: boolean = profile?.is_guild_owner || false;
-    let memberRoleIds: string[] = (profile?.roles || []).map((r: any) => r.id).filter(Boolean);
-
-    try {
-      // Fetch member data from our external bot
-      const botResponse = await fetch(`${BOT_URL}/api/user/${discordUserId}`, {
-        headers: { 'Authorization': `Bearer ${BOT_API_KEY}` }
-      });
-
-      if (!botResponse.ok) {
-         const errBody = await botResponse.json().catch(() => ({}));
-         throw new Error(`Bot API error (${botResponse.status}): ${errBody.error || 'Unknown error'}`);
-      }
-      const memberData = await botResponse.json();
-      
-      // RESILIENCE CHECK: If the bot returns an empty role list for a user who previously had roles,
-      // treat it as a sync failure. This prevents a misconfigured Members Intent from stripping all permissions.
-      if (
-          Array.isArray(memberData.roles) && memberData.roles.length === 0 &&
-          Array.isArray(profile?.roles) && profile.roles.length > 0
-      ) {
-          throw new Error("Bot returned an empty role list for a user who previously had roles. Aborting sync to preserve existing permissions.");
-      }
-
-      finalRoles = memberData.roles;
-      finalHighestRole = memberData.highestRole;
-      finalIsGuildOwner = memberData.isGuildOwner;
-      finalUsername = memberData.username;
-      finalAvatar = memberData.avatar;
-      memberRoleIds = (finalRoles || []).map(r => r.id).filter(Boolean);
-
-    } catch (e) {
-      syncError = `Could not sync with Bot API: ${e.message}. Displaying last known data. This often means the bot is offline or the 'Server Members Intent' is disabled.`;
-      console.warn(`Sync error for user ${userId}:`, e.message);
-    }
-    
-    // =================================================================
-    // 5. UPDATE DATABASE & CALCULATE FINAL PERMISSIONS
-    // =================================================================
-    await supabaseAdmin.auth.admin.updateUserById(userId, { user_metadata: { ...authUser.user_metadata, full_name: finalUsername, avatar_url: finalAvatar } });
-    await supabaseAdmin.from('profiles').upsert({ id: userId, discord_id: discordUserId, roles: finalRoles, highest_role: finalHighestRole, last_synced_at: new Date().toISOString(), is_guild_owner: finalIsGuildOwner });
-
-    const finalPermissions = new Set<string>();
-    if (memberRoleIds.length > 0) {
-        const { data: permsData } = await supabaseAdmin.from('role_permissions').select('permissions').in('role_id', memberRoleIds);
-        if (permsData) permsData.forEach(p => p.permissions.forEach((key: string) => finalPermissions.add(key)));
-    }
+    const { data: currentProfileState } = await supabaseAdmin.from('profiles').select('is_banned, ban_reason, ban_expires_at').eq('id', authUser.id).maybeSingle();
 
     const finalUser = {
-      id: userId,
-      discordId: discordUserId,
-      username: finalUsername,
-      avatar: finalAvatar,
-      roles: finalRoles,
-      highestRole: finalHighestRole,
-      isGuildOwner: finalIsGuildOwner,
+      id: authUser.id,
+      discordId: dbProfile?.discord_id || authUser.user_metadata?.provider_id,
+      username: finalProfileDataSource?.username || authUser.user_metadata?.full_name,
+      avatar: finalProfileDataSource?.avatar || authUser.user_metadata?.avatar_url,
+      roles: finalProfileDataSource.roles,
+      highestRole: finalProfileDataSource.highest_role,
+      isGuildOwner: finalProfileDataSource.is_guild_owner || false,
       permissions: Array.from(finalPermissions),
-      is_banned: false, ban_reason: null, ban_expires_at: null,
+      is_banned: currentProfileState?.is_banned || false,
+      ban_reason: currentProfileState?.ban_reason || null,
+      ban_expires_at: currentProfileState?.ban_expires_at || null,
     };
+
     return createResponse({ user: finalUser, syncError });
 
   } catch (error) {
-    console.error(`Fatal error in sync-user-profile function: ${error.message}`);
-    return createResponse({ error: error.message }, 500);
+    console.error(`[CRITICAL] sync-user-profile for ${authUser?.id || 'unknown user'}: ${error.message}`);
+    return createResponse({ error: `An unexpected error occurred: ${error.message}` }, 500);
   }
 })

@@ -1,6 +1,7 @@
 // discord-bot/src/index.ts
-// FIX: Aliased Request and Response to avoid conflicts with global DOM types.
-import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
+// FIX: Using separate imports for express value and types to resolve potential type conflicts.
+import express from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { 
   Client, 
@@ -8,15 +9,13 @@ import {
   Partials, 
   TextChannel, 
   EmbedBuilder, 
-  REST, 
-  Routes, 
   Role 
 } from 'discord.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import type { BotConfig, NotifyPayload, DiscordRole } from './types.js';
+import type { BotConfig, DiscordRole } from './types.js';
 
 // ES Module equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -52,7 +51,6 @@ const client = new Client({
   partials: [Partials.Channel],
 });
 
-let guildCache: any = null;
 
 client.once('ready', async () => {
   if (!client.user) {
@@ -61,11 +59,11 @@ client.once('ready', async () => {
   }
   console.log(`🟢 Bot logged in as ${client.user.tag}`);
   try {
-    guildCache = await client.guilds.fetch(config.DISCORD_GUILD_ID);
-    await guildCache.members.fetch(); // Fetch all members to ensure cache is populated
-    console.log(`✅ Guild "${guildCache.name}" cached successfully with ${guildCache.members.cache.size} members.`);
+    // Verify we can fetch the guild on startup, but don't cache it globally.
+    const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
+    console.log(`✅ Guild "${guild.name}" is accessible. Bot is ready.`);
   } catch (error) {
-    console.error(`❌ FATAL: Could not fetch or cache guild with ID ${config.DISCORD_GUILD_ID}.`);
+    console.error(`❌ FATAL: Could not fetch guild with ID ${config.DISCORD_GUILD_ID}.`);
     console.error("   Please check that the GUILD_ID is correct and the bot is in the server.");
     process.exit(1);
   }
@@ -80,8 +78,7 @@ app.use(cors());
 app.use(express.json());
 
 // Authentication middleware to protect API endpoints
-// FIX: Use aliased Express types to avoid conflict with DOM types.
-const authenticateRequest = (req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
+const authenticateRequest = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
@@ -96,29 +93,38 @@ const authenticateRequest = (req: ExpressRequest, res: ExpressResponse, next: Ne
 // =============================================
 // API ROUTES
 // =============================================
-// FIX: Use aliased Express types to avoid conflict with DOM types.
-app.get('/health', (req: ExpressRequest, res: ExpressResponse) => {
-  if (!client.isReady() || !guildCache) {
-    return res.status(503).json({ status: 'error', message: 'Bot is not ready or guild not cached.' });
+app.get('/health', async (req: Request, res: Response) => {
+  if (!client.isReady()) {
+    return res.status(503).json({ status: 'error', message: 'Bot is not ready.' });
   }
-  res.status(200).json({ 
-    status: 'ok', 
-    details: {
-      botUsername: client.user?.tag,
-      guildName: guildCache.name,
-      memberCount: guildCache.members.cache.size
-    } 
-  });
+  try {
+    const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
+    res.status(200).json({ 
+      status: 'ok', 
+      details: {
+        botUsername: client.user?.tag,
+        guildName: guild.name,
+        memberCount: guild.memberCount
+      } 
+    });
+  } catch(e) {
+     res.status(503).json({ status: 'error', message: 'Could not fetch guild info.' });
+  }
 });
 
 // GET USER PROFILE
-// FIX: Use aliased Express types to avoid conflict with DOM types.
-app.get('/api/user/:id', authenticateRequest, async (req: ExpressRequest, res: ExpressResponse) => {
+app.get('/api/user/:id', authenticateRequest, async (req: Request, res: Response) => {
   const { id } = req.params;
-  if (!guildCache) return res.status(503).json({ error: 'Guild not cached' });
 
   try {
-    const member = await guildCache.members.fetch(id);
+    // IMPROVEMENT: Fetch guild on every request to be stateless and more resilient.
+    const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
+    if (!guild) {
+        return res.status(404).json({ error: 'Configured Guild ID not found.' });
+    }
+
+    // Use `force: true` to bypass cache and get fresh data from Discord API.
+    const member = await guild.members.fetch({ user: id, force: true });
     if (!member) {
       return res.status(404).json({ error: 'User not found in this guild' });
     }
@@ -134,7 +140,7 @@ app.get('/api/user/:id', authenticateRequest, async (req: ExpressRequest, res: E
       .sort((a: DiscordRole, b: DiscordRole) => b.position - a.position);
 
     const highestRole = roles[0] || null;
-    const isGuildOwner = member.id === guildCache.ownerId;
+    const isGuildOwner = member.id === guild.ownerId;
 
     res.json({
       id: member.id,
@@ -145,7 +151,7 @@ app.get('/api/user/:id', authenticateRequest, async (req: ExpressRequest, res: E
       isGuildOwner,
     });
   } catch (error: any) {
-    if (error.code === 10013) { // Unknown User
+    if (error.code === 10013 || error.code === 10007) { // Unknown User or Unknown Member
       return res.status(404).json({ error: 'User not found in this guild' });
     }
     console.error(`Error fetching user ${id}:`, error);
@@ -154,12 +160,16 @@ app.get('/api/user/:id', authenticateRequest, async (req: ExpressRequest, res: E
 });
 
 // GET ALL GUILD ROLES
-// FIX: Use aliased Express types to avoid conflict with DOM types.
-app.get('/api/roles', authenticateRequest, async (req: ExpressRequest, res: ExpressResponse) => {
-  if (!guildCache) return res.status(503).json({ error: 'Guild not cached' });
+app.get('/api/roles', authenticateRequest, async (req: Request, res: Response) => {
   try {
-    await guildCache.roles.fetch();
-    const roles = guildCache.roles.cache
+    // IMPROVEMENT: Fetch guild on every request to be stateless and more resilient.
+    const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
+    if (!guild) {
+        return res.status(404).json({ error: 'Configured Guild ID not found.' });
+    }
+
+    await guild.roles.fetch();
+    const roles = guild.roles.cache
       .filter((role: Role) => role.name !== '@everyone')
       .map((role: Role) => ({
         id: role.id,
@@ -176,8 +186,7 @@ app.get('/api/roles', authenticateRequest, async (req: ExpressRequest, res: Expr
 });
 
 // SEND NOTIFICATION
-// FIX: Use aliased Express types to avoid conflict with DOM types.
-app.post('/api/notify', authenticateRequest, async (req: ExpressRequest, res: ExpressResponse) => {
+app.post('/api/notify', authenticateRequest, async (req: Request, res: Response) => {
     const { type, payload } = req.body;
     
     if (!type || !payload) {
@@ -186,21 +195,15 @@ app.post('/api/notify', authenticateRequest, async (req: ExpressRequest, res: Ex
 
     try {
         console.log(`Received notification request: type=${type}`);
-        console.log(`Payload:`, JSON.stringify(payload, null, 2));
-
         if (type === 'new_submission' || type === 'audit_log') {
             const channelId = type === 'new_submission'
                 ? payload.submissionsChannelId
                 : payload.auditLogChannelId;
             
-            if (!channelId) {
-                throw new Error(`Channel ID for type '${type}' is not configured.`);
-            }
+            if (!channelId) throw new Error(`Channel ID for type '${type}' is not configured.`);
 
             const channel = await client.channels.fetch(channelId) as TextChannel;
-            if (!channel) {
-                throw new Error(`Channel with ID ${channelId} not found.`);
-            }
+            if (!channel) throw new Error(`Channel with ID ${channelId} not found.`);
 
             const embed = new EmbedBuilder(payload.embed);
             await channel.send({ embeds: [embed] });
@@ -208,9 +211,8 @@ app.post('/api/notify', authenticateRequest, async (req: ExpressRequest, res: Ex
 
         } else if (type === 'submission_result') {
             const user = await client.users.fetch(payload.userId);
-            if (!user) {
-                throw new Error(`User with ID ${payload.userId} not found for DM.`);
-            }
+            if (!user) throw new Error(`User with ID ${payload.userId} not found for DM.`);
+            
             const embed = new EmbedBuilder(payload.embed);
             await user.send({ embeds: [embed] });
             console.log(`✅ Sent '${type}' DM to user ${user.tag}`);
@@ -222,7 +224,6 @@ app.post('/api/notify', authenticateRequest, async (req: ExpressRequest, res: Ex
 
     } catch (error: any) {
         console.error(`❌ Failed to send notification (type: ${type}):`, error.message);
-        console.error(`   Payload was:`, JSON.stringify(payload, null, 2));
         res.status(500).json({ success: false, error: error.message });
     }
 });

@@ -24,6 +24,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (syncError) {
             setPermissionWarning(syncError);
+            showToast(`Warning: ${syncError}`, 'warning');
         } else {
             setPermissionWarning(null);
         }
@@ -36,22 +37,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(fullUserProfile);
         }
 
-        if (syncError) {
-            showToast(`Warning: ${syncError}`, 'warning');
-        }
       } catch (error) {
         console.error("Critical error fetching user profile:", error);
-        setPermissionWarning("A critical error occurred during login. The bot may be offline or misconfigured.");
-        showToast("A critical error occurred during login. The bot may be offline or misconfigured.", 'error');
-        await supabase?.auth.signOut();
-        setUser(null);
+        
+        // If there's already a user in the state (i.e., this is a background refresh), 
+        // don't kick them out. Preserve their session and show a persistent warning.
+        if (user) { 
+          const errorMessage = `Failed to refresh session: ${(error as Error).message}. Using cached data.`;
+          setPermissionWarning(errorMessage);
+          showToast(errorMessage, 'error');
+        } else {
+          // If this is the initial login and it fails, then we must sign them out.
+          setPermissionWarning("A critical error occurred during login. The bot may be offline or misconfigured.");
+          showToast("A critical error occurred during login. The bot may be offline or misconfigured.", 'error');
+          await supabase?.auth.signOut();
+          setUser(null);
+        }
       }
     } else {
       setUser(null);
       setPermissionWarning(null);
     }
     setLoading(false);
-  }, [showToast]);
+  }, [showToast, user]); // Add user to dependencies to get the latest state in the catch block
 
   useEffect(() => {
     if (!supabase) {
@@ -64,7 +72,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        // Show loading spinner during the user sync process after login
         if (_event === 'SIGNED_IN') {
           setLoading(true);
         }
