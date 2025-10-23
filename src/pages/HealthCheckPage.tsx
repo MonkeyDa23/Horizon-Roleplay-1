@@ -1,15 +1,17 @@
+// src/pages/HealthCheckPage.tsx
 import React, { useState } from 'react';
 import { Loader2, CheckCircle, XCircle, AlertTriangle, Info, HelpCircle } from 'lucide-react';
 import { useLocalization } from '../hooks/useLocalization';
-import { supabase } from '../lib/supabaseClient';
-import { env } from '../env.ts';
+import { env } from '../env';
 import { checkDiscordApiHealth, troubleshootUserSync } from '../lib/api';
 import SEO from '../components/SEO';
 import { useAuth } from '../hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 
 const HealthCheckPage: React.FC = () => {
   const { t } = useLocalization();
-  const { user } = useAuth();
+  const { hasPermission } = useAuth();
+  const navigate = useNavigate();
   
   const [botHealth, setBotHealth] = useState<any>(null);
   const [isTestingBot, setIsTestingBot] = useState(false);
@@ -17,6 +19,12 @@ const HealthCheckPage: React.FC = () => {
   const [syncDiscordId, setSyncDiscordId] = useState('');
   const [syncResult, setSyncResult] = useState<any>(null);
   const [isTestingSync, setIsTestingSync] = useState(false);
+
+  // Security check
+  if (!hasPermission('admin_panel')) {
+      navigate('/');
+      return null;
+  }
 
   const redirectUri = window.location.origin;
 

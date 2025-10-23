@@ -1,3 +1,8 @@
+// src/types.ts
+
+// =============================================
+// LANGUAGE & TRANSLATION
+// =============================================
 export type Language = 'ar' | 'en';
 
 export interface Translations {
@@ -13,7 +18,10 @@ export interface LocalizationContextType {
   dir: 'rtl' | 'ltr';
 }
 
-export type PermissionKey = 
+// =============================================
+// AUTH, USER & PERMISSIONS
+// =============================================
+export type PermissionKey =
   | '_super_admin'
   | 'page_store'
   | 'page_rules'
@@ -29,15 +37,24 @@ export type PermissionKey =
   | 'admin_permissions'
   | 'admin_lookup';
 
+export interface DiscordRole {
+  id: string;
+  name: string;
+  color: number;
+  position: number;
+}
 
 export interface User {
-  id: string; // This is the Supabase auth.users.id (UUID)
-  discordId: string; // This is the user's actual Discord ID (Snowflake)
+  id: string; // Supabase Auth User ID
+  discordId: string;
   username: string;
   avatar: string;
-  roles: DiscordRole[]; // Now an array of rich role objects
+  roles: DiscordRole[];
   highestRole: DiscordRole | null;
-  permissions: Set<PermissionKey>; // The new source of truth for all user permissions
+  permissions: Set<PermissionKey>;
+  is_banned: boolean;
+  ban_reason: string | null;
+  ban_expires_at: string | null;
 }
 
 export interface AuthContextType {
@@ -46,14 +63,32 @@ export interface AuthContextType {
   logout: () => void;
   loading: boolean;
   updateUser: (user: User) => void;
-  hasPermission: (key: PermissionKey) => boolean; // Helper function for easy permission checks
+  hasPermission: (key: PermissionKey) => boolean;
 }
 
-// Store & Cart
+export interface RolePermission {
+    role_id: string;
+    permissions: PermissionKey[];
+}
+
+export interface UserLookupResult {
+    id: string;
+    username: string;
+    avatar: string;
+    roles: DiscordRole[];
+    highestRole: DiscordRole | null;
+    is_banned: boolean;
+    ban_reason: string | null;
+    ban_expires_at: string | null;
+}
+
+// =============================================
+// STORE & CART
+// =============================================
 export interface Product {
   id: string;
-  nameKey: string; // Key for translation
-  descriptionKey: string; // Key for translation
+  nameKey: string;
+  descriptionKey: string;
   price: number;
   imageUrl: string;
 }
@@ -72,23 +107,25 @@ export interface CartContextType {
   totalPrice: number;
 }
 
-// Quiz & Application System
+// =============================================
+// QUIZ & SUBMISSION SYSTEM
+// =============================================
 export interface QuizQuestion {
   id: string;
-  textKey: string; // Key for translation
-  timeLimit: number; // in seconds
+  textKey: string;
+  timeLimit: number;
 }
 
 export interface Quiz {
   id: string;
-  titleKey: string; // Key for translation
-  descriptionKey: string; // These are the rules shown before starting
+  titleKey: string;
+  descriptionKey: string;
   questions: QuizQuestion[];
   isOpen: boolean;
   allowedTakeRoles?: string[];
-  lastOpenedAt?: string;
   logoUrl?: string;
   bannerUrl?: string;
+  lastOpenedAt?: string;
 }
 
 export interface Answer {
@@ -98,8 +135,8 @@ export interface Answer {
 }
 
 export interface CheatAttempt {
-  method: string;
-  timestamp: string;
+    method: string;
+    timestamp: string;
 }
 
 export type SubmissionStatus = 'pending' | 'taken' | 'accepted' | 'refused';
@@ -108,59 +145,31 @@ export interface QuizSubmission {
   id: string;
   quizId: string;
   quizTitle: string;
-  user_id: string; // Switched to user_id to match DB schema
+  user_id: string; // Matches DB column name
   username: string;
   answers: Answer[];
   submittedAt: string;
   status: SubmissionStatus;
-  adminId?: string; // ID of the admin who claimed/handled it
-  adminUsername?: string; // Username of the admin
+  adminId?: string;
+  adminUsername?: string;
   updatedAt?: string;
-  user_highest_role?: string;
   cheatAttempts?: CheatAttempt[];
+  user_highest_role?: string;
 }
 
-// Admin Types
-export interface AuditLogEntry {
-    id: string;
-    timestamp: string;
-    admin_id: string; // Switched to admin_id
-    admin_username: string; // Switched to admin_username
-    action: string;
-}
+// =============================================
+// RULES & CONFIG
+// =============================================
 export interface Rule {
     id: string;
     textKey: string;
-    order: number;
 }
+
 export interface RuleCategory {
     id: string;
     titleKey: string;
-    order: number;
+    position: number;
     rules: Rule[];
-}
-
-export interface DiscordAnnouncement {
-  id: string;
-  title: string;
-  content: string;
-  author: {
-    name: string;
-    avatarUrl: string;
-  };
-  timestamp: string;
-  url: string;
-}
-
-export interface MtaServerStatus {
-    name: string;
-    players: number;
-    maxPlayers: number;
-}
-
-export interface MtaLogEntry {
-    timestamp: string;
-    text: string;
 }
 
 export interface AppConfig {
@@ -175,23 +184,38 @@ export interface AppConfig {
     AUDIT_LOG_CHANNEL_ID: string | null;
 }
 
-export interface UserLookupResult {
-  id: string;
-  username: string;
-  avatar: string;
-  joinedAt: string;
-  roles: DiscordRole[];
-  submissions: QuizSubmission[];
+// =============================================
+// MISC & EXTERNAL
+// =============================================
+export interface AuditLogEntry {
+  id: number;
+  timestamp: string;
+  admin_id: string;
+  admin_username: string;
+  action: string;
 }
 
-export interface DiscordRole {
-    id: string;
+export interface MtaServerStatus {
     name: string;
-    color: number;
-    position: number;
+    players: number;
+    maxPlayers: number;
+    ping: number;
+    version: string;
 }
 
-export interface RolePermission {
-    role_id: string;
-    permissions: PermissionKey[];
+export interface MtaLogEntry {
+    timestamp: string;
+    text: string;
+}
+
+export interface DiscordAnnouncement {
+    id: string;
+    title: string;
+    content: string;
+    author: {
+        name: string;
+        avatarUrl: string;
+    };
+    timestamp: string;
+    url: string;
 }

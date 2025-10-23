@@ -2,6 +2,7 @@
 
 // @deno-types="https://esm.sh/@supabase/functions-js@2"
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,6 +27,16 @@ serve(async (req) => {
     if (!discordId || typeof discordId !== 'string' || !/^\d{17,19}$/.test(discordId)) {
         return createResponse({ error: 'A valid Discord User ID is required.' }, 400);
     }
+    
+    // Create an admin client to fetch profile data
+    const supabaseAdmin = createClient(
+      // @ts-ignore
+      Deno.env.get('SUPABASE_URL') ?? '',
+      // @ts-ignore
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+    
+    const { data: profileData } = await supabaseAdmin.from('profiles').select('id, is_banned, ban_reason, ban_expires_at').eq('discord_id', discordId).maybeSingle();
 
     // These secrets must be set in the Supabase project settings
     // @ts-ignore
@@ -41,12 +52,21 @@ serve(async (req) => {
         headers: { 'Authorization': `Bearer ${BOT_API_KEY}` }
     });
     
-    const responseData = await botResponse.json().catch(() => ({
+    const botData = await botResponse.json().catch(() => ({
         error: `Bot API returned a non-JSON response (Status: ${botResponse.status}). Check bot logs.`
     }));
 
+    // Combine bot data with our profile data
+    const finalData = {
+        ...botData,
+        id: profileData?.id || null, // Supabase Auth UUID
+        is_banned: profileData?.is_banned || false,
+        ban_reason: profileData?.ban_reason || null,
+        ban_expires_at: profileData?.ban_expires_at || null
+    };
+
     // Pass the bot's response directly to the client for diagnosis
-    return createResponse(responseData, botResponse.status);
+    return createResponse(finalData, botResponse.status);
 
   } catch (error) {
     // This catches internal function errors.

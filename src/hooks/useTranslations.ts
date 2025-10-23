@@ -1,3 +1,4 @@
+// src/hooks/useTranslations.ts
 import { useContext } from 'react';
 import { TranslationsContext } from '../contexts/TranslationsContext';
 

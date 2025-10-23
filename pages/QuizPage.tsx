@@ -63,10 +63,11 @@ const QuizPage: React.FC = () => {
     if (!quiz || !user || isSubmitting) return;
 
     setIsSubmitting(true);
+    // FIX: Changed 'userId' to 'user_id' to match the QuizSubmission type definition.
     const submission = {
         quizId: quiz.id,
         quizTitle: t(quiz.titleKey),
-        userId: user.id,
+        user_id: user.id,
         username: user.username,
         answers: finalAnswers,
         submittedAt: new Date().toISOString(),

@@ -139,6 +139,24 @@ export const translations: Translations = {
   rules_updated_success: { ar: 'تم تحديث القوانين بنجاح!', en: 'Rules updated successfully!' },
   permissions_saved_success: { ar: 'تم حفظ الصلاحيات بنجاح!', en: 'Permissions saved successfully!'},
   
+  // Admin Page - User Lookup & Bans
+  discord_id_placeholder: { ar: 'معرف مستخدم ديسكورد...', en: 'Discord User ID...' },
+  search: { ar: 'بحث', en: 'Search' },
+  ban: { ar: 'حظر', en: 'Ban' },
+  unban: { ar: 'فك الحظر', en: 'Unban' },
+  reason: { ar: 'السبب', en: 'Reason' },
+  duration: { ar: 'المدة', en: 'Duration' },
+  confirm_ban: { ar: 'تأكيد الحظر', en: 'Confirm Ban' },
+  banned_indefinitely: {ar: 'محظور بشكل دائم', en: 'Banned indefinitely'},
+  banned_until: {ar: 'محظور حتى {date}', en: 'Banned until {date}'},
+
+  // Banned Page
+  you_are_banned: { ar: 'أنت محظور', en: 'You Are Banned' },
+  banned_page_message: { ar: 'تم حظرك من الوصول إلى هذا الموقع.', en: 'You have been banned from accessing this site.' },
+  ban_reason: { ar: 'سبب الحظر:', en: 'Reason for ban:' },
+  ban_expires: { ar: 'ينتهي الحظر في:', en: 'Ban expires:' },
+  ban_permanent: { ar: 'الحظر دائم.', en: 'This ban is permanent.' },
+  
   // Admin Page - Appearance
   community_name: { ar: 'اسم المجتمع', en: 'Community Name'},
   logo_url: { ar: 'رابط الشعار (URL)', en: 'Logo URL'},

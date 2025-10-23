@@ -1,6 +1,8 @@
+// src/contexts/ConfigContext.tsx
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { getConfig } from '../lib/api';
 import type { AppConfig } from '../types';
+import { supabase } from '../lib/supabaseClient';
 
 interface ConfigContextType {
   config: AppConfig;
@@ -34,6 +36,11 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [configError, setConfigError] = useState<Error | null>(null);
 
   const fetchAndSetConfig = useCallback(async () => {
+    if (!supabase) {
+        setConfigError(new Error("Supabase not configured"));
+        setConfigLoading(false);
+        return;
+    }
     try {
       const configData = await getConfig();
       setConfig(configData);

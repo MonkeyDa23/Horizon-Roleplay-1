@@ -1,197 +1,231 @@
-// FIX: Added 'Role' to imports to provide explicit type information.
-import { Client, GatewayIntentBits, Partials, TextChannel, EmbedBuilder, Role } from 'discord.js';
-// FIX: Switched to a default import for express and used qualified types (e.g., `express.Request`) to resolve conflicts with global types and fix numerous property access errors.
-import express from 'express';
+// discord-bot/src/index.ts
+// FIX: Using express.Request and express.Response to avoid global type conflicts.
+// FIX: Imported Request and Response types directly from express to resolve property not found errors.
+// FIX: Aliased express Request and Response to resolve type conflicts with global types.
+import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
 import cors from 'cors';
-import { readFileSync } from 'fs';
+import { 
+  Client, 
+  GatewayIntentBits, 
+  Partials, 
+  TextChannel, 
+  EmbedBuilder, 
+  REST, 
+  Routes, 
+  Role 
+} from 'discord.js';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import type { BotConfig, DiscordRole, NotifyPayload } from './types.js';
 
-// --- CONFIGURATION ---
+import type { BotConfig, NotifyPayload, DiscordRole } from './types.js';
+
+// ES Module equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const config: BotConfig = JSON.parse(readFileSync(path.join(__dirname, 'config.json'), 'utf-8'));
 
-const { DISCORD_BOT_TOKEN, DISCORD_GUILD_ID, API_SECRET_KEY } = config;
+// =============================================
+// CONFIGURATION & SETUP
+// =============================================
+const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Load config from config.json
+let config: BotConfig;
+try {
+  const configPath = path.join(__dirname, 'config.json');
+  const rawConfig = fs.readFileSync(configPath, 'utf-8');
+  config = JSON.parse(rawConfig);
+  console.log("✅ Configuration loaded successfully.");
+} catch (error) {
+  console.error("❌ FATAL: Could not load config.json. Please ensure the file exists and is valid JSON.");
+  process.exit(1);
+}
 
-// --- DISCORD BOT SETUP ---
+// =============================================
+// DISCORD CLIENT
+// =============================================
 const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMembers,
-    ],
-    partials: [Partials.GuildMember],
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+  ],
+  // CRITICAL: Partials.Channel is required for the bot to be able to send DMs.
+  partials: [Partials.Channel],
 });
 
-client.once('ready', () => {
-    console.log(`✅ Bot is online! Logged in as ${client.user?.tag}`);
-    console.log(` обслуживаю сервер: ${DISCORD_GUILD_ID}`);
+let guildCache: any = null;
+
+client.once('ready', async () => {
+  if (!client.user) {
+      console.error("❌ FATAL: Bot client user is not available.");
+      return;
+  }
+  console.log(`🟢 Bot logged in as ${client.user.tag}`);
+  try {
+    guildCache = await client.guilds.fetch(config.DISCORD_GUILD_ID);
+    await guildCache.members.fetch(); // Fetch all members to ensure cache is populated
+    console.log(`✅ Guild "${guildCache.name}" cached successfully with ${guildCache.members.cache.size} members.`);
+  } catch (error) {
+    console.error(`❌ FATAL: Could not fetch or cache guild with ID ${config.DISCORD_GUILD_ID}.`);
+    console.error("   Please check that the GUILD_ID is correct and the bot is in the server.");
+    process.exit(1);
+  }
 });
 
-client.login(DISCORD_BOT_TOKEN);
+client.login(config.DISCORD_BOT_TOKEN);
 
-
-// --- EXPRESS API SERVER ---
-const app = express();
+// =============================================
+// EXPRESS MIDDLEWARE
+// =============================================
 app.use(cors());
 app.use(express.json());
 
-// API Key Authentication Middleware
-// FIX: Using qualified `express` types to avoid conflicts with global types.
-const authenticate = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ error: 'Unauthorized: Missing Authorization header' });
-    }
-    const token = authHeader.split(' ')[1];
-    if (token !== API_SECRET_KEY) {
-        return res.status(403).json({ error: 'Forbidden: Invalid API Key' });
-    }
-    next();
+// Authentication middleware to protect API endpoints
+const authenticateRequest = (req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
+  }
+  const token = authHeader.split(' ')[1];
+  if (token !== config.API_SECRET_KEY) {
+    return res.status(403).json({ error: 'Forbidden: Invalid token' });
+  }
+  next();
 };
 
-// --- API ENDPOINTS ---
-
-// Health check endpoint
-app.get('/health', authenticate, async (req: express.Request, res: express.Response) => {
-    try {
-        const guild = await client.guilds.fetch(DISCORD_GUILD_ID);
-        // Force fetch members to check intent
-        await guild.members.fetch({ limit: 1 }); 
-        const memberCount = guild.memberCount;
-
-        res.status(200).json({
-            status: 'ok',
-            details: {
-                guildName: guild.name,
-                guildId: guild.id,
-                memberCount: memberCount,
-            }
-        });
-    } catch (error) {
-        console.error("Health check failed:", error);
-        res.status(500).json({ 
-            status: 'error', 
-            error: 'Failed to connect to Discord or fetch guild details.',
-            details: error instanceof Error ? error.message : 'Unknown error'
-        });
-    }
+// =============================================
+// API ROUTES
+// =============================================
+app.get('/health', (req: ExpressRequest, res: ExpressResponse) => {
+  if (!client.isReady() || !guildCache) {
+    return res.status(503).json({ status: 'error', message: 'Bot is not ready or guild not cached.' });
+  }
+  res.status(200).json({ 
+    status: 'ok', 
+    details: {
+      botUsername: client.user?.tag,
+      guildName: guildCache.name,
+      memberCount: guildCache.members.cache.size
+    } 
+  });
 });
 
+// GET USER PROFILE
+app.get('/api/user/:id', authenticateRequest, async (req: ExpressRequest, res: ExpressResponse) => {
+  const { id } = req.params;
+  if (!guildCache) return res.status(503).json({ error: 'Guild not cached' });
 
-// Get a specific user's profile
-app.get('/api/user/:userId', authenticate, async (req: express.Request, res: express.Response) => {
-    const { userId } = req.params;
+  try {
+    const member = await guildCache.members.fetch(id);
+    if (!member) {
+      return res.status(404).json({ error: 'User not found in this guild' });
+    }
+    
+    const roles = member.roles.cache
+      .filter((role: Role) => role.name !== '@everyone')
+      .map((role: Role) => ({
+        id: role.id,
+        name: role.name,
+        color: role.color,
+        position: role.position,
+      }))
+      .sort((a: DiscordRole, b: DiscordRole) => b.position - a.position);
+
+    const highestRole = roles[0] || null;
+
+    res.json({
+      id: member.id,
+      username: member.user.globalName || member.user.username,
+      avatar: member.displayAvatarURL({ extension: 'png', size: 256 }),
+      roles,
+      highestRole,
+    });
+  } catch (error: any) {
+    if (error.code === 10013) { // Unknown User
+      return res.status(404).json({ error: 'User not found in this guild' });
+    }
+    console.error(`Error fetching user ${id}:`, error);
+    res.status(500).json({ error: 'Internal server error while fetching user' });
+  }
+});
+
+// GET ALL GUILD ROLES
+app.get('/api/roles', authenticateRequest, async (req: ExpressRequest, res: ExpressResponse) => {
+  if (!guildCache) return res.status(503).json({ error: 'Guild not cached' });
+  try {
+    await guildCache.roles.fetch();
+    const roles = guildCache.roles.cache
+      .filter((role: Role) => role.name !== '@everyone')
+      .map((role: Role) => ({
+        id: role.id,
+        name: role.name,
+        color: role.color,
+        position: role.position,
+      }))
+      .sort((a: DiscordRole, b: DiscordRole) => b.position - a.position);
+    res.json(roles);
+  } catch (error) {
+    console.error('Error fetching roles:', error);
+    res.status(500).json({ error: 'Internal server error while fetching roles' });
+  }
+});
+
+// SEND NOTIFICATION
+app.post('/api/notify', authenticateRequest, async (req: ExpressRequest, res: ExpressResponse) => {
+    const { type, payload } = req.body;
+    
+    if (!type || !payload) {
+        return res.status(400).json({ error: 'Invalid notification payload' });
+    }
+
     try {
-        const guild = await client.guilds.fetch(DISCORD_GUILD_ID);
-        const member = await guild.members.fetch(userId);
+        console.log(`Received notification request: type=${type}`);
+        console.log(`Payload:`, JSON.stringify(payload, null, 2));
 
-        if (!member) {
-            return res.status(404).json({ error: `Member with ID ${userId} not found in guild.` });
-        }
-        
-        // FIX: Added explicit `Role` type to the `role` parameter to resolve type errors.
-        const roles = Array.from(member.roles.cache.values())
-            .filter((role: Role) => role.id !== guild.id) // Exclude @everyone role
-            .sort((a: Role, b: Role) => b.position - a.position)
-            .map((role: Role) => ({
-                id: role.id,
-                name: role.name,
-                color: role.color,
-                position: role.position
-            }));
+        if (type === 'new_submission' || type === 'audit_log') {
+            const channelId = type === 'new_submission'
+                ? payload.submissionsChannelId
+                : payload.auditLogChannelId;
             
-        const highestRole = member.roles.highest ? {
-            id: member.roles.highest.id,
-            name: member.roles.highest.name,
-            color: member.roles.highest.color,
-            position: member.roles.highest.position
-        } : null;
+            if (!channelId) {
+                throw new Error(`Channel ID for type '${type}' is not configured.`);
+            }
 
-        const response = {
-            id: member.id,
-            username: member.displayName,
-            avatar: member.displayAvatarURL({ size: 256 }),
-            roles: roles,
-            highestRole: highestRole,
-            joinedAt: member.joinedAt?.toISOString(),
-        };
+            const channel = await client.channels.fetch(channelId) as TextChannel;
+            if (!channel) {
+                throw new Error(`Channel with ID ${channelId} not found.`);
+            }
 
-        res.json(response);
+            const embed = new EmbedBuilder(payload.embed);
+            await channel.send({ embeds: [embed] });
+            console.log(`✅ Sent '${type}' embed to channel #${channel.name}`);
+
+        } else if (type === 'submission_result') {
+            const user = await client.users.fetch(payload.userId);
+            if (!user) {
+                throw new Error(`User with ID ${payload.userId} not found for DM.`);
+            }
+            const embed = new EmbedBuilder(payload.embed);
+            await user.send({ embeds: [embed] });
+            console.log(`✅ Sent '${type}' DM to user ${user.tag}`);
+        } else {
+            throw new Error(`Unsupported notification type: ${type}`);
+        }
+
+        res.status(200).json({ success: true, message: `Notification sent successfully.` });
 
     } catch (error: any) {
-        console.error(`Error fetching user ${userId}:`, error);
-         if (error.code === 10007) { // "Unknown Member"
-             res.status(404).json({ error: `Member not found. This is likely due to the SERVER MEMBERS INTENT being disabled.` });
-         } else {
-             res.status(500).json({ error: 'Internal server error while fetching user.' });
-         }
+        console.error(`❌ Failed to send notification (type: ${type}):`, error.message);
+        console.error(`   Payload was:`, JSON.stringify(payload, null, 2));
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 
 
-// Get all roles in the guild
-app.get('/api/roles', authenticate, async (req: express.Request, res: express.Response) => {
-    try {
-        const guild = await client.guilds.fetch(DISCORD_GUILD_ID);
-        // FIX: Added explicit `Role` type to the `role` parameter to resolve type errors.
-        const roles = Array.from(guild.roles.cache.values())
-            .filter((role: Role) => role.id !== guild.id) // Exclude @everyone role
-            .sort((a: Role, b: Role) => b.position - a.position)
-            .map((role: Role) => ({
-                id: role.id,
-                name: role.name,
-                color: role.color,
-                position: role.position
-            }));
-        
-        res.json({ roles });
-
-    } catch (error) {
-        console.error(`Error fetching roles:`, error);
-        res.status(500).json({ error: 'Internal server error while fetching roles.' });
-    }
-});
-
-
-// Send a notification (to channel or DM)
-app.post('/api/notify', authenticate, async (req: express.Request, res: express.Response) => {
-    const { type, targetId, embed: embedData }: NotifyPayload = req.body;
-
-    if (!type || !targetId || !embedData) {
-        return res.status(400).json({ error: 'Missing required fields: type, targetId, embed' });
-    }
-
-    try {
-        const embed = new EmbedBuilder(embedData);
-
-        if (type === 'channel') {
-            const channel = await client.channels.fetch(targetId);
-            if (channel && channel.isTextBased()) {
-                await (channel as TextChannel).send({ embeds: [embed] });
-            } else {
-                throw new Error(`Channel ${targetId} not found or is not a text channel.`);
-            }
-        } else if (type === 'dm') {
-            const user = await client.users.fetch(targetId);
-            await user.send({ embeds: [embed] });
-        } else {
-            return res.status(400).json({ error: 'Invalid notification type. Must be "channel" or "dm".' });
-        }
-        
-        res.status(200).json({ success: true, message: 'Notification sent.' });
-
-    } catch (error) {
-        console.error(`Failed to send notification to ${targetId}:`, error);
-        res.status(500).json({ error: 'Failed to send notification.' });
-    }
-});
-
-
-// --- START SERVER ---
+// =============================================
+// START SERVER
+// =============================================
 app.listen(PORT, () => {
-    console.log(`🚀 API server listening on port ${PORT}`);
+  console.log(`🚀 Bot API server is running on http://localhost:${PORT}`);
 });

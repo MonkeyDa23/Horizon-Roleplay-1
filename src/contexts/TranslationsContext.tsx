@@ -1,3 +1,4 @@
+// src/contexts/TranslationsContext.tsx
 import React, { createContext, useState, useEffect } from 'react';
 import { getTranslations } from '../lib/api';
 import { translations as fallbackTranslations } from '../lib/translations';

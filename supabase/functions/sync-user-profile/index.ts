@@ -56,6 +56,41 @@ serve(async (req) => {
       // @ts-ignore
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    // =================================================================
+    // 2. CHECK BAN STATUS & HANDLE EXPIRATION
+    // =================================================================
+    let { data: profile } = await supabaseAdmin.from('profiles').select('*').eq('id', userId).maybeSingle();
+
+    if (profile?.is_banned && profile.ban_expires_at && new Date(profile.ban_expires_at) < new Date()) {
+        // Ban expired, unban the user automatically
+        const { data: updatedProfile } = await supabaseAdmin.from('profiles').update({
+            is_banned: false,
+            ban_reason: null,
+            ban_expires_at: null
+        }).eq('id', userId).select().single();
+        profile = updatedProfile;
+
+        // Also update the bans table
+        await supabaseAdmin.from('bans').update({ is_active: false, unbanned_at: new Date() }).eq('user_id', userId).eq('is_active', true);
+    }
+    
+    // If user is still banned after check, return immediately
+    if (profile?.is_banned) {
+        return createResponse({
+            user: {
+                id: userId,
+                discordId: profile.discord_id,
+                username: authUser.user_metadata?.full_name,
+                avatar: authUser.user_metadata?.avatar_url,
+                roles: [], permissions: [], highestRole: null,
+                is_banned: true,
+                ban_reason: profile.ban_reason,
+                ban_expires_at: profile.ban_expires_at
+            },
+            syncError: null
+        });
+    }
     
     // Get secrets for Bot API calls
     // @ts-ignore
@@ -67,10 +102,8 @@ serve(async (req) => {
     }
 
     // =================================================================
-    // 2. CACHE CHECK
+    // 3. CACHE CHECK
     // =================================================================
-    const { data: profile } = await supabaseAdmin.from('profiles').select('discord_id, roles, highest_role, last_synced_at').eq('id', userId).maybeSingle();
-
     if (!force && profile?.last_synced_at && (new Date().getTime() - new Date(profile.last_synced_at).getTime() < CACHE_TTL_MS)) {
       const userRoleIds = (profile.roles || []).map((r: any) => r.id).filter(Boolean);
       const finalPermissions = new Set<string>();
@@ -87,12 +120,13 @@ serve(async (req) => {
         roles: profile.roles || [],
         highestRole: profile.highest_role || null,
         permissions: Array.from(finalPermissions),
+        is_banned: false, ban_reason: null, ban_expires_at: null,
       };
       return createResponse({ user: cachedUser, syncError: null });
     }
 
     // =================================================================
-    // 3. FULL SYNC WITH BOT API
+    // 4. FULL SYNC WITH BOT API
     // =================================================================
     const discordUserId = profile?.discord_id || authUser.user_metadata?.provider_id;
     if (!discordUserId) throw new Error(`Could not determine Discord ID for user ${userId}.`);
@@ -128,7 +162,7 @@ serve(async (req) => {
     }
     
     // =================================================================
-    // 4. UPDATE DATABASE & CALCULATE FINAL PERMISSIONS
+    // 5. UPDATE DATABASE & CALCULATE FINAL PERMISSIONS
     // =================================================================
     await supabaseAdmin.auth.admin.updateUserById(userId, { user_metadata: { ...authUser.user_metadata, full_name: finalUsername, avatar_url: finalAvatar } });
     await supabaseAdmin.from('profiles').upsert({ id: userId, discord_id: discordUserId, roles: finalRoles, highest_role: finalHighestRole, last_synced_at: new Date().toISOString() });
@@ -147,6 +181,7 @@ serve(async (req) => {
       roles: finalRoles,
       highestRole: finalHighestRole,
       permissions: Array.from(finalPermissions),
+      is_banned: false, ban_reason: null, ban_expires_at: null,
     };
     return createResponse({ user: finalUser, syncError });
 

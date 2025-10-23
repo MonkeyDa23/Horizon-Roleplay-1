@@ -1,11 +1,9 @@
-
+// src/pages/ProfilePage.tsx
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useLocalization } from '../hooks/useLocalization';
 import { getSubmissionsByUserId, forceRefreshUserProfile } from '../lib/api';
 import type { QuizSubmission, SubmissionStatus, DiscordRole } from '../types';
-// FIX: Switched from a namespace import to named imports to resolve component errors.
-// FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
 import { useNavigate } from 'react-router-dom';
 import { User as UserIcon, Loader2, FileText, ExternalLink, Shield, RefreshCw } from 'lucide-react';
 import { useConfig } from '../hooks/useConfig';
@@ -15,7 +13,6 @@ import { useToast } from '../hooks/useToast';
 const ProfilePage: React.FC = () => {
   const { user, loading: authLoading, updateUser } = useAuth();
   const { t } = useLocalization();
-  // FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
   const navigate = useNavigate();
   const { config } = useConfig();
   const { showToast } = useToast();

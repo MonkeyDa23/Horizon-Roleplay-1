@@ -5,19 +5,30 @@ import type { User, AuthContextType, PermissionKey } from '../types';
 import { useToast } from '../hooks/useToast';
 import type { Session } from '@supabase/supabase-js';
 import { Loader2 } from 'lucide-react';
+import BannedPage from '../pages/BannedPage';
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [bannedInfo, setBannedInfo] = useState<{ reason: string; expires_at: string | null } | null>(null);
   const { showToast } = useToast();
 
   const handleSession = useCallback(async (session: Session | null) => {
+    setBannedInfo(null);
     if (session) {
       try {
         const { user: fullUserProfile, syncError } = await fetchUserProfile();
-        setUser(fullUserProfile);
+        
+        if (fullUserProfile.is_banned) {
+            setBannedInfo({ reason: fullUserProfile.ban_reason || 'No reason provided.', expires_at: fullUserProfile.ban_expires_at });
+            setUser(null);
+            await supabase?.auth.signOut();
+        } else {
+            setUser(fullUserProfile);
+        }
+
         if (syncError) {
             showToast(`Warning: ${syncError}`, 'warning');
         }
@@ -78,6 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     if (!supabase) return;
     setUser(null);
+    setBannedInfo(null);
     await supabase.auth.signOut();
   };
   
@@ -93,13 +105,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user]);
 
   // Render a full-page loader while the initial session is being processed.
-  if (loading && !user) {
+  if (loading) {
     return (
        <div className="flex flex-col gap-4 justify-center items-center h-screen w-screen bg-brand-dark">
         <Loader2 size={48} className="text-brand-cyan animate-spin" />
-        <p className="text-xl text-gray-300">...Verifying admin permissions</p>
+        <p className="text-xl text-gray-300">Connecting...</p>
       </div>
     );
+  }
+
+  if (bannedInfo) {
+    return <BannedPage reason={bannedInfo.reason} expires_at={bannedInfo.expires_at} onLogout={logout} />;
   }
 
 

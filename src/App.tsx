@@ -1,7 +1,5 @@
-
+// src/App.tsx
 import React, { Suspense } from 'react';
-// FIX: Switched from a namespace import to named imports to resolve component errors.
-// FIX: Upgraded react-router-dom from v5 to v6 syntax.
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { LocalizationProvider } from './contexts/LocalizationContext';
 import { AuthProvider } from './contexts/AuthContext';
@@ -10,6 +8,7 @@ import { ConfigProvider } from './contexts/ConfigContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { useConfig } from './hooks/useConfig';
 import { useAuth } from './hooks/useAuth';
+import { TranslationsProvider } from './contexts/TranslationsContext';
 
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -26,7 +25,7 @@ import MyApplicationsPage from './pages/MyApplicationsPage';
 import ProfilePage from './pages/ProfilePage';
 import HealthCheckPage from './pages/HealthCheckPage';
 import { Loader2, AlertTriangle } from 'lucide-react';
-import { TranslationsProvider } from './contexts/TranslationsContext';
+import { env } from './env';
 
 const AdminPage = React.lazy(() => import('./pages/AdminPage'));
 
@@ -44,13 +43,13 @@ const AppContent: React.FC = () => {
   }
 
   if (configError) {
-    const isMissingEnvVars = configError.message === 'Supabase not configured';
+    const isMissingEnvVars = !env.VITE_SUPABASE_URL || !env.VITE_SUPABASE_ANON_KEY || env.VITE_SUPABASE_URL === 'YOUR_SUPABASE_URL';
 
     return (
        <div className="flex flex-col gap-4 justify-center items-center h-screen w-screen bg-brand-dark p-8">
           <AlertTriangle size={60} className="text-yellow-400" />
           <h1 className="text-3xl font-bold text-white mt-4 text-center">
-            {isMissingEnvVars ? 'Environment Setup Incomplete' : 'Configuration Error'}
+            {isMissingEnvVars ? 'Environment Setup Incomplete' : 'Database Connection Error'}
           </h1>
           <p className="text-lg text-gray-300 max-w-3xl text-center">
             {isMissingEnvVars 
@@ -64,9 +63,10 @@ const AppContent: React.FC = () => {
               <p className="font-semibold text-brand-cyan mb-3 text-lg">How to fix:</p>
               <ol className="list-decimal list-inside text-gray-200 space-y-2">
                   <li>In your Supabase project, go to <strong className="text-white">Project Settings {'>'} API</strong>.</li>
-                  <li>Create a new file named <code className="bg-brand-dark px-2 py-1 rounded">.env</code> in the root directory of this project.</li>
-                  <li>Copy the contents of the <code className="bg-brand-dark px-2 py-1 rounded">.env.example</code> file into your new <code className="bg-brand-dark px-2 py-1 rounded">.env</code> file.</li>
+                  <li>In the root of this project, find the file named <code className="bg-brand-dark px-2 py-1 rounded">.env.example</code>.</li>
+                  <li>Create a copy of this file and rename it to <code className="bg-brand-dark px-2 py-1 rounded">.env</code>.</li>
                   <li>Paste your <strong className="text-white">Project URL</strong> and <strong className="text-white">anon public API Key</strong> into the <code className="bg-brand-dark px-2 py-1 rounded">.env</code> file.</li>
+                  <li>Also fill in the bot URL and API key variables.</li>
                   <li><strong className="text-white">Restart the development server</strong> to apply the changes.</li>
               </ol>
             </div>
@@ -101,7 +101,6 @@ const AppContent: React.FC = () => {
         <div className="flex flex-col min-h-screen relative z-10 bg-brand-dark/90 backdrop-blur-sm">
           <Navbar />
           <main className="flex-grow">
-            {/* FIX: Upgraded from v5 <Switch> and <Route component> to v6 <Routes> and <Route element>. */}
             <Routes>
               <Route path="/" element={<HomePage />} />
               {hasPermission('page_store') && <Route path="/store" element={<StorePage />} />}

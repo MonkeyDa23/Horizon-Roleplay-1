@@ -1,3 +1,4 @@
+// src/contexts/ToastContext.tsx
 import React, { createContext, useState, useCallback } from 'react';
 import { ToastContainer } from '../components/Toast';
 import type { ToastType } from '../components/Toast';
