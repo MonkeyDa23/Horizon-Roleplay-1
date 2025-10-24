@@ -14,12 +14,11 @@ import {
 } from '../lib/api';
 import type { 
   Quiz, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule, 
-  Product, DiscordRole, PermissionKey, UserLookupResult, User, AppConfig, Translations
+  Product, DiscordRole, PermissionKey, UserLookupResult, User, AppConfig, Translations, QuizQuestion
 } from '../types';
 import { 
   UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store,
   AlertTriangle, Palette, Languages, KeyRound, Search, GripVertical, PlusCircle, Trash, HelpCircle,
-  // FIX: Added 'Ban' to lucide-react imports to fix missing icon component.
   Ban
 } from 'lucide-react';
 import Modal from '../components/Modal';
@@ -208,7 +207,7 @@ const QuizzesPanel = () => {
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold">{t('quiz_management')}</h2>
-                <button onClick={() => setEditingQuiz({ titleKey: '', descriptionKey: '', isOpen: false, questions: [] })} className="bg-brand-cyan text-brand-dark font-bold py-2 px-4 rounded-md hover:bg-white transition-all flex items-center gap-2"><Plus size={20} />{t('create_new_quiz')}</button>
+                <button onClick={() => setEditingQuiz({ titleKey: '', descriptionKey: '', isOpen: false, questions: [{id: crypto.randomUUID(), textKey: '', timeLimit: 60 }] })} className="bg-brand-cyan text-brand-dark font-bold py-2 px-4 rounded-md hover:bg-white transition-all flex items-center gap-2"><Plus size={20} />{t('create_new_quiz')}</button>
             </div>
              <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50">
                 {isLoading ? <div className="flex justify-center items-center h-64"><Loader2 className="animate-spin text-brand-cyan" size={32}/></div> : 
@@ -871,17 +870,55 @@ const SubmissionModal: React.FC<{submission: QuizSubmission; user: User; onClose
 
 // Quiz Editor Modal
 const QuizEditorModal: React.FC<{quiz: Partial<Quiz>; onSave: (quiz: Partial<Quiz>) => void; onClose: () => void;}> = ({ quiz, onSave, onClose }) => {
-    const [editedQuiz, setEditedQuiz] = useState(quiz);
+    const [editedQuiz, setEditedQuiz] = useState<Partial<Quiz>>(quiz);
     const { t } = useLocalization();
+
+    const handleQuestionChange = (index: number, field: keyof QuizQuestion, value: string | number) => {
+        const newQuestions = [...(editedQuiz.questions || [])];
+        newQuestions[index] = { ...newQuestions[index], [field]: value };
+        setEditedQuiz({ ...editedQuiz, questions: newQuestions });
+    };
+
+    const addQuestion = () => {
+        const newQuestions = [...(editedQuiz.questions || []), { id: crypto.randomUUID(), textKey: '', timeLimit: 60 }];
+        setEditedQuiz({ ...editedQuiz, questions: newQuestions });
+    };
+
+    const removeQuestion = (index: number) => {
+        const newQuestions = (editedQuiz.questions || []).filter((_, i) => i !== index);
+        setEditedQuiz({ ...editedQuiz, questions: newQuestions });
+    };
 
     return (
         <Modal isOpen={true} onClose={onClose} title={editedQuiz.id ? t('edit_quiz') : t('create_new_quiz')}>
-             <div className="space-y-4 text-white">
-                <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_title')}</label><input type="text" value={editedQuiz.titleKey} onChange={(e) => setEditedQuiz({...editedQuiz, titleKey: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
-                <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4">
-                    <button onClick={onClose} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button>
-                    <button onClick={() => onSave(editedQuiz)} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white">{t('save_quiz')}</button>
+             <div className="space-y-4 text-white max-h-[80vh] overflow-y-auto pr-2">
+                <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_title')}</label><input type="text" value={editedQuiz.titleKey || ''} onChange={(e) => setEditedQuiz({...editedQuiz, titleKey: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
+                <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_description')}</label><textarea value={editedQuiz.descriptionKey || ''} onChange={(e) => setEditedQuiz({...editedQuiz, descriptionKey: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" rows={3}></textarea></div>
+                <div><label className="block mb-1 font-semibold text-gray-300">Logo URL</label><input type="text" value={editedQuiz.logoUrl || ''} onChange={(e) => setEditedQuiz({...editedQuiz, logoUrl: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
+                <div><label className="block mb-1 font-semibold text-gray-300">Banner URL</label><input type="text" value={editedQuiz.bannerUrl || ''} onChange={(e) => setEditedQuiz({...editedQuiz, bannerUrl: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
+                <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_handler_roles')}</label><input type="text" placeholder="e.g. 123,456" value={(editedQuiz.allowedTakeRoles || []).join(',')} onChange={(e) => setEditedQuiz({...editedQuiz, allowedTakeRoles: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /><p className="text-xs text-gray-400 mt-1">{t('quiz_handler_roles_desc')}</p></div>
+                <div className="flex items-center gap-4 pt-2"><label className="font-semibold text-gray-300">{t('status')}:</label><button onClick={() => setEditedQuiz({...editedQuiz, isOpen: !editedQuiz.isOpen})} className={`px-4 py-1 rounded-full font-bold ${editedQuiz.isOpen ? 'bg-green-500/30 text-green-300' : 'bg-red-500/30 text-red-300'}`}>{editedQuiz.isOpen ? t('open') : t('closed')}</button></div>
+
+                <div className="border-t border-brand-light-blue/50 pt-4 mt-4">
+                    <h4 className="text-lg font-bold mb-2">{t('quiz_questions')}</h4>
+                    <div className="space-y-3">
+                        {(editedQuiz.questions || []).map((q, index) => (
+                            <div key={q.id || index} className="bg-brand-dark p-3 rounded-md border border-gray-700">
+                                <div className="flex justify-between items-center mb-2">
+                                    <label className="font-semibold text-gray-300">Question {index + 1}</label>
+                                    <button onClick={() => removeQuestion(index)} className="text-red-500 hover:text-red-400"><Trash size={18}/></button>
+                                </div>
+                                <div className="space-y-2">
+                                    <input type="text" placeholder={t('question_text')} value={q.textKey} onChange={(e) => handleQuestionChange(index, 'textKey', e.target.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
+                                    <input type="number" placeholder={t('time_limit_seconds')} value={q.timeLimit} onChange={(e) => handleQuestionChange(index, 'timeLimit', parseInt(e.target.value) || 0)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
+                                </div>
+                            </div>
+                        ))}
+                        <button onClick={addQuestion} className="text-brand-cyan/70 hover:text-brand-cyan text-sm flex items-center gap-1 mt-2"><PlusCircle size={16}/> {t('add_question')}</button>
+                    </div>
                 </div>
+
+                <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4"><button onClick={onClose} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button><button onClick={() => onSave(editedQuiz)} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white">{t('save_quiz')}</button></div>
             </div>
         </Modal>
     );

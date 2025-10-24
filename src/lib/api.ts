@@ -34,8 +34,6 @@ const handleResponse = <T>(response: { data: T | null; error: any; status: numbe
 };
 
 // Helper function for invoking Supabase Edge Functions
-// FIX: Changed `headers` type from `HeadersInit` to a more specific `{[key: string]: string}` to satisfy the `invoke` method's requirements.
-// FIX: Replaced `handleResponse` with direct handling of `invoke`'s `{ data, error }` response, as its shape differs from other Supabase client methods.
 const invokeFunction = async <T>(functionName: string, body?: object, headers?: { [key: string]: string }): Promise<T> => {
     if (!supabase) throw new ApiError("Supabase not configured", 500);
 
@@ -122,7 +120,7 @@ export const getProducts = async (): Promise<Product[]> => {
 export const saveProduct = async (product: Omit<Product, 'id'> & { id?: string }): Promise<Product> => {
     if (!supabase) throw new Error("Supabase not configured");
     const { id, ...productData } = product;
-    const response = await supabase.from('products').upsert(productData, { onConflict: 'id' }).select().single();
+    const response = await supabase.from('products').upsert({ id: id || undefined, ...productData }).select().single();
     return handleResponse(response);
 };
 
@@ -165,7 +163,6 @@ export const getSubmissions = async (): Promise<QuizSubmission[]> => {
 
 export const getSubmissionsByUserId = async (userId: string): Promise<QuizSubmission[]> => {
     if (!supabase) throw new Error("Supabase not configured");
-    // FIX: Changed 'submittedAt' to 'submittedat' to match the lowercase column name in the database.
     const response = await supabase.from('submissions').select('*').eq('user_id', userId).order('submittedAt', { ascending: false });
     return handleResponse(response);
 };
@@ -200,7 +197,6 @@ export const saveRules = async (rules: RuleCategory[]): Promise<void> => {
 // =============================================
 export const getTranslations = async (): Promise<Translations> => {
     if (!supabase) throw new Error("Supabase not configured");
-    // FIX: Added explicit type to handleResponse to resolve iterator error.
     const data = await handleResponse<Array<{ key: string; ar: string; en: string }>>(await supabase.from('translations').select('key, ar, en'));
     const translations: Translations = {};
     for (const item of data) {
@@ -219,14 +215,28 @@ export const saveTranslations = async (translations: Translations): Promise<void
 // PERMISSIONS & ROLES API
 // =============================================
 export const getGuildRoles = async (): Promise<DiscordRole[]> => {
-    return invokeFunction<DiscordRole[]>('get-guild-roles');
+    // The invokeFunction can return either the expected array or an error object from the edge function
+    const response = await invokeFunction<DiscordRole[] | { error: string }>('get-guild-roles');
+    
+    // Check if the response is an array (the success case)
+    if (Array.isArray(response)) {
+        return response;
+    }
+    
+    // If it's an object with an 'error' property, throw an ApiError
+    if (response && typeof response === 'object' && 'error' in response) {
+        throw new ApiError((response as {error: string}).error, 500);
+    }
+    
+    // If the response is something else entirely, it's an unexpected format
+    throw new ApiError("Invalid or unexpected response format from get-guild-roles function.", 500);
 };
 
 export const getRolePermissions = async (roleId: string): Promise<RolePermission> => {
     if (!supabase) throw new Error("Supabase not configured");
     const response = await supabase.from('role_permissions').select('*').eq('role_id', roleId).maybeSingle();
     const data = handleResponse(response);
-    // FIX: When a role has no permissions entry, return a valid RolePermission object with an empty permissions array instead of an empty object to prevent type errors.
+    // FIX(line:240): When data is null, return a valid default RolePermission object instead of an empty object.
     return data || { role_id: roleId, permissions: [] };
 };
 

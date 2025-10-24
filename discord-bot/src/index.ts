@@ -1,7 +1,7 @@
 // discord-bot/src/index.ts
-// FIX: Import express and its types separately to resolve type conflicts.
+// FIX: Combined express and type imports to resolve type resolution issues.
+// FIX(line:192,197,199,203,214,218,227,234,240,246,262,272,275,286,299,302,309,312,342,346): Changed to a default import and qualified types with the 'express' namespace to resolve type conflicts.
 import express from 'express';
-import type { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { 
   Client, 
@@ -70,8 +70,8 @@ client.once('ready', async () => {
     console.log(`✅ Guild "${guild.name}" is accessible. Bot is ready.`);
 
     // Register Slash Command
-    const setPresenceCommand = new SlashCommandBuilder()
-      .setName('setpresence')
+    const setStatusCommand = new SlashCommandBuilder()
+      .setName('setstatus')
       .setDescription("Sets the bot's status and activity.")
       .setDefaultMemberPermissions(0) // Admin only by default
       .addStringOption(option =>
@@ -103,8 +103,8 @@ client.once('ready', async () => {
           .setDescription('The stream URL (required for Streaming activity type).')
           .setRequired(false));
           
-    await client.application?.commands.set([setPresenceCommand], config.DISCORD_GUILD_ID);
-    console.log('✅ Successfully registered /setpresence command.');
+    await client.application?.commands.set([setStatusCommand], config.DISCORD_GUILD_ID);
+    console.log('✅ Successfully registered /setstatus command.');
 
   } catch (error) {
     console.error(`❌ FATAL: Could not fetch guild with ID ${config.DISCORD_GUILD_ID}.`);
@@ -124,7 +124,7 @@ client.on('interactionCreate', async (interaction: Interaction<CacheType>) => {
 
   const { commandName, guild } = interaction;
 
-  if (commandName === 'setpresence') {
+  if (commandName === 'setstatus') {
     if (!guild) {
         await interaction.reply({ content: 'This command can only be used in a server.', ephemeral: true });
         return;
@@ -194,7 +194,7 @@ app.use(express.json());
 
 // Authentication middleware to protect API endpoints
 // FIX: Use imported Request, Response, and NextFunction types for proper type checking.
-const authenticateRequest = (req: Request, res: Response, next: NextFunction) => {
+const authenticateRequest = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
@@ -210,7 +210,7 @@ const authenticateRequest = (req: Request, res: Response, next: NextFunction) =>
 // API ROUTES
 // =============================================
 // FIX: Use imported Request and Response types for proper type checking.
-app.get('/health', async (req: Request, res: Response) => {
+app.get('/health', async (req: express.Request, res: express.Response) => {
   if (!client.isReady()) {
     return res.status(503).json({ status: 'error', message: 'Bot is not ready.' });
   }
@@ -231,7 +231,7 @@ app.get('/health', async (req: Request, res: Response) => {
 
 // GET USER PROFILE
 // FIX: Use imported Request and Response types for proper type checking.
-app.get('/api/user/:id', authenticateRequest, async (req: Request, res: Response) => {
+app.get('/api/user/:id', authenticateRequest, async (req: express.Request, res: express.Response) => {
   const { id } = req.params;
 
   try {
@@ -279,7 +279,7 @@ app.get('/api/user/:id', authenticateRequest, async (req: Request, res: Response
 
 // GET ALL GUILD ROLES
 // FIX: Use imported Request and Response types for proper type checking.
-app.get('/api/roles', authenticateRequest, async (req: Request, res: Response) => {
+app.get('/api/roles', authenticateRequest, async (req: express.Request, res: express.Response) => {
   try {
     // IMPROVEMENT: Fetch guild on every request to be stateless and more resilient.
     const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
@@ -306,7 +306,7 @@ app.get('/api/roles', authenticateRequest, async (req: Request, res: Response) =
 
 // SEND NOTIFICATION
 // FIX: Use imported Request and Response types for proper type checking.
-app.post('/api/notify', authenticateRequest, async (req: Request, res: Response) => {
+app.post('/api/notify', authenticateRequest, async (req: express.Request, res: express.Response) => {
     const { type, payload } = req.body;
     
     if (!type || !payload) {
