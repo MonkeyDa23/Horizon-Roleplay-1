@@ -215,28 +215,37 @@ export const saveTranslations = async (translations: Translations): Promise<void
 // PERMISSIONS & ROLES API
 // =============================================
 export const getGuildRoles = async (): Promise<DiscordRole[]> => {
-    // The invokeFunction can return either the expected array or an error object from the edge function
-    const response = await invokeFunction<DiscordRole[] | { error: string }>('get-guild-roles');
-    
-    // Check if the response is an array (the success case)
-    if (Array.isArray(response)) {
-        return response;
+    try {
+        const response = await invokeFunction<DiscordRole[] | { error: string }>('get-guild-roles');
+        
+        if (Array.isArray(response)) {
+            return response;
+        }
+        
+        if (response && typeof response === 'object' && 'error' in response && typeof (response as any).error === 'string') {
+            throw new ApiError((response as {error: string}).error, 500);
+        }
+        
+        // This will now catch more malformed responses
+        throw new ApiError("Invalid or unexpected response format from get-guild-roles function.", 500);
+
+    } catch (error) {
+        // Re-throw ApiErrors, wrap others
+        if (error instanceof ApiError) {
+            throw error;
+        }
+        console.error("Caught unexpected error in getGuildRoles:", error);
+        throw new ApiError((error as Error).message || 'An unknown error occurred while fetching roles.', 500);
     }
-    
-    // If it's an object with an 'error' property, throw an ApiError
-    if (response && typeof response === 'object' && 'error' in response) {
-        throw new ApiError((response as {error: string}).error, 500);
-    }
-    
-    // If the response is something else entirely, it's an unexpected format
-    throw new ApiError("Invalid or unexpected response format from get-guild-roles function.", 500);
 };
+
 
 export const getRolePermissions = async (roleId: string): Promise<RolePermission> => {
     if (!supabase) throw new Error("Supabase not configured");
     const response = await supabase.from('role_permissions').select('*').eq('role_id', roleId).maybeSingle();
     const data = handleResponse(response);
-    // FIX(line:240): When data is null, return a valid default RolePermission object instead of an empty object.
+    // FIX: Return a valid RolePermission object with an empty permissions array if no data is found.
+    // This satisfies the function's return type and prevents a type error.
     return data || { role_id: roleId, permissions: [] };
 };
 

@@ -1,10 +1,10 @@
-// Vixel Roleplay Website - Full Database Schema (V8 - Admin RLS Policies)
+// Vixel Roleplay Website - Full Database Schema (V9 - RLS & RPC Fixes)
 export const databaseSchema = `
 /*
 ====================================================================================================
- Vixel Roleplay Website - Full Database Schema (V8 - Admin RLS Policies)
+ Vixel Roleplay Website - Full Database Schema (V9 - RLS & RPC Fixes)
  Author: AI
- Date: 2024-05-29
+ Date: 2024-05-30
  
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -233,6 +233,7 @@ DECLARE
   has_perm boolean;
 BEGIN
   -- This function is SECURITY DEFINER, so it runs with the permissions of the user who defined it (postgres).
+  -- This allows it to bypass RLS on the profiles and role_permissions tables.
   SELECT roles INTO user_roles_json FROM public.profiles WHERE id = p_user_id;
 
   IF user_roles_json IS NULL OR jsonb_array_length(user_roles_json) = 0 THEN
@@ -290,16 +291,17 @@ CREATE POLICY "Allow users to read their own profile" ON public.profiles FOR SEL
 CREATE POLICY "Allow users to see their own submissions" ON public.submissions FOR SELECT USING (user_id = public.get_user_id());
 
 -- ADMIN MANAGEMENT POLICIES (ALL ACTIONS)
-CREATE POLICY "Allow admins to manage config" ON public.config FOR UPDATE USING (public.has_permission(public.get_user_id(), 'admin_appearance')) WITH CHECK (public.has_permission(public.get_user_id(), 'admin_appearance'));
-CREATE POLICY "Allow admins to manage products" ON public.products FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_store')) WITH CHECK (public.has_permission(public.get_user_id(), 'admin_store'));
-CREATE POLICY "Allow admins to manage quizzes" ON public.quizzes FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_quizzes')) WITH CHECK (public.has_permission(public.get_user_id(), 'admin_quizzes'));
-CREATE POLICY "Allow admins to manage rules" ON public.rules FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_rules')) WITH CHECK (public.has_permission(public.get_user_id(), 'admin_rules'));
-CREATE POLICY "Allow admins to manage submissions" ON public.submissions FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_submissions')) WITH CHECK (public.has_permission(public.get_user_id(), 'admin_submissions'));
+-- These policies still exist as a fallback, but primary logic is now in SECURITY DEFINER functions.
+CREATE POLICY "Allow admins to manage config" ON public.config FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_appearance'));
+CREATE POLICY "Allow admins to manage products" ON public.products FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_store'));
+CREATE POLICY "Allow admins to manage quizzes" ON public.quizzes FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_quizzes'));
+CREATE POLICY "Allow admins to manage rules" ON public.rules FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_rules'));
+CREATE POLICY "Allow admins to manage submissions" ON public.submissions FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_submissions'));
 CREATE POLICY "Allow admins to read audit log" ON public.audit_log FOR SELECT USING (public.has_permission(public.get_user_id(), 'admin_audit_log'));
-CREATE POLICY "Allow admins to manage permissions" ON public.role_permissions FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_permissions')) WITH CHECK (public.has_permission(public.get_user_id(), 'admin_permissions'));
-CREATE POLICY "Allow admins to manage translations" ON public.translations FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_translations')) WITH CHECK (public.has_permission(public.get_user_id(), 'admin_translations'));
-CREATE POLICY "Allow admins to manage profiles" ON public.profiles FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_lookup')) WITH CHECK (public.has_permission(public.get_user_id(), 'admin_lookup'));
-CREATE POLICY "Allow admins to manage bans" ON public.bans FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_lookup')) WITH CHECK (public.has_permission(public.get_user_id(), 'admin_lookup'));
+CREATE POLICY "Allow admins to manage permissions" ON public.role_permissions FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_permissions'));
+CREATE POLICY "Allow admins to manage translations" ON public.translations FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_translations'));
+CREATE POLICY "Allow admins to manage profiles" ON public.profiles FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_lookup'));
+CREATE POLICY "Allow admins to manage bans" ON public.bans FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_lookup'));
 
 
 -- =================================================================
@@ -315,6 +317,8 @@ $$;
 CREATE OR REPLACE FUNCTION public.get_all_submissions()
 RETURNS SETOF public.submissions
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_submissions') THEN
@@ -327,6 +331,8 @@ $$;
 CREATE OR REPLACE FUNCTION public.add_submission(submission_data jsonb)
 RETURNS public.submissions
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   new_submission public.submissions;
@@ -376,6 +382,8 @@ $$;
 CREATE OR REPLACE FUNCTION public.update_submission_status(p_submission_id uuid, p_new_status text)
 RETURNS void
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   submission_record record;
@@ -436,6 +444,8 @@ $$;
 CREATE OR REPLACE FUNCTION public.save_quiz(quiz_data jsonb)
 RETURNS public.quizzes
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   result public.quizzes;
@@ -479,6 +489,8 @@ $$;
 CREATE OR REPLACE FUNCTION public.save_rules(rules_data jsonb)
 RETURNS void
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_rules') THEN
@@ -500,6 +512,8 @@ $$;
 CREATE OR REPLACE FUNCTION public.update_config(new_config jsonb)
 RETURNS void
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_appearance') THEN
@@ -524,6 +538,8 @@ $$;
 CREATE OR REPLACE FUNCTION public.log_action(p_action text)
 RETURNS void
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   admin_user record;
@@ -565,6 +581,8 @@ $$;
 CREATE OR REPLACE FUNCTION public.ban_user(p_target_user_id uuid, p_reason text, p_duration_hours int)
 RETURNS void
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_expires_at timestamptz;
@@ -597,6 +615,8 @@ $$;
 CREATE OR REPLACE FUNCTION public.unban_user(p_target_user_id uuid)
 RETURNS void
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   target_username text;
@@ -620,7 +640,217 @@ $$;
 
 
 -- =================================================================
--- 7. FINALIZATION & GRANTS
+-- 7. INITIAL DATA SEEDING (TRANSLATIONS)
+-- =================================================================
+INSERT INTO public.translations (key, en, ar) VALUES
+('home', 'Home', 'الرئيسية'),
+('store', 'Store', 'المتجر'),
+('rules', 'Rules', 'القوانين'),
+('applies', 'Applies', 'التقديمات'),
+('about_us', 'About Us', 'من نحن'),
+('login_discord', 'Login with Discord', 'تسجيل الدخول'),
+('logout', 'Logout', 'تسجيل الخروج'),
+('welcome', 'Welcome', 'أهلاً'),
+('admin_panel', 'Admin Panel', 'لوحة التحكم'),
+('my_applications', 'My Applications', 'تقديماتي'),
+('my_profile', 'My Profile', 'ملفي الشخصي'),
+('hero_title', '{communityName} Community', 'مجتمع {communityName}'),
+('hero_subtitle', 'Where your story begins. Join an immersive world of endless possibilities.', 'حيث تبدأ قصتك. انضم إلى عالم غامر من الاحتمالات اللانهائية.'),
+('join_us', 'Join Us', 'انضم إلينا'),
+('join_modal_title', 'Join Our Community', 'انضم إلى مجتمعنا'),
+('join_discord', 'Join Discord Server', 'انضم لسيرفر الديسكورد'),
+('connect_mta', 'Connect to MTA Server', 'اتصل بسيرفر MTA'),
+('page_title_store', '{communityName} Store', 'متجر {communityName}'),
+('page_title_rules', 'Server Rules', 'قوانين السيرفر'),
+('page_title_applies', 'Available Applications', 'التقديمات المتاحة'),
+('page_title_about', 'About {communityName}', 'عن {communityName}'),
+('page_title_admin', 'Admin Control Panel', 'لوحة تحكم المشرفين'),
+('page_title_my_applications', 'My Applications Status', 'حالة تقديماتي'),
+('coming_soon', 'Coming Soon...', 'قريباً...'),
+('questions', 'Questions', 'أسئلة'),
+('about_intro', '{communityName} is more than just a server - it is a vibrant community of players who share a passion for roleplaying.', '{communityName} هو أكثر من مجرد سيرفر - إنه مجتمع نابض بالحياة من اللاعبين الذين يتشاركون شغف اللعب الأدوار.'),
+('our_mission', 'Our Mission', 'مهمتنا'),
+('mission_text', 'Our mission is to provide an immersive, high-quality roleplaying environment where players can create their own unique stories and characters.', 'مهمتنا هي توفير بيئة لعب أدوار غامرة وعالية الجودة حيث يمكن للاعبين إنشاء قصصهم وشخصياتهم الفريدة.'),
+('join_community', 'Join Our Discord Community', 'انضم لمجتمعنا على ديسكورد'),
+('discord_online', 'Online', 'متصل'),
+('discord_members', 'Members', 'عضو'),
+('footer_rights', '© {year} {communityName}. All Rights Reserved.', '© {year} {communityName}. جميع الحقوق محفوظة.'),
+('add_to_cart', 'Add to Cart', 'أضف للسلة'),
+('item_added_to_cart', '{itemName} added to cart!', 'تمت إضافة {itemName} إلى السلة!'),
+('your_cart', 'Your Cart', 'سلة التسوق'),
+('empty_cart', 'Your cart is empty.', 'سلتك فارغة.'),
+('subtotal', 'Subtotal', 'المجموع الفرعي'),
+('checkout', 'Checkout', 'الدفع'),
+('remove', 'Remove', 'إزالة'),
+('checkout_via_discord', 'Checkout via Discord', 'الدفع عبر ديسكورد'),
+('checkout_instructions', 'To complete your purchase, please open a ticket in our Discord server and an admin will assist you.', 'لإكمال عملية الشراء، يرجى فتح تذكرة في سيرفر الديسكورد الخاص بنا وسيقوم أحد المسؤولين بمساعدتك.'),
+('open_ticket', 'Open a Ticket', 'فتح تذكرة'),
+('apply_now', 'Apply Now', 'قدم الآن'),
+('already_applied', 'Already Applied', 'تم التقديم'),
+('application_closed', 'Application Closed', 'التقديم مغلق'),
+('no_applies_open', 'No applications are open at this time.', 'لا يوجد تقديمات مفتوحة حالياً.'),
+('no_rules_yet', 'Rules will be added soon.', 'سيتم إضافة القوانين قريباً.'),
+('quiz_rules', 'Application Instructions', 'تعليمات التقديم'),
+('begin_quiz', 'Begin Quiz', 'ابدأ الاختبار'),
+('question', 'Question', 'سؤال'),
+('of', 'of', 'من'),
+('time_left', 'Time Left', 'الوقت المتبقي'),
+('seconds', 'seconds', 'ثانية'),
+('next_question', 'Next Question', 'السؤال التالي'),
+('submit_application', 'Submit Application', 'إرسال التقديم'),
+('application_submitted', 'Your application has been submitted successfully!', 'تم إرسال تقديمك بنجاح!'),
+('application_submitted_desc', 'It will be reviewed by the administration soon. You can track its status on the "My Applications" page.', 'ستتم مراجعته من قبل الإدارة قريباً. يمكنك متابعة حالته من صفحة "تقديماتي".'),
+('view_my_applications', 'View My Applications', 'عرض تقديماتي'),
+('cheat_attempt_detected', 'Cheat attempt detected! Application has been reset.', 'تم كشف محاولة غش! تم إعادة تعيين التقديم.'),
+('cheat_method_switched_tab', 'Switched Tabs', 'تبديل التبويبات'),
+('cheat_method_lost_focus', 'Lost Focus', 'فقدان التركيز'),
+('cheat_attempts_report', 'Cheat Attempts Report', 'تقرير محاولات الغش'),
+('cheat_attempts_count', '{count} attempt(s) were logged.', 'تم تسجيل {count} محاولة/محاولات.'),
+('no_cheat_attempts', 'No cheat attempts logged. Great job!', 'لم يتم تسجيل أي محاولات غش. عمل رائع!'),
+('quiz_management', 'Quiz Forms Management', 'إدارة نماذج التقديم'),
+('submission_management', 'Application Submissions', 'إدارة طلبات التقديم'),
+('rules_management', 'Rules Management', 'إدارة القوانين'),
+('store_management', 'Store Management', 'إدارة المتجر'),
+('appearance_settings', 'Appearance Settings', 'إعدادات المظهر'),
+('translations_management', 'Translations Management', 'إدارة الترجمات'),
+('permissions_management', 'Permissions Management', 'إدارة الصلاحيات'),
+('audit_log', 'Audit Log', 'سجل التدقيق'),
+('user_lookup', 'User Lookup', 'بحث عن مستخدم'),
+('create_new_quiz', 'Create New Quiz', 'إنشاء تقديم جديد'),
+('edit_quiz', 'Edit Quiz', 'تعديل التقديم'),
+('quiz_title', 'Quiz Title (Translation Key)', 'عنوان التقديم (مفتاح الترجمة)'),
+('quiz_description', 'Quiz Description (Translation Key)', 'وصف التقديم (مفتاح الترجمة)'),
+('quiz_questions', 'Quiz Questions', 'أسئلة التقديم'),
+('add_question', 'Add Question', 'إضافة سؤال'),
+('question_text', 'Question Text (Translation Key)', 'نص السؤال (مفتاح الترجمة)'),
+('time_limit_seconds', 'Time Limit (seconds)', 'الوقت المحدد (بالثواني)'),
+('save_quiz', 'Save Quiz', 'حفظ التقديم'),
+('save_rules', 'Save Rules', 'حفظ القوانين'),
+('save_settings', 'Save Settings', 'حفظ الإعدادات'),
+('save_translations', 'Save Translations', 'حفظ الترجمات'),
+('save_permissions', 'Save Permissions', 'حفظ الصلاحيات'),
+('delete_quiz', 'Delete Quiz', 'حذف التقديم'),
+('status', 'Status', 'الحالة'),
+('open', 'Open', 'مفتوح'),
+('closed', 'Closed', 'مغلق'),
+('actions', 'Actions', 'الإجراءات'),
+('edit', 'Edit', 'تعديل'),
+('applicant', 'Applicant', 'المتقدم'),
+('submitted_on', 'Submitted On', 'تاريخ التقديم'),
+('result_date', 'Result Date', 'تاريخ النتيجة'),
+('view_submission', 'View Submission', 'عرض الطلب'),
+('take_order', 'Take Order', 'استلام الطلب'),
+('take_order_forbidden', 'Not Allowed', 'غير مسموح'),
+('taken_by', 'Taken by', 'مستلم بواسطة'),
+('accept', 'Accept', 'قبول'),
+('refuse', 'Refuse', 'رفض'),
+('submission_details', 'Submission Details', 'تفاصيل الطلب'),
+('close', 'Close', 'إغلاق'),
+('no_pending_submissions', 'There are no pending submissions.', 'لا توجد طلبات تقديم معلقة حالياً.'),
+('admin_revoked', 'Your admin permissions have been revoked.', 'تم سحب صلاحيات المشرف منك.'),
+('admin_granted', 'You have been granted admin permissions.', 'تم منحك صلاحيات المشرف.'),
+('admin_permissions_error', 'Admin permission error or session expired. You have been logged out.', 'خطأ في صلاحيات المشرف أو انتهت صلاحية الجلسة. تم تسجيل خروجك.'),
+('admin_session_error_warning', 'Could not verify admin session with the server. Please try again later.', 'لا يمكن التحقق من جلسة المشرف مع الخادم. يرجى المحاولة مرة أخرى لاحقاً.'),
+('verifying_admin_permissions', 'Verifying admin permissions...', 'جاري التحقق من صلاحيات المشرف...'),
+('quiz_handler_roles', 'Application Handler Roles', 'رتب معالجة التقديم'),
+('quiz_handler_roles_desc', 'Enter Role IDs allowed to handle these submissions (comma-separated).', 'ضع هنا آي دي الرتب المسموح لها باستلام هذا النوع من التقديمات (افصل بينها بفاصلة).'),
+('config_updated_success', 'Settings updated successfully!', 'تم تحديث الإعدادات بنجاح!'),
+('rules_updated_success', 'Rules updated successfully!', 'تم تحديث القوانين بنجاح!'),
+('permissions_saved_success', 'Permissions saved successfully!', 'تم حفظ الصلاحيات بنجاح!'),
+('discord_id_placeholder', 'Discord User ID...', 'معرف مستخدم ديسكورد...'),
+('search', 'Search', 'بحث'),
+('ban', 'Ban', 'حظر'),
+('unban', 'Unban', 'فك الحظر'),
+('reason', 'Reason', 'السبب'),
+('duration', 'Duration', 'المدة'),
+('confirm_ban', 'Confirm Ban', 'تأكيد الحظر'),
+('banned_indefinitely', 'Banned indefinitely', 'محظور بشكل دائم'),
+('banned_until', 'Banned until {date}', 'محظور حتى {date}'),
+('you_are_banned', 'You Are Banned', 'أنت محظور'),
+('banned_page_message', 'You have been banned from accessing this site.', 'تم حظرك من الوصول إلى هذا الموقع.'),
+('ban_reason', 'Reason for ban:', 'سبب الحظر:'),
+('ban_expires', 'Ban expires:', 'ينتهي الحظر في:'),
+('ban_permanent', 'This ban is permanent.', 'الحظر دائم.'),
+('community_name', 'Community Name', 'اسم المجتمع'),
+('logo_url', 'Logo URL', 'رابط الشعار (URL)'),
+('background_image_url', 'Background Image URL', 'رابط صورة الخلفية (URL)'),
+('background_image_url_desc', 'Leave empty to use the default animated background.', 'اتركه فارغاً لاستخدام الخلفية الافتراضية.'),
+('discord_guild_id', 'Discord Guild ID', 'آي دي سيرفر الديسكورد'),
+('discord_guild_id_desc', 'Required for authentication and role sync.', 'مطلوب للمصادقة ومزامنة الرتب.'),
+('submissions_webhook_url', 'Submissions Channel ID', 'معرف قناة التقديمات'),
+('submissions_webhook_url_desc', 'The ID of the channel that receives new submission notifications.', 'المعرف الرقمي للقناة التي تستقبل إشعارات التقديمات الجديدة.'),
+('audit_log_webhook_url', 'Audit Log Channel ID', 'معرف قناة سجل التدقيق'),
+('audit_log_webhook_url_desc', 'The ID of the channel that receives admin action logs.', 'المعرف الرقمي للقناة التي تستقبل سجلات إجراءات المشرفين.'),
+('discord_roles', 'Discord Roles', 'رتب الديسكورد'),
+('available_permissions', 'Available Permissions', 'الصلاحيات المتاحة'),
+('select_role_to_manage', 'Select a role to see its permissions.', 'اختر رتبة لعرض صلاحياتها.'),
+('admin_permissions_instructions', 'Select a role from the list to view and modify its permissions. The `_super_admin` permission automatically grants all other permissions.', 'اختر رتبة من القائمة لعرض وتعديل صلاحياتها. صلاحية `_super_admin` تمنح جميع الصلاحيات الأخرى تلقائياً.'),
+('admin_permissions_bootstrap_instructions_title', 'Locked Out?', 'غير قادر على الدخول؟'),
+-- FIX: Escaped backticks inside the template literal to prevent parsing errors.
+('admin_permissions_bootstrap_instructions_body', 'To grant initial admin access, go to your Supabase \\`role_permissions\\` table. Insert a new row, put your admin role ID in \\`role_id\\`, and type `{\\"_super_admin\\"}` into the \\`permissions\\` field, then refresh the site.', 'لمنح صلاحيات المشرف الأولية، اذهب إلى جدول \\`role_permissions\\` في Supabase. أضف صفاً جديداً، ضع آي دي رتبة المشرف في \\`role_id\\`، واكتب `{\\"_super_admin\\"}` في حقل \\`permissions\\` ثم قم بتحديث الصفحة.'),
+('status_pending', 'Pending', 'قيد الانتظار'),
+('status_taken', 'Under Review', 'قيد المراجعة'),
+('status_accepted', 'Accepted', 'مقبول'),
+('status_refused', 'Refused', 'مرفوض'),
+('no_applications_submitted', 'You have not submitted any applications yet.', 'لم تقم بتقديم أي طلبات بعد.'),
+('application_type', 'Application Type', 'نوع التقديم'),
+('user_id', 'User ID', 'معرف المستخدم'),
+('view_on_discord', 'View on Discord', 'عرض في ديسكورد'),
+('recent_applications', 'Recent Applications', 'التقديمات الأخيرة'),
+('member', 'Member', 'عضو'),
+('refresh_profile_tooltip', 'Sync my data with Discord', 'مزامنة بياناتي مع ديسكورد'),
+('profile_synced_success', 'Your profile has been successfully updated!', 'تم تحديث ملفك الشخصي بنجاح!'),
+('profile_synced_error', 'Failed to update profile. Please try again.', 'فشل تحديث الملف الشخصي. حاول مرة أخرى.'),
+('log_timestamp', 'Timestamp', 'الوقت'),
+('log_admin', 'Admin', 'المشرف'),
+('log_action', 'Action', 'الإجراء'),
+('no_logs_found', 'No logs to display.', 'لا توجد سجلات لعرضها.'),
+('health_check_title', 'System Health Check', 'فحص صحة النظام'),
+('health_check_desc', 'A diagnostic tool for developers to ensure all system components are correctly connected.', 'أداة تشخيصية للمطورين للتأكد من أن جميع أجزاء النظام متصلة بشكل صحيح.'),
+('health_check_step1', 'Step 1: OAuth Redirect URI', 'الخطوة 1: رابط الاسترجاع (OAuth Redirect URI)'),
+('health_check_step1_desc', 'Ensure this URI is added to your Supabase Authentication > URL Configuration settings.', 'تأكد من أن هذا الرابط مضاف في قسم "URL Configuration" في إعدادات المصادقة في Supabase.'),
+('health_check_uri_label', 'Your Redirect URI is:', 'رابط الاسترجاع الخاص بك هو:'),
+('health_check_env_vars', 'Step 2: Environment Variables (Frontend)', 'الخطوة 2: متغيرات البيئة (Frontend)'),
+('health_check_env_vars_desc', 'These are the variables loaded into the frontend from your .env file.', 'هذه هي المتغيرات المحملة في الواجهة الأمامية من ملف .env الخاص بك.'),
+('health_check_step3', 'Step 3: Bot Connection Test', 'الخطوة 3: اختبار اتصال البوت'),
+('health_check_step3_desc', 'This test checks if the Supabase Function can successfully reach your Discord bot.', 'هذا الاختبار يتحقق مما إذا كانت دالة Supabase يمكنها الوصول إلى البوت الخاص بك بنجاح.'),
+('health_check_run_test', 'Run Connection Test', 'تشغيل اختبار الاتصال'),
+('health_check_test_running', 'Testing...', 'جاري الاختبار...'),
+('health_check_test_result', 'Test Result', 'نتيجة الاختبار'),
+('health_check_step4', 'Step 4: User Sync Test', 'الخطوة 4: اختبار مزامنة المستخدم'),
+('health_check_step4_desc', 'Test fetching a specific user''s data from Discord via the bot.', 'اختبر جلب بيانات مستخدم معين من ديسكورد عبر البوت.'),
+('health_check_get_discord_id', 'How to get a Discord ID?', 'كيف أحصل على معرف ديسكورد؟'),
+('health_check_get_discord_id_steps', 'In Discord, go to Settings > Advanced > enable Developer Mode. Then, right-click any user and select "Copy User ID".', 'في ديسكورد، اذهب إلى الإعدادات > متقدم > فعل وضع المطور. ثم انقر بزر الماوس الأيمن على أي مستخدم واختر "نسخ معرف المستخدم".'),
+('health_check_discord_id_input', 'Enter Discord User ID...', 'أدخل معرف ديسكورد هنا...'),
+('health_check_run_sync_test', 'Run Sync Test', 'تشغيل اختبار المزامنة'),
+('health_check_sync_test_result', 'Sync Result', 'نتيجة المزامنة'),
+('health_check_result_interpretation', 'Interpreting the Results', 'تفسير النتائج'),
+('health_check_result_success', '<ul><li class="mb-2"><strong>Success (200 OK):</strong> Excellent! The user was found in the guild and their data was fetched successfully. This confirms everything is working.</li>', '<ul><li class="mb-2"><strong>Success (200 OK):</strong> ممتاز! تم العثور على المستخدم في السيرفر وتم جلب بياناته بنجاح. هذا يؤكد أن كل شيء يعمل.</li>'),
+('health_check_result_404', '<li class="mb-2"><strong>Error (404 Not Found):</strong> This means the bot connected to Discord correctly, but couldn''t find a user with that ID in your server. Check the ID or ensure the user is a member.</li>', '<li class="mb-2"><strong>Error (404 Not Found):</strong> هذا يعني أن البوت متصل بديسكورد بشكل صحيح، لكنه لم يتمكن من العثور على المستخدم بهذا المعرف في السيرفر الخاص بك. تحقق من المعرف أو تأكد من أن المستخدم عضو في السيرفر.</li>'),
+('health_check_result_503', '<li class="mb-2"><strong>Error (503 Service Unavailable):</strong> The most common cause is that the <strong>Server Members Intent</strong> is not enabled in the Discord Developer Portal. Go to your bot''s settings and turn it on.</li>', '<li class="mb-2"><strong>Error (503 Service Unavailable):</strong> السبب الأكثر شيوعاً هو أن <strong>Server Members Intent</strong> غير مفعل في بوابة مطوري ديسكورد. اذهب إلى إعدادات البوت الخاص بك وقم بتفعيله.</li>'),
+('health_check_result_other', '<li><strong>Other Errors:</strong> Usually indicates a problem with the bot''s configuration or it being offline. Check the bot''s logs for more details.</li></ul>', '<li><strong>أخطاء أخرى:</strong> عادة ما تشير إلى مشكلة في تكوين البوت أو أنه غير متصل بالإنترنت. تحقق من سجلات البوت لمزيد من التفاصيل.</li></ul>'),
+('health_check_banner_link', 'Click here to run system diagnostics.', 'اضغط هنا لتشغيل فحص النظام التشخيصي.'),
+('session_expired_not_in_guild', 'Your session has expired or you are no longer in the guild. You have been logged out.', 'انتهت صلاحية جلستك أو لم تعد عضواً في السيرفر. تم تسجيل خروجك.'),
+('product_vip_bronze_name', 'Bronze VIP Membership', 'عضوية VIP برونزية'),
+('product_vip_bronze_desc', 'Exclusive in-server perks for one month.', 'مميزات حصرية داخل السيرفر لمدة شهر.'),
+('product_vip_silver_name', 'Silver VIP Membership', 'عضوية VIP فضية'),
+('product_vip_silver_desc', 'Better perks with special vehicle access.', 'مميزات أفضل مع وصول خاص للمركبات.'),
+('product_cash_1_name', '100k Cash Pack', 'حزمة نقدية 100 ألف'),
+('product_cash_1_desc', 'An in-game cash boost to get you started.', 'دفعة نقدية داخل اللعبة لتبدأ بقوة.'),
+('product_custom_plate_name', 'Custom License Plate', 'لوحة سيارة مخصصة'),
+('product_custom_plate_desc', 'A unique license plate for your favorite vehicle.', 'لوحة فريدة لسيارتك المفضلة.'),
+('quiz_police_name', 'Police Department Application', 'تقديم قسم الشرطة'),
+('quiz_police_desc', 'Read the rules carefully. Any attempt to cheat will result in immediate rejection.', 'اقرأ القوانين جيداً. أي محاولة غش ستؤدي للرفض الفوري.'),
+('q_police_1', 'What is the first procedure when dealing with a suspect?', 'ما هو الإجراء الأول عند التعامل مع شخص مشتبه به؟'),
+('q_police_2', 'When are you permitted to use lethal force?', 'متى يسمح لك باستخدام القوة المميتة؟'),
+('quiz_medic_name', 'EMS Department Application', 'تقديم قسم الإسعاف'),
+('quiz_medic_desc', 'You are required to be calm and professional at all times.', 'مطلوب منك الهدوء والاحترافية في جميع الأوقات.'),
+('q_medic_1', 'What is your top priority when arriving at an accident scene?', 'ما هي أولويتك القصوى عند الوصول إلى مكان الحادث؟')
+ON CONFLICT (key) DO NOTHING;
+
+
+-- =================================================================
+-- 8. FINALIZATION & GRANTS
 -- =================================================================
 GRANT USAGE ON SCHEMA public TO postgres, anon, authenticated, service_role;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO postgres, anon, authenticated, service_role;

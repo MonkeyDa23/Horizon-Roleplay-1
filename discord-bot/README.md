@@ -16,9 +16,23 @@ Before setting up the bot, go to the [Discord Developer Portal](https://discord.
 
 You **MUST** enable the **SERVER MEMBERS INTENT**.
 
-
-
 This is the #1 cause of login issues. If this is disabled, the bot cannot see the roles of users who are not cached, and the login system will fail.
+
+## Bot Invitation & Scopes
+
+For the bot and its slash commands (like `/setstatus`) to work correctly, it must be invited to your server with the correct permissions and scopes.
+
+1.  **Required Scopes**: The bot needs both `bot` and `applications.commands`.
+2.  **Required Permissions**: The bot needs `Administrator` permissions to function correctly. This is the simplest setup, but you can also grant specific permissions like `Manage Roles` and `Send Messages` if you prefer.
+3.  **Generate Invite Link**:
+    *   Go to the Discord Developer Portal.
+    *   Select your application, then go to `OAuth2 > URL Generator`.
+    *   Select the scopes: `bot` and `applications.commands`.
+    *   Select the bot permission: `Administrator`.
+    *   Copy the generated URL at the bottom.
+4.  **Re-Invite The Bot**: Use the generated URL to invite the bot to your server. If the bot is already in the server, you can simply use the URL again to update its permissions without kicking it.
+
+**If slash commands are not appearing in Discord, it's almost always because the bot was invited without the `applications.commands` scope.**
 
 ## Installation & Setup
 
@@ -43,13 +57,17 @@ You need to host this bot on a server, such as a VPS or a dedicated machine.
     {
       "DISCORD_BOT_TOKEN": "YOUR_BOT_TOKEN_HERE",
       "DISCORD_GUILD_ID": "YOUR_SERVER_ID_HERE",
-      "API_SECRET_KEY": "CREATE_A_STRONG_SECRET_PASSWORD_HERE"
+      "API_SECRET_KEY": "CREATE_A_STRONG_SECRET_PASSWORD_HERE",
+      "PRESENCE_COMMAND_ROLE_IDS": [
+        "YOUR_ADMIN_ROLE_ID_HERE"
+      ]
     }
     ```
 
 -   **`DISCORD_BOT_TOKEN`**: Get this from the Discord Developer Portal (Bot tab > "Reset Token").
 -   **`DISCORD_GUILD_ID`**: Right-click your server icon in Discord (with Developer Mode on) and "Copy Server ID".
 -   **`API_SECRET_KEY`**: **Create your own unique, strong password**. This is what your website will use to securely communicate with the bot. This **MUST** match the `VITE_DISCORD_BOT_API_KEY` secret you set in your Supabase project.
+-   **`PRESENCE_COMMAND_ROLE_IDS`**: An array of Discord Role IDs that are allowed to use the `/setstatus` command. Server owners can always use it.
 
 ### 3. Running the Bot
 
