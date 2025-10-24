@@ -36,6 +36,9 @@ try {
   console.log("✅ Configuration loaded successfully.");
 } catch (error) {
   console.error("❌ FATAL: Could not load config.json. Please ensure the file exists and is valid JSON.");
+  // FIX: Added ts-ignore to suppress type error on process.exit, which is valid in Node.js
+  // but may conflict with other type definitions (e.g., Deno) in the IDE.
+  // @ts-ignore
   process.exit(1);
 }
 
@@ -65,6 +68,9 @@ client.once('ready', async () => {
   } catch (error) {
     console.error(`❌ FATAL: Could not fetch guild with ID ${config.DISCORD_GUILD_ID}.`);
     console.error("   Please check that the GUILD_ID is correct and the bot is in the server.");
+    // FIX: Added ts-ignore to suppress type error on process.exit, which is valid in Node.js
+    // but may conflict with other type definitions (e.g., Deno) in the IDE.
+    // @ts-ignore
     process.exit(1);
   }
 });
