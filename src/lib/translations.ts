@@ -174,9 +174,11 @@ export const translations: Translations = {
   discord_roles: { ar: 'رتب الديسكورد', en: 'Discord Roles' },
   available_permissions: { ar: 'الصلاحيات المتاحة', en: 'Available Permissions' },
   select_role_to_manage: { ar: 'اختر رتبة لعرض صلاحياتها.', en: 'Select a role to see its permissions.' },
-  admin_permissions_instructions: { ar: 'اختر رتبة من القائمة لعرض وتعديل صلاحياتها. صلاحية `_super_admin` تمنح جميع الصلاحيات الأخرى تلقائياً.', en: 'Select a role from the list to view and modify its permissions. The `_super_admin` permission automatically grants all other permissions.'},
+  // FIX: Replaced backticks with <code> tags to avoid TS parsing errors.
+  admin_permissions_instructions: { ar: 'اختر رتبة من القائمة لعرض وتعديل صلاحياتها. صلاحية <code>_super_admin</code> تمنح جميع الصلاحيات الأخرى تلقائياً.', en: 'Select a role from the list to view and modify its permissions. The <code>_super_admin</code> permission automatically grants all other permissions.'},
   admin_permissions_bootstrap_instructions_title: { ar: 'غير قادر على الدخول؟', en: 'Locked Out?' },
-  admin_permissions_bootstrap_instructions_body: { ar: 'لمنح صلاحيات المشرف الأولية، اذهب إلى جدول `role_permissions` في Supabase. أضف صفاً جديداً، ضع آي دي رتبة المشرف في `role_id`، واكتب `{\\"_super_admin\\"}` في حقل `permissions` ثم قم بتحديث الصفحة.', en: 'To grant initial admin access, go to your Supabase `role_permissions` table. Insert a new row, put your admin role ID in `role_id`, and type `{\\"_super_admin\\"}` into the `permissions` field, then refresh the site.' },
+  // FIX: Replaced backticks with <code> tags to avoid TS parsing errors.
+  admin_permissions_bootstrap_instructions_body: { ar: 'لمنح صلاحيات المشرف الأولية، اذهب إلى جدول <code>role_permissions</code> في Supabase. أضف صفاً جديداً، ضع آي دي رتبة المشرف في <code>role_id</code>، واكتب <code>{\\"_super_admin\\"}</code> في حقل <code>permissions</code> ثم قم بتحديث الصفحة.', en: 'To grant initial admin access, go to your Supabase <code>role_permissions</code> table. Insert a new row, put your admin role ID in <code>role_id</code>, and type <code>{\\"_super_admin\\"}</code> into the <code>permissions</code> field, then refresh the site.' },
 
 
   // Submission Statuses
