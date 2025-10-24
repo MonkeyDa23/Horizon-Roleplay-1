@@ -1,10 +1,10 @@
-// Vixel Roleplay Website - Full Database Schema (V9 - RLS & RPC Fixes)
+// Vixel Roleplay Website - Full Database Schema (V10 - Final RLS & RPC Fixes)
 export const databaseSchema = `
 /*
 ====================================================================================================
- Vixel Roleplay Website - Full Database Schema (V9 - RLS & RPC Fixes)
+ Vixel Roleplay Website - Full Database Schema (V10 - Final RLS & RPC Fixes)
  Author: AI
- Date: 2024-05-30
+ Date: 2024-05-31
  
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -289,9 +289,10 @@ CREATE POLICY "Allow public read access to translations" ON public.translations 
 -- USER-SPECIFIC POLICIES
 CREATE POLICY "Allow users to read their own profile" ON public.profiles FOR SELECT USING (id = public.get_user_id());
 CREATE POLICY "Allow users to see their own submissions" ON public.submissions FOR SELECT USING (user_id = public.get_user_id());
+CREATE POLICY "Allow users to insert their own submissions" ON public.submissions FOR INSERT WITH CHECK (user_id = public.get_user_id());
 
 -- ADMIN MANAGEMENT POLICIES (ALL ACTIONS)
--- These policies still exist as a fallback, but primary logic is now in SECURITY DEFINER functions.
+-- These policies are a fallback. The primary logic is in SECURITY DEFINER functions which bypass RLS.
 CREATE POLICY "Allow admins to manage config" ON public.config FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_appearance'));
 CREATE POLICY "Allow admins to manage products" ON public.products FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_store'));
 CREATE POLICY "Allow admins to manage quizzes" ON public.quizzes FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_quizzes'));
@@ -314,6 +315,7 @@ AS $$
   SELECT row_to_json(c) FROM public.config c WHERE id = 1;
 $$;
 
+-- FIX: Added SECURITY DEFINER to run with postgres privileges, bypassing RLS.
 CREATE OR REPLACE FUNCTION public.get_all_submissions()
 RETURNS SETOF public.submissions
 LANGUAGE plpgsql
@@ -328,11 +330,11 @@ BEGIN
 END;
 $$;
 
+-- NOTE: This function is for users, so it's intentionally SECURITY INVOKER (default).
+-- It relies on the RLS INSERT policy on the `submissions` table.
 CREATE OR REPLACE FUNCTION public.add_submission(submission_data jsonb)
 RETURNS public.submissions
 LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
 AS $$
 DECLARE
   new_submission public.submissions;
@@ -342,7 +344,7 @@ BEGIN
   VALUES (
     (submission_data->>'quizId')::uuid,
     submission_data->>'quizTitle',
-    (submission_data->>'user_id')::uuid,
+    public.get_user_id(), -- Use session user ID for security, ignoring payload value
     submission_data->>'username',
     submission_data->'answers',
     submission_data->'cheatAttempts',
@@ -379,6 +381,7 @@ BEGIN
 END;
 $$;
 
+-- FIX: Added SECURITY DEFINER
 CREATE OR REPLACE FUNCTION public.update_submission_status(p_submission_id uuid, p_new_status text)
 RETURNS void
 LANGUAGE plpgsql
@@ -420,7 +423,7 @@ BEGIN
       jsonb_build_object(
         'type', 'submission_result',
         'payload', jsonb_build_object(
-          'userId', submission_record.user_id,
+          'userId', (SELECT discord_id FROM public.profiles WHERE id = submission_record.user_id),
           'embed', jsonb_build_object(
             'title', embed_title,
             'description', 'The status of your application has been updated.',
@@ -441,6 +444,7 @@ BEGIN
 END;
 $$;
 
+-- FIX: Added SECURITY DEFINER
 CREATE OR REPLACE FUNCTION public.save_quiz(quiz_data jsonb)
 RETURNS public.quizzes
 LANGUAGE plpgsql
@@ -486,6 +490,7 @@ BEGIN
 END;
 $$;
 
+-- FIX: Added SECURITY DEFINER
 CREATE OR REPLACE FUNCTION public.save_rules(rules_data jsonb)
 RETURNS void
 LANGUAGE plpgsql
@@ -509,6 +514,7 @@ BEGIN
 END;
 $$;
 
+-- FIX: Added SECURITY DEFINER
 CREATE OR REPLACE FUNCTION public.update_config(new_config jsonb)
 RETURNS void
 LANGUAGE plpgsql
@@ -535,6 +541,7 @@ BEGIN
 END;
 $$;
 
+-- FIX: Added SECURITY DEFINER
 CREATE OR REPLACE FUNCTION public.log_action(p_action text)
 RETURNS void
 LANGUAGE plpgsql
@@ -578,6 +585,7 @@ BEGIN
 END;
 $$;
 
+-- FIX: Added SECURITY DEFINER
 CREATE OR REPLACE FUNCTION public.ban_user(p_target_user_id uuid, p_reason text, p_duration_hours int)
 RETURNS void
 LANGUAGE plpgsql
@@ -612,6 +620,7 @@ BEGIN
 END;
 $$;
 
+-- FIX: Added SECURITY DEFINER
 CREATE OR REPLACE FUNCTION public.unban_user(p_target_user_id uuid)
 RETURNS void
 LANGUAGE plpgsql
@@ -787,7 +796,7 @@ INSERT INTO public.translations (key, en, ar) VALUES
 ('admin_permissions_instructions', 'Select a role from the list to view and modify its permissions. The `_super_admin` permission automatically grants all other permissions.', 'اختر رتبة من القائمة لعرض وتعديل صلاحياتها. صلاحية `_super_admin` تمنح جميع الصلاحيات الأخرى تلقائياً.'),
 ('admin_permissions_bootstrap_instructions_title', 'Locked Out?', 'غير قادر على الدخول؟'),
 -- FIX: Escaped backticks inside the template literal to prevent parsing errors.
-('admin_permissions_bootstrap_instructions_body', 'To grant initial admin access, go to your Supabase \\`role_permissions\\` table. Insert a new row, put your admin role ID in \\`role_id\\`, and type `{\\"_super_admin\\"}` into the \\`permissions\\` field, then refresh the site.', 'لمنح صلاحيات المشرف الأولية، اذهب إلى جدول \\`role_permissions\\` في Supabase. أضف صفاً جديداً، ضع آي دي رتبة المشرف في \\`role_id\\`، واكتب `{\\"_super_admin\\"}` في حقل \\`permissions\\` ثم قم بتحديث الصفحة.'),
+('admin_permissions_bootstrap_instructions_body', 'To grant initial admin access, go to your Supabase \\`role_permissions\\` table. Insert a new row, put your admin role ID in \\`role_id\\`, and type \\`{"_super_admin"}\\` into the \\`permissions\\` field, then refresh the site.', 'لمنح صلاحيات المشرف الأولية، اذهب إلى جدول \\`role_permissions\\` في Supabase. أضف صفاً جديداً، ضع آي دي رتبة المشرف في \\`role_id\\`، واكتب \\`{"_super_admin"}\\` في حقل \\`permissions\\` ثم قم بتحديث الصفحة.'),
 ('status_pending', 'Pending', 'قيد الانتظار'),
 ('status_taken', 'Under Review', 'قيد المراجعة'),
 ('status_accepted', 'Accepted', 'مقبول'),
