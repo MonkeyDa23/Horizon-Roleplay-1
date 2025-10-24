@@ -1,6 +1,5 @@
-
 // src/App.tsx
-import React, { Suspense } from 'react';
+import React from 'react';
 // FIX: Switched to a namespace import for react-router-dom to resolve module resolution errors.
 import * as ReactRouterDOM from 'react-router-dom';
 import { LocalizationProvider } from './contexts/LocalizationContext';
@@ -29,8 +28,8 @@ import ProfilePage from './pages/ProfilePage';
 import HealthCheckPage from './pages/HealthCheckPage';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { env } from './env';
+import AdminPage from './pages/AdminPage';
 
-const AdminPage = React.lazy(() => import('./pages/AdminPage'));
 
 const AppContent: React.FC = () => {
   const { config, configLoading, configError } = useConfig();
@@ -113,11 +112,7 @@ const AppContent: React.FC = () => {
               {hasPermission('page_applies') && <ReactRouterDOM.Route path="/applies/:quizId" element={<QuizPage />} />}
               <ReactRouterDOM.Route path="/about" element={<AboutUsPage />} />
               {hasPermission('admin_panel') && (
-                <ReactRouterDOM.Route path="/admin" element={
-                  <Suspense fallback={<div className="flex justify-center items-center h-full w-full py-20"><Loader2 className="animate-spin text-brand-cyan" size={48}/></div>}>
-                    <AdminPage />
-                  </Suspense>
-                }/>
+                <ReactRouterDOM.Route path="/admin" element={<AdminPage />} />
               )}
               <ReactRouterDOM.Route path="/my-applications" element={user ? <MyApplicationsPage /> : <ReactRouterDOM.Navigate to="/" replace />} />
               <ReactRouterDOM.Route path="/profile" element={user ? <ProfilePage /> : <ReactRouterDOM.Navigate to="/" replace />} />
