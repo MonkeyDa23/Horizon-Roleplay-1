@@ -29,7 +29,27 @@ import HealthCheckPage from './pages/HealthCheckPage';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { env } from './env';
 import AdminPage from './pages/AdminPage';
+import type { PermissionKey } from './types';
 
+
+const ProtectedRoute: React.FC<{ children: React.ReactNode; permission: PermissionKey; }> = ({ children, permission }) => {
+  const { user, hasPermission, loading } = useAuth();
+  const location = ReactRouterDOM.useLocation();
+
+  if (loading) {
+    return (
+      <div className="flex flex-col gap-4 justify-center items-center h-screen w-screen bg-brand-dark">
+        <Loader2 size={48} className="text-brand-cyan animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user || !hasPermission(permission)) {
+    return <ReactRouterDOM.Navigate to="/" state={{ from: location }} replace />;
+  }
+
+  return <>{children}</>;
+};
 
 const AppContent: React.FC = () => {
   const { config, configLoading, configError } = useConfig();
@@ -111,9 +131,11 @@ const AppContent: React.FC = () => {
               {hasPermission('page_applies') && <ReactRouterDOM.Route path="/applies" element={<AppliesPage />} />}
               {hasPermission('page_applies') && <ReactRouterDOM.Route path="/applies/:quizId" element={<QuizPage />} />}
               <ReactRouterDOM.Route path="/about" element={<AboutUsPage />} />
-              {hasPermission('admin_panel') && (
-                <ReactRouterDOM.Route path="/admin" element={<AdminPage />} />
-              )}
+              <ReactRouterDOM.Route path="/admin" element={
+                <ProtectedRoute permission="admin_panel">
+                  <AdminPage />
+                </ProtectedRoute>
+              } />
               <ReactRouterDOM.Route path="/my-applications" element={user ? <MyApplicationsPage /> : <ReactRouterDOM.Navigate to="/" replace />} />
               <ReactRouterDOM.Route path="/profile" element={user ? <ProfilePage /> : <ReactRouterDOM.Navigate to="/" replace />} />
               

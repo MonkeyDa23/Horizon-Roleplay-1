@@ -47,13 +47,13 @@ const SessionWatcher = () => {
         };
         
         const handleFocus = () => {
-            if (Date.now() - lastValidationTime.current > 300000) { // 5 minutes
+            if (Date.now() - lastValidationTime.current > 60000) { // 1 minute
                 validate();
             }
         };
 
         window.addEventListener('focus', handleFocus);
-        const intervalId = setInterval(validate, 300000); // 5 minutes
+        const intervalId = setInterval(validate, 60000); // 1 minute
 
         return () => {
             clearInterval(intervalId);
