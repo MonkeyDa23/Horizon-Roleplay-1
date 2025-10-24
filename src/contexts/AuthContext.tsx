@@ -40,26 +40,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (error) {
         console.error("Critical error fetching user profile:", error);
         
-        // If there's already a user in the state (i.e., this is a background refresh), 
-        // don't kick them out. Preserve their session and show a persistent warning.
-        if (user) { 
-          const errorMessage = `Failed to refresh session: ${(error as Error).message}. Using cached data.`;
-          setPermissionWarning(errorMessage);
-          showToast(errorMessage, 'error');
-        } else {
-          // If this is the initial login and it fails, then we must sign them out.
-          setPermissionWarning("A critical error occurred during login. The bot may be offline or misconfigured.");
-          showToast("A critical error occurred during login. The bot may be offline or misconfigured.", 'error');
-          await supabase?.auth.signOut();
-          setUser(null);
-        }
+        // Use a functional update to get the current user state without creating a dependency loop
+        setUser(currentUser => {
+            if (currentUser) { 
+                const errorMessage = `Failed to refresh session: ${(error as Error).message}. Using cached data.`;
+                setPermissionWarning(errorMessage);
+                showToast(errorMessage, 'error');
+                return currentUser; // Keep the existing user
+            } else {
+                setPermissionWarning("A critical error occurred during login. The bot may be offline or misconfigured.");
+                showToast("A critical error occurred during login. The bot may be offline or misconfigured.", 'error');
+                supabase?.auth.signOut();
+                return null; // No user to keep, so stay logged out
+            }
+        });
       }
     } else {
       setUser(null);
       setPermissionWarning(null);
     }
     setLoading(false);
-  }, [showToast, user]); // Add user to dependencies to get the latest state in the catch block
+  }, [showToast]); // Removed `user` from dependency array to prevent loops
 
   useEffect(() => {
     if (!supabase) {
@@ -83,7 +84,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [handleSession]);
   
-  const login = async () => {
+  const login = useCallback(async () => {
     if (!supabase) {
         alert("Login is not configured. Please add Supabase environment variables.");
         return;
@@ -100,19 +101,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         alert(`Login failed: ${error.message}`);
         setLoading(false);
     }
-  };
+  }, []);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     if (!supabase) return;
     setUser(null);
     setBannedInfo(null);
     setPermissionWarning(null);
     await supabase.auth.signOut();
-  };
+  }, []);
   
-  const updateUser = (newUser: User) => {
+  const updateUser = useCallback((newUser: User) => {
     setUser(newUser);
-  };
+  }, []);
 
   const hasPermission = useCallback((key: PermissionKey): boolean => {
     if (!user) return false;
