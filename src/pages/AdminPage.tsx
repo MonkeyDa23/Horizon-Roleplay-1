@@ -1,4 +1,3 @@
-
 // src/pages/AdminPage.tsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
@@ -42,40 +41,49 @@ const AdminPage: React.FC = () => {
     // Initial Gatekeeper effect
     useEffect(() => {
         const gateCheck = async () => {
-            if (!user) { // Wait for user object to be available
-                if (document.cookie.includes('supabase-auth-token')) return; // Still loading
+            // Wait for the user object to be available from AuthContext
+            if (!user) {
+                // If there's an auth token, we might just be in the initial loading state.
+                if (document.cookie.includes('supabase-auth-token')) return; 
+                // Otherwise, no user, no access.
                 navigate('/');
                 return;
             }
 
-            if (!hasPermission('admin_panel')) {
-                navigate('/');
-                return;
-            }
-
+            // Always perform a forced revalidation to get the latest permissions
+            // This is the single source of truth for accessing this page.
             try {
                 const freshUser = await revalidateSession(true); // Force a refresh
+                
                 if (!freshUser.permissions.has('admin_panel')) {
-                    // FIX: Removed the toast from here to prevent re-render loops.
-                    // SessionWatcher is responsible for this notification.
+                    // Update the global user state with the fresh (non-admin) data
                     updateUser(freshUser);
+                    // Redirect them to the home page
                     navigate('/');
                     return;
                 }
-                if (JSON.stringify(freshUser.permissions) !== JSON.stringify(Array.from(user.permissions))) {
+                
+                // If permissions have changed, update the global state
+                if (JSON.stringify(Array.from(freshUser.permissions)) !== JSON.stringify(Array.from(user.permissions))) {
                     updateUser(freshUser);
                 }
+
+                // Log admin panel access once per session
                 if (!accessLoggedRef.current) {
                     await logAdminAccess();
                     accessLoggedRef.current = true;
                 }
+                
+                // If all checks pass, authorize access to the page content
                 setIsAuthorized(true);
+
             } catch (error) {
                 console.error("Admin access check failed", error);
                 if (error instanceof ApiError && (error.status === 401 || error.status === 403 || error.status === 404)) {
                     showToast(t('admin_permissions_error'), "error");
                     logout();
                 } else {
+                    // Allow access but show a warning if the sync fails
                     showToast(t('admin_session_error_warning'), "warning");
                     setIsAuthorized(true);
                 }
@@ -84,7 +92,7 @@ const AdminPage: React.FC = () => {
             }
         };
         gateCheck();
-    }, [user, hasPermission, navigate, logout, showToast, t, updateUser]);
+    }, [user, navigate, logout, showToast, t, updateUser]);
 
     if (isPageLoading) {
         return (
@@ -95,7 +103,9 @@ const AdminPage: React.FC = () => {
         );
     }
 
+    // Render the dashboard only if authorized, otherwise show a warning or nothing.
     if (!isAuthorized) {
+        // This case is mainly for when revalidation fails but we don't log the user out.
         return (
              <div className="container mx-auto px-6 py-16">
                 <div className="bg-yellow-500/10 border border-yellow-500/30 text-yellow-300 p-6 rounded-lg text-center max-w-3xl mx-auto">
