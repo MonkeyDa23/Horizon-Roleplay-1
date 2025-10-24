@@ -795,8 +795,8 @@ INSERT INTO public.translations (key, en, ar) VALUES
 ('select_role_to_manage', 'Select a role to see its permissions.', 'اختر رتبة لعرض صلاحياتها.'),
 ('admin_permissions_instructions', 'Select a role from the list to view and modify its permissions. The `_super_admin` permission automatically grants all other permissions.', 'اختر رتبة من القائمة لعرض وتعديل صلاحياتها. صلاحية `_super_admin` تمنح جميع الصلاحيات الأخرى تلقائياً.'),
 ('admin_permissions_bootstrap_instructions_title', 'Locked Out?', 'غير قادر على الدخول؟'),
--- FIX: Escaped backticks inside the template literal to prevent parsing errors.
-('admin_permissions_bootstrap_instructions_body', 'To grant initial admin access, go to your Supabase \\`role_permissions\\` table. Insert a new row, put your admin role ID in \\`role_id\\`, and type \\`{"_super_admin"}\\` into the \\`permissions\\` field, then refresh the site.', 'لمنح صلاحيات المشرف الأولية، اذهب إلى جدول \\`role_permissions\\` في Supabase. أضف صفاً جديداً، ضع آي دي رتبة المشرف في \\`role_id\\`، واكتب \\`{"_super_admin"}\\` في حقل \\`permissions\\` ثم قم بتحديث الصفحة.'),
+-- FIX: Replaced backticks with <code> tags to avoid TS parsing errors.
+('admin_permissions_bootstrap_instructions_body', 'To grant initial admin access, go to your Supabase <code>role_permissions</code> table. Insert a new row, put your admin role ID in <code>role_id</code>, and type <code>{\\"_super_admin\\"}</code> into the <code>permissions</code> field, then refresh the site.', 'لمنح صلاحيات المشرف الأولية، اذهب إلى جدول <code>role_permissions</code> في Supabase. أضف صفاً جديداً، ضع آي دي رتبة المشرف في <code>role_id</code>، واكتب <code>{\\"_super_admin\\"}</code> في حقل <code>permissions</code> ثم قم بتحديث الصفحة.'),
 ('status_pending', 'Pending', 'قيد الانتظار'),
 ('status_taken', 'Under Review', 'قيد المراجعة'),
 ('status_accepted', 'Accepted', 'مقبول'),

@@ -107,3 +107,24 @@ It's highly recommended to use a process manager like **PM2** to keep the bot ru
 ## Firewall
 
 Ensure that the port the bot is running on (default is **3000**) is open in your server's firewall, so that Supabase and your website can reach it.
+
+## Troubleshooting
+
+**Problem: Users can log in, but admins get a "Dangerous sync rejected" or "Server Members Intent issue" error, and the admin panel is broken.**
+
+This is almost always caused by the **Server Members Intent** being disabled. The bot can't see the user's roles, so the website thinks the user is losing their admin role and blocks the sync as a safety measure.
+
+**How to Confirm:**
+1. Check your bot's logs (`pm2 logs vixel-bot`). 
+2. Ask an admin to log into the website. You should see a log line from the bot like this:
+   `[API /user] Fetched member AdminUser#1234. Role count: 0.`
+3. A **Role count of 0** for a user who definitely has roles is the key indicator of this problem.
+
+**How to Fix:**
+1. Go to the [Discord Developer Portal](https://discord.com/developers/applications).
+2. Select your application, then go to the **Bot** tab.
+3. Find the "Privileged Gateway Intents" section.
+4. **Enable the "SERVER MEMBERS INTENT" toggle.**
+5. Click "Save Changes".
+6. **Restart your bot** on your server (`pm2 restart vixel-bot`). This is a crucial step.
+7. The problem should now be resolved.

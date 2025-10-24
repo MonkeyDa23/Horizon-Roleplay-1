@@ -1,6 +1,6 @@
 // discord-bot/src/index.ts
-// FIX: Changed to a combined default and named import for Express to resolve type conflicts with request/response objects.
-import express, { Request, Response, NextFunction } from 'express';
+// FIX: Changed to a default import for Express to resolve type conflicts. All type annotations will use the `express.` namespace.
+import express from 'express';
 import cors from 'cors';
 import { 
   Client, 
@@ -192,8 +192,8 @@ app.use(cors());
 app.use(express.json());
 
 // Authentication middleware to protect API endpoints
-// FIX: Use imported Request, Response, and NextFunction types for proper type checking.
-const authenticateRequest = (req: Request, res: Response, next: NextFunction) => {
+// FIX: Use namespace-qualified express types to avoid conflicts.
+const authenticateRequest = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
@@ -208,8 +208,8 @@ const authenticateRequest = (req: Request, res: Response, next: NextFunction) =>
 // =============================================
 // API ROUTES
 // =============================================
-// FIX: Use imported Request and Response types for proper type checking.
-app.get('/health', async (req: Request, res: Response) => {
+// FIX: Use namespace-qualified express types to avoid conflicts.
+app.get('/health', async (req: express.Request, res: express.Response) => {
   if (!client.isReady()) {
     return res.status(503).json({ status: 'error', message: 'Bot is not ready.' });
   }
@@ -229,8 +229,8 @@ app.get('/health', async (req: Request, res: Response) => {
 });
 
 // GET USER PROFILE
-// FIX: Use imported Request and Response types for proper type checking.
-app.get('/api/user/:id', authenticateRequest, async (req: Request, res: Response) => {
+// FIX: Use namespace-qualified express types to avoid conflicts.
+app.get('/api/user/:id', authenticateRequest, async (req: express.Request, res: express.Response) => {
   const { id } = req.params;
 
   try {
@@ -245,6 +245,9 @@ app.get('/api/user/:id', authenticateRequest, async (req: Request, res: Response
     if (!member) {
       return res.status(404).json({ error: 'User not found in this guild' });
     }
+    
+    // Diagnostic logging
+    console.log(`[API /user] Fetched member ${member.user.tag}. Role count: ${member.roles.cache.size}.`);
     
     const roles = member.roles.cache
       .filter((role: Role) => role.name !== '@everyone')
@@ -277,8 +280,8 @@ app.get('/api/user/:id', authenticateRequest, async (req: Request, res: Response
 });
 
 // GET ALL GUILD ROLES
-// FIX: Use imported Request and Response types for proper type checking.
-app.get('/api/roles', authenticateRequest, async (req: Request, res: Response) => {
+// FIX: Use namespace-qualified express types to avoid conflicts.
+app.get('/api/roles', authenticateRequest, async (req: express.Request, res: express.Response) => {
   try {
     // IMPROVEMENT: Fetch guild on every request to be stateless and more resilient.
     const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
@@ -287,6 +290,9 @@ app.get('/api/roles', authenticateRequest, async (req: Request, res: Response) =
     }
 
     await guild.roles.fetch();
+    // Diagnostic logging
+    console.log(`[API /roles] Fetched ${guild.roles.cache.size} roles from guild ${guild.name}.`);
+
     const roles = guild.roles.cache
       .filter((role: Role) => role.name !== '@everyone')
       .map((role: Role) => ({
@@ -304,8 +310,8 @@ app.get('/api/roles', authenticateRequest, async (req: Request, res: Response) =
 });
 
 // SEND NOTIFICATION
-// FIX: Use imported Request and Response types for proper type checking.
-app.post('/api/notify', authenticateRequest, async (req: Request, res: Response) => {
+// FIX: Use namespace-qualified express types to avoid conflicts.
+app.post('/api/notify', authenticateRequest, async (req: express.Request, res: express.Response) => {
     const { type, payload } = req.body;
     
     if (!type || !payload) {

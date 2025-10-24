@@ -130,19 +130,26 @@ serve(async (req) => {
             throw new Error("Bot returned invalid or malformed data.");
         }
         
-        // --- THE DEFINITIVE ADMIN LOCK GATEKEEPER ---
+        // --- IMPROVED ADMIN LOCK GATEKEEPER ---
         const newPermissions = await getPermissionsForRoles(memberData.roles);
         const wouldBeAdmin = newPermissions.has('admin_panel') || newPermissions.has('_super_admin');
 
+        // Check for a de-adminning event.
         if (wasAdmin && !wouldBeAdmin) {
-          // This is the critical failure case. We throw a hard error to stop everything.
-          throw new Error("Dangerous sync rejected: This operation would remove admin permissions. Aborting.");
+          // If the bot returned an empty role list, it's highly likely a bot/intent issue.
+          // Treat this as a sync failure rather than a legitimate role change.
+          if (memberData.roles.length === 0) {
+              throw new Error("Sync failed: Bot returned an empty role list for a known admin. This is likely a 'Server Members Intent' issue.");
+          } else {
+              // If roles were returned, but the admin role is missing, this is a legitimate (but dangerous) change.
+              throw new Error("Dangerous sync rejected: This operation would remove admin permissions. Aborting.");
+          }
         }
         
-        // If the check passes, the sync data is safe.
+        // If the checks pass, the sync data is safe.
         syncedMemberData = memberData;
       } catch (e) {
-        // Any error in the sync process (including the Admin Lock) lands here.
+        // This will now catch other errors (bot down, etc.)
         syncError = `Could not sync with Discord: ${e.message}. Using last known data.`;
         console.warn(`[SYNC-FAIL] User ${authUser.id}: ${e.message}`);
       }
