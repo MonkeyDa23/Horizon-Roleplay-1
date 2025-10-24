@@ -1,8 +1,7 @@
 // discord-bot/src/index.ts
-// FIX: Changed type annotations from 'Request' to 'express.Request' to resolve type conflicts
-// with other global definitions and ensure the correct Express types are used.
-// FIX: Changed to named imports for Express types to resolve type conflicts.
-import express, { Request, Response, NextFunction } from 'express';
+// FIX: Import express and its types separately to resolve type conflicts.
+import express from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { 
   Client, 
@@ -10,7 +9,12 @@ import {
   Partials, 
   TextChannel, 
   EmbedBuilder, 
-  Role 
+  Role,
+  SlashCommandBuilder,
+  ActivityType,
+  PresenceStatusData,
+  CacheType,
+  Interaction
 } from 'discord.js';
 import fs from 'fs';
 import path from 'path';
@@ -37,8 +41,6 @@ try {
   console.log("✅ Configuration loaded successfully.");
 } catch (error) {
   console.error("❌ FATAL: Could not load config.json. Please ensure the file exists and is valid JSON.");
-  // FIX: Added ts-ignore to suppress type error on process.exit, which is valid in Node.js
-  // but may conflict with other type definitions (e.g., Deno) in the IDE.
   // @ts-ignore
   process.exit(1);
 }
@@ -66,17 +68,123 @@ client.once('ready', async () => {
     // Verify we can fetch the guild on startup, but don't cache it globally.
     const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
     console.log(`✅ Guild "${guild.name}" is accessible. Bot is ready.`);
+
+    // Register Slash Command
+    const setPresenceCommand = new SlashCommandBuilder()
+      .setName('setpresence')
+      .setDescription("Sets the bot's status and activity.")
+      .setDefaultMemberPermissions(0) // Admin only by default
+      .addStringOption(option =>
+        option.setName('status')
+          .setDescription("The bot's status.")
+          .setRequired(true)
+          .addChoices(
+            { name: 'Online', value: 'online' },
+            { name: 'Idle', value: 'idle' },
+            { name: 'Do Not Disturb', value: 'dnd' },
+            { name: 'Invisible', value: 'invisible' },
+          ))
+      .addStringOption(option =>
+        option.setName('activity_type')
+          .setDescription('The type of activity.')
+          .setRequired(true)
+          .addChoices(
+            { name: 'Playing', value: 'PLAYING' },
+            { name: 'Watching', value: 'WATCHING' },
+            { name: 'Listening', value: 'LISTENING' },
+            { name: 'Streaming', value: 'STREAMING' },
+          ))
+      .addStringOption(option =>
+        option.setName('activity_text')
+          .setDescription('The text to display for the activity.')
+          .setRequired(true))
+      .addStringOption(option =>
+        option.setName('activity_url')
+          .setDescription('The stream URL (required for Streaming activity type).')
+          .setRequired(false));
+          
+    await client.application?.commands.set([setPresenceCommand], config.DISCORD_GUILD_ID);
+    console.log('✅ Successfully registered /setpresence command.');
+
   } catch (error) {
     console.error(`❌ FATAL: Could not fetch guild with ID ${config.DISCORD_GUILD_ID}.`);
     console.error("   Please check that the GUILD_ID is correct and the bot is in the server.");
-    // FIX: Added ts-ignore to suppress type error on process.exit, which is valid in Node.js
-    // but may conflict with other type definitions (e.g., Deno) in the IDE.
     // @ts-ignore
     process.exit(1);
   }
 });
 
 client.login(config.DISCORD_BOT_TOKEN);
+
+
+// Interaction Handler
+client.on('interactionCreate', async (interaction: Interaction<CacheType>) => {
+  // FIX: Use `isChatInputCommand` to correctly type guard the interaction and ensure `options` property is available.
+  if (!interaction.isChatInputCommand()) return;
+
+  const { commandName, guild } = interaction;
+
+  if (commandName === 'setpresence') {
+    if (!guild) {
+        await interaction.reply({ content: 'This command can only be used in a server.', ephemeral: true });
+        return;
+    }
+    
+    // Permission Check
+    const member = await guild.members.fetch(interaction.user.id);
+    const isOwner = member.id === guild.ownerId;
+    const hasRole = member.roles.cache.some(role => (config.PRESENCE_COMMAND_ROLE_IDS || []).includes(role.id));
+
+    if (!isOwner && !hasRole) {
+      await interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true });
+      return;
+    }
+
+    // Defer reply to give the bot time to process
+    await interaction.deferReply({ ephemeral: true });
+
+    try {
+      const status = interaction.options.getString('status', true) as PresenceStatusData;
+      const activityTypeStr = interaction.options.getString('activity_type', true);
+      const activityText = interaction.options.getString('activity_text', true);
+      const activityUrl = interaction.options.getString('activity_url');
+
+      // Map string to ActivityType enum
+      const activityTypeMap: { [key: string]: ActivityType } = {
+        'PLAYING': ActivityType.Playing,
+        'WATCHING': ActivityType.Watching,
+        'LISTENING': ActivityType.Listening,
+        'STREAMING': ActivityType.Streaming,
+      };
+      const activityType = activityTypeMap[activityTypeStr];
+
+      if (activityType === undefined) {
+          await interaction.editReply({ content: 'Invalid activity type provided.' });
+          return;
+      }
+      
+      if (activityType === ActivityType.Streaming && (!activityUrl || !activityUrl.startsWith('https://www.twitch.tv/'))) {
+          await interaction.editReply({ content: 'The "activity_url" must be a valid Twitch URL for the Streaming activity type.' });
+          return;
+      }
+
+      client.user?.setPresence({
+        status: status,
+        activities: [{
+          name: activityText,
+          type: activityType,
+          url: activityUrl || undefined,
+        }],
+      });
+
+      await interaction.editReply({ content: '✅ Bot presence updated successfully!' });
+    } catch (error) {
+      console.error('Error setting presence:', error);
+      await interaction.editReply({ content: 'An error occurred while updating the presence.' });
+    }
+  }
+});
+
 
 // =============================================
 // EXPRESS MIDDLEWARE
@@ -85,6 +193,7 @@ app.use(cors());
 app.use(express.json());
 
 // Authentication middleware to protect API endpoints
+// FIX: Use imported Request, Response, and NextFunction types for proper type checking.
 const authenticateRequest = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -100,6 +209,7 @@ const authenticateRequest = (req: Request, res: Response, next: NextFunction) =>
 // =============================================
 // API ROUTES
 // =============================================
+// FIX: Use imported Request and Response types for proper type checking.
 app.get('/health', async (req: Request, res: Response) => {
   if (!client.isReady()) {
     return res.status(503).json({ status: 'error', message: 'Bot is not ready.' });
@@ -120,6 +230,7 @@ app.get('/health', async (req: Request, res: Response) => {
 });
 
 // GET USER PROFILE
+// FIX: Use imported Request and Response types for proper type checking.
 app.get('/api/user/:id', authenticateRequest, async (req: Request, res: Response) => {
   const { id } = req.params;
 
@@ -167,6 +278,7 @@ app.get('/api/user/:id', authenticateRequest, async (req: Request, res: Response
 });
 
 // GET ALL GUILD ROLES
+// FIX: Use imported Request and Response types for proper type checking.
 app.get('/api/roles', authenticateRequest, async (req: Request, res: Response) => {
   try {
     // IMPROVEMENT: Fetch guild on every request to be stateless and more resilient.
@@ -193,6 +305,7 @@ app.get('/api/roles', authenticateRequest, async (req: Request, res: Response) =
 });
 
 // SEND NOTIFICATION
+// FIX: Use imported Request and Response types for proper type checking.
 app.post('/api/notify', authenticateRequest, async (req: Request, res: Response) => {
     const { type, payload } = req.body;
     

@@ -1,11 +1,10 @@
-
-// Vixel Roleplay Website - Full Database Schema (V7 - Quoted Identifiers)
+// Vixel Roleplay Website - Full Database Schema (V8 - Admin RLS Policies)
 export const databaseSchema = `
 /*
 ====================================================================================================
- Vixel Roleplay Website - Full Database Schema (V7 - Quoted Identifiers)
+ Vixel Roleplay Website - Full Database Schema (V8 - Admin RLS Policies)
  Author: AI
- Date: 2024-05-28
+ Date: 2024-05-29
  
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -213,7 +212,7 @@ CREATE TABLE public.bans (
 
 
 -- =================================================================
--- 4. ROW LEVEL SECURITY (RLS)
+-- 4. HELPER & RPC FUNCTIONS (DEFINED BEFORE RLS)
 -- =================================================================
 CREATE OR REPLACE FUNCTION public.get_user_id()
 RETURNS uuid
@@ -222,29 +221,6 @@ AS $$
   SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
 $$;
 
-ALTER TABLE public.config ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.quizzes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.submissions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.rules ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.role_permissions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.translations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.bans ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Allow public read access" ON public.config FOR SELECT USING (true);
-CREATE POLICY "Allow public read access to products" ON public.products FOR SELECT USING (true);
-CREATE POLICY "Allow public read access to quizzes" ON public.quizzes FOR SELECT USING (true);
-CREATE POLICY "Allow public read access to rules" ON public.rules FOR SELECT USING (true);
-CREATE POLICY "Allow public read access to translations" ON public.translations FOR SELECT USING (true);
-CREATE POLICY "Allow authenticated users to read their own profile" ON public.profiles FOR SELECT USING (id = public.get_user_id());
-CREATE POLICY "Allow users to see their own submissions" ON public.submissions FOR SELECT USING (user_id = public.get_user_id());
-
-
--- =================================================================
--- 5. HELPER & RPC FUNCTIONS
--- =================================================================
 CREATE OR REPLACE FUNCTION public.has_permission(p_user_id uuid, p_permission_key text)
 RETURNS boolean
 LANGUAGE plpgsql
@@ -287,6 +263,48 @@ BEGIN
 END;
 $$;
 
+
+-- =================================================================
+-- 5. ROW LEVEL SECURITY (RLS)
+-- =================================================================
+ALTER TABLE public.config ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.quizzes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.submissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.rules ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.role_permissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.translations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bans ENABLE ROW LEVEL SECURITY;
+
+-- PUBLIC POLICIES (Read-only)
+CREATE POLICY "Allow public read access to config" ON public.config FOR SELECT USING (true);
+CREATE POLICY "Allow public read access to products" ON public.products FOR SELECT USING (true);
+CREATE POLICY "Allow public read access to quizzes" ON public.quizzes FOR SELECT USING (true);
+CREATE POLICY "Allow public read access to rules" ON public.rules FOR SELECT USING (true);
+CREATE POLICY "Allow public read access to translations" ON public.translations FOR SELECT USING (true);
+
+-- USER-SPECIFIC POLICIES
+CREATE POLICY "Allow users to read their own profile" ON public.profiles FOR SELECT USING (id = public.get_user_id());
+CREATE POLICY "Allow users to see their own submissions" ON public.submissions FOR SELECT USING (user_id = public.get_user_id());
+
+-- ADMIN MANAGEMENT POLICIES (ALL ACTIONS)
+CREATE POLICY "Allow admins to manage config" ON public.config FOR UPDATE USING (public.has_permission(public.get_user_id(), 'admin_appearance')) WITH CHECK (public.has_permission(public.get_user_id(), 'admin_appearance'));
+CREATE POLICY "Allow admins to manage products" ON public.products FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_store')) WITH CHECK (public.has_permission(public.get_user_id(), 'admin_store'));
+CREATE POLICY "Allow admins to manage quizzes" ON public.quizzes FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_quizzes')) WITH CHECK (public.has_permission(public.get_user_id(), 'admin_quizzes'));
+CREATE POLICY "Allow admins to manage rules" ON public.rules FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_rules')) WITH CHECK (public.has_permission(public.get_user_id(), 'admin_rules'));
+CREATE POLICY "Allow admins to manage submissions" ON public.submissions FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_submissions')) WITH CHECK (public.has_permission(public.get_user_id(), 'admin_submissions'));
+CREATE POLICY "Allow admins to read audit log" ON public.audit_log FOR SELECT USING (public.has_permission(public.get_user_id(), 'admin_audit_log'));
+CREATE POLICY "Allow admins to manage permissions" ON public.role_permissions FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_permissions')) WITH CHECK (public.has_permission(public.get_user_id(), 'admin_permissions'));
+CREATE POLICY "Allow admins to manage translations" ON public.translations FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_translations')) WITH CHECK (public.has_permission(public.get_user_id(), 'admin_translations'));
+CREATE POLICY "Allow admins to manage profiles" ON public.profiles FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_lookup')) WITH CHECK (public.has_permission(public.get_user_id(), 'admin_lookup'));
+CREATE POLICY "Allow admins to manage bans" ON public.bans FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_lookup')) WITH CHECK (public.has_permission(public.get_user_id(), 'admin_lookup'));
+
+
+-- =================================================================
+-- 6. RPC FUNCTIONS
+-- =================================================================
 CREATE OR REPLACE FUNCTION public.get_config()
 RETURNS json
 LANGUAGE sql STABLE
@@ -602,7 +620,7 @@ $$;
 
 
 -- =================================================================
--- 6. FINALIZATION & GRANTS
+-- 7. FINALIZATION & GRANTS
 -- =================================================================
 GRANT USAGE ON SCHEMA public TO postgres, anon, authenticated, service_role;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO postgres, anon, authenticated, service_role;

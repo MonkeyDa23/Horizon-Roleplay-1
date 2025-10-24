@@ -3,23 +3,24 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useLocalization } from '../hooks/useLocalization';
 import { useToast } from '../hooks/useToast';
-// FIX: Switched to a namespace import for react-router-dom to resolve module resolution errors.
+import { useConfig } from '../hooks/useConfig';
 import * as ReactRouterDOM from 'react-router-dom';
 import { 
   ApiError, getQuizzes, saveQuiz as apiSaveQuiz, deleteQuiz as apiDeleteQuiz,
   getSubmissions, updateSubmissionStatus, getAuditLogs, getRules, saveRules as apiSaveRules,
-  revalidateSession, getProducts, saveProduct as apiSaveProduct, deleteProduct as apiDeleteProduct,
-  logAdminAccess, getTranslations, getGuildRoles,
-  getRolePermissions, saveRolePermissions, lookupUser, banUser, unbanUser
+  getProducts, saveProduct as apiSaveProduct, deleteProduct as apiDeleteProduct,
+  getTranslations, saveTranslations as apiSaveTranslations, saveConfig as apiSaveConfig,
+  getGuildRoles, getRolePermissions, saveRolePermissions, lookupUser, banUser, unbanUser
 } from '../lib/api';
 import type { 
   Quiz, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule, 
-  Product, DiscordRole, PermissionKey, UserLookupResult,
-  User
+  Product, DiscordRole, PermissionKey, UserLookupResult, User, AppConfig, Translations
 } from '../types';
 import { 
   UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store,
-  AlertTriangle, Palette, Languages, KeyRound, Search, ExternalLink, ShieldQuestion, Ban, GripVertical, PlusCircle, Trash, HelpCircle
+  AlertTriangle, Palette, Languages, KeyRound, Search, GripVertical, PlusCircle, Trash, HelpCircle,
+  // FIX: Added 'Ban' to lucide-react imports to fix missing icon component.
+  Ban
 } from 'lucide-react';
 import Modal from '../components/Modal';
 import { PERMISSIONS } from '../lib/permissions';
@@ -371,17 +372,21 @@ const StorePanel = () => {
         <div>
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold">{t('store_management')}</h2>
-                <button onClick={() => setEditingProduct({ nameKey: '', descriptionKey: '', price: 0, imageUrl: '' })} className="bg-brand-cyan text-brand-dark font-bold py-2 px-4 rounded-md hover:bg-white transition-all flex items-center gap-2"><Plus size={20} />{t('add_new_product')}</button>
+                <button onClick={() => setEditingProduct({ nameKey: '', descriptionKey: '', price: 0, imageUrl: '' })} className="bg-brand-cyan text-brand-dark font-bold py-2 px-4 rounded-md hover:bg-white transition-all flex items-center gap-2"><Plus size={20} />Add New Product</button>
             </div>
             <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50">
                 {isLoading ? <div className="flex justify-center items-center h-64"><Loader2 className="animate-spin text-brand-cyan" size={32}/></div> :
                 <table className="w-full text-left">
-                    {/* Table head */}
+                    <thead className="border-b border-brand-light-blue/50 text-gray-300">
+                        <tr>
+                            <th className="p-4">Image</th><th className="p-4">Name Key</th><th className="p-4">Price</th><th className="p-4 text-right">Actions</th>
+                        </tr>
+                    </thead>
                     <tbody>
                         {products.map(p => (
                             <tr key={p.id} className="border-b border-brand-light-blue/50 last:border-none hover:bg-brand-light-blue/30">
                                 <td className="p-4"><img src={p.imageUrl} alt="" className="w-16 h-16 object-cover rounded-md"/></td>
-                                <td className="p-4 font-semibold">{t(p.nameKey)}</td>
+                                <td className="p-4 font-semibold">{p.nameKey}</td>
                                 <td className="p-4 text-gray-400">${p.price.toFixed(2)}</td>
                                 <td className="p-4 text-right">
                                     <div className="inline-flex gap-4">
@@ -402,12 +407,135 @@ const StorePanel = () => {
 
 const TranslationsPanel = () => {
     const { t } = useLocalization();
-    return <p className="text-center text-gray-400 py-10">{t('coming_soon')}</p>
+    const { showToast } = useToast();
+    const [translations, setTranslations] = useState<Translations>({});
+    const [isLoading, setIsLoading] = useState(true);
+    const [isSaving, setIsSaving] = useState(false);
+    const [filter, setFilter] = useState('');
+
+    useEffect(() => {
+        const fetchData = async () => {
+            setIsLoading(true);
+            try { setTranslations(await getTranslations()); }
+            catch(e) { showToast('Failed to load translations', 'error'); }
+            finally { setIsLoading(false); }
+        }
+        fetchData();
+    }, [showToast]);
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            await apiSaveTranslations(translations);
+            showToast('Translations saved!', 'success');
+        } catch(e) { showToast('Failed to save translations', 'error'); }
+        finally { setIsSaving(false); }
+    };
+    
+    const handleTranslationChange = (key: string, lang: 'en' | 'ar', value: string) => {
+        setTranslations(prev => ({
+            ...prev,
+            [key]: { ...prev[key], [lang]: value }
+        }));
+    };
+
+    const filteredKeys = Object.keys(translations).filter(key => 
+        key.toLowerCase().includes(filter.toLowerCase()) ||
+        translations[key].en.toLowerCase().includes(filter.toLowerCase()) ||
+        translations[key].ar.toLowerCase().includes(filter.toLowerCase())
+    );
+
+    return (
+        <div>
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold">{t('translations_management')}</h2>
+                <div className="flex gap-4 items-center">
+                    <input type="text" value={filter} onChange={e => setFilter(e.target.value)} placeholder="Filter translations..." className="bg-brand-light-blue p-2 rounded border border-gray-600"/>
+                    <button onClick={handleSave} disabled={isSaving || isLoading} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white transition-colors min-w-[9rem] flex justify-center">{isSaving ? <Loader2 className="animate-spin" /> : t('save_translations')}</button>
+                </div>
+            </div>
+            {isLoading ? <div className="flex justify-center items-center h-64"><Loader2 className="animate-spin text-brand-cyan" size={32}/></div> :
+             <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50 overflow-hidden">
+                <div className="overflow-x-auto">
+                <table className="w-full text-left min-w-[800px]">
+                    <thead className="border-b border-brand-light-blue/50 text-gray-300">
+                        <tr><th className="p-4 w-1/4">Key</th><th className="p-4 w-1/3">English</th><th className="p-4 w-1/3">Arabic</th></tr>
+                    </thead>
+                    <tbody>
+                        {filteredKeys.map(key => (
+                            <tr key={key} className="border-b border-brand-light-blue/50 last:border-none">
+                                <td className="p-2 font-mono text-xs text-gray-400">{key}</td>
+                                <td className="p-2"><input type="text" value={translations[key].en} onChange={e => handleTranslationChange(key, 'en', e.target.value)} className="w-full bg-brand-dark p-2 rounded border border-gray-700"/></td>
+                                <td className="p-2"><input type="text" value={translations[key].ar} onChange={e => handleTranslationChange(key, 'ar', e.target.value)} className="w-full bg-brand-dark p-2 rounded border border-gray-700" dir="rtl"/></td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+                </div>
+            </div>
+            }
+        </div>
+    );
 };
 
 const AppearancePanel = () => {
     const { t } = useLocalization();
-    return <p className="text-center text-gray-400 py-10">{t('coming_soon')}</p>
+    const { showToast } = useToast();
+    const { config, configLoading, refreshConfig } = useConfig();
+    const [settings, setSettings] = useState<Partial<AppConfig>>({});
+    const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        if (!configLoading) {
+            setSettings(config);
+        }
+    }, [config, configLoading]);
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        try {
+            await apiSaveConfig(settings);
+            await refreshConfig();
+            showToast(t('config_updated_success'), 'success');
+        } catch(e) {
+            showToast((e as Error).message, 'error');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+    
+    const handleChange = (key: keyof AppConfig, value: string | boolean) => {
+        setSettings(prev => ({...prev, [key]: value }));
+    };
+
+    const InputField: React.FC<{id: keyof AppConfig; label: string; desc?: string}> = ({ id, label, desc }) => (
+         <div>
+            <label htmlFor={id} className="block mb-1 font-semibold text-gray-300">{label}</label>
+            <input type="text" id={id} value={settings[id] as string || ''} onChange={e => handleChange(id, e.target.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
+            {desc && <p className="text-xs text-gray-400 mt-1">{desc}</p>}
+        </div>
+    );
+
+    if (configLoading) {
+         return <div className="flex justify-center items-center h-64"><Loader2 className="animate-spin text-brand-cyan" size={32}/></div>
+    }
+
+    return (
+        <div>
+             <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold">{t('appearance_settings')}</h2>
+                <button onClick={handleSave} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white transition-colors min-w-[9rem] flex justify-center">{isSaving ? <Loader2 className="animate-spin" /> : t('save_settings')}</button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
+                <InputField id="COMMUNITY_NAME" label={t('community_name')} />
+                <InputField id="LOGO_URL" label={t('logo_url')} />
+                <InputField id="BACKGROUND_IMAGE_URL" label={t('background_image_url')} desc={t('background_image_url_desc')} />
+                <InputField id="DISCORD_GUILD_ID" label={t('discord_guild_id')} desc={t('discord_guild_id_desc')} />
+                <InputField id="SUBMISSIONS_CHANNEL_ID" label={t('submissions_webhook_url')} desc={t('submissions_webhook_url_desc')} />
+                <InputField id="AUDIT_LOG_CHANNEL_ID" label={t('audit_log_webhook_url')} desc={t('audit_log_webhook_url_desc')} />
+            </div>
+        </div>
+    );
 };
 
 const PermissionsPanel = () => {
@@ -764,12 +892,15 @@ const ProductEditorModal: React.FC<{product: Partial<Product>; onSave: (p: Parti
     const [editedProduct, setEditedProduct] = useState(product);
     const { t } = useLocalization();
     return (
-        <Modal isOpen={true} onClose={onClose} title={product.id ? t('edit_product') : t('add_new_product')}>
+        <Modal isOpen={true} onClose={onClose} title={product.id ? 'Edit Product' : 'Add New Product'}>
             <div className="space-y-4 text-white">
-                <div><label className="block mb-1 font-semibold text-gray-300">{t('product_name_key')}</label><input type="text" value={editedProduct.nameKey} onChange={(e) => setEditedProduct({...editedProduct, nameKey: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
+                <div><label className="block mb-1 font-semibold text-gray-300">Name Key</label><input type="text" value={editedProduct.nameKey} onChange={(e) => setEditedProduct({...editedProduct, nameKey: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
+                <div><label className="block mb-1 font-semibold text-gray-300">Description Key</label><input type="text" value={editedProduct.descriptionKey} onChange={(e) => setEditedProduct({...editedProduct, descriptionKey: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
+                <div><label className="block mb-1 font-semibold text-gray-300">Price</label><input type="number" value={editedProduct.price} onChange={(e) => setEditedProduct({...editedProduct, price: parseFloat(e.target.value)})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
+                <div><label className="block mb-1 font-semibold text-gray-300">Image URL</label><input type="text" value={editedProduct.imageUrl} onChange={(e) => setEditedProduct({...editedProduct, imageUrl: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
                 <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4">
                     <button onClick={onClose} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button>
-                    <button onClick={() => onSave(editedProduct)} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white">{t('save_product')}</button>
+                    <button onClick={() => onSave(editedProduct)} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white">Save Product</button>
                 </div>
             </div>
         </Modal>
