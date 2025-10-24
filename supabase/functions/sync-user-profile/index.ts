@@ -134,20 +134,22 @@ serve(async (req) => {
         const newPermissions = await getPermissionsForRoles(memberData.roles);
         const wouldBeAdmin = newPermissions.has('admin_panel') || newPermissions.has('_super_admin');
 
-        // Check for a de-adminning event.
+        // Check for a de-adminning event. Instead of throwing an error, we now set a syncError
+        // and prevent the sync from proceeding, allowing a fallback to cached data.
         if (wasAdmin && !wouldBeAdmin) {
-          // If the bot returned an empty role list, it's highly likely a bot/intent issue.
-          // Treat this as a sync failure rather than a legitimate role change.
-          if (memberData.roles.length === 0) {
-              throw new Error("Sync failed: Bot returned an empty role list for a known admin. This is likely a 'Server Members Intent' issue.");
-          } else {
-              // If roles were returned, but the admin role is missing, this is a legitimate (but dangerous) change.
-              throw new Error("Dangerous sync rejected: This operation would remove admin permissions. Aborting.");
-          }
+            let rejectionReason = '';
+            if (memberData.roles.length === 0) {
+                rejectionReason = "Sync failed: Bot returned an empty role list for a known admin. This is likely a 'Server Members Intent' issue.";
+            } else {
+                rejectionReason = "Dangerous sync rejected: This operation would remove admin permissions.";
+            }
+            syncError = `${rejectionReason} Using cached roles.`;
+            console.warn(`[SYNC-REJECT] User ${authUser.id}: ${rejectionReason}`);
+        } else {
+            // If the checks pass, the sync data is safe.
+            syncedMemberData = memberData;
         }
-        
-        // If the checks pass, the sync data is safe.
-        syncedMemberData = memberData;
+
       } catch (e) {
         // This will now catch other errors (bot down, etc.)
         syncError = `Could not sync with Discord: ${e.message}. Using last known data.`;

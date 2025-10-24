@@ -244,8 +244,7 @@ export const getRolePermissions = async (roleId: string): Promise<RolePermission
     if (!supabase) throw new Error("Supabase not configured");
     const response = await supabase.from('role_permissions').select('*').eq('role_id', roleId).maybeSingle();
     const data = handleResponse(response);
-    // FIX: Return a valid RolePermission object with an empty permissions array if no data is found.
-    // This satisfies the function's return type and prevents a type error.
+    // FIX: Provide a valid default RolePermission object when data is null.
     return data || { role_id: roleId, permissions: [] };
 };
 

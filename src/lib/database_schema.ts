@@ -793,7 +793,8 @@ INSERT INTO public.translations (key, en, ar) VALUES
 ('discord_roles', 'Discord Roles', 'رتب الديسكورد'),
 ('available_permissions', 'Available Permissions', 'الصلاحيات المتاحة'),
 ('select_role_to_manage', 'Select a role to see its permissions.', 'اختر رتبة لعرض صلاحياتها.'),
-('admin_permissions_instructions', 'Select a role from the list to view and modify its permissions. The `_super_admin` permission automatically grants all other permissions.', 'اختر رتبة من القائمة لعرض وتعديل صلاحياتها. صلاحية `_super_admin` تمنح جميع الصلاحيات الأخرى تلقائياً.'),
+-- FIX: Replaced backticks (`) with <code> tags to prevent the string from being parsed as code.
+('admin_permissions_instructions', 'Select a role from the list to view and modify its permissions. The <code>_super_admin</code> permission automatically grants all other permissions.', 'اختر رتبة من القائمة لعرض وتعديل صلاحياتها. صلاحية <code>_super_admin</code> تمنح جميع الصلاحيات الأخرى تلقائياً.'),
 ('admin_permissions_bootstrap_instructions_title', 'Locked Out?', 'غير قادر على الدخول؟'),
 -- FIX: Replaced backticks with <code> tags to avoid TS parsing errors.
 ('admin_permissions_bootstrap_instructions_body', 'To grant initial admin access, go to your Supabase <code>role_permissions</code> table. Insert a new row, put your admin role ID in <code>role_id</code>, and type <code>{\\"_super_admin\\"}</code> into the <code>permissions</code> field, then refresh the site.', 'لمنح صلاحيات المشرف الأولية، اذهب إلى جدول <code>role_permissions</code> في Supabase. أضف صفاً جديداً، ضع آي دي رتبة المشرف في <code>role_id</code>، واكتب <code>{\\"_super_admin\\"}</code> في حقل <code>permissions</code> ثم قم بتحديث الصفحة.'),

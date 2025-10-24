@@ -4,7 +4,8 @@ import { useAuth } from '../hooks/useAuth';
 import { useLocalization } from '../hooks/useLocalization';
 import { useToast } from '../hooks/useToast';
 import { useConfig } from '../hooks/useConfig';
-import * as ReactRouterDOM from 'react-router-dom';
+// FIX: Switched to named imports to fix hook resolution errors.
+import { useNavigate, Link } from 'react-router-dom';
 import { 
   ApiError, getQuizzes, saveQuiz as apiSaveQuiz, deleteQuiz as apiDeleteQuiz,
   getSubmissions, updateSubmissionStatus, getAuditLogs, getRules, saveRules as apiSaveRules,
@@ -621,7 +622,8 @@ const PermissionsPanel = () => {
                 <h2 className="text-xl font-bold mb-2">Critical Error</h2>
                 <p>{error}</p>
                 <p className="mt-4">The most common cause for this is the **Server Members Intent** is not enabled for your bot in the Discord Developer Portal, or the bot is offline.</p>
-                <ReactRouterDOM.Link to="/health-check" className="inline-block mt-4 bg-brand-cyan text-brand-dark font-bold py-2 px-4 rounded-md">Run Health Check</ReactRouterDOM.Link>
+                {/* FIX: Use Link directly from react-router-dom import. */}
+                <Link to="/health-check" className="inline-block mt-4 bg-brand-cyan text-brand-dark font-bold py-2 px-4 rounded-md">Run Health Check</Link>
             </div>
         );
     }

@@ -1,4 +1,3 @@
-
 // src/components/PermissionWarningBanner.tsx
 import React from 'react';
 // FIX: Switched to a namespace import for react-router-dom to resolve module resolution errors.

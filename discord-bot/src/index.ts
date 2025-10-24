@@ -13,7 +13,8 @@ import {
   ActivityType,
   PresenceStatusData,
   CacheType,
-  Interaction
+  Interaction,
+  Events
 } from 'discord.js';
 import fs from 'fs';
 import path from 'path';
@@ -57,15 +58,11 @@ const client = new Client({
 });
 
 
-client.once('ready', async () => {
-  if (!client.user) {
-      console.error("❌ FATAL: Bot client user is not available.");
-      return;
-  }
-  console.log(`🟢 Bot logged in as ${client.user.tag}`);
+client.once(Events.ClientReady, async (readyClient) => {
+  console.log(`🟢 Bot logged in as ${readyClient.user.tag}`);
   try {
-    // Verify we can fetch the guild on startup, but don't cache it globally.
-    const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
+    // Verify we can fetch the guild on startup.
+    const guild = await readyClient.guilds.fetch(config.DISCORD_GUILD_ID);
     console.log(`✅ Guild "${guild.name}" is accessible. Bot is ready.`);
 
     // Register Slash Command
@@ -102,7 +99,7 @@ client.once('ready', async () => {
           .setDescription('The stream URL (required for Streaming activity type).')
           .setRequired(false));
           
-    await client.application?.commands.set([setStatusCommand], config.DISCORD_GUILD_ID);
+    await readyClient.application.commands.set([setStatusCommand], config.DISCORD_GUILD_ID);
     console.log('✅ Successfully registered /setstatus command.');
 
   } catch (error) {
@@ -117,7 +114,7 @@ client.login(config.DISCORD_BOT_TOKEN);
 
 
 // Interaction Handler
-client.on('interactionCreate', async (interaction: Interaction<CacheType>) => {
+client.on(Events.InteractionCreate, async (interaction: Interaction<CacheType>) => {
   // FIX: Use `isChatInputCommand` to correctly type guard the interaction and ensure `options` property is available.
   if (!interaction.isChatInputCommand()) return;
 
@@ -271,6 +268,10 @@ app.get('/api/user/:id', authenticateRequest, async (req: express.Request, res: 
       isGuildOwner,
     });
   } catch (error: any) {
+    if (error.code === 10004) { // Unknown Guild
+      console.error(`[API /user] FATAL: Could not access Guild with ID "${config.DISCORD_GUILD_ID}". Please check the config.json and ensure the bot is a member of the server.`);
+      return res.status(500).json({ error: 'Bot is misconfigured: Cannot access the configured Discord server.' });
+    }
     if (error.code === 10013 || error.code === 10007) { // Unknown User or Unknown Member
       return res.status(404).json({ error: 'User not found in this guild' });
     }
@@ -303,7 +304,11 @@ app.get('/api/roles', authenticateRequest, async (req: express.Request, res: exp
       }))
       .sort((a: DiscordRole, b: DiscordRole) => b.position - a.position);
     res.json(roles);
-  } catch (error) {
+  } catch (error: any) {
+    if (error.code === 10004) { // Unknown Guild
+      console.error(`[API /roles] FATAL: Could not access Guild with ID "${config.DISCORD_GUILD_ID}". Please check the config.json and ensure the bot is a member of the server.`);
+      return res.status(500).json({ error: 'Bot is misconfigured: Cannot access the configured Discord server.' });
+    }
     console.error('Error fetching roles:', error);
     res.status(500).json({ error: 'Internal server error while fetching roles' });
   }
