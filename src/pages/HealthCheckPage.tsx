@@ -1,3 +1,4 @@
+
 // src/pages/HealthCheckPage.tsx
 import React, { useState } from 'react';
 import { Loader2, CheckCircle, XCircle, AlertTriangle, Info, HelpCircle } from 'lucide-react';
@@ -6,12 +7,13 @@ import { env } from '../env';
 import { checkDiscordApiHealth, troubleshootUserSync } from '../lib/api';
 import SEO from '../components/SEO';
 import { useAuth } from '../hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+// FIX: Switched to a namespace import for react-router-dom to resolve module resolution errors.
+import * as ReactRouterDOM from 'react-router-dom';
 
 const HealthCheckPage: React.FC = () => {
   const { t } = useLocalization();
   const { hasPermission } = useAuth();
-  const navigate = useNavigate();
+  const navigate = ReactRouterDOM.useNavigate();
   
   const [botHealth, setBotHealth] = useState<any>(null);
   const [isTestingBot, setIsTestingBot] = useState(false);

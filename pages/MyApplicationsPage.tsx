@@ -8,14 +8,15 @@ import { useLocalization } from '../src/hooks/useLocalization';
 import { getSubmissionsByUserId } from '../src/lib/api';
 import type { QuizSubmission, SubmissionStatus } from '../src/types';
 // FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
-import { useNavigate } from 'react-router-dom';
+// FIX: Switched to a namespace import for react-router-dom to resolve module resolution errors.
+import * as ReactRouterDOM from 'react-router-dom';
 import { FileText, Loader2 } from 'lucide-react';
 
 const MyApplicationsPage: React.FC = () => {
   const { user } = useAuth();
   const { t } = useLocalization();
   // FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
-  const navigate = useNavigate();
+  const navigate = ReactRouterDOM.useNavigate();
   const [submissions, setSubmissions] = useState<QuizSubmission[]>([]);
   const [loading, setLoading] = useState(true);
 

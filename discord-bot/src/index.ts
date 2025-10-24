@@ -1,7 +1,8 @@
+
 // discord-bot/src/index.ts
 // FIX: Using separate imports for express value and types to resolve potential type conflicts.
-import express from 'express';
-import type { Request, Response, NextFunction } from 'express';
+// FIX: Merged express imports to resolve type conflicts and errors with Request/Response objects.
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { 
   Client, 

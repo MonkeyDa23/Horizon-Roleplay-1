@@ -1,9 +1,11 @@
+
 // src/pages/AdminPage.tsx
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useLocalization } from '../hooks/useLocalization';
 import { useToast } from '../hooks/useToast';
-import { Link, useNavigate } from 'react-router-dom';
+// FIX: Switched to a namespace import for react-router-dom to resolve module resolution errors.
+import * as ReactRouterDOM from 'react-router-dom';
 import { 
   ApiError, getQuizzes, saveQuiz as apiSaveQuiz, deleteQuiz as apiDeleteQuiz,
   getSubmissions, updateSubmissionStatus, getAuditLogs, getRules, saveRules as apiSaveRules,
@@ -31,7 +33,7 @@ const AdminPage: React.FC = () => {
     const { user, logout, updateUser, hasPermission } = useAuth();
     const { t } = useLocalization();
     const { showToast } = useToast();
-    const navigate = useNavigate();
+    const navigate = ReactRouterDOM.useNavigate();
 
     const [isAuthorized, setIsAuthorized] = useState(false);
     const [isPageLoading, setIsPageLoading] = useState(true);
@@ -54,7 +56,8 @@ const AdminPage: React.FC = () => {
             try {
                 const freshUser = await revalidateSession(true); // Force a refresh
                 if (!freshUser.permissions.has('admin_panel')) {
-                    showToast(t('admin_revoked'), 'error');
+                    // FIX: Removed the toast from here to prevent re-render loops.
+                    // SessionWatcher is responsible for this notification.
                     updateUser(freshUser);
                     navigate('/');
                     return;
@@ -573,7 +576,7 @@ const PermissionsPanel = () => {
                 <h2 className="text-xl font-bold mb-2">Critical Error</h2>
                 <p>{error}</p>
                 <p className="mt-4">The most common cause for this is the **Server Members Intent** is not enabled for your bot in the Discord Developer Portal, or the bot is offline.</p>
-                <Link to="/health-check" className="inline-block mt-4 bg-brand-cyan text-brand-dark font-bold py-2 px-4 rounded-md">Run Health Check</Link>
+                <ReactRouterDOM.Link to="/health-check" className="inline-block mt-4 bg-brand-cyan text-brand-dark font-bold py-2 px-4 rounded-md">Run Health Check</ReactRouterDOM.Link>
             </div>
         );
     }

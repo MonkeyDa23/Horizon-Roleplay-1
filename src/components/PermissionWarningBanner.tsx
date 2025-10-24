@@ -1,6 +1,8 @@
+
 // src/components/PermissionWarningBanner.tsx
 import React from 'react';
-import { Link } from 'react-router-dom';
+// FIX: Switched to a namespace import for react-router-dom to resolve module resolution errors.
+import * as ReactRouterDOM from 'react-router-dom';
 import { AlertTriangle } from 'lucide-react';
 import { useLocalization } from '../hooks/useLocalization';
 
@@ -17,9 +19,9 @@ const PermissionWarningBanner: React.FC<PermissionWarningBannerProps> = ({ messa
         <AlertTriangle className="h-8 w-8 flex-shrink-0" />
         <div className="text-sm font-semibold">
           <p>{message}</p>
-          <Link to="/health-check" className="underline hover:text-white font-bold">
+          <ReactRouterDOM.Link to="/health-check" className="underline hover:text-white font-bold">
             {t('health_check_banner_link')}
-          </Link>
+          </ReactRouterDOM.Link>
         </div>
       </div>
     </div>

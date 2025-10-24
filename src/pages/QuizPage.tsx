@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 // FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
-import { useParams, useNavigate } from 'react-router-dom';
+// FIX: Switched to a namespace import for react-router-dom to resolve module resolution errors.
+import * as ReactRouterDOM from 'react-router-dom';
 import { useLocalization } from '../hooks/useLocalization';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
@@ -51,9 +52,9 @@ const CircularTimer: React.FC<{ timeLeft: number; timeLimit: number }> = ({ time
 
 
 const QuizPage: React.FC = () => {
-  const { quizId } = useParams<{ quizId: string }>();
+  const { quizId } = ReactRouterDOM.useParams<{ quizId: string }>();
   // FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
-  const navigate = useNavigate();
+  const navigate = ReactRouterDOM.useNavigate();
   const { t } = useLocalization();
   const { user } = useAuth();
   const { showToast } = useToast();

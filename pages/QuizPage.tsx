@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 // FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
-import { useParams, useNavigate } from 'react-router-dom';
+// FIX: Switched to a namespace import for react-router-dom to resolve module resolution errors.
+import * as ReactRouterDOM from 'react-router-dom';
 // FIX: Updated import paths to point to the 'src' directory
 import { useLocalization } from '../src/hooks/useLocalization';
 import { useAuth } from '../src/hooks/useAuth';
@@ -12,9 +13,9 @@ import type { Quiz, Answer } from '../src/types';
 import { CheckCircle, Clock, Loader2 } from 'lucide-react';
 
 const QuizPage: React.FC = () => {
-  const { quizId } = useParams<{ quizId: string }>();
+  const { quizId } = ReactRouterDOM.useParams<{ quizId: string }>();
   // FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
-  const navigate = useNavigate();
+  const navigate = ReactRouterDOM.useNavigate();
   const { t } = useLocalization();
   const { user } = useAuth();
   
