@@ -54,7 +54,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; permission: Permissi
 
 const AppContent: React.FC = () => {
   const { config, configLoading, configError } = useConfig();
-  const { user, hasPermission, permissionWarning } = useAuth();
+  const { user, permissionWarning } = useAuth();
       
   if (configLoading) {
     return (
@@ -127,10 +127,10 @@ const AppContent: React.FC = () => {
           <main className="flex-grow">
             <Routes>
               <Route path="/" element={<HomePage />} />
-              {hasPermission('page_store') && <Route path="/store" element={<StorePage />} />}
-              {hasPermission('page_rules') && <Route path="/rules" element={<RulesPage />} />}
-              {hasPermission('page_applies') && <Route path="/applies" element={<AppliesPage />} />}
-              {hasPermission('page_applies') && <Route path="/applies/:quizId" element={<QuizPage />} />}
+              <Route path="/store" element={<StorePage />} />
+              <Route path="/rules" element={<RulesPage />} />
+              <Route path="/applies" element={<AppliesPage />} />
+              <Route path="/applies/:quizId" element={<QuizPage />} />
               <Route path="/about" element={<AboutUsPage />} />
               <Route path="/admin" element={
                 <ProtectedRoute permission="admin_panel">

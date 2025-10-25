@@ -20,22 +20,17 @@ const Navbar: React.FC = () => {
   const [isCartOpen, setCartOpen] = useState(false);
 
   const navLinks = [
-    { to: '/', text: t('home'), perm: null },
-    { to: '/store', text: t('store'), perm: 'page_store' as const },
-    { to: '/rules', text: t('rules'), perm: 'page_rules' as const },
-    { to: '/applies', text: t('applies'), perm: 'page_applies' as const },
-    { to: '/about', text: t('about_us'), perm: null },
+    { to: '/', text: t('home') },
+    { to: '/store', text: t('store') },
+    { to: '/rules', text: t('rules') },
+    { to: '/applies', text: t('applies') },
+    { to: '/about', text: t('about_us') },
   ];
 
   const activeLinkStyle = {
     color: '#00f2ea',
     textShadow: '0 0 8px rgba(0, 242, 234, 0.7)',
   };
-  
-  const canView = (perm: typeof navLinks[number]['perm']) => {
-      if (!perm) return true; // Page is public
-      return hasPermission(perm);
-  }
 
   return (
     <>
@@ -46,7 +41,7 @@ const Navbar: React.FC = () => {
             <h1 className="text-xl font-bold text-white tracking-wider hidden md:block">{config.COMMUNITY_NAME}</h1>
           </div>
           <div className="hidden md:flex items-center gap-8">
-            {navLinks.filter(l => canView(l.perm)).map((link) => (
+            {navLinks.map((link) => (
               <NavLink
                 key={link.to}
                 to={link.to}
@@ -59,7 +54,7 @@ const Navbar: React.FC = () => {
             ))}
           </div>
           <div className="flex items-center gap-4">
-            {hasPermission('page_store') && (
+            
               <button
                 onClick={() => setCartOpen(true)}
                 className="relative text-gray-300 hover:text-brand-cyan transition-colors"
@@ -72,7 +67,7 @@ const Navbar: React.FC = () => {
                   </span>
                 )}
               </button>
-            )}
+            
             <div className="relative">
               <button
                 onClick={() => setLangDropdownOpen(!langDropdownOpen)}

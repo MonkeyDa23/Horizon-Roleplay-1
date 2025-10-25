@@ -10,7 +10,7 @@ import {
   getSubmissions, updateSubmissionStatus, getAuditLogs, getRules, saveRules as apiSaveRules,
   getProducts, saveProduct as apiSaveProduct, deleteProduct as apiDeleteProduct,
   getTranslations, saveTranslations as apiSaveTranslations, saveConfig as apiSaveConfig,
-  getGuildRoles, getRolePermissions, saveRolePermissions, lookupUser, banUser, unbanUser
+  getGuildRoles, lookupUser, banUser, unbanUser
 } from '../lib/api';
 import type { 
   Quiz, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule, 
@@ -18,32 +18,45 @@ import type {
 } from '../types';
 import { 
   UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store,
-  AlertTriangle, Palette, Languages, KeyRound, Search, GripVertical, PlusCircle, Trash, HelpCircle,
+  AlertTriangle, Palette, Languages, Search, GripVertical, PlusCircle, Trash,
   Ban
 } from 'lucide-react';
 import Modal from '../components/Modal';
-import { PERMISSIONS } from '../lib/permissions';
 import SEO from '../components/SEO';
 
 
-type AdminTab = 'submissions' | 'quizzes' | 'rules' | 'store' | 'translations' | 'appearance' | 'permissions' | 'lookup' | 'audit';
+type AdminTab = 'submissions' | 'quizzes' | 'rules' | 'store' | 'translations' | 'appearance' | 'lookup' | 'audit';
+
+const TABS: { id: AdminTab; labelKey: string; icon: React.ElementType; }[] = [
+    { id: 'submissions', labelKey: 'submission_management', icon: FileText },
+    { id: 'quizzes', labelKey: 'quiz_management', icon: Server },
+    { id: 'rules', labelKey: 'rules_management', icon: BookCopy },
+    { id: 'store', labelKey: 'store_management', icon: Store },
+    { id: 'translations', labelKey: 'translations_management', icon: Languages },
+    { id: 'appearance', labelKey: 'appearance_settings', icon: Palette },
+    { id: 'lookup', labelKey: 'user_lookup', icon: Search},
+    { id: 'audit', labelKey: 'audit_log', icon: ShieldCheck },
+];
 
 const AdminPage: React.FC = () => {
     const { t } = useLocalization();
-    const { hasPermission } = useAuth();
-    const TABS: { id: AdminTab; labelKey: string; icon: React.ElementType; perm: PermissionKey }[] = [
-      { id: 'submissions', labelKey: 'submission_management', icon: FileText, perm: 'admin_submissions' },
-      { id: 'quizzes', labelKey: 'quiz_management', icon: Server, perm: 'admin_quizzes' },
-      { id: 'rules', labelKey: 'rules_management', icon: BookCopy, perm: 'admin_rules' },
-      { id: 'store', labelKey: 'store_management', icon: Store, perm: 'admin_store' },
-      { id: 'translations', labelKey: 'translations_management', icon: Languages, perm: 'admin_translations' },
-      { id: 'appearance', labelKey: 'appearance_settings', icon: Palette, perm: 'admin_appearance' },
-      { id: 'permissions', labelKey: 'permissions_management', icon: KeyRound, perm: 'admin_permissions' },
-      { id: 'lookup', labelKey: 'user_lookup', icon: Search, perm: 'admin_lookup'},
-      { id: 'audit', labelKey: 'audit_log', icon: ShieldCheck, perm: 'admin_audit_log' },
-    ];
-    const accessibleTabs = TABS.filter(tab => hasPermission(tab.perm));
+    const { user } = useAuth();
+
+    const accessibleTabs = TABS.filter(tab => {
+        if (!user) return false;
+        if (user.is_super_admin) return true;
+        if (user.is_admin) return tab.id === 'submissions';
+        return false;
+    });
+    
     const [activeTab, setActiveTab] = useState<AdminTab>(accessibleTabs[0]?.id || 'submissions');
+    
+    // Fallback if somehow an admin lands on a tab they can't access
+    useEffect(() => {
+        if (!accessibleTabs.find(t => t.id === activeTab)) {
+            setActiveTab(accessibleTabs[0]?.id || 'submissions');
+        }
+    }, [accessibleTabs, activeTab]);
 
     return (
         <>
@@ -77,7 +90,6 @@ const AdminPage: React.FC = () => {
                     {activeTab === 'store' && <StorePanel />}
                     {activeTab === 'translations' && <TranslationsPanel />}
                     {activeTab === 'appearance' && <AppearancePanel />}
-                    {activeTab === 'permissions' && <PermissionsPanel />}
                     {activeTab === 'lookup' && <UserLookupPanel />}
                     {activeTab === 'audit' && <AuditLogPanel />}
                 </div>
@@ -536,156 +548,6 @@ const AppearancePanel = () => {
         </div>
     );
 };
-
-const PermissionsPanel = () => {
-    const { t } = useLocalization();
-    const { showToast } = useToast();
-    const [roles, setRoles] = useState<DiscordRole[]>([]);
-    const [isLoadingRoles, setIsLoadingRoles] = useState(true);
-    const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
-    const [rolePermissions, setRolePermissions] = useState<Set<PermissionKey>>(new Set());
-    const [isLoadingPermissions, setIsLoadingPermissions] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-    useEffect(() => {
-        const fetchRoles = async () => {
-            setIsLoadingRoles(true);
-            setError(null);
-            try {
-                const guildRoles = await getGuildRoles();
-                setRoles(guildRoles);
-            } catch (e) {
-                console.error("Failed to fetch guild roles", e);
-                setError("Failed to fetch roles from the Discord bot. This is a critical error.");
-                showToast("Could not load Discord roles. The bot may be offline or misconfigured.", 'error');
-            } finally {
-                setIsLoadingRoles(false);
-            }
-        };
-        fetchRoles();
-    }, [showToast]);
-
-    useEffect(() => {
-        if (!selectedRoleId) return;
-        const fetchPermissions = async () => {
-            setIsLoadingPermissions(true);
-            try {
-                const { permissions } = await getRolePermissions(selectedRoleId);
-                setRolePermissions(new Set(permissions));
-            } catch (e) {
-                showToast(`Failed to load permissions for role: ${(e as Error).message}`, 'error');
-            } finally {
-                setIsLoadingPermissions(false);
-            }
-        };
-        fetchPermissions();
-    }, [selectedRoleId, showToast]);
-
-    const handlePermissionChange = (key: PermissionKey, checked: boolean) => {
-        setRolePermissions(prev => {
-            const newPerms = new Set(prev);
-            if (checked) newPerms.add(key);
-            else newPerms.delete(key);
-            return newPerms;
-        });
-    };
-
-    const handleSave = async () => {
-        if (!selectedRoleId) return;
-        setIsSaving(true);
-        try {
-            await saveRolePermissions(selectedRoleId, Array.from(rolePermissions));
-            showToast(t('permissions_saved_success'), 'success');
-        } catch(e) {
-            showToast(`Error: ${(e as Error).message}`, 'error');
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const RoleSelectItem: React.FC<{ role: DiscordRole }> = ({ role }) => {
-        const color = role.color ? `#${role.color.toString(16).padStart(6, '0')}` : '#99aab5';
-        return (
-            <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full" style={{ backgroundColor: color }}></div>
-                <span>{role.name}</span>
-            </div>
-        );
-    };
-
-    if (error) {
-        return (
-            <div className="bg-red-500/10 border border-red-500/30 text-red-300 p-6 rounded-lg text-center">
-                <AlertTriangle className="mx-auto mb-4" size={40} />
-                <h2 className="text-xl font-bold mb-2">Critical Error</h2>
-                <p>{error}</p>
-                <p className="mt-4">The most common cause for this is the **Server Members Intent** is not enabled for your bot in the Discord Developer Portal, or the bot is offline.</p>
-                <Link to="/health-check" className="inline-block mt-4 bg-brand-cyan text-brand-dark font-bold py-2 px-4 rounded-md">Run Health Check</Link>
-            </div>
-        );
-    }
-
-    return (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="md:col-span-1">
-                <h2 className="text-xl font-bold mb-3">{t('discord_roles')}</h2>
-                {isLoadingRoles ? <Loader2 className="animate-spin" /> : (
-                    <div className="space-y-2">
-                        {roles.map(role => (
-                            <button key={role.id} onClick={() => setSelectedRoleId(role.id)}
-                                className={`w-full text-left p-3 rounded-md transition-colors border ${selectedRoleId === role.id ? 'bg-brand-cyan/20 border-brand-cyan' : 'bg-brand-dark-blue border-brand-light-blue/50 hover:bg-brand-light-blue/50'}`}
-                            >
-                                <RoleSelectItem role={role} />
-                            </button>
-                        ))}
-                    </div>
-                )}
-            </div>
-            <div className="md:col-span-2">
-                {selectedRoleId ? (
-                    isLoadingPermissions ? <div className="flex justify-center items-center h-full"><Loader2 className="animate-spin text-brand-cyan" size={32}/></div> :
-                    <div>
-                        <div className="flex justify-between items-center mb-4">
-                             <h2 className="text-xl font-bold">{t('available_permissions')}</h2>
-                             <button onClick={handleSave} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white transition-colors min-w-[9rem] flex justify-center">{isSaving ? <Loader2 className="animate-spin" /> : t('save_permissions')}</button>
-                        </div>
-                        <p className="text-sm text-gray-400 mb-6" dangerouslySetInnerHTML={{ __html: t('admin_permissions_instructions') }}/>
-                        <div className="space-y-3">
-                            {(Object.keys(PERMISSIONS) as PermissionKey[]).map(key => (
-                                <label key={key} className="flex items-start gap-3 bg-brand-dark-blue p-3 rounded-md border border-brand-light-blue/50 cursor-pointer hover:bg-brand-light-blue/50 has-[:checked]:border-brand-cyan">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={rolePermissions.has(key)}
-                                        onChange={(e) => handlePermissionChange(key, e.target.checked)}
-                                        className="mt-1 w-5 h-5 accent-brand-cyan bg-brand-light-blue border-gray-500 rounded focus:ring-brand-cyan"
-                                    />
-                                    <div>
-                                        <p className="font-semibold text-white">{key}</p>
-                                        <p className="text-xs text-gray-400">{PERMISSIONS[key]}</p>
-                                    </div>
-                                </label>
-                            ))}
-                        </div>
-                    </div>
-                ) : (
-                    <div className="flex flex-col justify-center items-center h-full text-center bg-brand-dark-blue p-8 rounded-lg border-2 border-dashed border-brand-light-blue/50">
-                        <KeyRound size={48} className="text-gray-500 mb-4" />
-                        <p className="text-lg text-gray-400">{t('select_role_to_manage')}</p>
-                    </div>
-                )}
-                 <div className="mt-8 p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
-                    <h4 className="font-bold text-yellow-300 flex items-center gap-2">
-                        <HelpCircle size={20} />
-                        {t('admin_permissions_bootstrap_instructions_title')}
-                    </h4>
-                    <p className="text-sm text-yellow-200 mt-2" dangerouslySetInnerHTML={{ __html: t('admin_permissions_bootstrap_instructions_body') }} />
-                </div>
-            </div>
-        </div>
-    )
-};
-
 
 const UserLookupPanel = () => {
     const { t } = useLocalization();

@@ -1,11 +1,10 @@
-
-// Vixel Roleplay Website - Full Database Schema (V13 - RLS Recursion Fix Attempt)
+// Vixel Roleplay Website - Full Database Schema (V18 - Simplified Admin Flags)
 export const databaseSchema = `
 /*
 ====================================================================================================
- Vixel Roleplay Website - Full Database Schema (V13 - RLS Recursion Fix Attempt)
+ Vixel Roleplay Website - Full Database Schema (V18 - Simplified Admin Flags)
  Author: AI
- Date: 2024-06-03
+ Date: 2024-06-07
  
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -13,10 +12,12 @@ export const databaseSchema = `
  or for a clean installation. DO NOT run this on a production database with live user data
  unless you intend to wipe it completely.
 
- !! SUPER ADMIN NOTE !!
- The first super admin role must be set MANUALLY after running this script.
- See the project's README or documentation for instructions on how to insert the role
- into the 'role_permissions' table.
+ !! ADMIN SETUP NOTE !!
+ Admin permissions are now managed directly on the 'profiles' table.
+ To make a user an admin or super admin:
+ 1. Go to the 'profiles' table in your Supabase Table Editor.
+ 2. Find the user you want to promote.
+ 3. Set the 'is_admin' or 'is_super_admin' column to TRUE for that user.
  
  INSTRUCTIONS:
  1. Go to your Supabase Project Dashboard.
@@ -24,7 +25,7 @@ export const databaseSchema = `
  3. Click "+ New query".
  4. Copy the ENTIRE content of this file.
  5. Paste it into the SQL Editor.
- 6. Click "RUN".
+ 6. Click "RUN". This will apply the new, simpler permission logic.
 ====================================================================================================
 */
 
@@ -38,7 +39,7 @@ BEGIN;
 DROP TABLE IF EXISTS public.bans CASCADE;
 DROP TABLE IF EXISTS public.audit_log CASCADE;
 DROP TABLE IF EXISTS public.submissions CASCADE;
-DROP TABLE IF EXISTS public.role_permissions CASCADE;
+DROP TABLE IF EXISTS public.role_permissions CASCADE; -- This table is now obsolete.
 DROP TABLE IF EXISTS public.rules CASCADE;
 DROP TABLE IF EXISTS public.quizzes CASCADE;
 DROP TABLE IF EXISTS public.products CASCADE;
@@ -125,7 +126,9 @@ CREATE TABLE public.profiles (
     last_synced_at timestamptz,
     is_banned boolean DEFAULT false,
     ban_reason text,
-    ban_expires_at timestamptz
+    ban_expires_at timestamptz,
+    is_admin boolean NOT NULL DEFAULT false, -- NEW
+    is_super_admin boolean NOT NULL DEFAULT false -- NEW
 );
 
 -- Table for store products.
@@ -185,12 +188,6 @@ CREATE TABLE public.audit_log (
     action text
 );
 
--- Table to map Discord role IDs to website permissions.
-CREATE TABLE public.role_permissions (
-    role_id text PRIMARY KEY,
-    permissions text[]
-);
-
 -- Table for website translations.
 CREATE TABLE public.translations (
     key text PRIMARY KEY,
@@ -215,6 +212,7 @@ CREATE TABLE public.bans (
 -- =================================================================
 -- 4. HELPER & RPC FUNCTIONS (DEFINED BEFORE RLS)
 -- =================================================================
+-- This function is a helper to get the current user's ID from the JWT.
 CREATE OR REPLACE FUNCTION public.get_user_id()
 RETURNS uuid
 LANGUAGE sql STABLE
@@ -222,30 +220,38 @@ AS $$
   SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
 $$;
 
--- REFACTORED PERMISSION CHECK FUNCTION (V13 - RLS Recursion Fix Attempt)
+-- SIMPLIFIED PERMISSION CHECK FUNCTION (V18)
+-- Checks the 'is_admin' and 'is_super_admin' flags on the user's profile.
+-- Runs with SECURITY DEFINER to be usable within RLS policies without recursion.
 CREATE OR REPLACE FUNCTION public.has_permission(p_user_id uuid, p_permission_key text)
 RETURNS boolean
-LANGUAGE plpgsql
+LANGUAGE plpgsql STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  v_is_super_admin boolean;
+  v_is_admin boolean;
 BEGIN
   IF p_user_id IS NULL THEN
     RETURN false;
   END IF;
+  
+  SELECT is_super_admin, is_admin
+  INTO v_is_super_admin, v_is_admin
+  FROM public.profiles WHERE id = p_user_id;
 
-  RETURN EXISTS (
-    SELECT 1
-    FROM public.profiles p
-    CROSS JOIN LATERAL jsonb_array_elements(p.roles) AS user_role(role_data)
-    JOIN public.role_permissions rp ON rp.role_id = user_role.role_data->>'id'
-    WHERE
-      p.id = p_user_id
-      AND (
-        rp.permissions @> ARRAY['_super_admin']::text[] OR
-        rp.permissions @> ARRAY[p_permission_key]::text[]
-      )
-  );
+  -- Super admin has all permissions.
+  IF v_is_super_admin THEN
+    RETURN true;
+  END IF;
+
+  -- Regular admin has specific permissions.
+  IF v_is_admin AND p_permission_key IN ('admin_panel', 'admin_submissions') THEN
+    RETURN true;
+  END IF;
+
+  RETURN false;
 END;
 $$;
 
@@ -260,7 +266,6 @@ ALTER TABLE public.quizzes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.submissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.rules ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.role_permissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.translations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bans ENABLE ROW LEVEL SECURITY;
 
@@ -277,14 +282,13 @@ CREATE POLICY "Allow users to see their own submissions" ON public.submissions F
 CREATE POLICY "Allow users to insert their own submissions" ON public.submissions FOR INSERT WITH CHECK (user_id = public.get_user_id());
 
 -- ADMIN MANAGEMENT POLICIES (ALL ACTIONS)
--- These policies are a fallback. The primary logic is in SECURITY DEFINER functions which bypass RLS.
+-- The simplified has_permission check works here.
 CREATE POLICY "Allow admins to manage config" ON public.config FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_appearance'));
 CREATE POLICY "Allow admins to manage products" ON public.products FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_store'));
 CREATE POLICY "Allow admins to manage quizzes" ON public.quizzes FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_quizzes'));
 CREATE POLICY "Allow admins to manage rules" ON public.rules FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_rules'));
 CREATE POLICY "Allow admins to manage submissions" ON public.submissions FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_submissions'));
 CREATE POLICY "Allow admins to read audit log" ON public.audit_log FOR SELECT USING (public.has_permission(public.get_user_id(), 'admin_audit_log'));
-CREATE POLICY "Allow admins to manage permissions" ON public.role_permissions FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_permissions'));
 CREATE POLICY "Allow admins to manage translations" ON public.translations FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_translations'));
 CREATE POLICY "Allow admins to manage profiles" ON public.profiles FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_lookup'));
 CREATE POLICY "Allow admins to manage bans" ON public.bans FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_lookup'));
@@ -315,7 +319,7 @@ END;
 $$;
 
 -- NOTE: This function is for users, so it's intentionally SECURITY INVOKER (default).
--- It relies on the RLS INSERT policy on the `submissions` table.
+-- It relies on the RLS INSERT policy on the 'submissions' table.
 CREATE OR REPLACE FUNCTION public.add_submission(submission_data jsonb)
 RETURNS public.submissions
 LANGUAGE plpgsql
@@ -837,4 +841,4 @@ ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar;
 
 
 COMMIT;
-`;
+`

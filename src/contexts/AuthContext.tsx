@@ -60,7 +60,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setPermissionWarning(null);
     }
     setLoading(false);
-  }, [showToast]); // Removed `user` from dependency array to prevent loops
+  }, [showToast]);
 
   useEffect(() => {
     if (!supabase) {
@@ -117,9 +117,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const hasPermission = useCallback((key: PermissionKey): boolean => {
     if (!user) return false;
-    // Super admin role also has all permissions
-    if (user.permissions.has('_super_admin')) return true;
-    return user.permissions.has(key);
+    if (user.is_super_admin) return true;
+    if (user.is_admin) {
+        return key === 'admin_panel' || key === 'admin_submissions';
+    }
+    return false;
   }, [user]);
 
   // Render a full-page loader while the initial session is being processed.

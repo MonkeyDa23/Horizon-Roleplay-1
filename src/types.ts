@@ -51,8 +51,8 @@ export interface User {
   avatar: string;
   roles: DiscordRole[];
   highestRole: DiscordRole | null;
-  permissions: Set<PermissionKey>;
-  isGuildOwner: boolean;
+  is_admin: boolean;
+  is_super_admin: boolean;
   is_banned: boolean;
   ban_reason: string | null;
   ban_expires_at: string | null;
@@ -66,11 +66,6 @@ export interface AuthContextType {
   updateUser: (user: User) => void;
   hasPermission: (key: PermissionKey) => boolean;
   permissionWarning: string | null;
-}
-
-export interface RolePermission {
-    role_id: string;
-    permissions: PermissionKey[];
 }
 
 export interface UserLookupResult {

@@ -2,7 +2,7 @@
 import { supabase } from './supabaseClient';
 import type { 
   AppConfig, Product, Quiz, QuizSubmission, RuleCategory, Translations, 
-  User, PermissionKey, DiscordRole, RolePermission, UserLookupResult,
+  User, PermissionKey, DiscordRole, UserLookupResult,
   MtaServerStatus, AuditLogEntry, MtaLogEntry, DiscordAnnouncement
 } from '../types';
 
@@ -62,37 +62,18 @@ const invokeFunction = async <T>(functionName: string, body?: object, headers?: 
 // =============================================
 // AUTH & USER PROFILE API
 // =============================================
-// Helper to convert permissions array from JSON response into a Set
-const processUserPermissions = (user: User | null): User | null => {
-    if (user && Array.isArray(user.permissions)) {
-        return {
-            ...user,
-            permissions: new Set(user.permissions as any as PermissionKey[]),
-        };
-    }
-    return user;
-};
-
 export const fetchUserProfile = async (): Promise<{ user: User, syncError: string | null }> => {
-  const response = await invokeFunction<{ user: User, syncError: string | null }>('sync-user-profile');
-  return {
-      ...response,
-      user: processUserPermissions(response.user)!,
-  };
+  return invokeFunction<{ user: User, syncError: string | null }>('sync-user-profile');
 };
 
 export const forceRefreshUserProfile = async (): Promise<{ user: User, syncError: string | null }> => {
-  const response = await invokeFunction<{ user: User, syncError: string | null }>('sync-user-profile', { force: true });
-  return {
-      ...response,
-      user: processUserPermissions(response.user)!,
-  };
+  return invokeFunction<{ user: User, syncError: string | null }>('sync-user-profile', { force: true });
 };
 
 export const revalidateSession = async (force: boolean = false): Promise<User> => {
   const body = force ? { force: true } : undefined;
   const { user } = await invokeFunction<{ user: User, syncError: string | null }>('sync-user-profile', body);
-  return processUserPermissions(user)!;
+  return user;
 };
 
 
@@ -238,22 +219,6 @@ export const getGuildRoles = async (): Promise<DiscordRole[]> => {
         throw new ApiError((error as Error).message || 'An unknown error occurred while fetching roles.', 500);
     }
 };
-
-
-export const getRolePermissions = async (roleId: string): Promise<RolePermission> => {
-    if (!supabase) throw new Error("Supabase not configured");
-    const response = await supabase.from('role_permissions').select('*').eq('role_id', roleId).maybeSingle();
-    const data = handleResponse(response);
-    return data || { role_id: roleId, permissions: [] };
-};
-
-export const saveRolePermissions = async (roleId: string, permissions: PermissionKey[]): Promise<void> => {
-    if (!supabase) throw new Error("Supabase not configured");
-    return handleResponse(
-        await supabase.from('role_permissions').upsert({ role_id: roleId, permissions: permissions }, { onConflict: 'role_id' })
-    );
-};
-
 
 // =============================================
 // ADMIN & AUDIT LOG API
