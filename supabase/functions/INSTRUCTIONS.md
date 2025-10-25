@@ -8,13 +8,12 @@ These functions run on Supabase's servers and proxy requests from the website to
 
 -   **`sync-user-profile`**: The most important function. It calls your bot's API to fetch a user's latest Discord data (roles, name, etc.) when they log in.
 -   **`get-guild-roles`**: Calls your bot to get a list of all server roles for the Admin Panel.
--   **`discord-proxy`**: A special function that your database triggers will call to send notifications (like new submissions) to your bot.
 -   **`check-bot-health`**: Used by the "Health Check" page to see if the website can reach your bot.
 -   **`troubleshoot-user-sync`**: A diagnostic tool to test fetching a specific user's data via the bot.
 
 ## Step 1: Deploying the Functions
 
-You need to deploy each function using the Supabase Dashboard. Repeat these steps for **all five** functions listed in the `supabase/functions` directory.
+You need to deploy each function using the Supabase Dashboard. Repeat these steps for **all four** functions listed in the `supabase/functions` directory.
 
 1.  Go to your Supabase Project Dashboard.
 2.  Click on the **Edge Functions** icon in the left sidebar (a lambda λ symbol).
@@ -27,7 +26,7 @@ You need to deploy each function using the Supabase Dashboard. Repeat these step
 9.  **Paste the code** into the Supabase editor.
 10. Click **"Deploy"** in the top right corner.
 
-**Repeat this process for all five functions: `sync-user-profile`, `get-guild-roles`, `discord-proxy`, `check-bot-health`, and `troubleshoot-user-sync`.**
+**Repeat this process for all four functions: `sync-user-profile`, `get-guild-roles`, `check-bot-health`, and `troubleshoot-user-sync`.**
 
 ## Step 2: Setting Secrets
 

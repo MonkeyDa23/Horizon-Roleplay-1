@@ -1,12 +1,10 @@
-
 // src/pages/ProfilePage.tsx
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useLocalization } from '../hooks/useLocalization';
 import { getSubmissionsByUserId, forceRefreshUserProfile } from '../lib/api';
 import type { QuizSubmission, SubmissionStatus, DiscordRole } from '../types';
-// FIX: Switched to a namespace import for react-router-dom to resolve module resolution errors.
-import * as ReactRouterDOM from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { User as UserIcon, Loader2, FileText, ExternalLink, Shield, RefreshCw } from 'lucide-react';
 import { useConfig } from '../hooks/useConfig';
 import SEO from '../components/SEO';
@@ -15,7 +13,7 @@ import { useToast } from '../hooks/useToast';
 const ProfilePage: React.FC = () => {
   const { user, loading: authLoading, updateUser } = useAuth();
   const { t } = useLocalization();
-  const navigate = ReactRouterDOM.useNavigate();
+  const navigate = useNavigate();
   const { config } = useConfig();
   const { showToast } = useToast();
   const communityName = config.COMMUNITY_NAME;

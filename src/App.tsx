@@ -1,7 +1,5 @@
 // src/App.tsx
 import React from 'react';
-// FIX: Switched to a namespace import for react-router-dom to resolve module resolution errors.
-// FIX: Switched to named imports to fix component and hook resolution errors.
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { LocalizationProvider } from './contexts/LocalizationContext';
 import { AuthProvider } from './contexts/AuthContext';
@@ -27,9 +25,11 @@ import QuizPage from './pages/QuizPage';
 import MyApplicationsPage from './pages/MyApplicationsPage';
 import ProfilePage from './pages/ProfilePage';
 import HealthCheckPage from './pages/HealthCheckPage';
+import AdminPage from './pages/AdminPage';
+import BannedPage from './pages/BannedPage'; 
+
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { env } from './env';
-import AdminPage from './pages/AdminPage';
 import type { PermissionKey } from './types';
 
 
@@ -110,7 +110,6 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    // FIX: Use BrowserRouter directly from react-router-dom import.
     <BrowserRouter>
       <div 
         className="flex flex-col min-h-screen text-white font-sans"
@@ -126,9 +125,7 @@ const AppContent: React.FC = () => {
           <Navbar />
           {permissionWarning && <PermissionWarningBanner message={permissionWarning} />}
           <main className="flex-grow">
-            {/* FIX: Use Routes directly from react-router-dom import. */}
             <Routes>
-              {/* FIX: Use Route directly from react-router-dom import. */}
               <Route path="/" element={<HomePage />} />
               {hasPermission('page_store') && <Route path="/store" element={<StorePage />} />}
               {hasPermission('page_rules') && <Route path="/rules" element={<RulesPage />} />}
@@ -146,7 +143,11 @@ const AppContent: React.FC = () => {
               {config.SHOW_HEALTH_CHECK && (
                 <Route 
                   path="/health-check" 
-                  element={<HealthCheckPage />}
+                  element={
+                     <ProtectedRoute permission="admin_panel">
+                        <HealthCheckPage />
+                     </ProtectedRoute>
+                  }
                 />
               )}
               {/* Fallback route for any undefined paths */}

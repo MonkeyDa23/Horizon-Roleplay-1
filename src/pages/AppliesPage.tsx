@@ -1,9 +1,6 @@
 
 
 import React, { useState, useEffect } from 'react';
-// FIX: Switched from a namespace import to named imports to resolve component errors.
-// FIX: Switched to a namespace import for react-router-dom to resolve module resolution errors.
-// FIX: Switched to named imports to fix component resolution errors.
 import { Link } from 'react-router-dom';
 import { useLocalization } from '../hooks/useLocalization';
 import { useAuth } from '../hooks/useAuth';
@@ -93,7 +90,6 @@ const AppliesPage: React.FC = () => {
       }
 
       return (
-        // FIX: Use Link directly from react-router-dom import.
         <Link 
           to={`/applies/${quiz.id}`}
           className="w-full text-center bg-brand-cyan text-brand-dark font-bold py-3 px-8 rounded-md hover:bg-white hover:shadow-glow-cyan transition-all duration-300 flex items-center justify-center gap-2"

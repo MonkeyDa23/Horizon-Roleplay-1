@@ -5,10 +5,6 @@ import { useAuth } from '../hooks/useAuth';
 import { useLocalization } from '../hooks/useLocalization';
 import { getSubmissionsByUserId } from '../lib/api';
 import type { QuizSubmission, SubmissionStatus } from '../types';
-// FIX: Switched from a namespace import to named imports to resolve component errors.
-// FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
-// FIX: Switched to a namespace import for react-router-dom to resolve module resolution errors.
-// FIX: Switched to named imports to fix hook resolution errors.
 import { useNavigate } from 'react-router-dom';
 import { FileText, Loader2 } from 'lucide-react';
 import { useConfig } from '../hooks/useConfig';
@@ -17,7 +13,6 @@ import SEO from '../components/SEO';
 const MyApplicationsPage: React.FC = () => {
   const { user } = useAuth();
   const { t } = useLocalization();
-  // FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
   const navigate = useNavigate();
   const { config } = useConfig();
   const communityName = config.COMMUNITY_NAME;
