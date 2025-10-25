@@ -122,6 +122,7 @@ export const translations: Translations = {
   actions: { ar: 'الإجراءات', en: 'Actions' },
   edit: { ar: 'تعديل', en: 'Edit' },
   applicant: { ar: 'المتقدم', en: 'Applicant' },
+  highest_role: { ar: 'أعلى رتبة', en: 'Highest Role' },
   submitted_on: { ar: 'تاريخ التقديم', en: 'Submitted On' },
   result_date: { ar: 'تاريخ النتيجة', en: 'Result Date' },
   view_submission: { ar: 'عرض الطلب', en: 'View Submission' },

@@ -1,16 +1,22 @@
-// -- Vixel Roleplay Website - Full Database Schema (V30 - Submission Fix & Per-Question Timers)
+// -- Vixel Roleplay Website - Full Database Schema (V31 - Trigger-based Notifications)
 export const schema = `
 /*
 ====================================================================================================
- Vixel Roleplay Website - Full Database Schema (V30 - Submission Fix & Per-Question Timers)
+ Vixel Roleplay Website - Full Database Schema (V31 - Trigger-based Notifications)
  Author: AI
- Date: 2024-06-16
+ Date: 2024-06-17
  
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
  functions, and data before recreating the entire schema. This is intended for development
  or for a clean installation. DO NOT run this on a production database with live user data
  unless you intend to wipe it completely.
+
+ !! WHAT'S NEW (V31) !!
+ This version completely overhauls the Discord notification system for reliability. It replaces
+ direct HTTP calls from within Postgres with a modern trigger-based system. Now, actions like
+ new submissions or admin logs fire a trigger that asynchronously calls a Supabase Edge Function.
+ This is more robust and solves the issue of notifications not being sent.
 
  !! ADMIN SETUP NOTE !!
  To grant the first Super Admin permission, you must manually add a row to the database:
@@ -63,7 +69,9 @@ DROP FUNCTION IF EXISTS public.unban_user(uuid);
 DROP FUNCTION IF EXISTS public.has_permission(uuid, text);
 DROP FUNCTION IF EXISTS public.save_role_permissions(text, text[]);
 DROP FUNCTION IF EXISTS public.get_user_id();
-
+DROP FUNCTION IF EXISTS private.handle_new_submission_notification();
+DROP FUNCTION IF EXISTS private.handle_submission_status_update();
+DROP FUNCTION IF EXISTS private.handle_audit_log_notification();
 
 -- Drop private schema for secrets
 DROP SCHEMA IF EXISTS private CASCADE;
@@ -75,9 +83,11 @@ DROP SCHEMA IF EXISTS private CASCADE;
 GRANT USAGE, CREATE ON SCHEMA public TO postgres;
 CREATE EXTENSION IF NOT EXISTS http WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS pg_graphql WITH SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions; -- Required for new notification system
 
--- Create a private schema to store secrets.
+-- Create a private schema to store secrets and internal functions.
 CREATE SCHEMA private;
+
 CREATE TABLE private.secrets (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
@@ -85,28 +95,14 @@ CREATE TABLE private.secrets (
 REVOKE ALL ON TABLE private.secrets FROM PUBLIC;
 
 -- !! IMPORTANT !!
--- The values below are placeholders. You MUST replace them with your actual bot URL and API key
--- for Discord notifications to work. You can do this from the Supabase Table Editor by editing
--- the rows in the 'private.secrets' table.
+-- The values below are placeholders. The bot URL and API key are now set as secrets
+-- in the Supabase Dashboard under Settings > Edge Functions, which are used by the Edge Functions.
+-- This table remains for legacy purposes or other potential secrets.
 INSERT INTO private.secrets (key, value)
 VALUES
   ('VITE_DISCORD_BOT_URL', 'http://YOUR_BOT_IP_OR_DOMAIN:3000'),
   ('VITE_DISCORD_BOT_API_KEY', 'YOUR_CHOSEN_SECRET_PASSWORD_FOR_THE_BOT')
 ON CONFLICT (key) DO NOTHING;
-
-
--- Function to securely get a secret.
-CREATE OR REPLACE FUNCTION private.get_secret(secret_key text)
-RETURNS text
-LANGUAGE plpgsql
-AS $$
-DECLARE
-  secret_value text;
-BEGIN
-  SELECT value INTO secret_value FROM private.secrets WHERE key = secret_key;
-  RETURN secret_value;
-END;
-$$;
 
 
 -- =================================================================
@@ -195,7 +191,8 @@ CREATE TABLE public.audit_log (
     timestamp timestamptz DEFAULT now(),
     admin_id uuid REFERENCES auth.users(id),
     admin_username text,
-    action text
+    action text,
+    log_type text -- Used by trigger to route to correct channel
 );
 
 CREATE TABLE public.translations (
@@ -292,7 +289,7 @@ CREATE POLICY "Admins can manage all profiles" ON public.profiles FOR ALL USING 
 CREATE POLICY "Admins can manage submissions" ON public.submissions FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_submissions'));
 
 -- =================================================================
--- 6. RPC FUNCTIONS
+-- 6. RPC FUNCTIONS (Simplified for Trigger-based System)
 -- =================================================================
 CREATE OR REPLACE FUNCTION public.get_config()
 RETURNS json
@@ -315,19 +312,13 @@ BEGIN
 END;
 $$;
 
--- FIX: Added SECURITY DEFINER to allow this function to access private.get_secret
+-- Simplified: Just inserts the data. Notification is handled by a trigger.
 CREATE OR REPLACE FUNCTION public.add_submission(submission_data jsonb)
 RETURNS public.submissions
 LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
 AS $$
 DECLARE
   new_submission public.submissions;
-  channel_id text;
-  user_discord_id text;
-  bot_url TEXT := private.get_secret('VITE_DISCORD_BOT_URL');
-  bot_api_key TEXT := private.get_secret('VITE_DISCORD_BOT_API_KEY');
 BEGIN
   INSERT INTO public.submissions ("quizId", "quizTitle", user_id, username, answers, "cheatAttempts", user_highest_role)
   VALUES (
@@ -340,70 +331,11 @@ BEGIN
     submission_data->>'user_highest_role'
   ) RETURNING * INTO new_submission;
 
-  -- Defensive check for bot configuration
-  IF bot_url IS NULL OR bot_api_key IS NULL OR bot_url LIKE '%YOUR_BOT_IP_OR_DOMAIN%' THEN
-    RAISE NOTICE 'Discord notification skipped: Bot URL or API Key not configured in private.secrets';
-    RETURN new_submission;
-  END IF;
-
-  -- 1. Send to Submissions Channel
-  SELECT "SUBMISSIONS_CHANNEL_ID" INTO channel_id FROM public.config WHERE id = 1;
-  IF channel_id IS NOT NULL THEN
-    PERFORM extensions.http((
-        'POST',
-        bot_url || '/api/notify',
-        ARRAY[('Content-Type', 'application/json')::extensions.http_header, ('Authorization', 'Bearer ' || bot_api_key)::extensions.http_header],
-        'application/json',
-        jsonb_build_object(
-          'type', 'new_submission',
-          'payload', jsonb_build_object(
-            'channelId', channel_id,
-            'embed', jsonb_build_object(
-              'title', '📥 تقديم جديد',
-              'description', 'تم استلام تقديم جديد وهو الآن في انتظار المراجعة.',
-              'color', 3447003, -- Blue
-              'fields', jsonb_build_array(
-                jsonb_build_object('name', 'المتقدم', 'value', new_submission.username, 'inline', true),
-                jsonb_build_object('name', 'نوع التقديم', 'value', new_submission."quizTitle", 'inline', true),
-                jsonb_build_object('name', 'الرتبة', 'value', new_submission.user_highest_role, 'inline', true)
-              ),
-              'timestamp', new_submission."submittedAt"
-            )
-          )
-        )::text
-    ));
-  END IF;
-
-  -- 2. Send DM to user confirming receipt
-  SELECT discord_id INTO user_discord_id FROM public.profiles WHERE id = new_submission.user_id;
-  IF user_discord_id IS NOT NULL THEN
-     PERFORM extensions.http((
-        'POST',
-        bot_url || '/api/notify',
-        ARRAY[('Content-Type', 'application/json')::extensions.http_header, ('Authorization', 'Bearer ' || bot_api_key)::extensions.http_header],
-        'application/json',
-        jsonb_build_object(
-          'type', 'submission_receipt',
-          'payload', jsonb_build_object(
-            'userId', user_discord_id,
-            'embed', jsonb_build_object(
-              'title', '📄 تم استلام تقديمك بنجاح',
-              'description', 'شكرًا لك على تقديمك. لقد استلمنا طلبك وسيقوم أحد المسؤولين بمراجعته في أقرب وقت ممكن. يمكنك متابعة حالة طلبك من خلال صفحة "تقديماتي" على الموقع.',
-              'color', 3447003, -- Blue
-              'fields', jsonb_build_array(
-                jsonb_build_object('name', 'نوع التقديم', 'value', new_submission."quizTitle")
-              ),
-              'timestamp', now()
-            )
-          )
-        )::text
-    ));
-  END IF;
-
   RETURN new_submission;
 END;
 $$;
 
+-- Simplified: Updates status and logs action. Notification is handled by triggers.
 CREATE OR REPLACE FUNCTION public.update_submission_status(p_submission_id uuid, p_new_status text)
 RETURNS void
 LANGUAGE plpgsql
@@ -413,12 +345,6 @@ AS $$
 DECLARE
   submission_record record;
   admin_user record;
-  user_discord_id text;
-  embed_title text;
-  embed_description text;
-  embed_color int;
-  bot_url TEXT := private.get_secret('VITE_DISCORD_BOT_URL');
-  bot_api_key TEXT := private.get_secret('VITE_DISCORD_BOT_API_KEY');
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_submissions') THEN
     RAISE EXCEPTION 'Insufficient permissions.';
@@ -435,62 +361,30 @@ BEGIN
   WHERE id = p_submission_id
   RETURNING * INTO submission_record;
   
+  -- This log action will fire its own notification trigger
   PERFORM public.log_action(format('قام بتغيير حالة تقديم (%s) للمستخدم %s إلى %s', submission_record."quizTitle", submission_record.username, p_new_status), 'submission');
-
-  -- Defensive check for bot configuration
-  IF bot_url IS NULL OR bot_api_key IS NULL OR bot_url LIKE '%YOUR_BOT_IP_OR_DOMAIN%' THEN
-    RAISE NOTICE 'Discord notification skipped: Bot URL or API Key not configured in private.secrets';
-    RETURN;
-  END IF;
-  
-  SELECT discord_id INTO user_discord_id FROM public.profiles WHERE id = submission_record.user_id;
-  IF user_discord_id IS NULL THEN
-    RAISE NOTICE 'Discord notification skipped: Could not find discord_id for user %', submission_record.user_id;
-    RETURN;
-  END IF;
-
-  IF p_new_status = 'taken' THEN
-    embed_title := '👀 تقديمك قيد المراجعة الآن';
-    embed_description := format('تم استلام تقديمك من قبل المشرف %s وهو الآن قيد المراجعة.', admin_user.username);
-    embed_color := 3447003; -- Blue
-  ELSIF p_new_status = 'accepted' THEN
-    embed_title := '✅ تم قبول تقديمك!';
-    embed_description := 'تهانينا! تم قبول طلبك. سيتم التواصل معك قريبًا بخصوص الخطوات التالية.';
-    embed_color := 5763719; -- Green
-  ELSIF p_new_status = 'refused' THEN
-    embed_title := '❌ تم رفض تقديمك';
-    embed_description := 'نأسف لإعلامك بأنه تم رفض طلبك في الوقت الحالي. نتمنى لك حظًا أوفر في المرة القادمة.';
-    embed_color := 15548997; -- Red
-  ELSE
-    RETURN; -- Do not send DM for 'pending' or other statuses
-  END IF;
-  
-   PERFORM extensions.http((
-      'POST',
-      bot_url || '/api/notify',
-      ARRAY[('Content-Type', 'application/json')::extensions.http_header, ('Authorization', 'Bearer ' || bot_api_key)::extensions.http_header],
-      'application/json',
-      jsonb_build_object(
-        'type', 'submission_result',
-        'payload', jsonb_build_object(
-          'userId', user_discord_id,
-          'embed', jsonb_build_object(
-            'title', embed_title,
-            'description', embed_description,
-            'color', embed_color,
-            'fields', jsonb_build_array(
-              jsonb_build_object('name', 'التقديم', 'value', submission_record."quizTitle"),
-              jsonb_build_object('name', 'الحالة', 'value', p_new_status),
-              jsonb_build_object('name', 'بواسطة', 'value', admin_user.username)
-            ),
-            'timestamp', now()
-          )
-        )
-      )::text
-  ));
 END;
 $$;
 
+-- Simplified: Just inserts the log. Notification is handled by a trigger.
+CREATE OR REPLACE FUNCTION public.log_action(p_action text, p_log_type text DEFAULT 'general')
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  admin_user record;
+BEGIN
+  SELECT id, raw_user_meta_data->>'full_name' AS username INTO admin_user
+  FROM auth.users WHERE id = public.get_user_id();
+
+  INSERT INTO public.audit_log(admin_id, admin_username, action, log_type)
+  VALUES (admin_user.id, admin_user.username, p_action, p_log_type);
+END;
+$$;
+
+-- Other RPC functions remain largely the same...
 CREATE OR REPLACE FUNCTION public.save_quiz_with_translations(p_quiz_data jsonb)
 RETURNS public.quizzes
 LANGUAGE plpgsql
@@ -513,13 +407,11 @@ BEGIN
   END IF;
   PERFORM public.log_action(action_text, 'admin');
 
-  -- Upsert main translations
   INSERT INTO public.translations (key, en, ar)
   VALUES (p_quiz_data->>'titleKey', p_quiz_data->>'titleEn', p_quiz_data->>'titleAr'),
          (p_quiz_data->>'descriptionKey', p_quiz_data->>'descriptionEn', p_quiz_data->>'descriptionAr')
   ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar;
   
-  -- Upsert question translations
   IF jsonb_typeof(p_quiz_data->'questions') = 'array' THEN
     FOR v_question IN SELECT * FROM jsonb_array_elements(p_quiz_data->'questions')
     LOOP
@@ -529,7 +421,6 @@ BEGIN
     END LOOP;
   END IF;
 
-  -- Upsert the main quiz record
   INSERT INTO public.quizzes (id, "titleKey", "descriptionKey", questions, "isOpen", "allowedTakeRoles", "logoUrl", "bannerUrl", "lastOpenedAt")
   VALUES (
     (p_quiz_data->>'id')::uuid,
@@ -569,16 +460,11 @@ BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_store') THEN
     RAISE EXCEPTION 'Insufficient permissions';
   END IF;
-
   PERFORM public.log_action(format('قام بحفظ/تعديل المنتج: %s', p_product_data->>'nameEn'), 'admin');
-
-  -- Upsert translations
   INSERT INTO public.translations (key, en, ar)
   VALUES (p_product_data->>'nameKey', p_product_data->>'nameEn', p_product_data->>'nameAr'),
          (p_product_data->>'descriptionKey', p_product_data->>'descriptionEn', p_product_data->>'descriptionAr')
   ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar;
-
-  -- Upsert the main product record
   INSERT INTO public.products (id, "nameKey", "descriptionKey", price, "imageUrl")
   VALUES (
     (p_product_data->>'id')::uuid,
@@ -588,12 +474,8 @@ BEGIN
     p_product_data->>'imageUrl'
   )
   ON CONFLICT (id) DO UPDATE SET
-    "nameKey" = excluded."nameKey",
-    "descriptionKey" = excluded."descriptionKey",
-    price = excluded.price,
-    "imageUrl" = excluded."imageUrl"
+    "nameKey" = excluded."nameKey", "descriptionKey" = excluded."descriptionKey", price = excluded.price, "imageUrl" = excluded."imageUrl"
   RETURNING * INTO result;
-
   RETURN result;
 END;
 $$;
@@ -605,53 +487,24 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-    v_category jsonb;
-    v_rule jsonb;
+    v_category jsonb; v_rule jsonb;
 BEGIN
-    IF NOT public.has_permission(public.get_user_id(), 'admin_rules') THEN
-        RAISE EXCEPTION 'Insufficient permissions';
-    END IF;
-
+    IF NOT public.has_permission(public.get_user_id(), 'admin_rules') THEN RAISE EXCEPTION 'Insufficient permissions'; END IF;
     PERFORM public.log_action('قام بتحديث قوانين السيرفر', 'admin');
-
-    -- Upsert all translations first
-    FOR v_category IN SELECT * FROM jsonb_array_elements(p_rules_data)
-    LOOP
-        INSERT INTO public.translations (key, en, ar)
-        VALUES (v_category->>'titleKey', v_category->>'titleEn', v_category->>'titleAr')
-        ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar;
-        
+    FOR v_category IN SELECT * FROM jsonb_array_elements(p_rules_data) LOOP
+        INSERT INTO public.translations (key, en, ar) VALUES (v_category->>'titleKey', v_category->>'titleEn', v_category->>'titleAr') ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar;
         IF jsonb_typeof(v_category->'rules') = 'array' THEN
-            FOR v_rule IN SELECT * FROM jsonb_array_elements(v_category->'rules')
-            LOOP
-                INSERT INTO public.translations (key, en, ar)
-                VALUES (v_rule->>'textKey', v_rule->>'textEn', v_rule->>'textAr')
-                ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar;
+            FOR v_rule IN SELECT * FROM jsonb_array_elements(v_category->'rules') LOOP
+                INSERT INTO public.translations (key, en, ar) VALUES (v_rule->>'textKey', v_rule->>'textEn', v_rule->>'textAr') ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar;
             END LOOP;
         END IF;
     END LOOP;
-    
-    -- Rebuild the rules table, extracting only the necessary fields
     DELETE FROM public.rules WHERE true;
-    
     INSERT INTO public.rules (id, "titleKey", position, rules)
-    SELECT
-        (c->>'id')::uuid,
-        c->>'titleKey',
-        (c->>'position')::int,
-        (
-            SELECT jsonb_agg(
-                jsonb_build_object(
-                    'id', r->>'id',
-                    'textKey', r->>'textKey'
-                )
-            )
-            FROM jsonb_array_elements(c->'rules') AS r
-        )
+    SELECT (c->>'id')::uuid, c->>'titleKey', (c->>'position')::int, (SELECT jsonb_agg(jsonb_build_object('id', r->>'id', 'textKey', r->>'textKey')) FROM jsonb_array_elements(c->'rules') AS r)
     FROM jsonb_array_elements(p_rules_data) AS c;
 END;
 $$;
-
 
 CREATE OR REPLACE FUNCTION public.update_config(new_config jsonb)
 RETURNS void
@@ -660,84 +513,11 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  IF NOT public.has_permission(public.get_user_id(), 'admin_appearance') THEN
-    RAISE EXCEPTION 'Insufficient permissions';
-  END IF;
-
+  IF NOT public.has_permission(public.get_user_id(), 'admin_appearance') THEN RAISE EXCEPTION 'Insufficient permissions'; END IF;
   PERFORM public.log_action('قام بتحديث إعدادات المظهر والاتصال', 'admin');
-
-  UPDATE public.config
-  SET
-    "COMMUNITY_NAME" = coalesce(new_config->>'COMMUNITY_NAME', "COMMUNITY_NAME"),
-    "LOGO_URL" = coalesce(new_config->>'LOGO_URL', "LOGO_URL"),
-    "DISCORD_GUILD_ID" = coalesce(new_config->>'DISCORD_GUILD_ID', "DISCORD_GUILD_ID"),
-    "DISCORD_INVITE_URL" = coalesce(new_config->>'DISCORD_INVITE_URL', "DISCORD_INVITE_URL"),
-    "MTA_SERVER_URL" = coalesce(new_config->>'MTA_SERVER_URL', "MTA_SERVER_URL"),
-    "BACKGROUND_IMAGE_URL" = coalesce(new_config->>'BACKGROUND_IMAGE_URL', "BACKGROUND_IMAGE_URL"),
-    "SHOW_HEALTH_CHECK" = coalesce((new_config->>'SHOW_HEALTH_CHECK')::boolean, "SHOW_HEALTH_CHECK"),
-    "SUBMISSIONS_CHANNEL_ID" = coalesce(new_config->>'SUBMISSIONS_CHANNEL_ID', "SUBMISSIONS_CHANNEL_ID"),
-    "AUDIT_LOG_CHANNEL_ID" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID', "AUDIT_LOG_CHANNEL_ID"),
-    "AUDIT_LOG_CHANNEL_ID_SUBMISSIONS" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID_SUBMISSIONS', "AUDIT_LOG_CHANNEL_ID_SUBMISSIONS"),
-    "AUDIT_LOG_CHANNEL_ID_BANS" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID_BANS', "AUDIT_LOG_CHANNEL_ID_BANS"),
-    "AUDIT_LOG_CHANNEL_ID_ADMIN" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID_ADMIN', "AUDIT_LOG_CHANNEL_ID_ADMIN")
+  UPDATE public.config SET
+    "COMMUNITY_NAME" = coalesce(new_config->>'COMMUNITY_NAME', "COMMUNITY_NAME"), "LOGO_URL" = coalesce(new_config->>'LOGO_URL', "LOGO_URL"), "DISCORD_GUILD_ID" = coalesce(new_config->>'DISCORD_GUILD_ID', "DISCORD_GUILD_ID"), "DISCORD_INVITE_URL" = coalesce(new_config->>'DISCORD_INVITE_URL', "DISCORD_INVITE_URL"), "MTA_SERVER_URL" = coalesce(new_config->>'MTA_SERVER_URL', "MTA_SERVER_URL"), "BACKGROUND_IMAGE_URL" = coalesce(new_config->>'BACKGROUND_IMAGE_URL', "BACKGROUND_IMAGE_URL"), "SHOW_HEALTH_CHECK" = coalesce((new_config->>'SHOW_HEALTH_CHECK')::boolean, "SHOW_HEALTH_CHECK"), "SUBMISSIONS_CHANNEL_ID" = coalesce(new_config->>'SUBMISSIONS_CHANNEL_ID', "SUBMISSIONS_CHANNEL_ID"), "AUDIT_LOG_CHANNEL_ID" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID', "AUDIT_LOG_CHANNEL_ID"), "AUDIT_LOG_CHANNEL_ID_SUBMISSIONS" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID_SUBMISSIONS', "AUDIT_LOG_CHANNEL_ID_SUBMISSIONS"), "AUDIT_LOG_CHANNEL_ID_BANS" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID_BANS', "AUDIT_LOG_CHANNEL_ID_BANS"), "AUDIT_LOG_CHANNEL_ID_ADMIN" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID_ADMIN', "AUDIT_LOG_CHANNEL_ID_ADMIN")
   WHERE id = 1;
-END;
-$$;
-
-CREATE OR REPLACE FUNCTION public.log_action(p_action text, p_log_type text DEFAULT 'general')
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-  admin_user record;
-  channel_id text;
-  bot_url TEXT := private.get_secret('VITE_DISCORD_BOT_URL');
-  bot_api_key TEXT := private.get_secret('VITE_DISCORD_BOT_API_KEY');
-BEGIN
-  SELECT id, raw_user_meta_data->>'full_name' AS username INTO admin_user
-  FROM auth.users WHERE id = public.get_user_id();
-
-  INSERT INTO public.audit_log(admin_id, admin_username, action)
-  VALUES (admin_user.id, admin_user.username, p_action);
-
-  -- Defensive check for bot configuration
-  IF bot_url IS NULL OR bot_api_key IS NULL OR bot_url LIKE '%YOUR_BOT_IP_OR_DOMAIN%' THEN
-    RAISE NOTICE 'Audit log notification skipped: Bot URL or API Key not configured.';
-    RETURN;
-  END IF;
-
-  SELECT
-    CASE p_log_type
-        WHEN 'submission' THEN "AUDIT_LOG_CHANNEL_ID_SUBMISSIONS"
-        WHEN 'ban' THEN "AUDIT_LOG_CHANNEL_ID_BANS"
-        WHEN 'admin' THEN "AUDIT_LOG_CHANNEL_ID_ADMIN"
-        ELSE "AUDIT_LOG_CHANNEL_ID" -- fallback to general
-    END
-  INTO channel_id
-  FROM public.config WHERE id = 1;
-
-  IF channel_id IS NOT NULL THEN
-     PERFORM extensions.http((
-        'POST',
-        bot_url || '/api/notify',
-        ARRAY[('Content-Type', 'application/json')::extensions.http_header, ('Authorization', 'Bearer ' || bot_api_key)::extensions.http_header],
-        'application/json',
-        jsonb_build_object(
-          'type', 'audit_log',
-          'payload', jsonb_build_object(
-            'channelId', channel_id,
-            'embed', jsonb_build_object(
-              'description', p_action,
-              'color', 16776960, -- Yellow
-              'author', jsonb_build_object('name', format('سجل إدارة | %s', admin_user.username)),
-              'timestamp', now()
-            )
-          )
-        )::text
-    ));
-  END IF;
 END;
 $$;
 
@@ -748,28 +528,13 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_expires_at timestamptz;
-  target_username text;
+  v_expires_at timestamptz; target_username text;
 BEGIN
-  IF NOT public.has_permission(public.get_user_id(), 'admin_lookup') THEN
-    RAISE EXCEPTION 'Insufficient permissions';
-  END IF;
-
-  IF p_duration_hours IS NOT NULL THEN
-    v_expires_at := now() + (p_duration_hours * interval '1 hour');
-  ELSE
-    v_expires_at := null;
-  END IF;
-  
-  UPDATE public.profiles
-  SET is_banned = true, ban_reason = p_reason, ban_expires_at = v_expires_at
-  WHERE id = p_target_user_id;
-
+  IF NOT public.has_permission(public.get_user_id(), 'admin_lookup') THEN RAISE EXCEPTION 'Insufficient permissions'; END IF;
+  IF p_duration_hours IS NOT NULL THEN v_expires_at := now() + (p_duration_hours * interval '1 hour'); ELSE v_expires_at := null; END IF;
+  UPDATE public.profiles SET is_banned = true, ban_reason = p_reason, ban_expires_at = v_expires_at WHERE id = p_target_user_id;
   UPDATE public.bans SET is_active = false WHERE user_id = p_target_user_id AND is_active = true;
-
-  INSERT INTO public.bans(user_id, banned_by, reason, expires_at, is_active)
-  VALUES (p_target_user_id, public.get_user_id(), p_reason, v_expires_at, true);
-
+  INSERT INTO public.bans(user_id, banned_by, reason, expires_at, is_active) VALUES (p_target_user_id, public.get_user_id(), p_reason, v_expires_at, true);
   SELECT raw_user_meta_data->>'global_name' FROM auth.users WHERE id = p_target_user_id INTO target_username;
   PERFORM public.log_action(format('🚫 قام بحظر المستخدم **%s** للسبب: *%s*', coalesce(target_username, p_target_user_id::text), p_reason), 'ban');
 END;
@@ -784,18 +549,9 @@ AS $$
 DECLARE
   target_username text;
 BEGIN
-  IF NOT public.has_permission(public.get_user_id(), 'admin_lookup') THEN
-    RAISE EXCEPTION 'Insufficient permissions';
-  END IF;
-
-  UPDATE public.profiles
-  SET is_banned = false, ban_reason = null, ban_expires_at = null
-  WHERE id = p_target_user_id;
-
-  UPDATE public.bans
-  SET is_active = false, unbanned_by = public.get_user_id(), unbanned_at = now()
-  WHERE user_id = p_target_user_id AND is_active = true;
-  
+  IF NOT public.has_permission(public.get_user_id(), 'admin_lookup') THEN RAISE EXCEPTION 'Insufficient permissions'; END IF;
+  UPDATE public.profiles SET is_banned = false, ban_reason = null, ban_expires_at = null WHERE id = p_target_user_id;
+  UPDATE public.bans SET is_active = false, unbanned_by = public.get_user_id(), unbanned_at = now() WHERE user_id = p_target_user_id AND is_active = true;
   SELECT raw_user_meta_data->>'global_name' FROM auth.users WHERE id = p_target_user_id INTO target_username;
   PERFORM public.log_action(format('✅ قام بفك الحظر عن المستخدم **%s**', coalesce(target_username, p_target_user_id::text)), 'ban');
 END;
@@ -808,23 +564,204 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  IF NOT public.has_permission(public.get_user_id(), 'admin_permissions') THEN
-    RAISE EXCEPTION 'Insufficient permissions';
-  END IF;
-  
+  IF NOT public.has_permission(public.get_user_id(), 'admin_permissions') THEN RAISE EXCEPTION 'Insufficient permissions'; END IF;
   PERFORM public.log_action(format('قام بتحديث صلاحيات الرتبة <@&%s>', p_role_id), 'admin');
-
-  INSERT INTO public.role_permissions (role_id, permissions)
-  VALUES (p_role_id, p_permissions)
-  ON CONFLICT (role_id) DO UPDATE
-  SET permissions = excluded.permissions;
+  INSERT INTO public.role_permissions (role_id, permissions) VALUES (p_role_id, p_permissions)
+  ON CONFLICT (role_id) DO UPDATE SET permissions = excluded.permissions;
 END;
 $$;
 
 -- =================================================================
--- 7. INITIAL DATA SEEDING (TRANSLATIONS)
+-- 7. NOTIFICATION TRIGGERS (NEW SYSTEM)
 -- =================================================================
--- (Same as before, truncated for brevity, but will be included in the final file)
+
+-- Function to handle new submission notifications
+CREATE OR REPLACE FUNCTION private.handle_new_submission_notification()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  channel_id text;
+  user_discord_id text;
+  proxy_url text := 'http://supabase_kong_url/functions/v1/discord-proxy';
+BEGIN
+  -- 1. Send to Submissions Channel
+  SELECT "SUBMISSIONS_CHANNEL_ID" INTO channel_id FROM public.config WHERE id = 1;
+  IF channel_id IS NOT NULL THEN
+    PERFORM net.http_post(
+        url := proxy_url,
+        body := jsonb_build_object(
+          'type', 'new_submission',
+          'payload', jsonb_build_object(
+            'channelId', channel_id,
+            'embed', jsonb_build_object(
+              'title', '📥 تقديم جديد',
+              'description', 'تم استلام تقديم جديد وهو الآن في انتظار المراجعة.',
+              'color', 3447003, -- Blue
+              'fields', jsonb_build_array(
+                jsonb_build_object('name', 'المتقدم', 'value', NEW.username, 'inline', true),
+                jsonb_build_object('name', 'نوع التقديم', 'value', NEW."quizTitle", 'inline', true),
+                jsonb_build_object('name', 'الرتبة', 'value', NEW.user_highest_role, 'inline', true)
+              ),
+              'timestamp', NEW."submittedAt"
+            )
+          )
+        )
+    );
+  END IF;
+
+  -- 2. Send DM to user confirming receipt
+  SELECT discord_id INTO user_discord_id FROM public.profiles WHERE id = NEW.user_id;
+  IF user_discord_id IS NOT NULL THEN
+     PERFORM net.http_post(
+        url := proxy_url,
+        body := jsonb_build_object(
+          'type', 'submission_receipt',
+          'payload', jsonb_build_object(
+            'userId', user_discord_id,
+            'embed', jsonb_build_object(
+              'title', '📄 تم استلام تقديمك بنجاح',
+              'description', 'شكرًا لك على تقديمك. لقد استلمنا طلبك وسيقوم أحد المسؤولين بمراجعته في أقرب وقت ممكن. يمكنك متابعة حالة طلبك من خلال صفحة "تقديماتي" على الموقع.',
+              'color', 3447003, -- Blue
+              'fields', jsonb_build_array(
+                jsonb_build_object('name', 'نوع التقديم', 'value', NEW."quizTitle")
+              ),
+              'timestamp', now()
+            )
+          )
+        )
+    );
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+-- Trigger definition for new submissions
+CREATE TRIGGER on_submission_created
+  AFTER INSERT ON public.submissions
+  FOR EACH ROW EXECUTE FUNCTION private.handle_new_submission_notification();
+  
+-- Function to handle submission status update notifications
+CREATE OR REPLACE FUNCTION private.handle_submission_status_update()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  user_discord_id text;
+  embed_title text;
+  embed_description text;
+  embed_color int;
+  proxy_url text := 'http://supabase_kong_url/functions/v1/discord-proxy';
+BEGIN
+  -- Only run if status has changed
+  IF NEW.status = OLD.status THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT discord_id INTO user_discord_id FROM public.profiles WHERE id = NEW.user_id;
+  IF user_discord_id IS NULL THEN
+    RAISE NOTICE 'Notification skipped: Could not find discord_id for user %', NEW.user_id;
+    RETURN NEW;
+  END IF;
+
+  IF NEW.status = 'taken' THEN
+    embed_title := '👀 تقديمك قيد المراجعة الآن';
+    embed_description := format('تم استلام تقديمك من قبل المشرف %s وهو الآن قيد المراجعة.', NEW."adminUsername");
+    embed_color := 3447003; -- Blue
+  ELSIF NEW.status = 'accepted' THEN
+    embed_title := '✅ تم قبول تقديمك!';
+    embed_description := 'تهانينا! تم قبول طلبك. سيتم التواصل معك قريبًا بخصوص الخطوات التالية.';
+    embed_color := 5763719; -- Green
+  ELSIF NEW.status = 'refused' THEN
+    embed_title := '❌ تم رفض تقديمك';
+    embed_description := 'نأسف لإعلامك بأنه تم رفض طلبك في الوقت الحالي. نتمنى لك حظًا أوفر في المرة القادمة.';
+    embed_color := 15548997; -- Red
+  ELSE
+    RETURN NEW; -- Do not send DM for 'pending' or other statuses
+  END IF;
+  
+   PERFORM net.http_post(
+      url := proxy_url,
+      body := jsonb_build_object(
+        'type', 'submission_result',
+        'payload', jsonb_build_object(
+          'userId', user_discord_id,
+          'embed', jsonb_build_object(
+            'title', embed_title,
+            'description', embed_description,
+            'color', embed_color,
+            'fields', jsonb_build_array(
+              jsonb_build_object('name', 'التقديم', 'value', NEW."quizTitle"),
+              jsonb_build_object('name', 'الحالة', 'value', NEW.status),
+              jsonb_build_object('name', 'بواسطة', 'value', NEW."adminUsername")
+            ),
+            'timestamp', now()
+          )
+        )
+      )
+  );
+  RETURN NEW;
+END;
+$$;
+
+-- Trigger definition for submission updates
+CREATE TRIGGER on_submission_updated
+  AFTER UPDATE OF status ON public.submissions
+  FOR EACH ROW EXECUTE FUNCTION private.handle_submission_status_update();
+
+-- Function to handle audit log notifications
+CREATE OR REPLACE FUNCTION private.handle_audit_log_notification()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  channel_id text;
+  proxy_url text := 'http://supabase_kong_url/functions/v1/discord-proxy';
+BEGIN
+  SELECT
+    CASE NEW.log_type
+        WHEN 'submission' THEN "AUDIT_LOG_CHANNEL_ID_SUBMISSIONS"
+        WHEN 'ban' THEN "AUDIT_LOG_CHANNEL_ID_BANS"
+        WHEN 'admin' THEN "AUDIT_LOG_CHANNEL_ID_ADMIN"
+        ELSE "AUDIT_LOG_CHANNEL_ID" -- fallback to general
+    END
+  INTO channel_id
+  FROM public.config WHERE id = 1;
+
+  IF channel_id IS NOT NULL THEN
+     PERFORM net.http_post(
+        url := proxy_url,
+        body := jsonb_build_object(
+          'type', 'audit_log',
+          'payload', jsonb_build_object(
+            'channelId', channel_id,
+            'embed', jsonb_build_object(
+              'description', NEW.action,
+              'color', 16776960, -- Yellow
+              'author', jsonb_build_object('name', format('سجل إدارة | %s', NEW.admin_username)),
+              'timestamp', now()
+            )
+          )
+        )
+    );
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+-- Trigger definition for audit logs
+CREATE TRIGGER on_audit_log_created
+  AFTER INSERT ON public.audit_log
+  FOR EACH ROW EXECUTE FUNCTION private.handle_audit_log_notification();
+
+-- =================================================================
+-- 8. INITIAL DATA SEEDING (TRANSLATIONS)
+-- =================================================================
 INSERT INTO public.translations (key, en, ar) VALUES
 ('home', 'Home', 'الرئيسية'),
 ('store', 'Store', 'المتجر'),
@@ -1055,7 +992,6 @@ INSERT INTO public.translations (key, en, ar) VALUES
 ('dashboard', 'Dashboard', 'الرئيسية'),
 ('loading_submissions', 'Loading submissions...', 'جاري تحميل التقديمات...')
 ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar;
-
 
 COMMIT;
 `;

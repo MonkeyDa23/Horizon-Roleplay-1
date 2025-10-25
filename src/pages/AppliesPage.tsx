@@ -55,11 +55,14 @@ const AppliesPage: React.FC = () => {
   );
 
   const getApplyButton = (quiz: Quiz) => {
+      // New logic: Check if the user has applied in the current "season"
+      // A season is defined by the last time the quiz was opened.
       const hasAppliedInCurrentSeason = quiz.lastOpenedAt
         ? userSubmissions.some(sub => 
             sub.quizId === quiz.id && 
             new Date(sub.submittedAt) >= new Date(quiz.lastOpenedAt!)
           )
+        // Fallback for old quizzes that might not have this timestamp
         : userSubmissions.some(sub => sub.quizId === quiz.id);
 
       if (hasAppliedInCurrentSeason) {

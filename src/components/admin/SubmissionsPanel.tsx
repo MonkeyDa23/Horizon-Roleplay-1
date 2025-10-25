@@ -97,6 +97,7 @@ const SubmissionsPanel: React.FC = () => {
                         <thead className="border-b border-brand-light-blue/50 text-gray-300 bg-brand-light-blue/30">
                             <tr>
                                 <th className="p-4">{t('applicant')}</th>
+                                <th className="p-4">{t('highest_role')}</th>
                                 <th className="p-4">{t('application_type')}</th>
                                 <th className="p-4">{t('submitted_on')}</th>
                                 <th className="p-4">{t('status')}</th>
@@ -107,6 +108,7 @@ const SubmissionsPanel: React.FC = () => {
                             {submissions.length > 0 ? submissions.map((sub) => (
                                 <tr key={sub.id} className="border-b border-brand-light-blue/50 last:border-none hover:bg-brand-light-blue/20 transition-colors">
                                     <td className="p-4 font-semibold text-white">{sub.username}</td>
+                                    <td className="p-4 text-sm text-gray-400">{sub.user_highest_role || t('member')}</td>
                                     <td className="p-4 text-gray-300">{sub.quizTitle}</td>
                                     <td className="p-4 text-sm text-gray-400">{new Date(sub.submittedAt).toLocaleString()}</td>
                                     <td className="p-4">{renderStatusBadge(sub.status)}</td>
@@ -119,7 +121,7 @@ const SubmissionsPanel: React.FC = () => {
                                     </td>
                                 </tr>
                             )) : (
-                                <tr><td colSpan={5} className="p-8 text-center text-gray-400">{t('no_pending_submissions')}</td></tr>
+                                <tr><td colSpan={6} className="p-8 text-center text-gray-400">{t('no_pending_submissions')}</td></tr>
                             )}
                         </tbody>
                     </table>
