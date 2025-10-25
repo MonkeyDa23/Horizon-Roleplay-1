@@ -1,20 +1,18 @@
 // src/pages/AdminPage.tsx
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useLocalization } from '../hooks/useLocalization';
 import { useToast } from '../hooks/useToast';
-import { useConfig } from '../hooks/useConfig';
-import { useNavigate, Link } from 'react-router-dom';
 import { 
-  ApiError, getQuizzes, saveQuiz as apiSaveQuiz, deleteQuiz as apiDeleteQuiz,
+  getQuizzes, saveQuiz as apiSaveQuiz, deleteQuiz as apiDeleteQuiz,
   getSubmissions, updateSubmissionStatus, getAuditLogs, getRules, saveRules as apiSaveRules,
   getProducts, saveProduct as apiSaveProduct, deleteProduct as apiDeleteProduct,
   getTranslations, saveTranslations as apiSaveTranslations, saveConfig as apiSaveConfig,
-  getGuildRoles, lookupUser, banUser, unbanUser
+  lookupUser, banUser, unbanUser
 } from '../lib/api';
 import type { 
-  Quiz, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule, 
-  Product, DiscordRole, PermissionKey, UserLookupResult, User, AppConfig, Translations, QuizQuestion
+  Quiz, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, 
+  Product, UserLookupResult, User, AppConfig, Translations, QuizQuestion
 } from '../types';
 import { 
   UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store,
@@ -23,6 +21,7 @@ import {
 } from 'lucide-react';
 import Modal from '../components/Modal';
 import SEO from '../components/SEO';
+import { useConfig } from '../hooks/useConfig';
 
 
 type AdminTab = 'submissions' | 'quizzes' | 'rules' | 'store' | 'translations' | 'appearance' | 'lookup' | 'audit';
@@ -51,16 +50,17 @@ const AdminPage: React.FC = () => {
     
     const [activeTab, setActiveTab] = useState<AdminTab>(accessibleTabs[0]?.id || 'submissions');
     
-    // Fallback if somehow an admin lands on a tab they can't access
     useEffect(() => {
         if (!accessibleTabs.find(t => t.id === activeTab)) {
             setActiveTab(accessibleTabs[0]?.id || 'submissions');
         }
     }, [accessibleTabs, activeTab]);
 
+    const currentTab = TABS.find(t => t.id === activeTab);
+
     return (
         <>
-            <SEO title={`Admin Panel - ${t(TABS.find(t => t.id === activeTab)?.labelKey || '')}`} noIndex={true} description="Vixel Roleplay Administration Panel"/>
+            <SEO title={`Admin Panel - ${t(currentTab?.labelKey || '')}`} noIndex={true} description="Vixel Roleplay Administration Panel"/>
             <div className="container mx-auto px-6 py-16">
             <div className="text-center mb-12">
                 <div className="inline-block p-4 bg-brand-light-blue rounded-full mb-4">
@@ -85,13 +85,13 @@ const AdminPage: React.FC = () => {
                 </div>
                 <div>
                     {activeTab === 'submissions' && <SubmissionsPanel />}
-                    {activeTab === 'quizzes' && <QuizzesPanel />}
-                    {activeTab === 'rules' && <RulesPanel />}
-                    {activeTab === 'store' && <StorePanel />}
-                    {activeTab === 'translations' && <TranslationsPanel />}
-                    {activeTab === 'appearance' && <AppearancePanel />}
-                    {activeTab === 'lookup' && <UserLookupPanel />}
-                    {activeTab === 'audit' && <AuditLogPanel />}
+                    {activeTab === 'quizzes' && user?.is_super_admin && <QuizzesPanel />}
+                    {activeTab === 'rules' && user?.is_super_admin && <RulesPanel />}
+                    {activeTab === 'store' && user?.is_super_admin && <StorePanel />}
+                    {activeTab === 'translations' && user?.is_super_admin && <TranslationsPanel />}
+                    {activeTab === 'appearance' && user?.is_super_admin && <AppearancePanel />}
+                    {activeTab === 'lookup' && user?.is_super_admin && <UserLookupPanel />}
+                    {activeTab === 'audit' && user?.is_super_admin && <AuditLogPanel />}
                 </div>
             </div>
             </div>
@@ -100,10 +100,15 @@ const AdminPage: React.FC = () => {
 }
 
 // =================================================================
-// TAB PANELS
+// TAB PANELS & COMPONENTS
 // =================================================================
 
-// Submission Panel
+const PanelLoader: React.FC = () => (
+    <div className="flex justify-center items-center h-64">
+        <Loader2 className="animate-spin text-brand-cyan" size={32}/>
+    </div>
+);
+
 const SubmissionsPanel = () => {
     const { t } = useLocalization();
     const { user } = useAuth();
@@ -141,7 +146,7 @@ const SubmissionsPanel = () => {
     
     return (
         <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50">
-            {isLoading ? <div className="flex justify-center items-center h-64"><Loader2 className="animate-spin text-brand-cyan" size={32}/></div> : 
+            {isLoading ? <PanelLoader/> : 
             <div className="overflow-x-auto">
                 <table className="w-full text-left min-w-[700px]">
                     <thead className="border-b border-brand-light-blue/50 text-gray-300">
@@ -173,13 +178,11 @@ const SubmissionsPanel = () => {
                 </table>
             </div>
             }
-
             {viewingSubmission && user && <SubmissionModal submission={viewingSubmission} user={user} onClose={() => setViewingSubmission(null)} onDecision={handleDecision} />}
         </div>
     );
 };
 
-// Quiz Panel
 const QuizzesPanel = () => {
     const { t } = useLocalization();
     const { showToast } = useToast();
@@ -222,7 +225,7 @@ const QuizzesPanel = () => {
                 <button onClick={() => setEditingQuiz({ titleKey: '', descriptionKey: '', isOpen: false, questions: [{id: crypto.randomUUID(), textKey: '', timeLimit: 60 }] })} className="bg-brand-cyan text-brand-dark font-bold py-2 px-4 rounded-md hover:bg-white transition-all flex items-center gap-2"><Plus size={20} />{t('create_new_quiz')}</button>
             </div>
              <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50">
-                {isLoading ? <div className="flex justify-center items-center h-64"><Loader2 className="animate-spin text-brand-cyan" size={32}/></div> : 
+                {isLoading ? <PanelLoader/> : 
                  <table className="w-full text-left">
                     <thead className="border-b border-brand-light-blue/50 text-gray-300">
                         <tr><th className="p-4">{t('quiz_title')}</th><th className="p-4">{t('questions')}</th><th className="p-4">{t('status')}</th><th className="p-4 text-right">{t('actions')}</th></tr>
@@ -250,7 +253,6 @@ const QuizzesPanel = () => {
     )
 };
 
-// Rules Panel
 const RulesPanel = () => {
     const { t } = useLocalization();
     const { showToast } = useToast();
@@ -316,7 +318,7 @@ const RulesPanel = () => {
                     <button onClick={handleSave} disabled={isSaving || isLoading} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white transition-colors min-w-[9rem] flex justify-center">{isSaving ? <Loader2 className="animate-spin" /> : t('save_rules')}</button>
                 </div>
             </div>
-            {isLoading ? <div className="flex justify-center items-center h-64"><Loader2 className="animate-spin text-brand-cyan" size={32}/></div> :
+            {isLoading ? <PanelLoader/> :
             <div className="space-y-6">
                 {categories.map((cat, catIndex) => (
                     <div key={cat.id} className="bg-brand-dark-blue p-4 rounded-lg border border-brand-light-blue/50">
@@ -343,7 +345,6 @@ const RulesPanel = () => {
     );
 };
 
-// Store Panel
 const StorePanel = () => {
     const { t } = useLocalization();
     const { showToast } = useToast();
@@ -386,7 +387,7 @@ const StorePanel = () => {
                 <button onClick={() => setEditingProduct({ nameKey: '', descriptionKey: '', price: 0, imageUrl: '' })} className="bg-brand-cyan text-brand-dark font-bold py-2 px-4 rounded-md hover:bg-white transition-all flex items-center gap-2"><Plus size={20} />Add New Product</button>
             </div>
             <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50">
-                {isLoading ? <div className="flex justify-center items-center h-64"><Loader2 className="animate-spin text-brand-cyan" size={32}/></div> :
+                {isLoading ? <PanelLoader/> :
                 <table className="w-full text-left">
                     <thead className="border-b border-brand-light-blue/50 text-gray-300">
                         <tr>
@@ -454,7 +455,7 @@ const TranslationsPanel = () => {
         key.toLowerCase().includes(filter.toLowerCase()) ||
         translations[key].en.toLowerCase().includes(filter.toLowerCase()) ||
         translations[key].ar.toLowerCase().includes(filter.toLowerCase())
-    );
+    ).sort();
 
     return (
         <div>
@@ -465,7 +466,7 @@ const TranslationsPanel = () => {
                     <button onClick={handleSave} disabled={isSaving || isLoading} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white transition-colors min-w-[9rem] flex justify-center">{isSaving ? <Loader2 className="animate-spin" /> : t('save_translations')}</button>
                 </div>
             </div>
-            {isLoading ? <div className="flex justify-center items-center h-64"><Loader2 className="animate-spin text-brand-cyan" size={32}/></div> :
+            {isLoading ? <PanelLoader/> :
              <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50 overflow-hidden">
                 <div className="overflow-x-auto">
                 <table className="w-full text-left min-w-[800px]">
@@ -527,9 +528,7 @@ const AppearancePanel = () => {
         </div>
     );
 
-    if (configLoading) {
-         return <div className="flex justify-center items-center h-64"><Loader2 className="animate-spin text-brand-cyan" size={32}/></div>
-    }
+    if (configLoading) return <PanelLoader/>
 
     return (
         <div>
@@ -565,15 +564,14 @@ const UserLookupPanel = () => {
             const result = await lookupUser(discordId);
             setSearchResult(result);
         } catch(e) {
-            const error = e as ApiError;
-            showToast(error.message, 'error');
+            showToast((e as Error).message, 'error');
         } finally {
             setIsLoading(false);
         }
     };
     
     const handleUnban = async () => {
-        if (!searchResult) return;
+        if (!searchResult || !searchResult.id) return;
         if(window.confirm(`Are you sure you want to unban ${searchResult.username}?`)) {
             try {
                 await unbanUser(searchResult.id);
@@ -625,7 +623,6 @@ const UserLookupPanel = () => {
     );
 };
 
-// Audit Log Panel
 const AuditLogPanel = () => {
   const { t } = useLocalization();
   const { showToast } = useToast();
@@ -648,11 +645,7 @@ const AuditLogPanel = () => {
 
   return (
     <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50">
-      {isLoading ? (
-        <div className="flex justify-center items-center h-64">
-          <Loader2 className="animate-spin text-brand-cyan" size={32} />
-        </div>
-      ) : (
+      {isLoading ? <PanelLoader/> : (
         <div className="overflow-x-auto">
           <table className="w-full text-left min-w-[600px]">
             <thead className="border-b border-brand-light-blue/50 text-gray-300">
@@ -664,9 +657,7 @@ const AuditLogPanel = () => {
             </thead>
             <tbody>
               {logs.length === 0 ? (
-                <tr>
-                  <td colSpan={3} className="p-8 text-center text-gray-400">{t('no_logs_found')}</td>
-                </tr>
+                <tr><td colSpan={3} className="p-8 text-center text-gray-400">{t('no_logs_found')}</td></tr>
               ) : (
                 logs.map((log) => (
                   <tr key={log.id} className="border-b border-brand-light-blue/50 last:border-none">
@@ -685,11 +676,6 @@ const AuditLogPanel = () => {
 };
 
 
-// =================================================================
-// MODALS
-// =================================================================
-
-// Submission Modal
 const SubmissionModal: React.FC<{submission: QuizSubmission; user: User; onClose: () => void; onDecision: (id: string, decision: 'accepted' | 'refused') => void;}> = ({ submission, user, onClose, onDecision }) => {
     const { t } = useLocalization();
     return (
@@ -730,7 +716,6 @@ const SubmissionModal: React.FC<{submission: QuizSubmission; user: User; onClose
     );
 };
 
-// Quiz Editor Modal
 const QuizEditorModal: React.FC<{quiz: Partial<Quiz>; onSave: (quiz: Partial<Quiz>) => void; onClose: () => void;}> = ({ quiz, onSave, onClose }) => {
     const [editedQuiz, setEditedQuiz] = useState<Partial<Quiz>>(quiz);
     const { t } = useLocalization();
@@ -753,12 +738,11 @@ const QuizEditorModal: React.FC<{quiz: Partial<Quiz>; onSave: (quiz: Partial<Qui
 
     return (
         <Modal isOpen={true} onClose={onClose} title={editedQuiz.id ? t('edit_quiz') : t('create_new_quiz')}>
-             <div className="space-y-4 text-white max-h-[80vh] overflow-y-auto pr-2">
+             <div className="space-y-4 text-white max-h-[80vh] overflow-y-auto p-1">
                 <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_title')}</label><input type="text" value={editedQuiz.titleKey || ''} onChange={(e) => setEditedQuiz({...editedQuiz, titleKey: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
                 <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_description')}</label><textarea value={editedQuiz.descriptionKey || ''} onChange={(e) => setEditedQuiz({...editedQuiz, descriptionKey: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" rows={3}></textarea></div>
                 <div><label className="block mb-1 font-semibold text-gray-300">Logo URL</label><input type="text" value={editedQuiz.logoUrl || ''} onChange={(e) => setEditedQuiz({...editedQuiz, logoUrl: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
                 <div><label className="block mb-1 font-semibold text-gray-300">Banner URL</label><input type="text" value={editedQuiz.bannerUrl || ''} onChange={(e) => setEditedQuiz({...editedQuiz, bannerUrl: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
-                <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_handler_roles')}</label><input type="text" placeholder="e.g. 123,456" value={(editedQuiz.allowedTakeRoles || []).join(',')} onChange={(e) => setEditedQuiz({...editedQuiz, allowedTakeRoles: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /><p className="text-xs text-gray-400 mt-1">{t('quiz_handler_roles_desc')}</p></div>
                 <div className="flex items-center gap-4 pt-2"><label className="font-semibold text-gray-300">{t('status')}:</label><button onClick={() => setEditedQuiz({...editedQuiz, isOpen: !editedQuiz.isOpen})} className={`px-4 py-1 rounded-full font-bold ${editedQuiz.isOpen ? 'bg-green-500/30 text-green-300' : 'bg-red-500/30 text-red-300'}`}>{editedQuiz.isOpen ? t('open') : t('closed')}</button></div>
 
                 <div className="border-t border-brand-light-blue/50 pt-4 mt-4">
@@ -786,10 +770,8 @@ const QuizEditorModal: React.FC<{quiz: Partial<Quiz>; onSave: (quiz: Partial<Qui
     );
 }
 
-// Product Editor Modal
 const ProductEditorModal: React.FC<{product: Partial<Product>; onSave: (p: Partial<Product>) => void; onClose: () => void;}> = ({ product, onSave, onClose }) => {
     const [editedProduct, setEditedProduct] = useState(product);
-    const { t } = useLocalization();
     return (
         <Modal isOpen={true} onClose={onClose} title={product.id ? 'Edit Product' : 'Add New Product'}>
             <div className="space-y-4 text-white">
@@ -810,32 +792,25 @@ const BanUserModal: React.FC<{user: UserLookupResult; onClose: () => void; onBan
     const { t } = useLocalization();
     const { showToast } = useToast();
     const [reason, setReason] = useState('');
-    const [duration, setDuration] = useState<number | null>(24); // Default 1 day
+    const [duration, setDuration] = useState<number | null>(24);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleSubmit = async () => {
-        if (!reason) {
-            showToast('Reason is required', 'error');
-            return;
-        }
+        if (!reason) { showToast('Reason is required', 'error'); return; }
+        if (!user.id) { showToast('Cannot ban a user not registered on the website.', 'error'); return; }
         setIsSubmitting(true);
         try {
             await banUser(user.id, reason, duration);
             showToast(`${user.username} has been banned.`, 'success');
             onBanned();
             onClose();
-        } catch (e) {
-            showToast((e as Error).message, 'error');
-        } finally {
-            setIsSubmitting(false);
-        }
+        } catch (e) { showToast((e as Error).message, 'error');
+        } finally { setIsSubmitting(false); }
     };
     
     const durationOptions = [
-        { label: '1 Hour', value: 1 },
-        { label: '1 Day', value: 24 },
-        { label: '7 Days', value: 168 },
-        { label: '30 Days', value: 720 },
+        { label: '1 Hour', value: 1 }, { label: '1 Day', value: 24 },
+        { label: '7 Days', value: 168 }, { label: '30 Days', value: 720 },
         { label: 'Permanent', value: null },
     ];
 
@@ -863,9 +838,6 @@ const BanUserModal: React.FC<{user: UserLookupResult; onClose: () => void; onBan
     );
 }
 
-// =================================================================
-// HELPER COMPONENTS
-// =================================================================
 const StatusBadge: React.FC<{ status: SubmissionStatus }> = ({ status }) => {
     const { t } = useLocalization();
     const statusMap = {
@@ -877,6 +849,5 @@ const StatusBadge: React.FC<{ status: SubmissionStatus }> = ({ status }) => {
     const { text, color } = statusMap[status];
     return <span className={`px-3 py-1 text-sm font-bold rounded-full ${color}`}>{text}</span>;
 };
-
 
 export default AdminPage;
