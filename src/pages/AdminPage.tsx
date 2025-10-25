@@ -320,7 +320,7 @@ const QuizzesPanel: React.FC = () => {
             </div>
             {editingQuiz && <Modal isOpen={!!editingQuiz} onClose={() => setEditingQuiz(null)} title={t(editingQuiz.id ? 'edit_quiz' : 'create_new_quiz')}>
                 <div className="space-y-4 text-white max-h-[70vh] overflow-y-auto pr-4">
-                     {/* Quiz Editor Form */}
+                    {/* Quiz Editor Form */}
                 </div>
             </Modal>}
         </Panel>

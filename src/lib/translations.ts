@@ -1,3 +1,4 @@
+
 import { Translations } from '../types';
 
 // This file serves as a fallback for translations if the database connection fails.

@@ -1,3 +1,4 @@
+
 // src/lib/permissions.ts
 
 import type { PermissionKey } from "../types";
