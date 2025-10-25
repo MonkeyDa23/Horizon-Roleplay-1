@@ -216,9 +216,9 @@ app.post('/api/notify', authenticate, async (req: any, res: any) => {
         if (type === 'new_submission' || type === 'audit_log') {
             const channelId = payload.channelId;
             const channel = await client.channels.fetch(channelId);
-            // FIX: Replaced the invalid `isGuildTextBased()` method with a sequence of correct type guards.
-            // `isTextBased()` ensures the channel can receive messages, and `isGuildBased()` ensures it's a channel within a server.
-            if (channel?.isTextBased() && channel.isGuildBased()) {
+            // FIX: The order of type guards was incorrect, causing a type error on DM channels. `isGuildBased` must be checked
+            // before `isTextBased` to correctly narrow the channel type and ensure it's a channel within a server.
+            if (channel && channel.isGuildBased() && channel.isTextBased()) {
                 await channel.send({ embeds: [payload.embed] });
             } else {
                 throw new Error(`Channel ${channelId} is not a valid guild text-based channel.`);
