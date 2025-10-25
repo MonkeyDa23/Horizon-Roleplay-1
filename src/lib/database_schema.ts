@@ -1,4 +1,3 @@
-
 // Vixel Roleplay Website - Full Database Schema (V22 - Robust Permissions Fix)
 export const databaseSchema = `
 /*
@@ -856,7 +855,10 @@ INSERT INTO public.translations (key, en, ar) VALUES
 ('q_police_2', 'When are you permitted to use lethal force?', 'متى يسمح لك باستخدام القوة المميتة؟'),
 ('quiz_medic_name', 'EMS Department Application', 'تقديم قسم الإسعاف'),
 ('quiz_medic_desc', 'You are required to be calm and professional at all times.', 'مطلوب منك الهدوء والاحترافية في جميع الأوقات.'),
-('q_medic_1', 'What is your top priority when arriving at an accident scene?', 'ما هي أولويتك القصوى عند الوصول إلى مكان الحادث؟')
+('q_medic_1', 'What is your top priority when arriving at an accident scene?', 'ما هي أولويتك القصوى عند الوصول إلى مكان الحادث؟'),
+('admin_dashboard_welcome_message', 'Welcome to the control panel. You can manage all website settings from the sidebar.', 'أهلاً بك في لوحة التحكم. يمكنك إدارة جميع إعدادات الموقع من الشريط الجانبي.'),
+('dashboard', 'Dashboard', 'الرئيسية'),
+('loading_submissions', 'Loading submissions...', 'جاري تحميل التقديمات...')
 ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar;
 
 
