@@ -1,10 +1,10 @@
-// Vixel Roleplay Website - Full Database Schema (V18 - Simplified Admin Flags)
+// Vixel Roleplay Website - Full Database Schema (V19 - RLS Recursion Fix)
 export const databaseSchema = `
 /*
 ====================================================================================================
- Vixel Roleplay Website - Full Database Schema (V18 - Simplified Admin Flags)
+ Vixel Roleplay Website - Full Database Schema (V19 - RLS Recursion Fix)
  Author: AI
- Date: 2024-06-07
+ Date: 2024-06-08
  
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -220,9 +220,9 @@ AS $$
   SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
 $$;
 
--- SIMPLIFIED PERMISSION CHECK FUNCTION (V18)
+-- SIMPLIFIED PERMISSION CHECK FUNCTION (V19 - RLS Recursion Fix)
 -- Checks the 'is_admin' and 'is_super_admin' flags on the user's profile.
--- Runs with SECURITY DEFINER to be usable within RLS policies without recursion.
+-- Runs with SECURITY DEFINER to be usable within RLS policies.
 CREATE OR REPLACE FUNCTION public.has_permission(p_user_id uuid, p_permission_key text)
 RETURNS boolean
 LANGUAGE plpgsql STABLE
@@ -237,6 +237,8 @@ BEGIN
     RETURN false;
   END IF;
   
+  -- This SELECT can now run without being blocked by RLS on the profiles table
+  -- because of the new, non-recursive SELECT policy on public.profiles.
   SELECT is_super_admin, is_admin
   INTO v_is_super_admin, v_is_admin
   FROM public.profiles WHERE id = p_user_id;
@@ -277,12 +279,20 @@ CREATE POLICY "Allow public read access to rules" ON public.rules FOR SELECT USI
 CREATE POLICY "Allow public read access to translations" ON public.translations FOR SELECT USING (true);
 
 -- USER-SPECIFIC POLICIES
-CREATE POLICY "Allow users to read their own profile" ON public.profiles FOR SELECT USING (id = public.get_user_id());
 CREATE POLICY "Allow users to see their own submissions" ON public.submissions FOR SELECT USING (user_id = public.get_user_id());
 CREATE POLICY "Allow users to insert their own submissions" ON public.submissions FOR INSERT WITH CHECK (user_id = public.get_user_id());
 
+-- PROFILES RLS (V19 RECURSION FIX)
+-- These new policies prevent the recursive loop that was blocking the permission system.
+-- Policy 1: Any logged-in user can read from the profiles table. This is necessary for the has_permission function to work.
+CREATE POLICY "Allow authenticated users to read profiles" ON public.profiles
+FOR SELECT USING (auth.role() = 'authenticated');
+-- Policy 2: Only super admins can modify the profiles table (e.g., banning or promoting other users).
+CREATE POLICY "Allow super admins to manage profiles" ON public.profiles
+FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_lookup'));
+
+
 -- ADMIN MANAGEMENT POLICIES (ALL ACTIONS)
--- The simplified has_permission check works here.
 CREATE POLICY "Allow admins to manage config" ON public.config FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_appearance'));
 CREATE POLICY "Allow admins to manage products" ON public.products FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_store'));
 CREATE POLICY "Allow admins to manage quizzes" ON public.quizzes FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_quizzes'));
@@ -290,7 +300,6 @@ CREATE POLICY "Allow admins to manage rules" ON public.rules FOR ALL USING (publ
 CREATE POLICY "Allow admins to manage submissions" ON public.submissions FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_submissions'));
 CREATE POLICY "Allow admins to read audit log" ON public.audit_log FOR SELECT USING (public.has_permission(public.get_user_id(), 'admin_audit_log'));
 CREATE POLICY "Allow admins to manage translations" ON public.translations FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_translations'));
-CREATE POLICY "Allow admins to manage profiles" ON public.profiles FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_lookup'));
 CREATE POLICY "Allow admins to manage bans" ON public.bans FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_lookup'));
 
 
