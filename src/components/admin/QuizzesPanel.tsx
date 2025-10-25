@@ -1,3 +1,4 @@
+
 // src/components/admin/QuizzesPanel.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalization } from '../../hooks/useLocalization';
@@ -38,7 +39,7 @@ const Panel: React.FC<{ children: React.ReactNode; isLoading: boolean, loadingTe
 const QuizzesPanel: React.FC = () => {
     const { t } = useLocalization();
     const { showToast } = useToast();
-    const { translations } = useTranslations();
+    const { translations, refreshTranslations } = useTranslations();
     const [quizzes, setQuizzes] = useState<Quiz[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -100,6 +101,7 @@ const QuizzesPanel: React.FC = () => {
             await saveQuiz(editingQuiz);
             setEditingQuiz(null);
             showToast('Quiz saved!', 'success');
+            await refreshTranslations();
             await fetchQuizzes();
         } catch (error) {
             showToast(`Error: ${(error as Error).message}`, 'error');
@@ -208,11 +210,11 @@ const QuizzesPanel: React.FC = () => {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block mb-1 font-semibold text-gray-300">Logo Image URL</label>
+                            <label className="block mb-1 font-semibold text-gray-300">{t('logo_image_url')}</label>
                             <input type="text" value={editingQuiz.logoUrl || ''} onChange={(e) => setEditingQuiz({ ...editingQuiz, logoUrl: e.target.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                         </div>
                         <div>
-                            <label className="block mb-1 font-semibold text-gray-300">Banner Image URL</label>
+                            <label className="block mb-1 font-semibold text-gray-300">{t('banner_image_url')}</label>
                             <input type="text" value={editingQuiz.bannerUrl || ''} onChange={(e) => setEditingQuiz({ ...editingQuiz, bannerUrl: e.target.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                         </div>
                     </div>

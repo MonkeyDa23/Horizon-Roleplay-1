@@ -20,7 +20,7 @@ interface EditableRuleCategory extends Omit<RuleCategory, 'rules'> {
 const RulesPanel: React.FC = () => {
     const { t } = useLocalization();
     const { showToast } = useToast();
-    const { translations, loading: translationsLoading } = useTranslations();
+    const { translations, loading: translationsLoading, refreshTranslations } = useTranslations();
     const [categories, setCategories] = useState<EditableRuleCategory[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -57,6 +57,7 @@ const RulesPanel: React.FC = () => {
         try {
             const positionedCategories = categories.map((cat, index) => ({ ...cat, position: index }));
             await saveRules(positionedCategories);
+            await refreshTranslations();
             showToast(t('rules_updated_success'), 'success');
         } catch (error) {
             showToast((error as Error).message, 'error');

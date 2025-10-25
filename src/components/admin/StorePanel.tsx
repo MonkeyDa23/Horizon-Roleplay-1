@@ -1,3 +1,4 @@
+
 // src/components/admin/StorePanel.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalization } from '../../hooks/useLocalization';
@@ -18,7 +19,7 @@ interface EditingProductData extends Product {
 const StorePanel: React.FC = () => {
     const { t } = useLocalization();
     const { showToast } = useToast();
-    const { translations } = useTranslations();
+    const { translations, refreshTranslations } = useTranslations();
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -71,6 +72,7 @@ const StorePanel: React.FC = () => {
             await saveProduct(editingProduct);
             setEditingProduct(null);
             showToast('Product saved!', 'success');
+            await refreshTranslations();
             fetchProducts();
         } catch (error) {
             showToast(`Error: ${(error as Error).message}`, 'error');
@@ -103,7 +105,7 @@ const StorePanel: React.FC = () => {
         <div className="animate-fade-in-up">
             <div className="flex justify-end mb-6">
                 <button onClick={handleCreateNew} className="bg-brand-cyan text-brand-dark font-bold py-2 px-4 rounded-md hover:bg-white transition-all flex items-center gap-2">
-                    <Plus size={20} /> Add New Product
+                    <Plus size={20} /> {t('add_new_product')}
                 </button>
             </div>
             <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50 overflow-hidden">
@@ -134,7 +136,7 @@ const StorePanel: React.FC = () => {
                 </div>
             </div>
             {editingProduct && (
-                <Modal isOpen={!!editingProduct} onClose={() => setEditingProduct(null)} title={editingProduct.nameEn ? 'Edit Product' : 'Create Product'} maxWidth="lg">
+                <Modal isOpen={!!editingProduct} onClose={() => setEditingProduct(null)} title={t(editingProduct.nameEn ? 'edit_product' : 'create_product')} maxWidth="lg">
                     <div className="space-y-4 text-white">
                         <div>
                             <label className="block mb-1 font-semibold text-gray-300">{t('name_en')}</label>
@@ -153,17 +155,17 @@ const StorePanel: React.FC = () => {
                             <input type="text" dir="rtl" value={editingProduct.descriptionAr} onChange={(e) => setEditingProduct({ ...editingProduct, descriptionAr: e.target.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                         </div>
                         <div>
-                            <label className="block mb-1 font-semibold text-gray-300">Price</label>
+                            <label className="block mb-1 font-semibold text-gray-300">{t('price')}</label>
                             <input type="number" value={editingProduct.price} onChange={(e) => setEditingProduct({ ...editingProduct, price: parseFloat(e.target.value) || 0 })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                         </div>
                         <div>
-                            <label className="block mb-1 font-semibold text-gray-300">Image URL</label>
+                            <label className="block mb-1 font-semibold text-gray-300">{t('image_url')}</label>
                             <input type="text" value={editingProduct.imageUrl} onChange={(e) => setEditingProduct({ ...editingProduct, imageUrl: e.target.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                         </div>
                         <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4">
                             <button onClick={() => setEditingProduct(null)} disabled={isSaving} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button>
                             <button onClick={handleSave} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white min-w-[8rem] flex justify-center">
-                                {isSaving ? <Loader2 className="animate-spin"/> : 'Save Product'}
+                                {isSaving ? <Loader2 className="animate-spin"/> : t('save_product')}
                             </button>
                         </div>
                     </div>
