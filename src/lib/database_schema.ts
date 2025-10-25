@@ -1,4 +1,4 @@
-// Vixel Roleplay Website - Full Database Schema (V28 - Bilingual Content Management)
+// -- Vixel Roleplay Website - Full Database Schema (V28 - Bilingual Content Management)
 export const schema = `
 /*
 ====================================================================================================
@@ -84,6 +84,17 @@ CREATE TABLE private.secrets (
   value TEXT NOT NULL
 );
 REVOKE ALL ON TABLE private.secrets FROM PUBLIC;
+
+-- !! IMPORTANT !!
+-- The values below are placeholders. You MUST replace them with your actual bot URL and API key
+-- for Discord notifications to work. You can do this from the Supabase Table Editor by editing
+-- the rows in the 'private.secrets' table.
+INSERT INTO private.secrets (key, value)
+VALUES
+  ('VITE_DISCORD_BOT_URL', 'http://YOUR_BOT_IP_OR_DOMAIN:3000'),
+  ('VITE_DISCORD_BOT_API_KEY', 'YOUR_CHOSEN_SECRET_PASSWORD_FOR_THE_BOT')
+ON CONFLICT (key) DO NOTHING;
+
 
 -- Function to securely get a secret.
 CREATE OR REPLACE FUNCTION private.get_secret(secret_key text)

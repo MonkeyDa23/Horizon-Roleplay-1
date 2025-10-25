@@ -20,9 +20,6 @@ const RulesPage: React.FC = () => {
       try {
         const rules = await getRules();
         setRuleCategories(rules);
-        if (rules.length > 0) {
-          setOpenCategoryId(rules[0].id);
-        }
       } catch (error) {
         console.error("Failed to fetch rules:", error);
       } finally {

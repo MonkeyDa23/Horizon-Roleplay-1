@@ -34,11 +34,11 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidt
 
   return (
     <div 
-      className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start justify-center px-4 pt-24 overflow-y-auto"
       onClick={onClose}
     >
       <div
-        className={`bg-brand-dark-blue border border-brand-light-blue rounded-lg shadow-2xl shadow-black/50 w-full ${maxWidthClass} relative animate-slide-in-up flex flex-col max-h-[90vh]`}
+        className={`bg-brand-dark-blue border border-brand-light-blue rounded-lg shadow-2xl shadow-black/50 w-full ${maxWidthClass} relative animate-slide-in-up flex flex-col max-h-[80vh] my-auto`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-6 border-b border-brand-light-blue flex justify-between items-center flex-shrink-0">
