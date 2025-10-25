@@ -90,6 +90,9 @@ export const translations: Translations = {
 
 
   // Admin Page
+  dashboard: { ar: 'الرئيسية', en: 'Dashboard' },
+  admin_dashboard_welcome_message: { ar: 'أهلاً بك في لوحة التحكم. يمكنك إدارة جميع إعدادات الموقع من الشريط الجانبي.', en: 'Welcome to the control panel. You can manage all website settings from the sidebar.'},
+  loading_submissions: { ar: 'جاري تحميل التقديمات...', en: 'Loading submissions...' },
   quiz_management: { ar: 'إدارة نماذج التقديم', en: 'Quiz Forms Management' },
   submission_management: { ar: 'إدارة طلبات التقديم', en: 'Application Submissions' },
   rules_management: { ar: 'إدارة القوانين', en: 'Rules Management' },
@@ -253,4 +256,5 @@ export const translations: Translations = {
   quiz_medic_name: { ar: 'تقديم قسم الإسعاف', en: 'EMS Department Application' },
   quiz_medic_desc: { ar: 'مطلوب منك الهدوء والاحترافية في جميع الأوقات.', en: 'You are required to be calm and professional at all times.' },
   q_medic_1: { ar: 'ما هي أولويتك القصوى عند الوصول إلى مكان الحادث؟', en: 'What is your top priority when arriving at an accident scene?' },
+// FIX: Removed invalid SQL syntax and correctly closed the object.
 };

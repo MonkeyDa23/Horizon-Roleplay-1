@@ -1,11 +1,11 @@
 
-// Vixel Roleplay Website - Full Database Schema (V21 - Role-Based Permissions)
+// Vixel Roleplay Website - Full Database Schema (V22 - Robust Permissions Fix)
 export const databaseSchema = `
 /*
 ====================================================================================================
- Vixel Roleplay Website - Full Database Schema (V21 - Role-Based Permissions)
+ Vixel Roleplay Website - Full Database Schema (V22 - Robust Permissions Fix)
  Author: AI
- Date: 2024-06-10
+ Date: 2024-06-11
  
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -212,49 +212,51 @@ AS $$
   SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
 $$;
 
--- PERMISSION CHECK FUNCTION
+-- PERMISSION CHECK FUNCTION (REWRITTEN FOR ROBUSTNESS V22)
 -- This is the heart of the permission system. It checks a user's roles against
 -- the role_permissions table to see if they have a specific permission.
 CREATE OR REPLACE FUNCTION public.has_permission(p_user_id uuid, p_permission_key text)
 RETURNS boolean
-LANGUAGE plpgsql STABLE
-SECURITY DEFINER
+LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  user_roles jsonb;
-  role_id text;
-  has_super_admin boolean;
+  user_role_ids text[];
+  has_perm boolean;
 BEGIN
-  IF p_user_id IS NULL THEN RETURN false; END IF;
+  IF p_user_id IS NULL THEN
+    RETURN false;
+  END IF;
 
-  SELECT roles INTO user_roles FROM public.profiles WHERE id = p_user_id;
-  IF user_roles IS NULL THEN RETURN false; END IF;
+  -- Get all role IDs for the user from the profiles table.
+  -- The roles are stored as a JSONB array of objects, e.g., [{"id": "123", "name": "Admin"}, ...].
+  SELECT ARRAY(SELECT value->>'id' FROM jsonb_array_elements(roles))
+  INTO user_role_ids
+  FROM public.profiles
+  WHERE id = p_user_id;
 
-  -- Check if any of the user's roles have the '_super_admin' permission.
-  -- This is a fast path to grant all permissions.
-  SELECT true INTO has_super_admin
-  FROM public.role_permissions rp
-  WHERE '_super_admin' = ANY(rp.permissions)
-  AND rp.role_id IN (SELECT value->>'id' FROM jsonb_array_elements(user_roles))
-  LIMIT 1;
+  IF user_role_ids IS NULL OR array_length(user_role_ids, 1) IS NULL THEN
+    RETURN false; -- User has no roles or profile entry is missing roles
+  END IF;
 
-  IF has_super_admin THEN
+  -- First, check if any of the user's roles have the '_super_admin' permission.
+  -- This provides a global override.
+  SELECT EXISTS (
+    SELECT 1 FROM public.role_permissions
+    WHERE role_id = ANY(user_role_ids) AND '_super_admin' = ANY(permissions)
+  ) INTO has_perm;
+
+  IF has_perm THEN
     RETURN true;
   END IF;
 
-  -- If not a super admin, check for the specific permission.
-  FOR role_id IN SELECT value->>'id' FROM jsonb_array_elements(user_roles)
-  LOOP
-    IF EXISTS (
-      SELECT 1 FROM public.role_permissions rp
-      WHERE rp.role_id = role_id AND p_permission_key = ANY(rp.permissions)
-    ) THEN
-      RETURN true;
-    END IF;
-  END LOOP;
+  -- If not a super admin, check for the specific requested permission.
+  SELECT EXISTS (
+    SELECT 1 FROM public.role_permissions
+    WHERE role_id = ANY(user_role_ids) AND p_permission_key = ANY(permissions)
+  ) INTO has_perm;
 
-  RETURN false;
+  RETURN has_perm;
 END;
 $$;
 
@@ -286,8 +288,6 @@ CREATE POLICY "Users can see their own submissions" ON public.submissions FOR SE
 CREATE POLICY "Users can insert their own submissions" ON public.submissions FOR INSERT WITH CHECK (user_id = public.get_user_id());
 
 -- ADMIN MANAGEMENT POLICIES (ALL ACTIONS)
--- The `has_permission` function with '_super_admin' provides a universal bypass as requested.
--- Specific permissions grant access to specific tables.
 CREATE POLICY "Admins can manage config" ON public.config FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_appearance'));
 CREATE POLICY "Admins can manage products" ON public.products FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_store'));
 CREATE POLICY "Admins can manage quizzes" ON public.quizzes FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_quizzes'));
@@ -297,13 +297,7 @@ CREATE POLICY "Admins can manage bans" ON public.bans FOR ALL USING (public.has_
 CREATE POLICY "Admins can manage role permissions" ON public.role_permissions FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_permissions'));
 CREATE POLICY "Admins can read audit log" ON public.audit_log FOR SELECT USING (public.has_permission(public.get_user_id(), 'admin_audit_log'));
 CREATE POLICY "Admins can manage all profiles" ON public.profiles FOR ALL USING (public.has_permission(public.get_user_id(), '_super_admin')); -- Only super admins can touch profiles
-
--- SUBMISSIONS-SPECIFIC RLS as requested
--- This allows access if user is _super_admin OR has 'admin_submissions'
-CREATE POLICY "Admins can manage submissions" ON public.submissions FOR ALL USING (
-    public.has_permission(public.get_user_id(), '_super_admin') OR
-    public.has_permission(public.get_user_id(), 'admin_submissions')
-);
+CREATE POLICY "Admins can manage submissions" ON public.submissions FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_submissions'));
 
 -- =================================================================
 -- 6. RPC FUNCTIONS
@@ -322,7 +316,8 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  IF NOT (public.has_permission(public.get_user_id(), '_super_admin') OR public.has_permission(public.get_user_id(), 'admin_submissions')) THEN
+  -- SIMPLIFIED CHECK (V22): Relies on the robust has_permission function.
+  IF NOT public.has_permission(public.get_user_id(), 'admin_submissions') THEN
     RAISE EXCEPTION 'Insufficient permissions';
   END IF;
   RETURN QUERY SELECT * FROM public.submissions ORDER BY "submittedAt" DESC;
@@ -390,7 +385,8 @@ DECLARE
   embed_color int;
   embed_title text;
 BEGIN
-  IF NOT (public.has_permission(public.get_user_id(), '_super_admin') OR public.has_permission(public.get_user_id(), 'admin_submissions')) THEN
+  -- SIMPLIFIED CHECK (V22): Relies on the robust has_permission function.
+  IF NOT public.has_permission(public.get_user_id(), 'admin_submissions') THEN
     RAISE EXCEPTION 'Insufficient permissions';
   END IF;
 
