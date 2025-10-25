@@ -82,7 +82,19 @@ export const revalidateSession = async (force: boolean = false): Promise<User> =
 // =============================================
 export const getConfig = async (): Promise<AppConfig> => {
   if (!supabase) throw new Error("Supabase not configured");
-  return handleResponse(await supabase.rpc('get_config'));
+  const response = await supabase.rpc('get_config');
+
+  // Manually handle the response for this critical function to ensure a non-null return or a throw.
+  if (response.error) {
+    console.error('Supabase API Error in getConfig:', response.error);
+    throw new ApiError(response.error.message, response.status);
+  }
+
+  if (response.data === null) {
+    throw new ApiError("Configuration data not found in the database. Please ensure the database schema has been run correctly.", 404);
+  }
+
+  return response.data;
 };
 
 export const saveConfig = async (config: Partial<AppConfig>): Promise<void> => {

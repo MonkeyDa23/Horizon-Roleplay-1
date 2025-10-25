@@ -1,13 +1,13 @@
+
 // discord-bot/src/index.ts
-// FIX: Switched to namespaced express types to avoid conflicts with global DOM types.
-import express from 'express';
+import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
 import cors from 'cors';
 import * as Discord from 'discord.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import type { BotConfig, DiscordRole } from './types.js';
+import type { BotConfig, DiscordRole, NotifyPayload } from './types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,6 +29,10 @@ try {
   process.exit(1);
 }
 
+// FIX: Cast cors() to any to resolve middleware type mismatch error.
+app.use(cors() as any);
+app.use(express.json());
+
 // =============================================
 // DISCORD CLIENT
 // =============================================
@@ -40,7 +44,6 @@ const client = new Discord.Client({
   partials: [Discord.Partials.Channel],
 });
 
-
 client.once(Discord.Events.ClientReady, async (readyClient) => {
   console.log(`🟢 Bot logged in as ${readyClient.user.tag}`);
   try {
@@ -50,7 +53,7 @@ client.once(Discord.Events.ClientReady, async (readyClient) => {
     const setStatusCommand = new Discord.SlashCommandBuilder()
       .setName('setstatus')
       .setDescription("Sets the bot's status and activity.")
-      .setDefaultMemberPermissions(0)
+      .setDefaultMemberPermissions(Discord.PermissionFlagsBits.Administrator)
       .addStringOption(option =>
         option.setName('status')
           .setDescription("The bot's status.")
@@ -59,234 +62,185 @@ client.once(Discord.Events.ClientReady, async (readyClient) => {
             { name: 'Online', value: 'online' },
             { name: 'Idle', value: 'idle' },
             { name: 'Do Not Disturb', value: 'dnd' },
-            { name: 'Invisible', value: 'invisible' },
+            { name: 'Invisible', value: 'invisible' }
           ))
       .addStringOption(option =>
         option.setName('activity_type')
-          .setDescription('The type of activity.')
+          .setDescription("The bot's activity type.")
           .setRequired(true)
           .addChoices(
-            { name: 'Playing', value: 'PLAYING' },
-            { name: 'Watching', value: 'WATCHING' },
-            { name: 'Listening', value: 'LISTENING' },
-            { name: 'Streaming', value: 'STREAMING' },
+            { name: 'Playing', value: 'Playing' },
+            { name: 'Watching', value: 'Watching' },
+            { name: 'Listening to', value: 'Listening' },
+            { name: 'Competing in', value: 'Competing' }
           ))
       .addStringOption(option =>
-        option.setName('activity_text')
-          .setDescription('The text to display for the activity.')
-          .setRequired(true))
-      .addStringOption(option =>
-        option.setName('activity_url')
-          .setDescription('The stream URL (required for Streaming activity type).')
-          .setRequired(false));
+        option.setName('activity_name')
+          .setDescription("The bot's activity name.")
+          .setRequired(true));
           
-    await readyClient.application.commands.set([setStatusCommand], config.DISCORD_GUILD_ID);
-    console.log('✅ Successfully registered /setstatus command.');
+    await guild.commands.set([setStatusCommand]);
+    console.log("✅ Slash commands registered.");
 
   } catch (error) {
-    console.error(`❌ FATAL: Could not fetch guild with ID ${config.DISCORD_GUILD_ID}.`);
-    console.error("   Please check that the GUILD_ID is correct and the bot is in the server.");
-    process.exit(1);
+    console.error(`❌ Could not fetch guild with ID ${config.DISCORD_GUILD_ID}. Please check the ID and the bot's permissions.`, error);
   }
 });
 
-client.on(Discord.Events.InteractionCreate, async (interaction: Discord.Interaction) => {
-  if (!interaction.isChatInputCommand()) return;
-
-  const { commandName, guild } = interaction;
-
-  if (commandName === 'setstatus') {
-    if (!guild) {
-        await interaction.reply({ content: 'This command can only be used in a server.', ephemeral: true });
-        return;
-    }
-    
-    const member = await guild.members.fetch(interaction.user.id);
-    const isOwner = member.id === guild.ownerId;
-    const hasRole = member.roles.cache.some(role => (config.PRESENCE_COMMAND_ROLE_IDS || []).includes(role.id));
-
-    if (!isOwner && !hasRole) {
-      await interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true });
-      return;
-    }
-
-    await interaction.deferReply({ ephemeral: true });
+client.on(Discord.Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isChatInputCommand()) return;
+    if (interaction.commandName !== 'setstatus') return;
 
     try {
-      const status = interaction.options.getString('status', true) as Discord.PresenceStatusData;
-      const activityTypeStr = interaction.options.getString('activity_type', true);
-      const activityText = interaction.options.getString('activity_text', true);
-      const activityUrl = interaction.options.getString('activity_url');
+        const member = interaction.member as Discord.GuildMember;
+        const isOwner = interaction.guild?.ownerId === member.id;
+        const hasRole = member.roles.cache.some(role => config.PRESENCE_COMMAND_ROLE_IDS.includes(role.id));
 
-      const activityTypeMap: { [key: string]: Discord.ActivityType } = {
-        'PLAYING': Discord.ActivityType.Playing, 'WATCHING': Discord.ActivityType.Watching,
-        'LISTENING': Discord.ActivityType.Listening, 'STREAMING': Discord.ActivityType.Streaming,
-      };
-      const activityType = activityTypeMap[activityTypeStr];
+        if (!isOwner && !hasRole) {
+            await interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true });
+            return;
+        }
 
-      if (activityType === undefined) {
-          await interaction.editReply({ content: 'Invalid activity type provided.' });
-          return;
-      }
-      
-      if (activityType === Discord.ActivityType.Streaming && (!activityUrl || !activityUrl.startsWith('https://www.twitch.tv/'))) {
-          await interaction.editReply({ content: 'The "activity_url" must be a valid Twitch URL for the Streaming activity type.' });
-          return;
-      }
+        const status = interaction.options.getString('status') as Discord.PresenceStatusData;
+        const activityType = interaction.options.getString('activity_type');
+        const activityName = interaction.options.getString('activity_name');
 
-      client.user?.setPresence({
-        status: status,
-        activities: [{ name: activityText, type: activityType, url: activityUrl || undefined }],
-      });
+        const activityTypeMap = {
+            'Playing': Discord.ActivityType.Playing,
+            'Watching': Discord.ActivityType.Watching,
+            'Listening': Discord.ActivityType.Listening,
+            'Competing': Discord.ActivityType.Competing,
+        };
+        const selectedActivityType = activityTypeMap[activityType as keyof typeof activityTypeMap];
+        
+        client.user?.setPresence({
+            status: status,
+            activities: [{ name: activityName!, type: selectedActivityType }],
+        });
 
-      await interaction.editReply({ content: '✅ Bot presence updated successfully!' });
+        await interaction.reply({ content: `Status updated successfully!`, ephemeral: true });
     } catch (error) {
-      console.error('Error setting presence:', error);
-      await interaction.editReply({ content: 'An error occurred while updating the presence.' });
+        console.error("Error handling /setstatus:", error);
+        await interaction.reply({ content: 'An error occurred while setting the status.', ephemeral: true });
     }
+});
+
+
+// =============================================
+// API MIDDLEWARE & ROUTES
+// =============================================
+const authenticate = (req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
+  // FIX: Cast req to any to access headers property.
+  const authHeader = (req as any).headers.authorization;
+  if (authHeader && authHeader === `Bearer ${config.API_SECRET_KEY}`) {
+    next();
+  } else {
+    // FIX: Cast res to any to access status and json methods.
+    (res as any).status(401).json({ error: 'Unauthorized' });
   }
+};
+
+app.get('/health', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
+    try {
+        const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
+        await guild.members.fetch({ limit: 1 }); // Test member fetching
+        // FIX: Cast res to any to access json method.
+        (res as any).json({ status: 'ok', details: { guildName: guild.name, memberCount: guild.memberCount } });
+    } catch (e) {
+        console.error("[HEALTH CHECK FAIL]: ", (e as Error).message);
+        // FIX: Cast res to any to access status and json methods.
+        (res as any).status(503).json({ status: 'error', message: (e as Error).message });
+    }
+});
+
+app.get('/api/roles', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
+  try {
+    const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
+    const roles = (await guild.roles.fetch()).map(role => ({
+      id: role.id,
+      name: role.name,
+      color: role.color,
+      position: role.position,
+    })).sort((a, b) => b.position - a.position);
+    // FIX: Cast res to any to access json method.
+    (res as any).json(roles);
+  } catch (error) {
+    console.error('[API /roles] Error:', error);
+    // FIX: Cast res to any to access status and json methods.
+    (res as any).status(500).json({ error: 'Could not fetch guild roles.' });
+  }
+});
+
+app.get('/api/user/:id', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
+  // FIX: Cast req to any to access params property.
+  const { id } = (req as any).params;
+  try {
+    const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
+    const member = await guild.members.fetch(id);
+    
+    const roles: DiscordRole[] = member.roles.cache
+      .filter(role => role.id !== guild.id) // Exclude @everyone role
+      .map(role => ({
+        id: role.id, name: role.name, color: role.color, position: role.position
+      }))
+      .sort((a, b) => b.position - a.position);
+
+    const highestRole = roles[0] || null;
+
+    // FIX: Cast res to any to access json method.
+    (res as any).json({
+        username: member.user.globalName || member.user.username,
+        avatar: member.displayAvatarURL({ extension: 'png', size: 256 }),
+        roles: roles,
+        highest_role: highestRole
+    });
+  } catch (error) {
+    console.error(`[API /user/${id}] Error:`, error);
+    if (error instanceof Discord.DiscordAPIError && error.code === 10007) {
+        // FIX: Cast res to any to access status and json methods.
+        return (res as any).status(404).json({ error: 'User not found in guild.' });
+    }
+    // FIX: Cast res to any to access status and json methods.
+    (res as any).status(500).json({ error: 'Could not fetch user data.' });
+  }
+});
+
+app.post('/api/notify', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
+    // FIX: Cast req to any to access body property.
+    const { type, payload } = (req as any).body;
+    
+    try {
+        if (type === 'new_submission' || type === 'audit_log') {
+            const channelId = type === 'new_submission' ? payload.submissionsChannelId : payload.auditLogChannelId;
+            const channel = await client.channels.fetch(channelId);
+            if (channel?.isTextBased()) {
+                // FIX: Cast channel to TextChannel to ensure .send() method is available.
+                await (channel as Discord.TextChannel).send({ embeds: [payload.embed] });
+            } else {
+                throw new Error(`Channel ${channelId} is not a text-based channel.`);
+            }
+        } else if (type === 'submission_result') {
+            const user = await client.users.fetch(payload.userId);
+            await user.send({ embeds: [payload.embed] });
+        } else {
+            // FIX: Cast res to any to access status and json methods.
+            return (res as any).status(400).json({ error: 'Invalid notification type' });
+        }
+        // FIX: Cast res to any to access status and json methods.
+        (res as any).status(200).json({ success: true });
+    } catch (error) {
+        console.error('[API /notify] Error:', error);
+        // FIX: Cast res to any to access status and json methods.
+        (res as any).status(500).json({ error: `Failed to send notification: ${(error as Error).message}` });
+    }
+});
+
+
+// =============================================
+// START SERVER AND BOT
+// =============================================
+app.listen(PORT, () => {
+  console.log(`🚀 API server listening on port ${PORT}`);
 });
 
 client.login(config.DISCORD_BOT_TOKEN);
-
-// =============================================
-// EXPRESS MIDDLEWARE & SERVER
-// =============================================
-app.use(cors());
-app.use(express.json());
-
-// FIX: Use namespaced express types to avoid conflicts and resolve type errors.
-const authenticateRequest = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
-  }
-  const token = authHeader.split(' ')[1];
-  if (token !== config.API_SECRET_KEY) {
-    return res.status(403).json({ error: 'Forbidden: Invalid token' });
-  }
-  next();
-};
-
-// FIX: Use namespaced express types to avoid conflicts and resolve type errors.
-app.get('/health', async (req: express.Request, res: express.Response) => {
-  if (!client.isReady()) {
-    return res.status(503).json({ status: 'error', message: 'Bot is not ready.' });
-  }
-  try {
-    const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
-    res.status(200).json({ 
-      status: 'ok', 
-      details: {
-        botUsername: client.user?.tag,
-        guildName: guild.name,
-        memberCount: guild.memberCount
-      } 
-    });
-  } catch(e) {
-     res.status(503).json({ status: 'error', message: 'Could not fetch guild info.' });
-  }
-});
-
-// FIX: Use namespaced express types to avoid conflicts and resolve type errors.
-app.get('/api/user/:id', authenticateRequest, async (req: express.Request, res: express.Response) => {
-  const { id } = req.params;
-  try {
-    const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
-    const member = await guild.members.fetch({ user: id, force: true });
-    
-    console.log(`[API /user] Fetched member ${member.user.tag}. Role count: ${member.roles.cache.size}.`);
-    
-    const roles: DiscordRole[] = member.roles.cache
-      .filter(role => role.name !== '@everyone')
-      .map(role => ({
-        id: role.id, name: role.name, color: role.color, position: role.position,
-      }))
-      .sort((a, b) => b.position - a.position);
-
-    res.json({
-      id: member.id,
-      username: member.user.globalName || member.user.username,
-      avatar: member.displayAvatarURL({ extension: 'png', size: 256 }),
-      roles,
-      highestRole: roles[0] || null,
-      isGuildOwner: member.id === guild.ownerId,
-    });
-  } catch (error: any) {
-    if (error.code === 10004) {
-      console.error(`[API /user] FATAL: Could not access Guild with ID "${config.DISCORD_GUILD_ID}".`);
-      return res.status(500).json({ error: 'Bot is misconfigured: Cannot access the configured Discord server.' });
-    }
-    if (error.code === 10013 || error.code === 10007) {
-      return res.status(404).json({ error: 'User not found in this guild' });
-    }
-    console.error(`Error fetching user ${id}:`, error);
-    res.status(500).json({ error: 'Internal server error while fetching user' });
-  }
-});
-
-// FIX: Use namespaced express types to avoid conflicts and resolve type errors.
-app.get('/api/roles', authenticateRequest, async (req: express.Request, res: express.Response) => {
-  try {
-    const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
-    await guild.roles.fetch();
-    console.log(`[API /roles] Fetched ${guild.roles.cache.size} roles from guild ${guild.name}.`);
-
-    const roles: DiscordRole[] = guild.roles.cache
-      .filter(role => role.name !== '@everyone')
-      .map(role => ({
-        id: role.id, name: role.name, color: role.color, position: role.position,
-      }))
-      .sort((a, b) => b.position - a.position);
-    res.json(roles);
-  } catch (error: any) {
-    if (error.code === 10004) {
-      console.error(`[API /roles] FATAL: Could not access Guild with ID "${config.DISCORD_GUILD_ID}".`);
-      return res.status(500).json({ error: 'Bot is misconfigured: Cannot access the configured Discord server.' });
-    }
-    console.error('Error fetching roles:', error);
-    res.status(500).json({ error: 'Internal server error while fetching roles' });
-  }
-});
-
-// FIX: Use namespaced express types to avoid conflicts and resolve type errors.
-app.post('/api/notify', authenticateRequest, async (req: express.Request, res: express.Response) => {
-    const { type, payload } = req.body;
-    if (!type || !payload) {
-        return res.status(400).json({ error: 'Invalid notification payload' });
-    }
-
-    try {
-        console.log(`Received notification request: type=${type}`);
-        if (type === 'new_submission' || type === 'audit_log') {
-            const channelId = type === 'new_submission' ? payload.submissionsChannelId : payload.auditLogChannelId;
-            if (!channelId) throw new Error(`Channel ID for type '${type}' is not configured.`);
-
-            const channel = await client.channels.fetch(channelId);
-            if (!channel || !channel.isTextBased()) throw new Error(`Channel with ID ${channelId} not found or is not a text channel.`);
-
-            const embed = new Discord.EmbedBuilder(payload.embed);
-            // FIX: Cast channel to a more specific TextChannel type. The isTextBased() check makes this safe, and this type guarantees the .send() method exists, resolving the TypeScript error.
-            await (channel as Discord.TextChannel).send({ embeds: [embed] });
-            console.log(`✅ Sent '${type}' embed to channel #${(channel as Discord.TextChannel).name}`);
-
-        } else if (type === 'submission_result') {
-            const user = await client.users.fetch(payload.userId);
-            if (!user) throw new Error(`User with ID ${payload.userId} not found for DM.`);
-            
-            const embed = new Discord.EmbedBuilder(payload.embed);
-            await user.send({ embeds: [embed] });
-            console.log(`✅ Sent '${type}' DM to user ${user.tag}`);
-        } else {
-            throw new Error(`Unsupported notification type: ${type}`);
-        }
-        res.status(200).json({ success: true, message: `Notification sent successfully.` });
-    } catch (error: any) {
-        console.error(`❌ Failed to send notification (type: ${type}):`, error.message);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-app.listen(PORT, () => {
-  console.log(`🚀 Bot API server is running on http://localhost:${PORT}`);
-});

@@ -43,11 +43,7 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     try {
       const configData = await getConfig();
-      if (configData) {
-        setConfig(configData);
-      } else {
-        throw new Error("Configuration data not found in the database. Please ensure the database schema has been run correctly.");
-      }
+      setConfig(configData);
       setConfigError(null);
     } catch (error) {
       console.error("Fatal: Could not fetch remote config. Using fallback.", error);
