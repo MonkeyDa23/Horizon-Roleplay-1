@@ -342,8 +342,10 @@ BEGIN
           )
         )
       ),
-      'application/json'::text,
-      jsonb_build_object('Authorization', 'Bearer ' || (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_API_KEY'))
+      jsonb_build_object(
+          'Content-Type', 'application/json',
+          'Authorization', 'Bearer ' || (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_API_KEY')
+      )
     );
   END IF;
 
@@ -406,8 +408,10 @@ BEGIN
           )
         )
       ),
-      'application/json'::text,
-      jsonb_build_object('Authorization', 'Bearer ' || (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_API_KEY'))
+      jsonb_build_object(
+          'Content-Type', 'application/json',
+          'Authorization', 'Bearer ' || (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_API_KEY')
+      )
     );
   END IF;
 END;
@@ -626,8 +630,10 @@ BEGIN
           )
         )
       ),
-      'application/json'::text,
-      jsonb_build_object('Authorization', 'Bearer ' || (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_API_KEY'))
+      jsonb_build_object(
+          'Content-Type', 'application/json',
+          'Authorization', 'Bearer ' || (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_API_KEY')
+      )
     );
   END IF;
 END;

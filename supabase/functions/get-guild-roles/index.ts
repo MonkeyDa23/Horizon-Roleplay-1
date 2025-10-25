@@ -48,13 +48,22 @@ serve(async (req) => {
       headers: { 'Authorization': `Bearer ${BOT_API_KEY}` }
     });
 
+    const responseText = await botResponse.text();
+
     if (!botResponse.ok) {
-        const errorData = await botResponse.json().catch(() => ({error: "Unknown error from bot API"}));
-        throw new Error(`Bot API returned error (HTTP ${botResponse.status}): ${JSON.stringify(errorData)}`);
+        const errorMessage = `Bot API returned error (HTTP ${botResponse.status}): ${responseText}`;
+        console.error(errorMessage);
+        throw new Error(errorMessage);
     }
 
-    const rolesData = await botResponse.json();
-    return createResponse(rolesData);
+    try {
+        const rolesData = JSON.parse(responseText);
+        return createResponse(rolesData);
+    } catch(e) {
+        const errorMessage = `Bot API returned a non-JSON response. Body: ${responseText}`;
+        console.error(errorMessage);
+        throw new Error(errorMessage);
+    }
 
   } catch (error) {
     console.error('Error in get-guild-roles function:', error.message);

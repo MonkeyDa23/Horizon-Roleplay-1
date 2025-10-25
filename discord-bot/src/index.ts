@@ -8,6 +8,15 @@ import { fileURLToPath } from 'url';
 
 import type { BotConfig, DiscordRole } from './types.js';
 
+// FIX: Add declaration for process.exit to resolve TypeScript error when node types are not fully available.
+declare global {
+  namespace NodeJS {
+    interface Process {
+      exit(code?: number): never;
+    }
+  }
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 

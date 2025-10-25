@@ -134,7 +134,7 @@ const StorePanel: React.FC = () => {
                 </div>
             </div>
             {editingProduct && (
-                <Modal isOpen={!!editingProduct} onClose={() => setEditingProduct(null)} title={editingProduct.nameEn ? 'Edit Product' : 'Create Product'}>
+                <Modal isOpen={!!editingProduct} onClose={() => setEditingProduct(null)} title={editingProduct.nameEn ? 'Edit Product' : 'Create Product'} maxWidth="lg">
                     <div className="space-y-4 text-white">
                         <div>
                             <label className="block mb-1 font-semibold text-gray-300">{t('name_en')}</label>
