@@ -1,6 +1,7 @@
 // discord-bot/src/index.ts
 // FIX: Changed to a default import for Express to resolve type conflicts. All type annotations will use the `express.` namespace.
-import express from 'express';
+// FIX: Import Request, Response, and NextFunction types directly from express to fix type resolution issues.
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import { 
   Client, 
@@ -186,11 +187,13 @@ client.on(Events.InteractionCreate, async (interaction: Interaction<CacheType>) 
 // EXPRESS MIDDLEWARE
 // =============================================
 app.use(cors());
+// FIX: Using express.json() which should now be correctly typed.
 app.use(express.json());
 
 // Authentication middleware to protect API endpoints
-// FIX: Use namespace-qualified express types to avoid conflicts.
-const authenticateRequest = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+// FIX: Correctly import and use Express types.
+// FIX: Use imported Request, Response, NextFunction types.
+const authenticateRequest = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
@@ -205,8 +208,9 @@ const authenticateRequest = (req: express.Request, res: express.Response, next: 
 // =============================================
 // API ROUTES
 // =============================================
-// FIX: Use namespace-qualified express types to avoid conflicts.
-app.get('/health', async (req: express.Request, res: express.Response) => {
+// FIX: Correctly import and use Express types.
+// FIX: Use imported Request and Response types.
+app.get('/health', async (req: Request, res: Response) => {
   if (!client.isReady()) {
     return res.status(503).json({ status: 'error', message: 'Bot is not ready.' });
   }
@@ -226,8 +230,9 @@ app.get('/health', async (req: express.Request, res: express.Response) => {
 });
 
 // GET USER PROFILE
-// FIX: Use namespace-qualified express types to avoid conflicts.
-app.get('/api/user/:id', authenticateRequest, async (req: express.Request, res: express.Response) => {
+// FIX: Correctly import and use Express types.
+// FIX: Use imported Request and Response types.
+app.get('/api/user/:id', authenticateRequest, async (req: Request, res: Response) => {
   const { id } = req.params;
 
   try {
@@ -281,8 +286,9 @@ app.get('/api/user/:id', authenticateRequest, async (req: express.Request, res: 
 });
 
 // GET ALL GUILD ROLES
-// FIX: Use namespace-qualified express types to avoid conflicts.
-app.get('/api/roles', authenticateRequest, async (req: express.Request, res: express.Response) => {
+// FIX: Correctly import and use Express types.
+// FIX: Use imported Request and Response types.
+app.get('/api/roles', authenticateRequest, async (req: Request, res: Response) => {
   try {
     // IMPROVEMENT: Fetch guild on every request to be stateless and more resilient.
     const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
@@ -315,8 +321,9 @@ app.get('/api/roles', authenticateRequest, async (req: express.Request, res: exp
 });
 
 // SEND NOTIFICATION
-// FIX: Use namespace-qualified express types to avoid conflicts.
-app.post('/api/notify', authenticateRequest, async (req: express.Request, res: express.Response) => {
+// FIX: Correctly import and use Express types.
+// FIX: Use imported Request and Response types.
+app.post('/api/notify', authenticateRequest, async (req: Request, res: Response) => {
     const { type, payload } = req.body;
     
     if (!type || !payload) {

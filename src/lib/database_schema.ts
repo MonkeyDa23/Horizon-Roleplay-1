@@ -1,10 +1,11 @@
-// Vixel Roleplay Website - Full Database Schema (V10 - Final RLS & RPC Fixes)
+
+// Vixel Roleplay Website - Full Database Schema (V12 - Refactored Permission Check)
 export const databaseSchema = `
 /*
 ====================================================================================================
- Vixel Roleplay Website - Full Database Schema (V10 - Final RLS & RPC Fixes)
+ Vixel Roleplay Website - Full Database Schema (V12 - Refactored Permission Check)
  Author: AI
- Date: 2024-05-31
+ Date: 2024-06-02
  
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -221,6 +222,7 @@ AS $$
   SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
 $$;
 
+-- REFACTORED PERMISSION CHECK FUNCTION (V12)
 CREATE OR REPLACE FUNCTION public.has_permission(p_user_id uuid, p_permission_key text)
 RETURNS boolean
 LANGUAGE plpgsql
@@ -228,39 +230,25 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  user_roles_json jsonb;
-  role_ids text[];
-  has_perm boolean;
+  v_has_perm boolean;
 BEGIN
-  -- This function is SECURITY DEFINER, so it runs with the permissions of the user who defined it (postgres).
-  -- This allows it to bypass RLS on the profiles and role_permissions tables.
-  SELECT roles INTO user_roles_json FROM public.profiles WHERE id = p_user_id;
-
-  IF user_roles_json IS NULL OR jsonb_array_length(user_roles_json) = 0 THEN
+  IF p_user_id IS NULL THEN
     RETURN false;
   END IF;
 
-  SELECT array_agg(r->>'id') INTO role_ids FROM jsonb_array_elements(user_roles_json) AS r;
-
-  -- First, check for the super admin permission, as it overrides all others.
   SELECT EXISTS (
     SELECT 1
-    FROM public.role_permissions
-    WHERE role_id = ANY(role_ids) AND '_super_admin' = ANY(permissions)
-  ) INTO has_perm;
+    FROM public.role_permissions rp
+    WHERE rp.role_id IN (
+      SELECT elem->>'id'
+      FROM public.profiles p, jsonb_array_elements(p.roles) AS elem
+      WHERE p.id = p_user_id
+    )
+    AND (rp.permissions @> ARRAY['_super_admin'] OR rp.permissions @> ARRAY[p_permission_key])
+  )
+  INTO v_has_perm;
 
-  IF has_perm THEN
-    RETURN true;
-  END IF;
-
-  -- If not a super admin, check for the specific permission.
-  SELECT EXISTS (
-    SELECT 1
-    FROM public.role_permissions
-    WHERE role_id = ANY(role_ids) AND p_permission_key = ANY(permissions)
-  ) INTO has_perm;
-
-  RETURN has_perm;
+  RETURN coalesce(v_has_perm, false);
 END;
 $$;
 
@@ -315,7 +303,6 @@ AS $$
   SELECT row_to_json(c) FROM public.config c WHERE id = 1;
 $$;
 
--- FIX: Added SECURITY DEFINER to run with postgres privileges, bypassing RLS.
 CREATE OR REPLACE FUNCTION public.get_all_submissions()
 RETURNS SETOF public.submissions
 LANGUAGE plpgsql
@@ -381,7 +368,6 @@ BEGIN
 END;
 $$;
 
--- FIX: Added SECURITY DEFINER
 CREATE OR REPLACE FUNCTION public.update_submission_status(p_submission_id uuid, p_new_status text)
 RETURNS void
 LANGUAGE plpgsql
@@ -444,7 +430,6 @@ BEGIN
 END;
 $$;
 
--- FIX: Added SECURITY DEFINER
 CREATE OR REPLACE FUNCTION public.save_quiz(quiz_data jsonb)
 RETURNS public.quizzes
 LANGUAGE plpgsql
@@ -490,7 +475,6 @@ BEGIN
 END;
 $$;
 
--- FIX: Added SECURITY DEFINER
 CREATE OR REPLACE FUNCTION public.save_rules(rules_data jsonb)
 RETURNS void
 LANGUAGE plpgsql
@@ -514,7 +498,6 @@ BEGIN
 END;
 $$;
 
--- FIX: Added SECURITY DEFINER
 CREATE OR REPLACE FUNCTION public.update_config(new_config jsonb)
 RETURNS void
 LANGUAGE plpgsql
@@ -541,7 +524,6 @@ BEGIN
 END;
 $$;
 
--- FIX: Added SECURITY DEFINER
 CREATE OR REPLACE FUNCTION public.log_action(p_action text)
 RETURNS void
 LANGUAGE plpgsql
@@ -585,7 +567,6 @@ BEGIN
 END;
 $$;
 
--- FIX: Added SECURITY DEFINER
 CREATE OR REPLACE FUNCTION public.ban_user(p_target_user_id uuid, p_reason text, p_duration_hours int)
 RETURNS void
 LANGUAGE plpgsql
@@ -620,7 +601,6 @@ BEGIN
 END;
 $$;
 
--- FIX: Added SECURITY DEFINER
 CREATE OR REPLACE FUNCTION public.unban_user(p_target_user_id uuid)
 RETURNS void
 LANGUAGE plpgsql
@@ -759,7 +739,7 @@ INSERT INTO public.translations (key, en, ar) VALUES
 ('admin_revoked', 'Your admin permissions have been revoked.', 'تم سحب صلاحيات المشرف منك.'),
 ('admin_granted', 'You have been granted admin permissions.', 'تم منحك صلاحيات المشرف.'),
 ('admin_permissions_error', 'Admin permission error or session expired. You have been logged out.', 'خطأ في صلاحيات المشرف أو انتهت صلاحية الجلسة. تم تسجيل خروجك.'),
-('admin_session_error_warning', 'Could not verify admin session with the server. Please try again later.', 'لا يمكن التحقق من جلسة المشرف مع الخادم. يرجى المحاولة مرة أخرى لاحقاً.'),
+('admin_session_error_warning', 'Could not verify admin session with the server. Please try again later.', 'لا يمكن التحقق من جلسة المشرف مع الخادم. يرى المحاولة مرة أخرى لاحقاً.'),
 ('verifying_admin_permissions', 'Verifying admin permissions...', 'جاري التحقق من صلاحيات المشرف...'),
 ('quiz_handler_roles', 'Application Handler Roles', 'رتب معالجة التقديم'),
 ('quiz_handler_roles_desc', 'Enter Role IDs allowed to handle these submissions (comma-separated).', 'ضع هنا آي دي الرتب المسموح لها باستلام هذا النوع من التقديمات (افصل بينها بفاصلة).'),
@@ -793,10 +773,8 @@ INSERT INTO public.translations (key, en, ar) VALUES
 ('discord_roles', 'Discord Roles', 'رتب الديسكورد'),
 ('available_permissions', 'Available Permissions', 'الصلاحيات المتاحة'),
 ('select_role_to_manage', 'Select a role to see its permissions.', 'اختر رتبة لعرض صلاحياتها.'),
--- FIX: Replaced backticks (`) with <code> tags to prevent the string from being parsed as code.
 ('admin_permissions_instructions', 'Select a role from the list to view and modify its permissions. The <code>_super_admin</code> permission automatically grants all other permissions.', 'اختر رتبة من القائمة لعرض وتعديل صلاحياتها. صلاحية <code>_super_admin</code> تمنح جميع الصلاحيات الأخرى تلقائياً.'),
 ('admin_permissions_bootstrap_instructions_title', 'Locked Out?', 'غير قادر على الدخول؟'),
--- FIX: Replaced backticks with <code> tags to avoid TS parsing errors.
 ('admin_permissions_bootstrap_instructions_body', 'To grant initial admin access, go to your Supabase <code>role_permissions</code> table. Insert a new row, put your admin role ID in <code>role_id</code>, and type <code>{\\"_super_admin\\"}</code> into the <code>permissions</code> field, then refresh the site.', 'لمنح صلاحيات المشرف الأولية، اذهب إلى جدول <code>role_permissions</code> في Supabase. أضف صفاً جديداً، ضع آي دي رتبة المشرف في <code>role_id</code>، واكتب <code>{\\"_super_admin\\"}</code> في حقل <code>permissions</code> ثم قم بتحديث الصفحة.'),
 ('status_pending', 'Pending', 'قيد الانتظار'),
 ('status_taken', 'Under Review', 'قيد المراجعة'),

@@ -126,78 +126,92 @@ serve(async (req) => {
         }
         
         const memberData = await botResponse.json();
+
+        // ** CRITICAL CHECKS **
         if (!memberData || !Array.isArray(memberData.roles)) {
-            throw new Error("Bot returned invalid or malformed data.");
+            throw new Error("Sync failed: Bot returned invalid or malformed data.");
+        }
+        if (memberData.roles.length === 0) {
+            throw new Error("Sync failed: Bot returned an empty role list. This is likely a 'Server Members Intent' issue. Please check bot configuration.");
         }
         
-        // --- IMPROVED ADMIN LOCK GATEKEEPER ---
+        // Secondary safety check: prevent de-adminning an existing admin
         const newPermissions = await getPermissionsForRoles(memberData.roles);
         const wouldBeAdmin = newPermissions.has('admin_panel') || newPermissions.has('_super_admin');
 
-        // Check for a de-adminning event. Instead of throwing an error, we now set a syncError
-        // and prevent the sync from proceeding, allowing a fallback to cached data.
         if (wasAdmin && !wouldBeAdmin) {
-            let rejectionReason = '';
-            if (memberData.roles.length === 0) {
-                rejectionReason = "Sync failed: Bot returned an empty role list for a known admin. This is likely a 'Server Members Intent' issue.";
-            } else {
-                rejectionReason = "Dangerous sync rejected: This operation would remove admin permissions.";
-            }
+            const rejectionReason = "Dangerous sync rejected: This operation would remove admin permissions.";
             syncError = `${rejectionReason} Using cached roles.`;
             console.warn(`[SYNC-REJECT] User ${authUser.id}: ${rejectionReason}`);
         } else {
-            // If the checks pass, the sync data is safe.
+            // If all checks pass, the sync data is safe to use.
             syncedMemberData = memberData;
         }
 
       } catch (e) {
-        // This will now catch other errors (bot down, etc.)
+        // This will catch all sync failures, including the new empty role check.
         syncError = `Could not sync with Discord: ${e.message}. Using last known data.`;
         console.warn(`[SYNC-FAIL] User ${authUser.id}: ${e.message}`);
       }
     }
     
     // =================================================================
-    // 4. CONSTRUCT FINAL USER OBJECT & UPDATE DB
+    // 4. PERSIST CHANGES AND CONSTRUCT FINAL USER OBJECT
     // =================================================================
-    if (!dbProfile && !syncedMemberData) {
-        throw new Error("Initial profile sync failed. Please try again later. This can happen if the bot is offline during your first login.");
-    }
-    
-    const finalProfileDataSource = syncedMemberData || dbProfile!;
-    const finalPermissions = syncedMemberData 
-      ? await getPermissionsForRoles(syncedMemberData.roles) 
-      : currentPermissions;
+    let finalProfileDataSource = dbProfile; // Default to using cached data.
 
-    // Update the DB in the background ONLY if the sync was successful.
     if (syncedMemberData) {
+        // Sync was successful and safe, so attempt to persist the new data.
         const discordUserId = dbProfile?.discord_id || authUser.user_metadata?.provider_id;
-        supabaseAdmin.from('profiles').upsert({
-            id: authUser.id,
-            discord_id: discordUserId,
-            roles: syncedMemberData.roles,
-            highest_role: syncedMemberData.highest_role,
-            is_guild_owner: syncedMemberData.isGuildOwner,
-            last_synced_at: new Date().toISOString()
-        }).then(({ error }) => {
-            if (error) console.error(`[ASYNC-DB-FAIL] Profile update failed for ${authUser.id}:`, error);
-        });
+        const { data: updatedProfile, error: upsertError } = await supabaseAdmin
+            .from('profiles')
+            .upsert({
+                id: authUser.id,
+                discord_id: discordUserId,
+                roles: syncedMemberData.roles,
+                highest_role: syncedMemberData.highest_role,
+                is_guild_owner: syncedMemberData.isGuildOwner,
+                last_synced_at: new Date().toISOString()
+            })
+            .select()
+            .single();
+        
+        if (upsertError) {
+            console.error(`[DB-FAIL] Profile update failed for ${authUser.id}:`, upsertError);
+            syncError = (syncError ? syncError + ' ' : '') + `Database update failed after sync: ${upsertError.message}. Using cached data.`;
+            // `finalProfileDataSource` remains `dbProfile`.
+        } else {
+            // DB update succeeded. `updatedProfile` is now the source of truth for roles.
+            // We need to combine it with fresh data from the sync that isn't stored in the DB (like username/avatar).
+            finalProfileDataSource = {
+                ...updatedProfile, // Contains DB fields like id, discord_id, roles, highest_role, etc.
+                username: syncedMemberData.username, // Add username from sync
+                avatar: syncedMemberData.avatar,     // Add avatar from sync
+            };
+        }
     }
-    
-    const { data: currentProfileState } = await supabaseAdmin.from('profiles').select('is_banned, ban_reason, ban_expires_at').eq('id', authUser.id).maybeSingle();
 
+    // At this point, `finalProfileDataSource` is either the old `dbProfile` or the new `updatedProfile`.
+    // This is our source of truth.
+    if (!finalProfileDataSource) {
+        throw new Error("Initial profile sync failed and no cached data is available. This can happen if the bot is offline or misconfigured during your first login.");
+    }
+
+    // Construct the final user object from our source of truth.
+    const finalPermissions = await getPermissionsForRoles(finalProfileDataSource.roles);
+    
     const finalUser = {
       id: authUser.id,
-      discordId: dbProfile?.discord_id || authUser.user_metadata?.provider_id,
-      username: finalProfileDataSource?.username || authUser.user_metadata?.full_name,
-      avatar: finalProfileDataSource?.avatar || authUser.user_metadata?.avatar_url,
+      discordId: finalProfileDataSource.discord_id,
+      username: finalProfileDataSource.username || authUser.user_metadata?.full_name,
+      avatar: finalProfileDataSource.avatar || authUser.user_metadata?.avatar_url,
       roles: finalProfileDataSource.roles,
       highestRole: finalProfileDataSource.highest_role,
       isGuildOwner: finalProfileDataSource.is_guild_owner || false,
       permissions: Array.from(finalPermissions),
-      is_banned: currentProfileState?.is_banned || false,
-      ban_reason: currentProfileState?.ban_reason || null,
-      ban_expires_at: currentProfileState?.ban_expires_at || null,
+      is_banned: finalProfileDataSource.is_banned || false,
+      ban_reason: finalProfileDataSource.ban_reason || null,
+      ban_expires_at: finalProfileDataSource.ban_expires_at || null,
     };
 
     return createResponse({ user: finalUser, syncError });
