@@ -1,7 +1,6 @@
 // discord-bot/src/index.ts
-// FIX: Combined express imports and added NextFunction to resolve typing issues.
-import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
-// FIX: Aliased Request and Response to avoid conflicts with global DOM types.
+// FIX: Switched to namespaced express types to avoid conflicts with global DOM types.
+import express from 'express';
 import cors from 'cors';
 import * as Discord from 'discord.js';
 import fs from 'fs';
@@ -156,8 +155,8 @@ client.login(config.DISCORD_BOT_TOKEN);
 app.use(cors());
 app.use(express.json());
 
-// FIX: Changed `next: Function` to `next: NextFunction` to match express's middleware signature.
-const authenticateRequest = (req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
+// FIX: Use namespaced express types to avoid conflicts and resolve type errors.
+const authenticateRequest = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
@@ -169,7 +168,8 @@ const authenticateRequest = (req: ExpressRequest, res: ExpressResponse, next: Ne
   next();
 };
 
-app.get('/health', async (req: ExpressRequest, res: ExpressResponse) => {
+// FIX: Use namespaced express types to avoid conflicts and resolve type errors.
+app.get('/health', async (req: express.Request, res: express.Response) => {
   if (!client.isReady()) {
     return res.status(503).json({ status: 'error', message: 'Bot is not ready.' });
   }
@@ -188,7 +188,8 @@ app.get('/health', async (req: ExpressRequest, res: ExpressResponse) => {
   }
 });
 
-app.get('/api/user/:id', authenticateRequest, async (req: ExpressRequest, res: ExpressResponse) => {
+// FIX: Use namespaced express types to avoid conflicts and resolve type errors.
+app.get('/api/user/:id', authenticateRequest, async (req: express.Request, res: express.Response) => {
   const { id } = req.params;
   try {
     const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
@@ -224,7 +225,8 @@ app.get('/api/user/:id', authenticateRequest, async (req: ExpressRequest, res: E
   }
 });
 
-app.get('/api/roles', authenticateRequest, async (req: ExpressRequest, res: ExpressResponse) => {
+// FIX: Use namespaced express types to avoid conflicts and resolve type errors.
+app.get('/api/roles', authenticateRequest, async (req: express.Request, res: express.Response) => {
   try {
     const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
     await guild.roles.fetch();
@@ -247,7 +249,8 @@ app.get('/api/roles', authenticateRequest, async (req: ExpressRequest, res: Expr
   }
 });
 
-app.post('/api/notify', authenticateRequest, async (req: ExpressRequest, res: ExpressResponse) => {
+// FIX: Use namespaced express types to avoid conflicts and resolve type errors.
+app.post('/api/notify', authenticateRequest, async (req: express.Request, res: express.Response) => {
     const { type, payload } = req.body;
     if (!type || !payload) {
         return res.status(400).json({ error: 'Invalid notification payload' });

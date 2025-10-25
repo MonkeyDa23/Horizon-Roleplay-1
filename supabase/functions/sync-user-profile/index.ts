@@ -3,7 +3,25 @@
 // @deno-types="https://esm.sh/@supabase/functions-js@2"
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { PERMISSIONS } from '../../../src/lib/permissions.ts';
+
+// DUPLICATED from src/lib/permissions.ts to remove external dependency for deployment.
+const PERMISSIONS = {
+  _super_admin: 'Grants all other permissions automatically.',
+  page_store: 'Allow user to see and access the Store page.',
+  page_rules: 'Allow user to see and access the Rules page.',
+  page_applies: 'Allow user to see and access the Applies page.',
+  admin_panel: 'Allow user to see the "Admin Panel" button and access the /admin route.',
+  admin_submissions: 'Allow user to view and handle all application submissions.',
+  admin_quizzes: 'Allow user to create, edit, and delete application forms (quizzes).',
+  admin_rules: 'Allow user to edit the server rules.',
+  admin_store: 'Allow user to manage items in the store.',
+  admin_translations: 'Allow user to edit all website text and translations.',
+  admin_appearance: 'Allow user to change site-wide settings like name, logo, and theme.',
+  admin_audit_log: 'Allow user to view the log of all admin actions.',
+  admin_permissions: 'Allow user to change permissions for other Discord roles.',
+  admin_lookup: 'Allow user to look up user profiles by Discord ID.',
+} as const;
+
 
 const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
 
@@ -20,6 +38,11 @@ const createResponse = (data: unknown, status = 200) => {
 }
 
 serve(async (req) => {
+  // This is needed to handle the OPTIONS request from the browser for CORS
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
   let authUser;
   // Use the SERVICE_ROLE_KEY to bypass RLS for internal operations
   const supabaseAdmin = createClient(
