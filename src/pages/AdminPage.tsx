@@ -107,9 +107,6 @@ const Panel: React.FC<{ children: React.ReactNode; isLoading: boolean, loadingTe
     return <div className="animate-fade-in-up">{children}</div>;
 }
 
-// FIX: Removed block of placeholder component declarations that caused redeclaration errors.
-// All panels are now fully implemented below.
-
 const SubmissionsPanel: React.FC = () => {
     const { t } = useLocalization();
     const { user } = useAuth();
@@ -133,8 +130,6 @@ const SubmissionsPanel: React.FC = () => {
         fetchSubmissions();
     }, [fetchSubmissions]);
 
-    // FIX: Changed the type of the 'status' parameter from the broad 'SubmissionStatus'
-    // to the specific statuses allowed by the update function to resolve the type error.
     const handleUpdateStatus = async (id: string, status: 'taken' | 'accepted' | 'refused') => {
         try {
             await updateSubmissionStatus(id, status);
@@ -380,7 +375,55 @@ const RulesPanel: React.FC = () => {
 
 const StorePanel: React.FC = () => {
     const { t } = useLocalization();
-    return <p>{t('store_management')}</p>;
+    const { showToast } = useToast();
+    const [products, setProducts] = useState<Product[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [editingProduct, setEditingProduct] = useState<Partial<Product> | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
+
+    const fetchProducts = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            setProducts(await getProducts());
+        } catch (e) { showToast((e as Error).message, 'error'); }
+        finally { setIsLoading(false); }
+    }, [showToast]);
+
+    useEffect(() => { fetchProducts(); }, [fetchProducts]);
+
+    const handleSave = async () => {
+        if (!editingProduct) return;
+        setIsSaving(true);
+        try {
+            await apiSaveProduct(editingProduct as Product);
+            showToast('Product saved!', 'success');
+            setEditingProduct(null);
+            fetchProducts();
+        } catch (e) { showToast((e as Error).message, 'error'); }
+        finally { setIsSaving(false); }
+    };
+    
+    const handleDelete = async (id: string) => {
+        if (window.confirm('Are you sure you want to delete this product?')) {
+            try {
+                await apiDeleteProduct(id);
+                showToast('Product deleted!', 'success');
+                fetchProducts();
+            } catch (e) { showToast((e as Error).message, 'error'); }
+        }
+    };
+
+    return (
+        <Panel isLoading={isLoading} loadingText="Loading products...">
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold">{t('store_management')}</h2>
+                <button onClick={() => setEditingProduct({ nameKey: '', descriptionKey: '', price: 0, imageUrl: '' })} className="bg-brand-cyan text-brand-dark font-bold py-2 px-4 rounded-md hover:bg-white transition-all flex items-center gap-2">
+                    <Plus size={20} /> Add Product
+                </button>
+            </div>
+             <p className="text-center text-gray-400 py-10">Store management UI is coming soon.</p>
+        </Panel>
+    );
 };
 
 const TranslationsPanel: React.FC = () => {
