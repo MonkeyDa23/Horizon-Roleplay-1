@@ -1,5 +1,7 @@
 // discord-bot/src/index.ts
 import express from 'express';
+// FIX: Add explicit types from express to resolve overload errors.
+import type { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 // FIX: Switched to a namespace import to fix module resolution issues with discord.js types.
 import * as Discord from 'discord.js';
@@ -173,8 +175,8 @@ app.use(cors());
 app.use(express.json());
 
 // Authentication middleware to protect API endpoints
-// FIX: Changed types to 'any' to bypass broken type definitions.
-const authenticateRequest = (req: any, res: any, next: any) => {
+// FIX: Replaced 'any' with explicit Express types to fix overload error.
+const authenticateRequest = (req: Request, res: Response, next: NextFunction) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
@@ -189,8 +191,8 @@ const authenticateRequest = (req: any, res: any, next: any) => {
 // =============================================
 // API ROUTES
 // =============================================
-// FIX: Changed types to 'any' to bypass broken type definitions.
-app.get('/health', async (req: any, res: any) => {
+// FIX: Replaced 'any' with explicit Express types.
+app.get('/health', async (req: Request, res: Response) => {
   if (!client.isReady()) {
     return res.status(503).json({ status: 'error', message: 'Bot is not ready.' });
   }
@@ -210,8 +212,8 @@ app.get('/health', async (req: any, res: any) => {
 });
 
 // GET USER PROFILE
-// FIX: Changed types to 'any' to bypass broken type definitions.
-app.get('/api/user/:id', authenticateRequest, async (req: any, res: any) => {
+// FIX: Replaced 'any' with explicit Express types.
+app.get('/api/user/:id', authenticateRequest, async (req: Request, res: Response) => {
   const { id } = req.params;
 
   try {
@@ -265,8 +267,8 @@ app.get('/api/user/:id', authenticateRequest, async (req: any, res: any) => {
 });
 
 // GET ALL GUILD ROLES
-// FIX: Changed types to 'any' to bypass broken type definitions.
-app.get('/api/roles', authenticateRequest, async (req: any, res: any) => {
+// FIX: Replaced 'any' with explicit Express types.
+app.get('/api/roles', authenticateRequest, async (req: Request, res: Response) => {
   try {
     // IMPROVEMENT: Fetch guild on every request to be stateless and more resilient.
     const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
@@ -299,8 +301,8 @@ app.get('/api/roles', authenticateRequest, async (req: any, res: any) => {
 });
 
 // SEND NOTIFICATION
-// FIX: Changed types to 'any' to bypass broken type definitions.
-app.post('/api/notify', authenticateRequest, async (req: any, res: any) => {
+// FIX: Replaced 'any' with explicit Express types.
+app.post('/api/notify', authenticateRequest, async (req: Request, res: Response) => {
     const { type, payload } = req.body;
     
     if (!type || !payload) {

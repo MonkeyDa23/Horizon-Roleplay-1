@@ -13,10 +13,10 @@ interface ConfigContextType {
 
 const defaultConfig: AppConfig = {
     COMMUNITY_NAME: 'Vixel Roleplay',
-    LOGO_URL: '',
+    LOGO_URL: 'https://l.top4top.io/p_356271n1v1.png',
     DISCORD_GUILD_ID: '',
-    DISCORD_INVITE_URL: '',
-    MTA_SERVER_URL: '',
+    DISCORD_INVITE_URL: 'https://discord.gg/u3CazwhxVa',
+    MTA_SERVER_URL: 'mtasa://134.255.216.22:22041',
     BACKGROUND_IMAGE_URL: '',
     SHOW_HEALTH_CHECK: false,
     SUBMISSIONS_CHANNEL_ID: null,

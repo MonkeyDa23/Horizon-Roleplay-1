@@ -5,6 +5,7 @@ import { NavLink, Link } from 'react-router-dom';
 import { useLocalization } from '../hooks/useLocalization';
 import { useAuth } from '../hooks/useAuth';
 import { useCart } from '../hooks/useCart';
+import { useConfig } from '../hooks/useConfig';
 import Logo from './Logo';
 import CartModal from './CartModal';
 import { Globe, ChevronDown, LogIn, LogOut, Loader, ShoppingCart, UserCog, FileText, User } from 'lucide-react';
@@ -13,6 +14,7 @@ const Navbar: React.FC = () => {
   const { language, setLanguage, t } = useLocalization();
   const { user, login, logout, loading, hasPermission } = useAuth();
   const { totalItems } = useCart();
+  const { config } = useConfig();
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [isCartOpen, setCartOpen] = useState(false);
@@ -41,7 +43,7 @@ const Navbar: React.FC = () => {
         <div className="container mx-auto px-6 py-3 flex justify-between items-center">
           <div className="flex items-center gap-4">
             <Logo className="h-10 w-10" />
-            <h1 className="text-xl font-bold text-white tracking-wider hidden md:block">HORIZON</h1>
+            <h1 className="text-xl font-bold text-white tracking-wider hidden md:block">{config.COMMUNITY_NAME}</h1>
           </div>
           <div className="hidden md:flex items-center gap-8">
             {navLinks.filter(l => canView(l.perm)).map((link) => (

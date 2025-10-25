@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { useLocalization } from '../hooks/useLocalization';
-import { CONFIG } from '../lib/config';
+// FIX: Updated import path to point to the 'src' directory.
+import { useLocalization } from '../src/hooks/useLocalization';
+// FIX: Switched from deprecated static CONFIG to the useConfig hook.
+import { useConfig } from '../src/hooks/useConfig';
 import Modal from '../components/Modal';
 import Logo from '../components/Logo';
 import { Disc3, Gamepad2 } from 'lucide-react';
@@ -8,6 +10,8 @@ import MtaServerStatus from '../components/MtaServerStatus';
 
 const HomePage: React.FC = () => {
   const { t } = useLocalization();
+  // FIX: Get config from the context provider.
+  const { config } = useConfig();
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
@@ -46,7 +50,7 @@ const HomePage: React.FC = () => {
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={t('join_modal_title')}>
         <div className="space-y-6">
           <a
-            href={CONFIG.DISCORD_INVITE_URL}
+            href={config.DISCORD_INVITE_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-4 w-full p-4 bg-blue-500/80 text-white font-bold rounded-lg hover:bg-blue-500 transition-colors duration-300"
@@ -55,7 +59,7 @@ const HomePage: React.FC = () => {
             <span>{t('join_discord')}</span>
           </a>
           <a
-            href={CONFIG.MTA_SERVER_URL}
+            href={config.MTA_SERVER_URL}
             className="flex items-center justify-center gap-4 w-full p-4 bg-gray-700 text-white font-bold rounded-lg hover:bg-gray-600 transition-colors duration-300"
           >
             <Gamepad2 size={24} />

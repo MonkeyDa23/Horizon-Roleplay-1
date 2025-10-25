@@ -8,7 +8,7 @@ const Footer: React.FC = () => {
   const { config, configLoading } = useConfig();
 
   const year = new Date().getFullYear();
-  const communityName = configLoading ? 'Horizon' : config.COMMUNITY_NAME;
+  const communityName = configLoading ? 'Vixel Roleplay' : config.COMMUNITY_NAME;
 
   return (
     <footer className="bg-brand-dark-blue border-t border-brand-light-blue/50 mt-16">

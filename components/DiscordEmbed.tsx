@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 // FIX: Corrected the import path for the Logo component.
 import Logo from './Logo';
-import { useLocalization } from '../hooks/useLocalization';
-import { CONFIG } from '../lib/config';
+// FIX: Updated import path to point to the 'src' directory.
+import { useLocalization } from '../src/hooks/useLocalization';
+// FIX: Switched from deprecated static CONFIG to the useConfig hook.
+import { useConfig } from '../src/hooks/useConfig';
 
 interface DiscordEmbedProps {
   serverName: string;
@@ -16,6 +18,8 @@ const DiscordEmbed: React.FC<DiscordEmbedProps> = ({
   baseTotal = 5678,
 }) => {
   const { t } = useLocalization();
+  // FIX: Get config from the context provider.
+  const { config } = useConfig();
   const [onlineMembers, setOnlineMembers] = useState(baseOnline);
   const [totalMembers, setTotalMembers] = useState(baseTotal);
 
@@ -60,7 +64,7 @@ const DiscordEmbed: React.FC<DiscordEmbedProps> = ({
         </div>
       </div>
       <a
-        href={CONFIG.DISCORD_INVITE_URL}
+        href={config.DISCORD_INVITE_URL}
         target="_blank"
         rel="noopener noreferrer"
         className="block w-full text-center bg-brand-cyan text-brand-dark font-bold py-2.5 rounded-md hover:bg-white transition-all duration-300 shadow-glow-cyan-light"

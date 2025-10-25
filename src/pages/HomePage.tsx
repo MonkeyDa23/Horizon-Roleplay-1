@@ -5,16 +5,15 @@ import Modal from '../components/Modal';
 import Logo from '../components/Logo';
 import { Disc3, Gamepad2 } from 'lucide-react';
 import MtaServerStatus from '../components/MtaServerStatus';
-import DiscordAnnouncements from '../components/DiscordAnnouncements';
 import SEO from '../components/SEO';
 
 const HomePage: React.FC = () => {
   const { t } = useLocalization();
   const { config } = useConfig();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const communityName = config.COMMUNITY_NAME || 'Horizon Roleplay';
+  const communityName = config.COMMUNITY_NAME || 'Vixel Roleplay';
   // This description comes from metadata.json
-  const description = "A visually stunning website for the Horizon VRoleplay community, featuring multilingual support, Discord integration, and pages for community rules, applications, and store.";
+  const description = "A visually stunning website for the Vixel Roleplay community, featuring multilingual support, Discord integration, and pages for community rules, applications, and store.";
 
 
   return (
@@ -38,7 +37,7 @@ const HomePage: React.FC = () => {
         
         <div className="text-center z-10 p-6 animate-slide-up">
           <h1 className="text-5xl md:text-7xl font-extrabold text-white" style={{ textShadow: '0 0 20px rgba(0, 242, 234, 0.4)' }}>
-            {t('hero_title')}
+            {t('hero_title', { communityName })}
           </h1>
           <p className="mt-6 text-lg md:text-xl text-gray-300 max-w-3xl mx-auto">
             {t('hero_subtitle')}
@@ -52,9 +51,8 @@ const HomePage: React.FC = () => {
         </div>
       </div>
 
-      <div className="container mx-auto px-6 py-16 space-y-20">
+      <div className="container mx-auto px-6 py-16">
         <MtaServerStatus />
-        {/* Removed DiscordAnnouncements to avoid showing mock data */}
       </div>
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={t('join_modal_title')}>
