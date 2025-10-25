@@ -3,6 +3,7 @@
 // @deno-types="https://esm.sh/@supabase/functions-js@2"
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { PERMISSIONS } from '../../../src/lib/permissions.ts';
 
 const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
 
@@ -19,10 +20,6 @@ const createResponse = (data: unknown, status = 200) => {
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
-
   let authUser;
   // Use the SERVICE_ROLE_KEY to bypass RLS for internal operations
   const supabaseAdmin = createClient(
@@ -59,11 +56,11 @@ serve(async (req) => {
     authUser = user;
 
     // =================================================================
-    // 2. GET TRUSTED PROFILE & PERMISSIONS FROM DATABASE
+    // 2. GET TRUSTED PROFILE FROM DATABASE
     // =================================================================
     const { data: dbProfile, error: dbError } = await supabaseAdmin
       .from('profiles')
-      .select('*')
+      .select('discord_id, roles, highest_role, last_synced_at, is_banned, ban_reason, ban_expires_at')
       .eq('id', authUser.id)
       .maybeSingle();
     if (dbError) throw new Error(`DB Error fetching profile: ${dbError.message}`);
@@ -96,8 +93,6 @@ serve(async (req) => {
         }
         
         syncedMemberData = await botResponse.json();
-
-        // ** CRITICAL CHECKS **
         if (!syncedMemberData || !Array.isArray(syncedMemberData.roles)) {
             throw new Error("Sync failed: Bot returned invalid or malformed data.");
         }
@@ -112,12 +107,14 @@ serve(async (req) => {
     }
     
     // =================================================================
-    // 4. PERSIST CHANGES AND CONSTRUCT FINAL USER OBJECT
+    // 4. PERSIST CHANGES AND CALCULATE PERMISSIONS
     // =================================================================
-    let finalProfileDataSource = dbProfile; 
+    let finalProfileDataSource = dbProfile;
+    let userRoles = dbProfile?.roles || [];
 
     if (syncedMemberData) {
         const discordUserId = dbProfile?.discord_id || authUser.user_metadata?.provider_id;
+        
         const { data: updatedProfile, error: upsertError } = await supabaseAdmin
             .from('profiles')
             .upsert({
@@ -125,22 +122,17 @@ serve(async (req) => {
                 discord_id: discordUserId,
                 roles: syncedMemberData.roles,
                 highest_role: syncedMemberData.highest_role,
-                is_guild_owner: syncedMemberData.isGuildOwner,
                 last_synced_at: new Date().toISOString(),
-                // DO NOT update is_admin or is_super_admin here. They are managed manually.
             })
-            .select()
+            .select('discord_id, roles, highest_role, is_banned, ban_reason, ban_expires_at')
             .single();
         
         if (upsertError) {
             console.error(`[DB-FAIL] Profile update failed for ${authUser.id}:`, upsertError);
             syncError = (syncError ? syncError + ' ' : '') + `Database update failed after sync: ${upsertError.message}. Using cached data.`;
         } else {
-            finalProfileDataSource = {
-                ...updatedProfile,
-                username: syncedMemberData.username,
-                avatar: syncedMemberData.avatar,
-            };
+            finalProfileDataSource = updatedProfile;
+            userRoles = syncedMemberData.roles;
         }
     }
     
@@ -148,16 +140,34 @@ serve(async (req) => {
         throw new Error("Initial profile sync failed and no cached data is available. This can happen if the bot is offline or misconfigured during your first login.");
     }
     
+    // Calculate effective permissions
+    const userRoleIds = (userRoles || []).map((r: any) => r.id);
+    const { data: rolePermissions, error: permsError } = await supabaseAdmin
+        .from('role_permissions')
+        .select('role_id, permissions')
+        .in('role_id', userRoleIds);
+    if (permsError) throw new Error(`Could not fetch role permissions: ${permsError.message}`);
+
+    const permissionSet = new Set<string>();
+    for (const rp of rolePermissions || []) {
+        for (const p of rp.permissions || []) {
+            permissionSet.add(p);
+        }
+    }
+
+    // If super admin, grant all permissions
+    if (permissionSet.has('_super_admin')) {
+      Object.keys(PERMISSIONS).forEach(p => permissionSet.add(p));
+    }
+    
     const finalUser = {
       id: authUser.id,
       discordId: finalProfileDataSource.discord_id,
-      username: finalProfileDataSource.username || authUser.user_metadata?.full_name,
-      avatar: finalProfileDataSource.avatar || authUser.user_metadata?.avatar_url,
-      roles: finalProfileDataSource.roles,
-      highestRole: finalProfileDataSource.highest_role,
-      is_guild_owner: finalProfileDataSource.is_guild_owner || false,
-      is_admin: finalProfileDataSource.is_admin || false,
-      is_super_admin: finalProfileDataSource.is_super_admin || false,
+      username: syncedMemberData?.username || authUser.user_metadata?.full_name,
+      avatar: syncedMemberData?.avatar || authUser.user_metadata?.avatar_url,
+      roles: userRoles,
+      highestRole: syncedMemberData?.highest_role || finalProfileDataSource.highest_role,
+      permissions: Array.from(permissionSet),
       is_banned: finalProfileDataSource.is_banned || false,
       ban_reason: finalProfileDataSource.ban_reason || null,
       ban_expires_at: finalProfileDataSource.ban_expires_at || null,

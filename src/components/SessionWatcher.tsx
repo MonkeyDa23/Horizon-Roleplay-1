@@ -22,11 +22,8 @@ const SessionWatcher = () => {
             try {
                 const freshUser = await revalidateSession();
                 
-                // FIX: The 'permissions' property does not exist on the User type.
-                // Replaced the logic to use the 'is_admin' and 'is_super_admin' flags to detect a change in admin access.
-                // Compare admin access flags to detect changes
-                const hadAdminAccess = user.is_admin || user.is_super_admin;
-                const nowHasAdminAccess = freshUser.is_admin || freshUser.is_super_admin;
+                const hadAdminAccess = user.permissions.includes('admin_panel');
+                const nowHasAdminAccess = freshUser.permissions.includes('admin_panel');
 
                 if (hadAdminAccess !== nowHasAdminAccess) {
                     if (nowHasAdminAccess) {
@@ -34,8 +31,12 @@ const SessionWatcher = () => {
                     } else {
                         showToast(t('admin_revoked'), 'info');
                     }
+                }
+                // Also update user if roles/permissions changed to keep UI in sync
+                if (JSON.stringify(user.permissions) !== JSON.stringify(freshUser.permissions)) {
                     updateUser(freshUser);
                 }
+
 
             } catch (error) {
                 console.error("Background session validation failed:", error);

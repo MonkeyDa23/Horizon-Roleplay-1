@@ -3,7 +3,7 @@ import { supabase } from './supabaseClient';
 import type { 
   AppConfig, Product, Quiz, QuizSubmission, RuleCategory, Translations, 
   User, PermissionKey, DiscordRole, UserLookupResult,
-  MtaServerStatus, AuditLogEntry, MtaLogEntry, DiscordAnnouncement
+  MtaServerStatus, AuditLogEntry, MtaLogEntry, DiscordAnnouncement, RolePermission
 } from '../types';
 
 // Custom Error class for API responses
@@ -219,6 +219,17 @@ export const getGuildRoles = async (): Promise<DiscordRole[]> => {
         throw new ApiError((error as Error).message || 'An unknown error occurred while fetching roles.', 500);
     }
 };
+
+export const getRolePermissions = async (): Promise<RolePermission[]> => {
+    if (!supabase) throw new Error("Supabase not configured");
+    return handleResponse(await supabase.from('role_permissions').select('*'));
+};
+
+export const saveRolePermissions = async (rolePermission: RolePermission): Promise<void> => {
+    if (!supabase) throw new Error("Supabase not configured");
+    return handleResponse(await supabase.rpc('save_role_permissions', { p_role_id: rolePermission.role_id, p_permissions: rolePermission.permissions }));
+};
+
 
 // =============================================
 // ADMIN & AUDIT LOG API

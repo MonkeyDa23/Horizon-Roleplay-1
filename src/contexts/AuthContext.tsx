@@ -116,12 +116,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const hasPermission = useCallback((key: PermissionKey): boolean => {
-    if (!user) return false;
-    if (user.is_super_admin) return true;
-    if (user.is_admin) {
-        return key === 'admin_panel' || key === 'admin_submissions';
-    }
-    return false;
+    if (!user || !user.permissions) return false;
+    // Super admin has all permissions implicitly
+    if (user.permissions.includes('_super_admin')) return true;
+    return user.permissions.includes(key);
   }, [user]);
 
   // Render a full-page loader while the initial session is being processed.

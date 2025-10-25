@@ -3,6 +3,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 // FIX: Updated import paths to point to the 'src' directory
 import { useAuth } from '../src/hooks/useAuth';
@@ -94,8 +96,8 @@ const AdminPage: React.FC = () => {
             // FIX: The revalidateSession function does not take any arguments.
             const freshUser = await revalidateSession();
             
-            // FIX: The 'permissions' property does not exist on the User type. Switched to using 'is_admin' and 'is_super_admin' flags.
-            if (!freshUser.is_admin && !freshUser.is_super_admin) {
+            // FIX: Use permissions array from the freshUser object to check for admin access.
+            if (!freshUser.permissions.includes('admin_panel')) {
                 showToast(t('admin_revoked'), 'error');
                 updateUser(freshUser);
                 navigate('/');
@@ -107,8 +109,8 @@ const AdminPage: React.FC = () => {
             }
             
             // Check for Super Admin privileges
-            // FIX: The 'permissions' property does not exist on the User type. Switched to using the 'is_super_admin' flag.
-            const userIsSuperAdmin = freshUser.is_super_admin;
+            // FIX: Use permissions array to check for super admin privileges.
+            const userIsSuperAdmin = freshUser.permissions.includes('_super_admin');
             setIsSuperAdmin(userIsSuperAdmin);
 
             if (!accessLoggedRef.current) {

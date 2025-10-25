@@ -1,10 +1,10 @@
-// Vixel Roleplay Website - Full Database Schema (V19 - RLS Recursion Fix)
+// Vixel Roleplay Website - Full Database Schema (V21 - Role-Based Permissions)
 export const databaseSchema = `
 /*
 ====================================================================================================
- Vixel Roleplay Website - Full Database Schema (V19 - RLS Recursion Fix)
+ Vixel Roleplay Website - Full Database Schema (V21 - Role-Based Permissions)
  Author: AI
- Date: 2024-06-08
+ Date: 2024-06-10
  
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -13,11 +13,13 @@ export const databaseSchema = `
  unless you intend to wipe it completely.
 
  !! ADMIN SETUP NOTE !!
- Admin permissions are now managed directly on the 'profiles' table.
- To make a user an admin or super admin:
- 1. Go to the 'profiles' table in your Supabase Table Editor.
- 2. Find the user you want to promote.
- 3. Set the 'is_admin' or 'is_super_admin' column to TRUE for that user.
+ Admin permissions are now managed via the "Permissions" tab in the Admin Panel on the website.
+ To grant the first Super Admin permission, you must manually add a row to the database:
+ 1. Go to the 'role_permissions' table in your Supabase Table Editor.
+ 2. Click "+ Insert row".
+ 3. In 'role_id', enter the Discord Role ID of your main admin role.
+ 4. In 'permissions', enter: {"_super_admin"}
+ 5. Click Save. Now, anyone with that role can log in and manage other roles via the website.
  
  INSTRUCTIONS:
  1. Go to your Supabase Project Dashboard.
@@ -25,7 +27,7 @@ export const databaseSchema = `
  3. Click "+ New query".
  4. Copy the ENTIRE content of this file.
  5. Paste it into the SQL Editor.
- 6. Click "RUN". This will apply the new, simpler permission logic.
+ 6. Click "RUN".
 ====================================================================================================
 */
 
@@ -35,11 +37,10 @@ BEGIN;
 -- =================================================================
 -- 1. DESTRUCTIVE RESET: Drop all existing objects
 -- =================================================================
--- Drop tables with CASCADE to remove dependent objects.
+DROP TABLE IF EXISTS public.role_permissions CASCADE;
 DROP TABLE IF EXISTS public.bans CASCADE;
 DROP TABLE IF EXISTS public.audit_log CASCADE;
 DROP TABLE IF EXISTS public.submissions CASCADE;
-DROP TABLE IF EXISTS public.role_permissions CASCADE; -- This table is now obsolete.
 DROP TABLE IF EXISTS public.rules CASCADE;
 DROP TABLE IF EXISTS public.quizzes CASCADE;
 DROP TABLE IF EXISTS public.products CASCADE;
@@ -59,6 +60,7 @@ DROP FUNCTION IF EXISTS public.log_action(text);
 DROP FUNCTION IF EXISTS public.ban_user(uuid, text, int);
 DROP FUNCTION IF EXISTS public.unban_user(uuid);
 DROP FUNCTION IF EXISTS public.has_permission(uuid, text);
+DROP FUNCTION IF EXISTS public.save_role_permissions(text, text[]);
 DROP FUNCTION IF EXISTS public.get_user_id();
 
 -- Drop private schema for secrets
@@ -68,10 +70,7 @@ DROP SCHEMA IF EXISTS private CASCADE;
 -- =================================================================
 -- 2. INITIAL SETUP & EXTENSIONS
 -- =================================================================
--- Grant necessary permissions to the postgres role that runs this script.
 GRANT USAGE, CREATE ON SCHEMA public TO postgres;
-
--- Enable required extensions.
 CREATE EXTENSION IF NOT EXISTS http WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS pg_graphql WITH SCHEMA extensions;
 
@@ -100,7 +99,6 @@ $$;
 -- =================================================================
 -- 3. TABLE CREATION
 -- =================================================================
--- Table for storing site-wide configuration settings.
 CREATE TABLE public.config (
     id smallint PRIMARY KEY DEFAULT 1,
     "COMMUNITY_NAME" text NOT NULL DEFAULT 'Vixel Roleplay',
@@ -116,22 +114,22 @@ CREATE TABLE public.config (
 );
 INSERT INTO public.config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 
--- Table for storing user profiles, synced with Discord data.
 CREATE TABLE public.profiles (
     id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     discord_id text NOT NULL UNIQUE,
     roles jsonb,
     highest_role jsonb,
-    is_guild_owner boolean DEFAULT false,
     last_synced_at timestamptz,
     is_banned boolean DEFAULT false,
     ban_reason text,
-    ban_expires_at timestamptz,
-    is_admin boolean NOT NULL DEFAULT false, -- NEW
-    is_super_admin boolean NOT NULL DEFAULT false -- NEW
+    ban_expires_at timestamptz
 );
 
--- Table for store products.
+CREATE TABLE public.role_permissions (
+    role_id text PRIMARY KEY,
+    permissions text[]
+);
+
 CREATE TABLE public.products (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     "nameKey" text NOT NULL,
@@ -140,7 +138,6 @@ CREATE TABLE public.products (
     "imageUrl" text
 );
 
--- Table for quiz/application forms.
 CREATE TABLE public.quizzes (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     "titleKey" text NOT NULL,
@@ -154,7 +151,6 @@ CREATE TABLE public.quizzes (
     "lastOpenedAt" timestamptz
 );
 
--- Table for user submissions to quizzes.
 CREATE TABLE public.submissions (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     "quizId" uuid REFERENCES public.quizzes(id) ON DELETE SET NULL,
@@ -171,7 +167,6 @@ CREATE TABLE public.submissions (
     user_highest_role text
 );
 
--- Table for server rules, organized by categories.
 CREATE TABLE public.rules (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     "titleKey" text NOT NULL,
@@ -179,7 +174,6 @@ CREATE TABLE public.rules (
     rules jsonb
 );
 
--- Table for audit logs of admin actions.
 CREATE TABLE public.audit_log (
     id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
     timestamp timestamptz DEFAULT now(),
@@ -188,14 +182,12 @@ CREATE TABLE public.audit_log (
     action text
 );
 
--- Table for website translations.
 CREATE TABLE public.translations (
     key text PRIMARY KEY,
     en text,
     ar text
 );
 
--- Table for user bans.
 CREATE TABLE public.bans (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -212,7 +204,6 @@ CREATE TABLE public.bans (
 -- =================================================================
 -- 4. HELPER & RPC FUNCTIONS (DEFINED BEFORE RLS)
 -- =================================================================
--- This function is a helper to get the current user's ID from the JWT.
 CREATE OR REPLACE FUNCTION public.get_user_id()
 RETURNS uuid
 LANGUAGE sql STABLE
@@ -220,9 +211,9 @@ AS $$
   SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
 $$;
 
--- SIMPLIFIED PERMISSION CHECK FUNCTION (V19 - RLS Recursion Fix)
--- Checks the 'is_admin' and 'is_super_admin' flags on the user's profile.
--- Runs with SECURITY DEFINER to be usable within RLS policies.
+-- PERMISSION CHECK FUNCTION
+-- This is the heart of the permission system. It checks a user's roles against
+-- the role_permissions table to see if they have a specific permission.
 CREATE OR REPLACE FUNCTION public.has_permission(p_user_id uuid, p_permission_key text)
 RETURNS boolean
 LANGUAGE plpgsql STABLE
@@ -230,28 +221,37 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  v_is_super_admin boolean;
-  v_is_admin boolean;
+  user_roles jsonb;
+  role_id text;
+  has_super_admin boolean;
 BEGIN
-  IF p_user_id IS NULL THEN
-    RETURN false;
-  END IF;
-  
-  -- This SELECT can now run without being blocked by RLS on the profiles table
-  -- because of the new, non-recursive SELECT policy on public.profiles.
-  SELECT is_super_admin, is_admin
-  INTO v_is_super_admin, v_is_admin
-  FROM public.profiles WHERE id = p_user_id;
+  IF p_user_id IS NULL THEN RETURN false; END IF;
 
-  -- Super admin has all permissions.
-  IF v_is_super_admin THEN
+  SELECT roles INTO user_roles FROM public.profiles WHERE id = p_user_id;
+  IF user_roles IS NULL THEN RETURN false; END IF;
+
+  -- Check if any of the user's roles have the '_super_admin' permission.
+  -- This is a fast path to grant all permissions.
+  SELECT true INTO has_super_admin
+  FROM public.role_permissions rp
+  WHERE '_super_admin' = ANY(rp.permissions)
+  AND rp.role_id IN (SELECT value->>'id' FROM jsonb_array_elements(user_roles))
+  LIMIT 1;
+
+  IF has_super_admin THEN
     RETURN true;
   END IF;
 
-  -- Regular admin has specific permissions.
-  IF v_is_admin AND p_permission_key IN ('admin_panel', 'admin_submissions') THEN
-    RETURN true;
-  END IF;
+  -- If not a super admin, check for the specific permission.
+  FOR role_id IN SELECT value->>'id' FROM jsonb_array_elements(user_roles)
+  LOOP
+    IF EXISTS (
+      SELECT 1 FROM public.role_permissions rp
+      WHERE rp.role_id = role_id AND p_permission_key = ANY(rp.permissions)
+    ) THEN
+      RETURN true;
+    END IF;
+  END LOOP;
 
   RETURN false;
 END;
@@ -263,6 +263,7 @@ $$;
 -- =================================================================
 ALTER TABLE public.config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.role_permissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.quizzes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.submissions ENABLE ROW LEVEL SECURITY;
@@ -271,37 +272,37 @@ ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.translations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bans ENABLE ROW LEVEL SECURITY;
 
--- PUBLIC POLICIES (Read-only)
-CREATE POLICY "Allow public read access to config" ON public.config FOR SELECT USING (true);
-CREATE POLICY "Allow public read access to products" ON public.products FOR SELECT USING (true);
-CREATE POLICY "Allow public read access to quizzes" ON public.quizzes FOR SELECT USING (true);
-CREATE POLICY "Allow public read access to rules" ON public.rules FOR SELECT USING (true);
-CREATE POLICY "Allow public read access to translations" ON public.translations FOR SELECT USING (true);
+-- PUBLIC POLICIES (Read-only for all authenticated users)
+CREATE POLICY "Allow read access to config" ON public.config FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Allow read access to products" ON public.products FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Allow read access to quizzes" ON public.quizzes FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Allow read access to rules" ON public.rules FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Allow read access to translations" ON public.translations FOR SELECT USING (auth.role() = 'authenticated');
 
 -- USER-SPECIFIC POLICIES
-CREATE POLICY "Allow users to see their own submissions" ON public.submissions FOR SELECT USING (user_id = public.get_user_id());
-CREATE POLICY "Allow users to insert their own submissions" ON public.submissions FOR INSERT WITH CHECK (user_id = public.get_user_id());
-
--- PROFILES RLS (V19 RECURSION FIX)
--- These new policies prevent the recursive loop that was blocking the permission system.
--- Policy 1: Any logged-in user can read from the profiles table. This is necessary for the has_permission function to work.
-CREATE POLICY "Allow authenticated users to read profiles" ON public.profiles
-FOR SELECT USING (auth.role() = 'authenticated');
--- Policy 2: Only super admins can modify the profiles table (e.g., banning or promoting other users).
-CREATE POLICY "Allow super admins to manage profiles" ON public.profiles
-FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_lookup'));
-
+CREATE POLICY "Users can read their own profile" ON public.profiles FOR SELECT USING (id = public.get_user_id());
+CREATE POLICY "Users can see their own submissions" ON public.submissions FOR SELECT USING (user_id = public.get_user_id());
+CREATE POLICY "Users can insert their own submissions" ON public.submissions FOR INSERT WITH CHECK (user_id = public.get_user_id());
 
 -- ADMIN MANAGEMENT POLICIES (ALL ACTIONS)
-CREATE POLICY "Allow admins to manage config" ON public.config FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_appearance'));
-CREATE POLICY "Allow admins to manage products" ON public.products FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_store'));
-CREATE POLICY "Allow admins to manage quizzes" ON public.quizzes FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_quizzes'));
-CREATE POLICY "Allow admins to manage rules" ON public.rules FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_rules'));
-CREATE POLICY "Allow admins to manage submissions" ON public.submissions FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_submissions'));
-CREATE POLICY "Allow admins to read audit log" ON public.audit_log FOR SELECT USING (public.has_permission(public.get_user_id(), 'admin_audit_log'));
-CREATE POLICY "Allow admins to manage translations" ON public.translations FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_translations'));
-CREATE POLICY "Allow admins to manage bans" ON public.bans FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_lookup'));
+-- The `has_permission` function with '_super_admin' provides a universal bypass as requested.
+-- Specific permissions grant access to specific tables.
+CREATE POLICY "Admins can manage config" ON public.config FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_appearance'));
+CREATE POLICY "Admins can manage products" ON public.products FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_store'));
+CREATE POLICY "Admins can manage quizzes" ON public.quizzes FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_quizzes'));
+CREATE POLICY "Admins can manage rules" ON public.rules FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_rules'));
+CREATE POLICY "Admins can manage translations" ON public.translations FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_translations'));
+CREATE POLICY "Admins can manage bans" ON public.bans FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_lookup'));
+CREATE POLICY "Admins can manage role permissions" ON public.role_permissions FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_permissions'));
+CREATE POLICY "Admins can read audit log" ON public.audit_log FOR SELECT USING (public.has_permission(public.get_user_id(), 'admin_audit_log'));
+CREATE POLICY "Admins can manage all profiles" ON public.profiles FOR ALL USING (public.has_permission(public.get_user_id(), '_super_admin')); -- Only super admins can touch profiles
 
+-- SUBMISSIONS-SPECIFIC RLS as requested
+-- This allows access if user is _super_admin OR has 'admin_submissions'
+CREATE POLICY "Admins can manage submissions" ON public.submissions FOR ALL USING (
+    public.has_permission(public.get_user_id(), '_super_admin') OR
+    public.has_permission(public.get_user_id(), 'admin_submissions')
+);
 
 -- =================================================================
 -- 6. RPC FUNCTIONS
@@ -320,15 +321,13 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  IF NOT public.has_permission(public.get_user_id(), 'admin_submissions') THEN
+  IF NOT (public.has_permission(public.get_user_id(), '_super_admin') OR public.has_permission(public.get_user_id(), 'admin_submissions')) THEN
     RAISE EXCEPTION 'Insufficient permissions';
   END IF;
   RETURN QUERY SELECT * FROM public.submissions ORDER BY "submittedAt" DESC;
 END;
 $$;
 
--- NOTE: This function is for users, so it's intentionally SECURITY INVOKER (default).
--- It relies on the RLS INSERT policy on the 'submissions' table.
 CREATE OR REPLACE FUNCTION public.add_submission(submission_data jsonb)
 RETURNS public.submissions
 LANGUAGE plpgsql
@@ -341,7 +340,7 @@ BEGIN
   VALUES (
     (submission_data->>'quizId')::uuid,
     submission_data->>'quizTitle',
-    public.get_user_id(), -- Use session user ID for security, ignoring payload value
+    public.get_user_id(),
     submission_data->>'username',
     submission_data->'answers',
     submission_data->'cheatAttempts',
@@ -390,7 +389,7 @@ DECLARE
   embed_color int;
   embed_title text;
 BEGIN
-  IF NOT public.has_permission(public.get_user_id(), 'admin_submissions') THEN
+  IF NOT (public.has_permission(public.get_user_id(), '_super_admin') OR public.has_permission(public.get_user_id(), 'admin_submissions')) THEN
     RAISE EXCEPTION 'Insufficient permissions';
   END IF;
 
@@ -637,12 +636,27 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.save_role_permissions(p_role_id text, p_permissions text[])
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NOT public.has_permission(public.get_user_id(), 'admin_permissions') THEN
+    RAISE EXCEPTION 'Insufficient permissions';
+  END IF;
+  
+  INSERT INTO public.role_permissions (role_id, permissions)
+  VALUES (p_role_id, p_permissions)
+  ON CONFLICT (role_id) DO UPDATE
+  SET permissions = excluded.permissions;
+END;
+$$;
 
 -- =================================================================
 -- 7. INITIAL DATA SEEDING (TRANSLATIONS)
 -- =================================================================
--- This seeds the database with the fallback translations from the app.
--- You can manage these in the Admin Panel later.
 INSERT INTO public.translations (key, en, ar) VALUES
 ('home', 'Home', 'الرئيسية'),
 ('store', 'Store', 'المتجر'),
@@ -850,4 +864,4 @@ ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar;
 
 
 COMMIT;
-`
+`;

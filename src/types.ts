@@ -51,8 +51,7 @@ export interface User {
   avatar: string;
   roles: DiscordRole[];
   highestRole: DiscordRole | null;
-  is_admin: boolean;
-  is_super_admin: boolean;
+  permissions: PermissionKey[];
   is_banned: boolean;
   ban_reason: string | null;
   ban_expires_at: string | null;
@@ -78,6 +77,12 @@ export interface UserLookupResult {
     ban_reason: string | null;
     ban_expires_at: string | null;
 }
+
+export interface RolePermission {
+    role_id: string;
+    permissions: PermissionKey[];
+}
+
 
 // =============================================
 // STORE & CART
