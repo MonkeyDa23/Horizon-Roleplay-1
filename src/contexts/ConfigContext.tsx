@@ -1,3 +1,4 @@
+
 // src/contexts/ConfigContext.tsx
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { getConfig } from '../lib/api';
@@ -11,6 +12,7 @@ interface ConfigContextType {
   refreshConfig: () => Promise<void>;
 }
 
+// FIX: Added missing properties to the default config to match the AppConfig type.
 const defaultConfig: AppConfig = {
     COMMUNITY_NAME: 'Vixel Roleplay',
     LOGO_URL: 'https://l.top4top.io/p_356271n1v1.png',
@@ -21,6 +23,9 @@ const defaultConfig: AppConfig = {
     SHOW_HEALTH_CHECK: false,
     SUBMISSIONS_CHANNEL_ID: null,
     AUDIT_LOG_CHANNEL_ID: null,
+    AUDIT_LOG_CHANNEL_ID_SUBMISSIONS: null,
+    AUDIT_LOG_CHANNEL_ID_BANS: null,
+    AUDIT_LOG_CHANNEL_ID_ADMIN: null,
 };
 
 export const ConfigContext = createContext<ConfigContextType>({

@@ -190,9 +190,15 @@ export const translations: Translations = {
   discord_guild_id_desc: { ar: 'مطلوب للمصادقة ومزامنة الرتب.', en: 'Required for authentication and role sync.'},
   submissions_webhook_url: { ar: 'معرف قناة التقديمات', en: 'Submissions Channel ID'},
   submissions_webhook_url_desc: { ar: 'المعرف الرقمي للقناة التي تستقبل إشعارات التقديمات الجديدة.', en: 'The ID of the channel that receives new submission notifications.'},
-  audit_log_webhook_url: { ar: 'معرف قناة سجل التدقيق', en: 'Audit Log Channel ID'},
-  audit_log_webhook_url_desc: { ar: 'المعرف الرقمي للقناة التي تستقبل سجلات إجراءات المشرفين.', en: 'The ID of the channel that receives admin action logs.'},
-  
+  audit_log_webhook_url: { ar: 'معرف قناة سجل التدقيق العام', en: 'General Audit Log Channel ID'},
+  audit_log_webhook_url_desc: { ar: 'قناة عامة/احتياطية لسجلات إجراءات المشرفين.', en: 'A general/fallback channel for admin action logs.'},
+  log_channel_submissions: { ar: 'معرف قناة سجلات التقديمات', en: 'Submissions Log Channel ID'},
+  log_channel_submissions_desc: { ar: 'قناة للسجلات المتعلقة بحالة التقديمات (استلام، قبول، رفض).', en: 'Channel for logs related to submission status changes (taken, accepted, refused).'},
+  log_channel_bans: { ar: 'معرف قناة سجلات الحظر', en: 'Bans Log Channel ID'},
+  log_channel_bans_desc: { ar: 'قناة للسجلات المتعلقة بحظر وفك حظر المستخدمين.', en: 'Channel for logs related to user bans and unbans.'},
+  log_channel_admin: { ar: 'معرف قناة سجلات الإدارة', en: 'Admin Actions Log Channel ID'},
+  log_channel_admin_desc: { ar: 'قناة للسجلات المتعلقة بتغييرات لوحة التحكم (مثل تعديل التقديمات، القوانين، الإعدادات).', en: 'Channel for logs related to admin panel changes (e.g., editing quizzes, rules, settings).'},
+
   // Admin Page - Permissions
   discord_roles: { ar: 'رتب الديسكورد', en: 'Discord Roles' },
   available_permissions: { ar: 'الصلاحيات المتاحة', en: 'Available Permissions' },
@@ -248,11 +254,11 @@ export const translations: Translations = {
   health_check_sync_test_result: { ar: 'نتيجة المزامنة', en: 'Sync Result'},
   health_check_result_interpretation: { ar: 'تفسير النتائج', en: 'Interpreting the Results'},
   health_check_result_success: { ar: '<ul><li class="mb-2"><strong>Success (200 OK):</strong> Excellent! The user was found in the guild and their data was fetched successfully. This confirms everything is working.</li>', en: '<ul><li class="mb-2"><strong>Success (200 OK):</strong> Excellent! The user was found in the guild and their data was fetched successfully. This confirms everything is working.</li>'},
-  // FIX: Escaped single quote in the English translation string. The Arabic string was also English and had the same issue.
+  // FIX: Escaped single quote in translation strings to fix parsing error.
   health_check_result_404: { ar: '<li class="mb-2"><strong>Error (404 Not Found):</strong> This means the bot connected to Discord correctly, but couldn\'t find a user with that ID in your server. Check the ID or ensure the user is a member.</li>', en: '<li class="mb-2"><strong>Error (404 Not Found):</strong> This means the bot connected to Discord correctly, but couldn\'t find a user with that ID in your server. Check the ID or ensure the user is a member.</li>'},
-  // FIX: Escaped single quote in the English translation string. The Arabic string was also English and had the same issue.
+  // FIX: Escaped single quote in translation strings to fix parsing error.
   health_check_result_503: { ar: '<li class="mb-2"><strong>Error (503 Service Unavailable):</strong> The most common cause is that the <strong>Server Members Intent</strong> is not enabled in the Discord Developer Portal. Go to your bot\'s settings and turn it on.</li>', en: '<li class="mb-2"><strong>Error (503 Service Unavailable):</strong> The most common cause is that the <strong>Server Members Intent</strong> is not enabled in the Discord Developer Portal. Go to your bot\'s settings and turn it on.</li>'},
-  // FIX: Escaped single quotes in the English translation string. The Arabic string was also English and had the same issues.
+  // FIX: Escaped single quotes in translation strings to fix parsing error.
   health_check_result_other: { ar: '<li><strong>Other Errors:</strong> Usually indicates a problem with the bot\'s configuration or it being offline. Check the bot\'s logs for more details.</li></ul>', en: '<li><strong>Other Errors:</strong> Usually indicates a problem with the bot\'s configuration or it being offline. Check the bot\'s logs for more details.</li></ul>'},
   health_check_banner_link: { ar: 'اضغط هنا لتشغيل فحص النظام التشخيصي.', en: 'Click here to run system diagnostics.' },
   

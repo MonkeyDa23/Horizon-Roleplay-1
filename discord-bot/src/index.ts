@@ -1,3 +1,4 @@
+
 // discord-bot/src/index.ts
 import express from 'express';
 import cors from 'cors';
@@ -86,8 +87,13 @@ client.once(Discord.Events.ClientReady, async (readyClient) => {
           .setDescription("The bot's activity name.")
           .setRequired(true));
           
-    await guild.commands.set([setStatusCommand]);
-    console.log("✅ Slash commands registered.");
+    try {
+        console.log("Registering slash commands...");
+        await guild.commands.set([setStatusCommand]);
+        console.log("✅ Slash commands registered successfully.");
+    } catch (commandError) {
+        console.error("❌ Failed to register slash commands. This is likely due to missing 'applications.commands' scope during bot invitation.", commandError);
+    }
 
   } catch (error) {
     console.error(`❌ Could not fetch guild with ID ${config.DISCORD_GUILD_ID}. Please check the ID and the bot's permissions.`, error);
@@ -207,14 +213,16 @@ app.post('/api/notify', authenticate, async (req: any, res: any) => {
     
     try {
         if (type === 'new_submission' || type === 'audit_log') {
-            const channelId = type === 'new_submission' ? payload.submissionsChannelId : payload.auditLogChannelId;
+            const channelId = payload.channelId;
             const channel = await client.channels.fetch(channelId);
-            if (channel?.type === Discord.ChannelType.GuildText || channel?.type === Discord.ChannelType.GuildAnnouncement) {
+            // FIX: Replaced isTextBased() with isGuildTextBased() to ensure the channel is a valid guild text channel
+            // that supports sending messages, resolving the TypeScript error.
+            if (channel?.isGuildTextBased()) {
                 await channel.send({ embeds: [payload.embed] });
             } else {
-                throw new Error(`Channel ${channelId} is not a valid guild text or announcement channel.`);
+                throw new Error(`Channel ${channelId} is not a valid guild text-based channel.`);
             }
-        } else if (type === 'submission_result') {
+        } else if (['submission_result', 'submission_receipt', 'submission_taken'].includes(type)) {
             const user = await client.users.fetch(payload.userId);
             await user.send({ embeds: [payload.embed] });
         } else {
@@ -222,7 +230,7 @@ app.post('/api/notify', authenticate, async (req: any, res: any) => {
         }
         res.status(200).json({ success: true });
     } catch (error) {
-        console.error('[API /notify] Error:', error);
+        console.error(`[API /notify] Error processing type "${type}":`, error);
         res.status(500).json({ error: `Failed to send notification: ${(error as Error).message}` });
     }
 });

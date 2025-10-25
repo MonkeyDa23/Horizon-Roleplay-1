@@ -1,4 +1,3 @@
-
 // src/types.ts
 
 // =============================================
@@ -185,6 +184,9 @@ export interface AppConfig {
     SHOW_HEALTH_CHECK: boolean;
     SUBMISSIONS_CHANNEL_ID: string | null;
     AUDIT_LOG_CHANNEL_ID: string | null;
+    AUDIT_LOG_CHANNEL_ID_SUBMISSIONS: string | null;
+    AUDIT_LOG_CHANNEL_ID_BANS: string | null;
+    AUDIT_LOG_CHANNEL_ID_ADMIN: string | null;
 }
 
 // =============================================

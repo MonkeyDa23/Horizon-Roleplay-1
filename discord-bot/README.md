@@ -9,8 +9,9 @@ This is the backend Discord bot required for the Vixel Roleplay website. It's a 
 -   Receives requests from the website (via Supabase) to send messages to specific channels or users (DMs).
 -   Protected API endpoints using a secret key.
 -   Simple health check endpoint for diagnostics.
+-   Slash command (`/setstatus`) to change the bot's presence.
 
-## ⚠️ Important Prerequisite
+## ⚠️ Important Prerequisite: Server Members Intent
 
 Before setting up the bot, go to the [Discord Developer Portal](https://discord.com/developers/applications), select your bot application, and go to the "Bot" tab.
 
@@ -18,21 +19,31 @@ You **MUST** enable the **SERVER MEMBERS INTENT**.
 
 This is the #1 cause of login issues. If this is disabled, the bot cannot see the roles of users who are not cached, and the login system will fail.
 
-## Bot Invitation & Scopes
 
-For the bot and its slash commands (like `/setstatus`) to work correctly, it must be invited to your server with the correct permissions and scopes.
 
-1.  **Required Scopes**: The bot needs both `bot` and `applications.commands`.
-2.  **Required Permissions**: The bot needs `Administrator` permissions to function correctly. This is the simplest setup, but you can also grant specific permissions like `Manage Roles` and `Send Messages` if you prefer.
-3.  **Generate Invite Link**:
-    *   Go to the Discord Developer Portal.
+## Bot Invitation & Scopes (Crucial for Slash Commands)
+
+For the bot and its slash commands (like `/setstatus`) to work correctly, it must be invited to your server with the correct permissions and scopes. **If slash commands are not appearing, this is almost always the reason.**
+
+1.  **Go to URL Generator**:
+    *   Go to the [Discord Developer Portal](https://discord.com/developers/applications).
     *   Select your application, then go to `OAuth2 > URL Generator`.
-    *   Select the scopes: `bot` and `applications.commands`.
-    *   Select the bot permission: `Administrator`.
-    *   Copy the generated URL at the bottom.
-4.  **Re-Invite The Bot**: Use the generated URL to invite the bot to your server. If the bot is already in the server, you can simply use the URL again to update its permissions without kicking it.
 
-**If slash commands are not appearing in Discord, it's almost always because the bot was invited without the `applications.commands` scope.**
+2.  **Select Scopes**: The bot needs two scopes:
+    *   `bot`
+    *   `applications.commands` (This is the one that enables slash commands!)
+
+3.  **Select Permissions**: The simplest setup is to grant `Administrator` permissions. This ensures the bot can do everything it needs.
+
+4.  **Generate Invite Link**:
+    *   After selecting scopes and permissions, a URL will be generated at the bottom of the page.
+    *   Copy this URL.
+
+
+
+5.  **Invite The Bot**:
+    *   Paste the generated URL into your browser and invite the bot to your server.
+    *   If the bot is already in your server, you can simply use the URL again to **re-authorize and update its permissions** without kicking it.
 
 ## Installation & Setup
 

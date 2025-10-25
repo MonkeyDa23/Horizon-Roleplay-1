@@ -1,5 +1,5 @@
 // src/components/admin/AppearancePanel.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocalization } from '../../hooks/useLocalization';
 import { useToast } from '../../hooks/useToast';
 import { useConfig } from '../../hooks/useConfig';
@@ -67,15 +67,32 @@ const AppearancePanel: React.FC = () => {
                 </button>
             </div>
             <div className="bg-brand-dark-blue p-8 rounded-lg border border-brand-light-blue/50 space-y-8">
-                <InputField labelKey="community_name" value={settings.COMMUNITY_NAME || ''} onChange={val => handleChange('COMMUNITY_NAME', val)} />
-                <InputField labelKey="logo_url" value={settings.LOGO_URL || ''} onChange={val => handleChange('LOGO_URL', val)} />
-                <InputField labelKey="background_image_url" descKey="background_image_url_desc" value={settings.BACKGROUND_IMAGE_URL || ''} onChange={val => handleChange('BACKGROUND_IMAGE_URL', val)} />
-                
-                <hr className="border-brand-light-blue/50"/>
+                <div>
+                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">General Settings</h3>
+                    <div className="space-y-6">
+                        <InputField labelKey="community_name" value={settings.COMMUNITY_NAME || ''} onChange={val => handleChange('COMMUNITY_NAME', val)} />
+                        <InputField labelKey="logo_url" value={settings.LOGO_URL || ''} onChange={val => handleChange('LOGO_URL', val)} />
+                        <InputField labelKey="background_image_url" descKey="background_image_url_desc" value={settings.BACKGROUND_IMAGE_URL || ''} onChange={val => handleChange('BACKGROUND_IMAGE_URL', val)} />
+                    </div>
+                </div>
 
-                <InputField labelKey="discord_guild_id" descKey="discord_guild_id_desc" value={settings.DISCORD_GUILD_ID || ''} onChange={val => handleChange('DISCORD_GUILD_ID', val)} />
-                <InputField labelKey="submissions_webhook_url" descKey="submissions_webhook_url_desc" value={settings.SUBMISSIONS_CHANNEL_ID || ''} onChange={val => handleChange('SUBMISSIONS_CHANNEL_ID', val)} />
-                <InputField labelKey="audit_log_webhook_url" descKey="audit_log_webhook_url_desc" value={settings.AUDIT_LOG_CHANNEL_ID || ''} onChange={val => handleChange('AUDIT_LOG_CHANNEL_ID', val)} />
+                <div>
+                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">Discord & Game Integration</h3>
+                    <div className="space-y-6">
+                        <InputField labelKey="discord_guild_id" descKey="discord_guild_id_desc" value={settings.DISCORD_GUILD_ID || ''} onChange={val => handleChange('DISCORD_GUILD_ID', val)} />
+                        <InputField labelKey="submissions_webhook_url" descKey="submissions_webhook_url_desc" value={settings.SUBMISSIONS_CHANNEL_ID || ''} onChange={val => handleChange('SUBMISSIONS_CHANNEL_ID', val)} />
+                    </div>
+                </div>
+                
+                 <div>
+                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">Audit Log Channels</h3>
+                    <div className="space-y-6">
+                        <InputField labelKey="audit_log_webhook_url" descKey="audit_log_webhook_url_desc" value={settings.AUDIT_LOG_CHANNEL_ID || ''} onChange={val => handleChange('AUDIT_LOG_CHANNEL_ID', val)} />
+                        <InputField labelKey="log_channel_submissions" descKey="log_channel_submissions_desc" value={settings.AUDIT_LOG_CHANNEL_ID_SUBMISSIONS || ''} onChange={val => handleChange('AUDIT_LOG_CHANNEL_ID_SUBMISSIONS', val)} />
+                        <InputField labelKey="log_channel_bans" descKey="log_channel_bans_desc" value={settings.AUDIT_LOG_CHANNEL_ID_BANS || ''} onChange={val => handleChange('AUDIT_LOG_CHANNEL_ID_BANS', val)} />
+                        <InputField labelKey="log_channel_admin" descKey="log_channel_admin_desc" value={settings.AUDIT_LOG_CHANNEL_ID_ADMIN || ''} onChange={val => handleChange('AUDIT_LOG_CHANNEL_ID_ADMIN', val)} />
+                    </div>
+                </div>
 
             </div>
         </div>

@@ -1,10 +1,10 @@
-// -- Vixel Roleplay Website - Full Database Schema (V28 - Bilingual Content Management)
+// -- Vixel Roleplay Website - Full Database Schema (V29 - Granular Logging & Notifications)
 export const schema = `
 /*
 ====================================================================================================
- Vixel Roleplay Website - Full Database Schema (V28 - Bilingual Content Management)
+ Vixel Roleplay Website - Full Database Schema (V29 - Granular Logging & Notifications)
  Author: AI
- Date: 2024-06-14
+ Date: 2024-06-15
  
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -57,12 +57,11 @@ DROP FUNCTION IF EXISTS public.save_quiz_with_translations(jsonb);
 DROP FUNCTION IF EXISTS public.save_product_with_translations(jsonb);
 DROP FUNCTION IF EXISTS public.save_rules(jsonb);
 DROP FUNCTION IF EXISTS public.update_config(jsonb);
-DROP FUNCTION IF EXISTS public.log_action(text);
+DROP FUNCTION IF EXISTS public.log_action(text, text);
 DROP FUNCTION IF EXISTS public.ban_user(uuid, text, int);
 DROP FUNCTION IF EXISTS public.unban_user(uuid);
 DROP FUNCTION IF EXISTS public.has_permission(uuid, text);
 DROP FUNCTION IF EXISTS public.save_role_permissions(text, text[]);
-DROP FUNCTION IF EXISTS public.debug_user_permissions(uuid);
 DROP FUNCTION IF EXISTS public.get_user_id();
 
 
@@ -123,7 +122,10 @@ CREATE TABLE public.config (
     "BACKGROUND_IMAGE_URL" text,
     "SHOW_HEALTH_CHECK" boolean DEFAULT false,
     "SUBMISSIONS_CHANNEL_ID" text,
-    "AUDIT_LOG_CHANNEL_ID" text,
+    "AUDIT_LOG_CHANNEL_ID" text, -- General/Fallback
+    "AUDIT_LOG_CHANNEL_ID_SUBMISSIONS" text,
+    "AUDIT_LOG_CHANNEL_ID_BANS" text,
+    "AUDIT_LOG_CHANNEL_ID_ADMIN" text,
     CONSTRAINT id_check CHECK (id = 1)
 );
 INSERT INTO public.config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
@@ -320,6 +322,9 @@ AS $$
 DECLARE
   new_submission public.submissions;
   channel_id text;
+  user_discord_id text;
+  bot_url TEXT := private.get_secret('VITE_DISCORD_BOT_URL');
+  bot_api_key TEXT := private.get_secret('VITE_DISCORD_BOT_API_KEY');
 BEGIN
   INSERT INTO public.submissions ("quizId", "quizTitle", user_id, username, answers, "cheatAttempts", user_highest_role)
   VALUES (
@@ -332,27 +337,60 @@ BEGIN
     submission_data->>'user_highest_role'
   ) RETURNING * INTO new_submission;
 
-  SELECT "SUBMISSIONS_CHANNEL_ID" INTO channel_id FROM public.config WHERE id = 1;
+  -- Defensive check for bot configuration
+  IF bot_url IS NULL OR bot_api_key IS NULL OR bot_url LIKE '%YOUR_BOT_IP_OR_DOMAIN%' THEN
+    RAISE NOTICE 'Discord notification skipped: Bot URL or API Key not configured in private.secrets';
+    RETURN new_submission;
+  END IF;
 
+  -- 1. Send to Submissions Channel
+  SELECT "SUBMISSIONS_CHANNEL_ID" INTO channel_id FROM public.config WHERE id = 1;
   IF channel_id IS NOT NULL THEN
     PERFORM extensions.http((
         'POST',
-        (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_URL') || '/api/notify',
-        ARRAY[('Content-Type', 'application/json')::extensions.http_header, ('Authorization', 'Bearer ' || (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_API_KEY'))::extensions.http_header],
+        bot_url || '/api/notify',
+        ARRAY[('Content-Type', 'application/json')::extensions.http_header, ('Authorization', 'Bearer ' || bot_api_key)::extensions.http_header],
         'application/json',
         jsonb_build_object(
           'type', 'new_submission',
           'payload', jsonb_build_object(
-            'submissionsChannelId', channel_id,
+            'channelId', channel_id,
             'embed', jsonb_build_object(
-              'title', 'New Application Submitted!',
-              'description', 'A new application has been submitted and is awaiting review.',
-              'color', 3447003,
+              'title', '📥 تقديم جديد',
+              'description', 'تم استلام تقديم جديد وهو الآن في انتظار المراجعة.',
+              'color', 3447003, -- Blue
               'fields', jsonb_build_array(
-                jsonb_build_object('name', 'Applicant', 'value', new_submission.username, 'inline', true),
-                jsonb_build_object('name', 'Application Type', 'value', new_submission."quizTitle", 'inline', true)
+                jsonb_build_object('name', 'المتقدم', 'value', new_submission.username, 'inline', true),
+                jsonb_build_object('name', 'نوع التقديم', 'value', new_submission."quizTitle", 'inline', true),
+                jsonb_build_object('name', 'الرتبة', 'value', new_submission.user_highest_role, 'inline', true)
               ),
               'timestamp', new_submission."submittedAt"
+            )
+          )
+        )::text
+    ));
+  END IF;
+
+  -- 2. Send DM to user confirming receipt
+  SELECT discord_id INTO user_discord_id FROM public.profiles WHERE id = new_submission.user_id;
+  IF user_discord_id IS NOT NULL THEN
+     PERFORM extensions.http((
+        'POST',
+        bot_url || '/api/notify',
+        ARRAY[('Content-Type', 'application/json')::extensions.http_header, ('Authorization', 'Bearer ' || bot_api_key)::extensions.http_header],
+        'application/json',
+        jsonb_build_object(
+          'type', 'submission_receipt',
+          'payload', jsonb_build_object(
+            'userId', user_discord_id,
+            'embed', jsonb_build_object(
+              'title', '📄 تم استلام تقديمك بنجاح',
+              'description', 'شكرًا لك على تقديمك. لقد استلمنا طلبك وسيقوم أحد المسؤولين بمراجعته في أقرب وقت ممكن. يمكنك متابعة حالة طلبك من خلال صفحة "تقديماتي" على الموقع.',
+              'color', 3447003, -- Blue
+              'fields', jsonb_build_array(
+                jsonb_build_object('name', 'نوع التقديم', 'value', new_submission."quizTitle")
+              ),
+              'timestamp', now()
             )
           )
         )::text
@@ -372,11 +410,15 @@ AS $$
 DECLARE
   submission_record record;
   admin_user record;
-  embed_color int;
+  user_discord_id text;
   embed_title text;
+  embed_description text;
+  embed_color int;
+  bot_url TEXT := private.get_secret('VITE_DISCORD_BOT_URL');
+  bot_api_key TEXT := private.get_secret('VITE_DISCORD_BOT_API_KEY');
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_submissions') THEN
-    RAISE EXCEPTION 'Insufficient permissions. You need the "admin_submissions" permission.';
+    RAISE EXCEPTION 'Insufficient permissions.';
   END IF;
 
   SELECT id, raw_user_meta_data->>'full_name' AS username INTO admin_user FROM auth.users WHERE id = public.get_user_id();
@@ -389,40 +431,60 @@ BEGIN
     "updatedAt" = now()
   WHERE id = p_submission_id
   RETURNING * INTO submission_record;
+  
+  PERFORM public.log_action(format('قام بتغيير حالة تقديم (%s) للمستخدم %s إلى %s', submission_record."quizTitle", submission_record.username, p_new_status), 'submission');
 
-  IF p_new_status = 'accepted' THEN
-    embed_color := 5763719;
-    embed_title := '✅ Application Accepted';
+  -- Defensive check for bot configuration
+  IF bot_url IS NULL OR bot_api_key IS NULL OR bot_url LIKE '%YOUR_BOT_IP_OR_DOMAIN%' THEN
+    RAISE NOTICE 'Discord notification skipped: Bot URL or API Key not configured in private.secrets';
+    RETURN;
+  END IF;
+  
+  SELECT discord_id INTO user_discord_id FROM public.profiles WHERE id = submission_record.user_id;
+  IF user_discord_id IS NULL THEN
+    RAISE NOTICE 'Discord notification skipped: Could not find discord_id for user %', submission_record.user_id;
+    RETURN;
+  END IF;
+
+  IF p_new_status = 'taken' THEN
+    embed_title := '👀 تقديمك قيد المراجعة الآن';
+    embed_description := format('تم استلام تقديمك من قبل المشرف %s وهو الآن قيد المراجعة.', admin_user.username);
+    embed_color := 3447003; -- Blue
+  ELSIF p_new_status = 'accepted' THEN
+    embed_title := '✅ تم قبول تقديمك!';
+    embed_description := 'تهانينا! تم قبول طلبك. سيتم التواصل معك قريبًا بخصوص الخطوات التالية.';
+    embed_color := 5763719; -- Green
   ELSIF p_new_status = 'refused' THEN
-    embed_color := 15548997;
-    embed_title := '❌ Application Refused';
+    embed_title := '❌ تم رفض تقديمك';
+    embed_description := 'نأسف لإعلامك بأنه تم رفض طلبك في الوقت الحالي. نتمنى لك حظًا أوفر في المرة القادمة.';
+    embed_color := 15548997; -- Red
+  ELSE
+    RETURN; -- Do not send DM for 'pending' or other statuses
   END IF;
-
-  IF p_new_status IN ('accepted', 'refused') THEN
-     PERFORM extensions.http((
-        'POST',
-        (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_URL') || '/api/notify',
-        ARRAY[('Content-Type', 'application/json')::extensions.http_header, ('Authorization', 'Bearer ' || (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_API_KEY'))::extensions.http_header],
-        'application/json',
-        jsonb_build_object(
-          'type', 'submission_result',
-          'payload', jsonb_build_object(
-            'userId', (SELECT discord_id FROM public.profiles WHERE id = submission_record.user_id),
-            'embed', jsonb_build_object(
-              'title', embed_title,
-              'description', 'The status of your application has been updated.',
-              'color', embed_color,
-              'fields', jsonb_build_array(
-                jsonb_build_object('name', 'Application', 'value', submission_record."quizTitle"),
-                jsonb_build_object('name', 'Status', 'value', p_new_status),
-                jsonb_build_object('name', 'Reviewed By', 'value', admin_user.username)
-              ),
-              'timestamp', now()
-            )
+  
+   PERFORM extensions.http((
+      'POST',
+      bot_url || '/api/notify',
+      ARRAY[('Content-Type', 'application/json')::extensions.http_header, ('Authorization', 'Bearer ' || bot_api_key)::extensions.http_header],
+      'application/json',
+      jsonb_build_object(
+        'type', 'submission_result',
+        'payload', jsonb_build_object(
+          'userId', user_discord_id,
+          'embed', jsonb_build_object(
+            'title', embed_title,
+            'description', embed_description,
+            'color', embed_color,
+            'fields', jsonb_build_array(
+              jsonb_build_object('name', 'التقديم', 'value', submission_record."quizTitle"),
+              jsonb_build_object('name', 'الحالة', 'value', p_new_status),
+              jsonb_build_object('name', 'بواسطة', 'value', admin_user.username)
+            ),
+            'timestamp', now()
           )
-        )::text
-    ));
-  END IF;
+        )
+      )::text
+  ));
 END;
 $$;
 
@@ -435,10 +497,18 @@ AS $$
 DECLARE
   result public.quizzes;
   v_question jsonb;
+  action_text text;
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_quizzes') THEN
     RAISE EXCEPTION 'Insufficient permissions';
   END IF;
+
+  IF p_quiz_data->>'id' IS NOT NULL AND EXISTS (SELECT 1 FROM public.quizzes WHERE id = (p_quiz_data->>'id')::uuid) THEN
+    action_text := format('قام بتعديل بيانات التقديم: %s', p_quiz_data->>'titleEn');
+  ELSE
+    action_text := format('قام بإنشاء تقديم جديد: %s', p_quiz_data->>'titleEn');
+  END IF;
+  PERFORM public.log_action(action_text, 'admin');
 
   -- Upsert main translations
   INSERT INTO public.translations (key, en, ar)
@@ -497,6 +567,8 @@ BEGIN
     RAISE EXCEPTION 'Insufficient permissions';
   END IF;
 
+  PERFORM public.log_action(format('قام بحفظ/تعديل المنتج: %s', p_product_data->>'nameEn'), 'admin');
+
   -- Upsert translations
   INSERT INTO public.translations (key, en, ar)
   VALUES (p_product_data->>'nameKey', p_product_data->>'nameEn', p_product_data->>'nameAr'),
@@ -537,6 +609,8 @@ BEGIN
         RAISE EXCEPTION 'Insufficient permissions';
     END IF;
 
+    PERFORM public.log_action('قام بتحديث قوانين السيرفر', 'admin');
+
     -- Upsert all translations first
     FOR v_category IN SELECT * FROM jsonb_array_elements(p_rules_data)
     LOOP
@@ -572,7 +646,6 @@ BEGIN
             FROM jsonb_array_elements(c->'rules') AS r
         )
     FROM jsonb_array_elements(p_rules_data) AS c;
-
 END;
 $$;
 
@@ -588,6 +661,8 @@ BEGIN
     RAISE EXCEPTION 'Insufficient permissions';
   END IF;
 
+  PERFORM public.log_action('قام بتحديث إعدادات المظهر والاتصال', 'admin');
+
   UPDATE public.config
   SET
     "COMMUNITY_NAME" = coalesce(new_config->>'COMMUNITY_NAME', "COMMUNITY_NAME"),
@@ -598,12 +673,15 @@ BEGIN
     "BACKGROUND_IMAGE_URL" = coalesce(new_config->>'BACKGROUND_IMAGE_URL', "BACKGROUND_IMAGE_URL"),
     "SHOW_HEALTH_CHECK" = coalesce((new_config->>'SHOW_HEALTH_CHECK')::boolean, "SHOW_HEALTH_CHECK"),
     "SUBMISSIONS_CHANNEL_ID" = coalesce(new_config->>'SUBMISSIONS_CHANNEL_ID', "SUBMISSIONS_CHANNEL_ID"),
-    "AUDIT_LOG_CHANNEL_ID" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID', "AUDIT_LOG_CHANNEL_ID")
+    "AUDIT_LOG_CHANNEL_ID" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID', "AUDIT_LOG_CHANNEL_ID"),
+    "AUDIT_LOG_CHANNEL_ID_SUBMISSIONS" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID_SUBMISSIONS', "AUDIT_LOG_CHANNEL_ID_SUBMISSIONS"),
+    "AUDIT_LOG_CHANNEL_ID_BANS" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID_BANS', "AUDIT_LOG_CHANNEL_ID_BANS"),
+    "AUDIT_LOG_CHANNEL_ID_ADMIN" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID_ADMIN', "AUDIT_LOG_CHANNEL_ID_ADMIN")
   WHERE id = 1;
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.log_action(p_action text)
+CREATE OR REPLACE FUNCTION public.log_action(p_action text, p_log_type text DEFAULT 'general')
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -612,6 +690,8 @@ AS $$
 DECLARE
   admin_user record;
   channel_id text;
+  bot_url TEXT := private.get_secret('VITE_DISCORD_BOT_URL');
+  bot_api_key TEXT := private.get_secret('VITE_DISCORD_BOT_API_KEY');
 BEGIN
   SELECT id, raw_user_meta_data->>'full_name' AS username INTO admin_user
   FROM auth.users WHERE id = public.get_user_id();
@@ -619,23 +699,36 @@ BEGIN
   INSERT INTO public.audit_log(admin_id, admin_username, action)
   VALUES (admin_user.id, admin_user.username, p_action);
 
-  SELECT "AUDIT_LOG_CHANNEL_ID" INTO channel_id FROM public.config WHERE id = 1;
+  -- Defensive check for bot configuration
+  IF bot_url IS NULL OR bot_api_key IS NULL OR bot_url LIKE '%YOUR_BOT_IP_OR_DOMAIN%' THEN
+    RAISE NOTICE 'Audit log notification skipped: Bot URL or API Key not configured.';
+    RETURN;
+  END IF;
+
+  SELECT
+    CASE p_log_type
+        WHEN 'submission' THEN "AUDIT_LOG_CHANNEL_ID_SUBMISSIONS"
+        WHEN 'ban' THEN "AUDIT_LOG_CHANNEL_ID_BANS"
+        WHEN 'admin' THEN "AUDIT_LOG_CHANNEL_ID_ADMIN"
+        ELSE "AUDIT_LOG_CHANNEL_ID" -- fallback to general
+    END
+  INTO channel_id
+  FROM public.config WHERE id = 1;
 
   IF channel_id IS NOT NULL THEN
      PERFORM extensions.http((
         'POST',
-        (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_URL') || '/api/notify',
-        ARRAY[('Content-Type', 'application/json')::extensions.http_header, ('Authorization', 'Bearer ' || (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_API_KEY'))::extensions.http_header],
+        bot_url || '/api/notify',
+        ARRAY[('Content-Type', 'application/json')::extensions.http_header, ('Authorization', 'Bearer ' || bot_api_key)::extensions.http_header],
         'application/json',
         jsonb_build_object(
           'type', 'audit_log',
           'payload', jsonb_build_object(
-            'auditLogChannelId', channel_id,
+            'channelId', channel_id,
             'embed', jsonb_build_object(
-              'title', 'Admin Action Logged',
               'description', p_action,
-              'color', 16776960,
-              'author', jsonb_build_object('name', admin_user.username),
+              'color', 16776960, -- Yellow
+              'author', jsonb_build_object('name', format('سجل إدارة | %s', admin_user.username)),
               'timestamp', now()
             )
           )
@@ -675,7 +768,7 @@ BEGIN
   VALUES (p_target_user_id, public.get_user_id(), p_reason, v_expires_at, true);
 
   SELECT raw_user_meta_data->>'global_name' FROM auth.users WHERE id = p_target_user_id INTO target_username;
-  PERFORM public.log_action('Banned user ' || coalesce(target_username, p_target_user_id::text) || ' for reason: ' || p_reason);
+  PERFORM public.log_action(format('🚫 قام بحظر المستخدم **%s** للسبب: *%s*', coalesce(target_username, p_target_user_id::text), p_reason), 'ban');
 END;
 $$;
 
@@ -701,7 +794,7 @@ BEGIN
   WHERE user_id = p_target_user_id AND is_active = true;
   
   SELECT raw_user_meta_data->>'global_name' FROM auth.users WHERE id = p_target_user_id INTO target_username;
-  PERFORM public.log_action('Unbanned user ' || coalesce(target_username, p_target_user_id::text));
+  PERFORM public.log_action(format('✅ قام بفك الحظر عن المستخدم **%s**', coalesce(target_username, p_target_user_id::text)), 'ban');
 END;
 $$;
 
@@ -716,6 +809,8 @@ BEGIN
     RAISE EXCEPTION 'Insufficient permissions';
   END IF;
   
+  PERFORM public.log_action(format('قام بتحديث صلاحيات الرتبة <@&%s>', p_role_id), 'admin');
+
   INSERT INTO public.role_permissions (role_id, permissions)
   VALUES (p_role_id, p_permissions)
   ON CONFLICT (role_id) DO UPDATE
@@ -726,6 +821,7 @@ $$;
 -- =================================================================
 -- 7. INITIAL DATA SEEDING (TRANSLATIONS)
 -- =================================================================
+-- (Same as before, truncated for brevity, but will be included in the final file)
 INSERT INTO public.translations (key, en, ar) VALUES
 ('home', 'Home', 'الرئيسية'),
 ('store', 'Store', 'المتجر'),
@@ -880,8 +976,14 @@ INSERT INTO public.translations (key, en, ar) VALUES
 ('discord_guild_id_desc', 'Required for authentication and role sync.', 'مطلوب للمصادقة ومزامنة الرتب.'),
 ('submissions_webhook_url', 'Submissions Channel ID', 'معرف قناة التقديمات'),
 ('submissions_webhook_url_desc', 'The ID of the channel that receives new submission notifications.', 'المعرف الرقمي للقناة التي تستقبل إشعارات التقديمات الجديدة.'),
-('audit_log_webhook_url', 'Audit Log Channel ID', 'معرف قناة سجل التدقيق'),
-('audit_log_webhook_url_desc', 'The ID of the channel that receives admin action logs.', 'المعرف الرقمي للقناة التي تستقبل سجلات إجراءات المشرفين.'),
+('audit_log_webhook_url', 'General Audit Log Channel ID', 'معرف قناة سجل التدقيق العام'),
+('audit_log_webhook_url_desc', 'A general/fallback channel for admin action logs.', 'قناة عامة/احتياطية لسجلات إجراءات المشرفين.'),
+('log_channel_submissions', 'Submissions Log Channel ID', 'معرف قناة سجلات التقديمات'),
+('log_channel_submissions_desc', 'Channel for logs related to submission status changes (taken, accepted, refused).', 'قناة للسجلات المتعلقة بحالة التقديمات (استلام، قبول، رفض).'),
+('log_channel_bans', 'Bans Log Channel ID', 'معرف قناة سجلات الحظر'),
+('log_channel_bans_desc', 'Channel for logs related to user bans and unbans.', 'قناة للسجلات المتعلقة بحظر وفك حظر المستخدمين.'),
+('log_channel_admin', 'Admin Actions Log Channel ID', 'معرف قناة سجلات الإدارة'),
+('log_channel_admin_desc', 'Channel for logs related to admin panel changes (e.g., editing quizzes, rules, settings).', 'قناة للسجلات المتعلقة بتغييرات لوحة التحكم (مثل تعديل التقديمات، القوانين، الإعدادات).'),
 ('discord_roles', 'Discord Roles', 'رتب الديسكورد'),
 ('available_permissions', 'Available Permissions', 'الصلاحيات المتاحة'),
 ('select_role_to_manage', 'Select a role to see its permissions.', 'اختر رتبة لعرض صلاحياتها.'),
