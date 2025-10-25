@@ -1,11 +1,11 @@
 
-// Vixel Roleplay Website - Full Database Schema (V12 - Refactored Permission Check)
+// Vixel Roleplay Website - Full Database Schema (V13 - RLS Recursion Fix Attempt)
 export const databaseSchema = `
 /*
 ====================================================================================================
- Vixel Roleplay Website - Full Database Schema (V12 - Refactored Permission Check)
+ Vixel Roleplay Website - Full Database Schema (V13 - RLS Recursion Fix Attempt)
  Author: AI
- Date: 2024-06-02
+ Date: 2024-06-03
  
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -222,33 +222,30 @@ AS $$
   SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
 $$;
 
--- REFACTORED PERMISSION CHECK FUNCTION (V12)
+-- REFACTORED PERMISSION CHECK FUNCTION (V13 - RLS Recursion Fix Attempt)
 CREATE OR REPLACE FUNCTION public.has_permission(p_user_id uuid, p_permission_key text)
 RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
-DECLARE
-  v_has_perm boolean;
 BEGIN
   IF p_user_id IS NULL THEN
     RETURN false;
   END IF;
 
-  SELECT EXISTS (
+  RETURN EXISTS (
     SELECT 1
-    FROM public.role_permissions rp
-    WHERE rp.role_id IN (
-      SELECT elem->>'id'
-      FROM public.profiles p, jsonb_array_elements(p.roles) AS elem
-      WHERE p.id = p_user_id
-    )
-    AND (rp.permissions @> ARRAY['_super_admin'] OR rp.permissions @> ARRAY[p_permission_key])
-  )
-  INTO v_has_perm;
-
-  RETURN coalesce(v_has_perm, false);
+    FROM public.profiles p
+    CROSS JOIN LATERAL jsonb_array_elements(p.roles) AS user_role(role_data)
+    JOIN public.role_permissions rp ON rp.role_id = user_role.role_data->>'id'
+    WHERE
+      p.id = p_user_id
+      AND (
+        rp.permissions @> ARRAY['_super_admin']::text[] OR
+        rp.permissions @> ARRAY[p_permission_key]::text[]
+      )
+  );
 END;
 $$;
 
