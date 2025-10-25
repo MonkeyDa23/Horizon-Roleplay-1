@@ -1,4 +1,3 @@
-
 // discord-bot/src/index.ts
 import express from 'express';
 import cors from 'cors';
@@ -88,11 +87,13 @@ client.once(Discord.Events.ClientReady, async (readyClient) => {
           .setRequired(true));
           
     try {
-        console.log("Registering slash commands...");
+        console.log(`Registering slash commands for guild: "${guild.name}" (${guild.id})`);
         await guild.commands.set([setStatusCommand]);
         console.log("✅ Slash commands registered successfully.");
     } catch (commandError) {
-        console.error("❌ Failed to register slash commands. This is likely due to missing 'applications.commands' scope during bot invitation.", commandError);
+        console.error(`❌ Failed to register slash commands for guild "${guild.name}".`);
+        console.error("   This is likely due to missing 'applications.commands' scope during bot invitation.");
+        console.error("   Full error: ", commandError);
     }
 
   } catch (error) {
@@ -215,9 +216,9 @@ app.post('/api/notify', authenticate, async (req: any, res: any) => {
         if (type === 'new_submission' || type === 'audit_log') {
             const channelId = payload.channelId;
             const channel = await client.channels.fetch(channelId);
-            // FIX: Replaced isTextBased() with isGuildTextBased() to ensure the channel is a valid guild text channel
-            // that supports sending messages, resolving the TypeScript error.
-            if (channel?.isGuildTextBased()) {
+            // FIX: Replaced the invalid `isGuildTextBased()` method with a sequence of correct type guards.
+            // `isTextBased()` ensures the channel can receive messages, and `isGuildBased()` ensures it's a channel within a server.
+            if (channel?.isTextBased() && channel.isGuildBased()) {
                 await channel.send({ embeds: [payload.embed] });
             } else {
                 throw new Error(`Channel ${channelId} is not a valid guild text-based channel.`);

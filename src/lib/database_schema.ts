@@ -1,10 +1,10 @@
-// -- Vixel Roleplay Website - Full Database Schema (V29 - Granular Logging & Notifications)
+// -- Vixel Roleplay Website - Full Database Schema (V30 - Submission Fix & Per-Question Timers)
 export const schema = `
 /*
 ====================================================================================================
- Vixel Roleplay Website - Full Database Schema (V29 - Granular Logging & Notifications)
+ Vixel Roleplay Website - Full Database Schema (V30 - Submission Fix & Per-Question Timers)
  Author: AI
- Date: 2024-06-15
+ Date: 2024-06-16
  
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -315,9 +315,12 @@ BEGIN
 END;
 $$;
 
+-- FIX: Added SECURITY DEFINER to allow this function to access private.get_secret
 CREATE OR REPLACE FUNCTION public.add_submission(submission_data jsonb)
 RETURNS public.submissions
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   new_submission public.submissions;

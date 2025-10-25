@@ -242,7 +242,10 @@ const QuizzesPanel: React.FC = () => {
                                     </div>
                                     <input type="text" placeholder={t('text_en')} value={q.textEn} onChange={(e) => handleQuestionChange(index, 'textEn', e.target.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
                                     <input type="text" dir="rtl" placeholder={t('text_ar')} value={q.textAr} onChange={(e) => handleQuestionChange(index, 'textAr', e.target.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
-                                    <input type="number" placeholder={t('time_limit_seconds')} value={q.timeLimit} onChange={(e) => handleQuestionChange(index, 'timeLimit', parseInt(e.target.value) || 0)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-400">{t('time_limit_seconds')}</label>
+                                        <input type="number" placeholder={t('time_limit_seconds')} value={q.timeLimit} onChange={(e) => handleQuestionChange(index, 'timeLimit', parseInt(e.target.value) || 0)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
+                                    </div>
                                 </div>
                             ))}
                         </div>
