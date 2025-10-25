@@ -133,7 +133,9 @@ const SubmissionsPanel: React.FC = () => {
         fetchSubmissions();
     }, [fetchSubmissions]);
 
-    const handleUpdateStatus = async (id: string, status: SubmissionStatus) => {
+    // FIX: Changed the type of the 'status' parameter from the broad 'SubmissionStatus'
+    // to the specific statuses allowed by the update function to resolve the type error.
+    const handleUpdateStatus = async (id: string, status: 'taken' | 'accepted' | 'refused') => {
         try {
             await updateSubmissionStatus(id, status);
             fetchSubmissions();

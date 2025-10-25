@@ -1,13 +1,14 @@
 
 // discord-bot/src/index.ts
-import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
+// FIX: Refactored to use base express types to resolve widespread type conflicts.
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import * as Discord from 'discord.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import type { BotConfig, DiscordRole, NotifyPayload } from './types.js';
+import type { BotConfig, DiscordRole } from './types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,8 +30,8 @@ try {
   process.exit(1);
 }
 
-// FIX: Cast cors() to any to resolve middleware type mismatch error.
-app.use(cors() as any);
+// FIX: Removed 'as any' cast as the type conflict is resolved by using correct Express types.
+app.use(cors());
 app.use(express.json());
 
 // =============================================
@@ -129,31 +130,34 @@ client.on(Discord.Events.InteractionCreate, async (interaction) => {
 // =============================================
 // API MIDDLEWARE & ROUTES
 // =============================================
-const authenticate = (req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
-  // FIX: Cast req to any to access headers property.
-  const authHeader = (req as any).headers.authorization;
+// FIX: Updated types to use base Request, Response, NextFunction from express.
+const authenticate = (req: Request, res: Response, next: NextFunction) => {
+  // FIX: Removed 'as any' cast as 'req' is now correctly typed.
+  const authHeader = req.headers.authorization;
   if (authHeader && authHeader === `Bearer ${config.API_SECRET_KEY}`) {
     next();
   } else {
-    // FIX: Cast res to any to access status and json methods.
-    (res as any).status(401).json({ error: 'Unauthorized' });
+    // FIX: Removed 'as any' cast as 'res' is now correctly typed.
+    res.status(401).json({ error: 'Unauthorized' });
   }
 };
 
-app.get('/health', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
+// FIX: Updated types to use base Request and Response from express.
+app.get('/health', authenticate, async (req: Request, res: Response) => {
     try {
         const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
         await guild.members.fetch({ limit: 1 }); // Test member fetching
-        // FIX: Cast res to any to access json method.
-        (res as any).json({ status: 'ok', details: { guildName: guild.name, memberCount: guild.memberCount } });
+        // FIX: Removed 'as any' cast as 'res' is now correctly typed.
+        res.json({ status: 'ok', details: { guildName: guild.name, memberCount: guild.memberCount } });
     } catch (e) {
         console.error("[HEALTH CHECK FAIL]: ", (e as Error).message);
-        // FIX: Cast res to any to access status and json methods.
-        (res as any).status(503).json({ status: 'error', message: (e as Error).message });
+        // FIX: Removed 'as any' cast as 'res' is now correctly typed.
+        res.status(503).json({ status: 'error', message: (e as Error).message });
     }
 });
 
-app.get('/api/roles', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
+// FIX: Updated types to use base Request and Response from express.
+app.get('/api/roles', authenticate, async (req: Request, res: Response) => {
   try {
     const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
     const roles = (await guild.roles.fetch()).map(role => ({
@@ -162,18 +166,19 @@ app.get('/api/roles', authenticate, async (req: ExpressRequest, res: ExpressResp
       color: role.color,
       position: role.position,
     })).sort((a, b) => b.position - a.position);
-    // FIX: Cast res to any to access json method.
-    (res as any).json(roles);
+    // FIX: Removed 'as any' cast as 'res' is now correctly typed.
+    res.json(roles);
   } catch (error) {
     console.error('[API /roles] Error:', error);
-    // FIX: Cast res to any to access status and json methods.
-    (res as any).status(500).json({ error: 'Could not fetch guild roles.' });
+    // FIX: Removed 'as any' cast as 'res' is now correctly typed.
+    res.status(500).json({ error: 'Could not fetch guild roles.' });
   }
 });
 
-app.get('/api/user/:id', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
-  // FIX: Cast req to any to access params property.
-  const { id } = (req as any).params;
+// FIX: Updated types to use base Request and Response from express.
+app.get('/api/user/:id', authenticate, async (req: Request, res: Response) => {
+  // FIX: Removed 'as any' cast as 'req' is now correctly typed.
+  const { id } = req.params;
   try {
     const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
     const member = await guild.members.fetch(id);
@@ -187,8 +192,8 @@ app.get('/api/user/:id', authenticate, async (req: ExpressRequest, res: ExpressR
 
     const highestRole = roles[0] || null;
 
-    // FIX: Cast res to any to access json method.
-    (res as any).json({
+    // FIX: Removed 'as any' cast as 'res' is now correctly typed.
+    res.json({
         username: member.user.globalName || member.user.username,
         avatar: member.displayAvatarURL({ extension: 'png', size: 256 }),
         roles: roles,
@@ -197,24 +202,24 @@ app.get('/api/user/:id', authenticate, async (req: ExpressRequest, res: ExpressR
   } catch (error) {
     console.error(`[API /user/${id}] Error:`, error);
     if (error instanceof Discord.DiscordAPIError && error.code === 10007) {
-        // FIX: Cast res to any to access status and json methods.
-        return (res as any).status(404).json({ error: 'User not found in guild.' });
+        // FIX: Removed 'as any' cast as 'res' is now correctly typed.
+        return res.status(404).json({ error: 'User not found in guild.' });
     }
-    // FIX: Cast res to any to access status and json methods.
-    (res as any).status(500).json({ error: 'Could not fetch user data.' });
+    // FIX: Removed 'as any' cast as 'res' is now correctly typed.
+    res.status(500).json({ error: 'Could not fetch user data.' });
   }
 });
 
-app.post('/api/notify', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
-    // FIX: Cast req to any to access body property.
-    const { type, payload } = (req as any).body;
+// FIX: Updated types to use base Request and Response from express.
+app.post('/api/notify', authenticate, async (req: Request, res: Response) => {
+    // FIX: Removed 'as any' cast as 'req' is now correctly typed.
+    const { type, payload } = req.body;
     
     try {
         if (type === 'new_submission' || type === 'audit_log') {
             const channelId = type === 'new_submission' ? payload.submissionsChannelId : payload.auditLogChannelId;
             const channel = await client.channels.fetch(channelId);
             if (channel?.isTextBased()) {
-                // FIX: Cast channel to TextChannel to ensure .send() method is available.
                 await (channel as Discord.TextChannel).send({ embeds: [payload.embed] });
             } else {
                 throw new Error(`Channel ${channelId} is not a text-based channel.`);
@@ -223,15 +228,15 @@ app.post('/api/notify', authenticate, async (req: ExpressRequest, res: ExpressRe
             const user = await client.users.fetch(payload.userId);
             await user.send({ embeds: [payload.embed] });
         } else {
-            // FIX: Cast res to any to access status and json methods.
-            return (res as any).status(400).json({ error: 'Invalid notification type' });
+            // FIX: Removed 'as any' cast as 'res' is now correctly typed.
+            return res.status(400).json({ error: 'Invalid notification type' });
         }
-        // FIX: Cast res to any to access status and json methods.
-        (res as any).status(200).json({ success: true });
+        // FIX: Removed 'as any' cast as 'res' is now correctly typed.
+        res.status(200).json({ success: true });
     } catch (error) {
         console.error('[API /notify] Error:', error);
-        // FIX: Cast res to any to access status and json methods.
-        (res as any).status(500).json({ error: `Failed to send notification: ${(error as Error).message}` });
+        // FIX: Removed 'as any' cast as 'res' is now correctly typed.
+        res.status(500).json({ error: `Failed to send notification: ${(error as Error).message}` });
     }
 });
 

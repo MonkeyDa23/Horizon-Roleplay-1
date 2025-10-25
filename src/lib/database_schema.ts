@@ -1,3 +1,4 @@
+
 // Vixel Roleplay Website - Full Database Schema (V21 - Role-Based Permissions)
 export const databaseSchema = `
 /*
@@ -272,12 +273,12 @@ ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.translations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bans ENABLE ROW LEVEL SECURITY;
 
--- PUBLIC POLICIES (Read-only for all authenticated users)
-CREATE POLICY "Allow read access to config" ON public.config FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow read access to products" ON public.products FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow read access to quizzes" ON public.quizzes FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow read access to rules" ON public.rules FOR SELECT USING (auth.role() = 'authenticated');
-CREATE POLICY "Allow read access to translations" ON public.translations FOR SELECT USING (auth.role() = 'authenticated');
+-- PUBLIC POLICIES (Read-only for all users, including anonymous)
+CREATE POLICY "Allow public read access to config" ON public.config FOR SELECT USING (true);
+CREATE POLICY "Allow public read access to products" ON public.products FOR SELECT USING (true);
+CREATE POLICY "Allow public read access to quizzes" ON public.quizzes FOR SELECT USING (true);
+CREATE POLICY "Allow public read access to rules" ON public.rules FOR SELECT USING (true);
+CREATE POLICY "Allow public read access to translations" ON public.translations FOR SELECT USING (true);
 
 -- USER-SPECIFIC POLICIES
 CREATE POLICY "Users can read their own profile" ON public.profiles FOR SELECT USING (id = public.get_user_id());
