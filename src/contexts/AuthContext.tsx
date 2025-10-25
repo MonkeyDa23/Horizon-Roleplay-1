@@ -118,6 +118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const hasPermission = useCallback((key: PermissionKey): boolean => {
     if (!user || !user.permissions) return false;
     // Super admin has all permissions implicitly
+    // FIX: Use .includes() for arrays, not .has() which is for Sets. This was a critical bug.
     if (user.permissions.includes('_super_admin')) return true;
     return user.permissions.includes(key);
   }, [user]);

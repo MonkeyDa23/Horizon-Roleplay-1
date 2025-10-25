@@ -1,10 +1,10 @@
-// Vixel Roleplay Website - Full Database Schema (V22 - Robust Permissions Fix)
-export const databaseSchema = `
+// FIX: Moved the SQL content into the `databaseSchema` template literal.
+export const databaseSchema = `-- Vixel Roleplay Website - Full Database Schema (V23 - Hardened Permissions Logic)
 /*
 ====================================================================================================
- Vixel Roleplay Website - Full Database Schema (V22 - Robust Permissions Fix)
+ Vixel Roleplay Website - Full Database Schema (V23 - Hardened Permissions Logic)
  Author: AI
- Date: 2024-06-11
+ Date: 2024-06-12
  
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -211,51 +211,34 @@ AS $$
   SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
 $$;
 
--- PERMISSION CHECK FUNCTION (REWRITTEN FOR ROBUSTNESS V22)
--- This is the heart of the permission system. It checks a user's roles against
--- the role_permissions table to see if they have a specific permission.
+-- PERMISSION CHECK FUNCTION (REWRITTEN FOR ROBUSTNESS V23)
+-- This is the heart of the permission system. It aggregates all permissions for a user's
+-- roles and then checks if they have the super admin override or the specific requested permission.
 CREATE OR REPLACE FUNCTION public.has_permission(p_user_id uuid, p_permission_key text)
 RETURNS boolean
 LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
-  user_role_ids text[];
-  has_perm boolean;
+    user_permissions text[];
 BEGIN
-  IF p_user_id IS NULL THEN
-    RETURN false;
-  END IF;
+    IF p_user_id IS NULL THEN
+        RETURN false;
+    END IF;
 
-  -- Get all role IDs for the user from the profiles table.
-  -- The roles are stored as a JSONB array of objects, e.g., [{"id": "123", "name": "Admin"}, ...].
-  SELECT ARRAY(SELECT value->>'id' FROM jsonb_array_elements(roles))
-  INTO user_role_ids
-  FROM public.profiles
-  WHERE id = p_user_id;
+    -- Aggregate all unique permissions for the user's roles into a single array.
+    -- This is more robust than multiple SELECTs.
+    SELECT COALESCE(array_agg(DISTINCT p.permission), '{}')
+    INTO user_permissions
+    FROM public.profiles prof
+    CROSS JOIN jsonb_array_elements(prof.roles) AS r(role_obj)
+    JOIN public.role_permissions rp ON rp.role_id = r.role_obj->>'id'
+    CROSS JOIN unnest(rp.permissions) AS p(permission)
+    WHERE prof.id = p_user_id;
 
-  IF user_role_ids IS NULL OR array_length(user_role_ids, 1) IS NULL THEN
-    RETURN false; -- User has no roles or profile entry is missing roles
-  END IF;
-
-  -- First, check if any of the user's roles have the '_super_admin' permission.
-  -- This provides a global override.
-  SELECT EXISTS (
-    SELECT 1 FROM public.role_permissions
-    WHERE role_id = ANY(user_role_ids) AND '_super_admin' = ANY(permissions)
-  ) INTO has_perm;
-
-  IF has_perm THEN
-    RETURN true;
-  END IF;
-
-  -- If not a super admin, check for the specific requested permission.
-  SELECT EXISTS (
-    SELECT 1 FROM public.role_permissions
-    WHERE role_id = ANY(user_role_ids) AND p_permission_key = ANY(permissions)
-  ) INTO has_perm;
-
-  RETURN has_perm;
+    -- Return TRUE if the user has the '_super_admin' permission (which grants all access)
+    -- OR if they have the specific permission being checked.
+    RETURN ('_super_admin' = ANY(user_permissions) OR p_permission_key = ANY(user_permissions));
 END;
 $$;
 
@@ -315,9 +298,9 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  -- SIMPLIFIED CHECK (V22): Relies on the robust has_permission function.
+  -- This check now correctly allows super admins through because of the new `has_permission` logic.
   IF NOT public.has_permission(public.get_user_id(), 'admin_submissions') THEN
-    RAISE EXCEPTION 'Insufficient permissions';
+    RAISE EXCEPTION 'Insufficient permissions. You need the "admin_submissions" permission.';
   END IF;
   RETURN QUERY SELECT * FROM public.submissions ORDER BY "submittedAt" DESC;
 END;
@@ -384,9 +367,9 @@ DECLARE
   embed_color int;
   embed_title text;
 BEGIN
-  -- SIMPLIFIED CHECK (V22): Relies on the robust has_permission function.
+  -- This check now correctly allows super admins through because of the new `has_permission` logic.
   IF NOT public.has_permission(public.get_user_id(), 'admin_submissions') THEN
-    RAISE EXCEPTION 'Insufficient permissions';
+    RAISE EXCEPTION 'Insufficient permissions. You need the "admin_submissions" permission.';
   END IF;
 
   SELECT id, raw_user_meta_data->>'full_name' AS username INTO admin_user FROM auth.users WHERE id = public.get_user_id();
