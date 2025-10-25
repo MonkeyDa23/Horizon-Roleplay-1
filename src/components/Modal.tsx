@@ -1,4 +1,3 @@
-
 // src/components/Modal.tsx
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
@@ -39,7 +38,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidt
       onClick={onClose}
     >
       <div
-        className={`bg-brand-dark-blue border border-brand-light-blue rounded-lg shadow-2xl shadow-black/50 w-full ${maxWidthClass} relative animate-slide-in-up flex flex-col`}
+        className={`bg-brand-dark-blue border border-brand-light-blue rounded-lg shadow-2xl shadow-black/50 w-full ${maxWidthClass} relative animate-slide-in-up flex flex-col max-h-[90vh]`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-6 border-b border-brand-light-blue flex justify-between items-center flex-shrink-0">
@@ -48,7 +47,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidt
             <X size={28} />
           </button>
         </div>
-        <div className="p-8 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 10rem)' }}>
+        <div className="p-8 overflow-y-auto">
           {children}
         </div>
       </div>

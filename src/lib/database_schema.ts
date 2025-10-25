@@ -324,29 +324,28 @@ BEGIN
   SELECT "SUBMISSIONS_CHANNEL_ID" INTO channel_id FROM public.config WHERE id = 1;
 
   IF channel_id IS NOT NULL THEN
-    PERFORM extensions.http_post(
-      (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_URL') || '/api/notify',
-      jsonb_build_object(
-        'type', 'new_submission',
-        'payload', jsonb_build_object(
-          'submissionsChannelId', channel_id,
-          'embed', jsonb_build_object(
-            'title', 'New Application Submitted!',
-            'description', 'A new application has been submitted and is awaiting review.',
-            'color', 3447003,
-            'fields', jsonb_build_array(
-              jsonb_build_object('name', 'Applicant', 'value', new_submission.username, 'inline', true),
-              jsonb_build_object('name', 'Application Type', 'value', new_submission."quizTitle", 'inline', true)
-            ),
-            'timestamp', new_submission."submittedAt"
+    PERFORM extensions.http((
+        'POST',
+        (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_URL') || '/api/notify',
+        ARRAY[('Content-Type', 'application/json')::extensions.http_header, ('Authorization', 'Bearer ' || (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_API_KEY'))::extensions.http_header],
+        'application/json',
+        jsonb_build_object(
+          'type', 'new_submission',
+          'payload', jsonb_build_object(
+            'submissionsChannelId', channel_id,
+            'embed', jsonb_build_object(
+              'title', 'New Application Submitted!',
+              'description', 'A new application has been submitted and is awaiting review.',
+              'color', 3447003,
+              'fields', jsonb_build_array(
+                jsonb_build_object('name', 'Applicant', 'value', new_submission.username, 'inline', true),
+                jsonb_build_object('name', 'Application Type', 'value', new_submission."quizTitle", 'inline', true)
+              ),
+              'timestamp', new_submission."submittedAt"
+            )
           )
-        )
-      ),
-      jsonb_build_object(
-          'Content-Type', 'application/json',
-          'Authorization', 'Bearer ' || (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_API_KEY')
-      )
-    );
+        )::text
+    ));
   END IF;
 
   RETURN new_submission;
@@ -389,30 +388,29 @@ BEGIN
   END IF;
 
   IF p_new_status IN ('accepted', 'refused') THEN
-     PERFORM extensions.http_post(
-      (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_URL') || '/api/notify',
-      jsonb_build_object(
-        'type', 'submission_result',
-        'payload', jsonb_build_object(
-          'userId', (SELECT discord_id FROM public.profiles WHERE id = submission_record.user_id),
-          'embed', jsonb_build_object(
-            'title', embed_title,
-            'description', 'The status of your application has been updated.',
-            'color', embed_color,
-            'fields', jsonb_build_array(
-              jsonb_build_object('name', 'Application', 'value', submission_record."quizTitle"),
-              jsonb_build_object('name', 'Status', 'value', p_new_status),
-              jsonb_build_object('name', 'Reviewed By', 'value', admin_user.username)
-            ),
-            'timestamp', now()
+     PERFORM extensions.http((
+        'POST',
+        (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_URL') || '/api/notify',
+        ARRAY[('Content-Type', 'application/json')::extensions.http_header, ('Authorization', 'Bearer ' || (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_API_KEY'))::extensions.http_header],
+        'application/json',
+        jsonb_build_object(
+          'type', 'submission_result',
+          'payload', jsonb_build_object(
+            'userId', (SELECT discord_id FROM public.profiles WHERE id = submission_record.user_id),
+            'embed', jsonb_build_object(
+              'title', embed_title,
+              'description', 'The status of your application has been updated.',
+              'color', embed_color,
+              'fields', jsonb_build_array(
+                jsonb_build_object('name', 'Application', 'value', submission_record."quizTitle"),
+                jsonb_build_object('name', 'Status', 'value', p_new_status),
+                jsonb_build_object('name', 'Reviewed By', 'value', admin_user.username)
+              ),
+              'timestamp', now()
+            )
           )
-        )
-      ),
-      jsonb_build_object(
-          'Content-Type', 'application/json',
-          'Authorization', 'Bearer ' || (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_API_KEY')
-      )
-    );
+        )::text
+    ));
   END IF;
 END;
 $$;
@@ -613,28 +611,25 @@ BEGIN
   SELECT "AUDIT_LOG_CHANNEL_ID" INTO channel_id FROM public.config WHERE id = 1;
 
   IF channel_id IS NOT NULL THEN
-    PERFORM extensions.http_post(
-      (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_URL') || '/api/notify',
-      jsonb_build_object(
-        'type', 'audit_log',
-        'payload', jsonb_build_object(
-          'auditLogChannelId', channel_id,
-          'embed', jsonb_build_object(
-            'title', 'Admin Action Logged',
-            'description', p_action,
-            'color', 16776960,
-            'author', jsonb_build_object(
-              'name', admin_user.username
-            ),
-            'timestamp', now()
+     PERFORM extensions.http((
+        'POST',
+        (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_URL') || '/api/notify',
+        ARRAY[('Content-Type', 'application/json')::extensions.http_header, ('Authorization', 'Bearer ' || (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_API_KEY'))::extensions.http_header],
+        'application/json',
+        jsonb_build_object(
+          'type', 'audit_log',
+          'payload', jsonb_build_object(
+            'auditLogChannelId', channel_id,
+            'embed', jsonb_build_object(
+              'title', 'Admin Action Logged',
+              'description', p_action,
+              'color', 16776960,
+              'author', jsonb_build_object('name', admin_user.username),
+              'timestamp', now()
+            )
           )
-        )
-      ),
-      jsonb_build_object(
-          'Content-Type', 'application/json',
-          'Authorization', 'Bearer ' || (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_API_KEY')
-      )
-    );
+        )::text
+    ));
   END IF;
 END;
 $$;
@@ -844,6 +839,14 @@ INSERT INTO public.translations (key, en, ar) VALUES
 ('description_ar', 'Description (Arabic)', 'الوصف بالعربي'),
 ('name_en', 'Name (English)', 'الاسم بالإنجليزي'),
 ('name_ar', 'Name (Arabic)', 'الاسم بالعربي'),
+('price', 'Price', 'السعر'),
+('image_url', 'Image URL', 'رابط الصورة'),
+('create_product', 'Create New Product', 'إنشاء منتج جديد'),
+('edit_product', 'Edit Product', 'تعديل المنتج'),
+('save_product', 'Save Product', 'حفظ المنتج'),
+('add_new_product', 'Add New Product', 'إضافة منتج جديد'),
+('logo_image_url', 'Logo Image URL', 'رابط صورة الشعار'),
+('banner_image_url', 'Banner Image URL', 'رابط صورة البانر'),
 ('discord_id_placeholder', 'Discord User ID...', 'معرف مستخدم ديسكورد...'),
 ('search', 'Search', 'بحث'),
 ('ban', 'Ban', 'حظر'),
