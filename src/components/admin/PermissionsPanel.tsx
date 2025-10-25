@@ -47,13 +47,14 @@ const PermissionsPanel: React.FC = () => {
                 setPermissions(rolePermissions);
             } catch (error) {
                 console.error("Failed to fetch permissions data:", error);
-                showToast("Failed to load roles and permissions.", "error");
+                const errorMessage = (error instanceof Error) ? error.message : "An unknown error occurred.";
+                showToast(`${t('permissions_load_error')}: ${errorMessage}`, "error");
             } finally {
                 setIsLoading(false);
             }
         };
         fetchData();
-    }, [showToast]);
+    }, [showToast, t]);
 
     const handlePermissionChange = (permissionKey: PermissionKey, checked: boolean) => {
         if (!selectedRoleId) return;

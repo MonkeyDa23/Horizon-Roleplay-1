@@ -38,16 +38,16 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidt
       onClick={onClose}
     >
       <div
-        className={`bg-brand-dark-blue border border-brand-light-blue rounded-lg shadow-2xl shadow-black/50 w-full ${maxWidthClass} relative animate-slide-in-up`}
+        className={`bg-brand-dark-blue border border-brand-light-blue rounded-lg shadow-2xl shadow-black/50 w-full ${maxWidthClass} relative animate-slide-in-up flex flex-col`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-6 border-b border-brand-light-blue flex justify-between items-center">
+        <div className="p-6 border-b border-brand-light-blue flex justify-between items-center flex-shrink-0">
           <h2 className="text-2xl font-bold text-brand-cyan">{title}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
             <X size={28} />
           </button>
         </div>
-        <div className="p-8">
+        <div className="p-8 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 10rem)' }}>
           {children}
         </div>
       </div>

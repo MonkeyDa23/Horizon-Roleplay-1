@@ -110,10 +110,9 @@ export const getProducts = async (): Promise<Product[]> => {
   return handleResponse(await supabase.from('products').select('*'));
 };
 
-export const saveProduct = async (product: Omit<Product, 'id'> & { id?: string }): Promise<Product> => {
+export const saveProduct = async (productData: any): Promise<Product> => {
     if (!supabase) throw new Error("Supabase not configured");
-    const { id, ...productData } = product;
-    const response = await supabase.from('products').upsert({ id: id || undefined, ...productData }).select().single();
+    const response = await supabase.rpc('save_product_with_translations', { p_product_data: productData });
     return handleResponse(response);
 };
 
@@ -135,9 +134,10 @@ export const getQuizById = async (id: string): Promise<Quiz | null> => {
   return handleResponse(await supabase.from('quizzes').select('*').eq('id', id).single());
 };
 
-export const saveQuiz = async (quiz: Partial<Quiz>): Promise<Quiz> => {
+export const saveQuiz = async (quizData: any): Promise<Quiz> => {
   if (!supabase) throw new Error("Supabase not configured");
-  return handleResponse(await supabase.rpc('save_quiz', { quiz_data: quiz }));
+  const response = await supabase.rpc('save_quiz_with_translations', { p_quiz_data: quizData });
+  return handleResponse(response);
 };
 
 export const deleteQuiz = async (id: string): Promise<void> => {
@@ -180,9 +180,9 @@ export const getRules = async (): Promise<RuleCategory[]> => {
     return handleResponse(response);
 };
 
-export const saveRules = async (rules: RuleCategory[]): Promise<void> => {
+export const saveRules = async (rulesData: any[]): Promise<void> => {
     if (!supabase) throw new Error("Supabase not configured");
-    return handleResponse(await supabase.rpc('save_rules', { rules_data: rules }));
+    return handleResponse(await supabase.rpc('save_rules', { p_rules_data: rulesData }));
 };
 
 // =============================================

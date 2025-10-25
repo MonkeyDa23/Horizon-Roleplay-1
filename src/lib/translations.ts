@@ -1,4 +1,3 @@
-
 import { Translations } from '../types';
 
 // This file serves as a fallback for translations if the database connection fails.
@@ -143,6 +142,17 @@ export const translations: Translations = {
   config_updated_success: { ar: 'تم تحديث الإعدادات بنجاح!', en: 'Settings updated successfully!' },
   rules_updated_success: { ar: 'تم تحديث القوانين بنجاح!', en: 'Rules updated successfully!' },
   permissions_saved_success: { ar: 'تم حفظ الصلاحيات بنجاح!', en: 'Permissions saved successfully!'},
+  permissions_load_error: { ar: 'فشل تحميل الصلاحيات', en: 'Failed to load permissions' },
+  
+  // Admin Page - Bilingual Inputs
+  text_en: { ar: 'النص بالإنجليزي', en: 'Text (English)' },
+  text_ar: { ar: 'النص بالعربي', en: 'Text (Arabic)' },
+  title_en: { ar: 'العنوان بالإنجليزي', en: 'Title (English)' },
+  title_ar: { ar: 'العنوان بالعربي', en: 'Title (Arabic)' },
+  description_en: { ar: 'الوصف بالإنجليزي', en: 'Description (English)' },
+  description_ar: { ar: 'الوصف بالعربي', en: 'Description (Arabic)' },
+  name_en: { ar: 'الاسم بالإنجليزي', en: 'Name (English)' },
+  name_ar: { ar: 'الاسم بالعربي', en: 'Name (Arabic)' },
   
   // Admin Page - User Lookup & Bans
   discord_id_placeholder: { ar: 'معرف مستخدم ديسكورد...', en: 'Discord User ID...' },

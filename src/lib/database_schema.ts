@@ -1,10 +1,10 @@
-// FIX: Moved the SQL content into the `databaseSchema` template literal.
-export const databaseSchema = `-- Vixel Roleplay Website - Full Database Schema (V23 - Hardened Permissions Logic)
+// Vixel Roleplay Website - Full Database Schema (V28 - Bilingual Content Management)
+export const schema = `
 /*
 ====================================================================================================
- Vixel Roleplay Website - Full Database Schema (V23 - Hardened Permissions Logic)
+ Vixel Roleplay Website - Full Database Schema (V28 - Bilingual Content Management)
  Author: AI
- Date: 2024-06-12
+ Date: 2024-06-14
  
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -13,7 +13,6 @@ export const databaseSchema = `-- Vixel Roleplay Website - Full Database Schema 
  unless you intend to wipe it completely.
 
  !! ADMIN SETUP NOTE !!
- Admin permissions are now managed via the "Permissions" tab in the Admin Panel on the website.
  To grant the first Super Admin permission, you must manually add a row to the database:
  1. Go to the 'role_permissions' table in your Supabase Table Editor.
  2. Click "+ Insert row".
@@ -54,6 +53,8 @@ DROP FUNCTION IF EXISTS public.get_all_submissions();
 DROP FUNCTION IF EXISTS public.add_submission(jsonb);
 DROP FUNCTION IF EXISTS public.update_submission_status(uuid, text);
 DROP FUNCTION IF EXISTS public.save_quiz(jsonb);
+DROP FUNCTION IF EXISTS public.save_quiz_with_translations(jsonb);
+DROP FUNCTION IF EXISTS public.save_product_with_translations(jsonb);
 DROP FUNCTION IF EXISTS public.save_rules(jsonb);
 DROP FUNCTION IF EXISTS public.update_config(jsonb);
 DROP FUNCTION IF EXISTS public.log_action(text);
@@ -61,7 +62,9 @@ DROP FUNCTION IF EXISTS public.ban_user(uuid, text, int);
 DROP FUNCTION IF EXISTS public.unban_user(uuid);
 DROP FUNCTION IF EXISTS public.has_permission(uuid, text);
 DROP FUNCTION IF EXISTS public.save_role_permissions(text, text[]);
+DROP FUNCTION IF EXISTS public.debug_user_permissions(uuid);
 DROP FUNCTION IF EXISTS public.get_user_id();
+
 
 -- Drop private schema for secrets
 DROP SCHEMA IF EXISTS private CASCADE;
@@ -204,16 +207,14 @@ CREATE TABLE public.bans (
 -- =================================================================
 -- 4. HELPER & RPC FUNCTIONS (DEFINED BEFORE RLS)
 -- =================================================================
+
 CREATE OR REPLACE FUNCTION public.get_user_id()
 RETURNS uuid
 LANGUAGE sql STABLE
 AS $$
-  SELECT nullif(current_setting('request.jwt.claim.sub', true), '')::uuid;
+  SELECT auth.uid();
 $$;
 
--- PERMISSION CHECK FUNCTION (REWRITTEN FOR ROBUSTNESS V23)
--- This is the heart of the permission system. It aggregates all permissions for a user's
--- roles and then checks if they have the super admin override or the specific requested permission.
 CREATE OR REPLACE FUNCTION public.has_permission(p_user_id uuid, p_permission_key text)
 RETURNS boolean
 LANGUAGE plpgsql STABLE SECURITY DEFINER
@@ -226,8 +227,6 @@ BEGIN
         RETURN false;
     END IF;
 
-    -- Aggregate all unique permissions for the user's roles into a single array.
-    -- This is more robust than multiple SELECTs.
     SELECT COALESCE(array_agg(DISTINCT p.permission), '{}')
     INTO user_permissions
     FROM public.profiles prof
@@ -236,8 +235,6 @@ BEGIN
     CROSS JOIN unnest(rp.permissions) AS p(permission)
     WHERE prof.id = p_user_id;
 
-    -- Return TRUE if the user has the '_super_admin' permission (which grants all access)
-    -- OR if they have the specific permission being checked.
     RETURN ('_super_admin' = ANY(user_permissions) OR p_permission_key = ANY(user_permissions));
 END;
 $$;
@@ -298,7 +295,6 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  -- This check now correctly allows super admins through because of the new `has_permission` logic.
   IF NOT public.has_permission(public.get_user_id(), 'admin_submissions') THEN
     RAISE EXCEPTION 'Insufficient permissions. You need the "admin_submissions" permission.';
   END IF;
@@ -346,7 +342,7 @@ BEGIN
           )
         )
       ),
-      'application/json',
+      'application/json'::text,
       jsonb_build_object('Authorization', 'Bearer ' || (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_API_KEY'))
     );
   END IF;
@@ -367,7 +363,6 @@ DECLARE
   embed_color int;
   embed_title text;
 BEGIN
-  -- This check now correctly allows super admins through because of the new `has_permission` logic.
   IF NOT public.has_permission(public.get_user_id(), 'admin_submissions') THEN
     RAISE EXCEPTION 'Insufficient permissions. You need the "admin_submissions" permission.';
   END IF;
@@ -411,14 +406,14 @@ BEGIN
           )
         )
       ),
-      'application/json',
+      'application/json'::text,
       jsonb_build_object('Authorization', 'Bearer ' || (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_API_KEY'))
     );
   END IF;
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.save_quiz(quiz_data jsonb)
+CREATE OR REPLACE FUNCTION public.save_quiz_with_translations(p_quiz_data jsonb)
 RETURNS public.quizzes
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -426,27 +421,40 @@ SET search_path = public
 AS $$
 DECLARE
   result public.quizzes;
-  q_id uuid;
-  is_creating boolean;
+  v_question jsonb;
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_quizzes') THEN
     RAISE EXCEPTION 'Insufficient permissions';
   END IF;
 
-  q_id := (quiz_data->>'id')::uuid;
-  is_creating := q_id IS NULL;
+  -- Upsert main translations
+  INSERT INTO public.translations (key, en, ar)
+  VALUES (p_quiz_data->>'titleKey', p_quiz_data->>'titleEn', p_quiz_data->>'titleAr'),
+         (p_quiz_data->>'descriptionKey', p_quiz_data->>'descriptionEn', p_quiz_data->>'descriptionAr')
+  ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar;
+  
+  -- Upsert question translations
+  IF jsonb_typeof(p_quiz_data->'questions') = 'array' THEN
+    FOR v_question IN SELECT * FROM jsonb_array_elements(p_quiz_data->'questions')
+    LOOP
+      INSERT INTO public.translations (key, en, ar)
+      VALUES (v_question->>'textKey', v_question->>'textEn', v_question->>'textAr')
+      ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar;
+    END LOOP;
+  END IF;
 
+  -- Upsert the main quiz record
   INSERT INTO public.quizzes (id, "titleKey", "descriptionKey", questions, "isOpen", "allowedTakeRoles", "logoUrl", "bannerUrl", "lastOpenedAt")
   VALUES (
-    coalesce(q_id, gen_random_uuid()),
-    quiz_data->>'titleKey',
-    quiz_data->>'descriptionKey',
-    quiz_data->'questions',
-    (quiz_data->>'isOpen')::boolean,
-    (SELECT array_agg(elem) FROM jsonb_array_elements_text(quiz_data->'allowedTakeRoles') AS elem),
-    quiz_data->>'logoUrl',
-    quiz_data->>'bannerUrl',
-    CASE WHEN (quiz_data->>'isOpen')::boolean AND is_creating THEN now() ELSE NULL END
+    (p_quiz_data->>'id')::uuid,
+    p_quiz_data->>'titleKey',
+    p_quiz_data->>'descriptionKey',
+    (SELECT jsonb_agg(jsonb_build_object('id', q->>'id', 'textKey', q->>'textKey', 'timeLimit', q->'timeLimit')) FROM jsonb_array_elements(p_quiz_data->'questions') q),
+    (p_quiz_data->>'isOpen')::boolean,
+    (SELECT array_agg(elem) FROM jsonb_array_elements_text(p_quiz_data->'allowedTakeRoles') AS elem),
+    p_quiz_data->>'logoUrl',
+    p_quiz_data->>'bannerUrl',
+    CASE WHEN (p_quiz_data->>'isOpen')::boolean AND NOT EXISTS (SELECT 1 FROM quizzes WHERE id = (p_quiz_data->>'id')::uuid) THEN now() ELSE NULL END
   )
   ON CONFLICT (id) DO UPDATE SET
     "titleKey" = excluded."titleKey",
@@ -463,28 +471,98 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.save_rules(rules_data jsonb)
+CREATE OR REPLACE FUNCTION public.save_product_with_translations(p_product_data jsonb)
+RETURNS public.products
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  result public.products;
+BEGIN
+  IF NOT public.has_permission(public.get_user_id(), 'admin_store') THEN
+    RAISE EXCEPTION 'Insufficient permissions';
+  END IF;
+
+  -- Upsert translations
+  INSERT INTO public.translations (key, en, ar)
+  VALUES (p_product_data->>'nameKey', p_product_data->>'nameEn', p_product_data->>'nameAr'),
+         (p_product_data->>'descriptionKey', p_product_data->>'descriptionEn', p_product_data->>'descriptionAr')
+  ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar;
+
+  -- Upsert the main product record
+  INSERT INTO public.products (id, "nameKey", "descriptionKey", price, "imageUrl")
+  VALUES (
+    (p_product_data->>'id')::uuid,
+    p_product_data->>'nameKey',
+    p_product_data->>'descriptionKey',
+    (p_product_data->>'price')::numeric,
+    p_product_data->>'imageUrl'
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    "nameKey" = excluded."nameKey",
+    "descriptionKey" = excluded."descriptionKey",
+    price = excluded.price,
+    "imageUrl" = excluded."imageUrl"
+  RETURNING * INTO result;
+
+  RETURN result;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.save_rules(p_rules_data jsonb)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+    v_category jsonb;
+    v_rule jsonb;
 BEGIN
-  IF NOT public.has_permission(public.get_user_id(), 'admin_rules') THEN
-    RAISE EXCEPTION 'Insufficient permissions';
-  END IF;
-  
-  DELETE FROM public.rules;
-  
-  INSERT INTO public.rules (id, "titleKey", position, rules)
-  SELECT
-    (value->>'id')::uuid,
-    value->>'titleKey',
-    (value->>'position')::int,
-    value->'rules'
-  FROM jsonb_array_elements(rules_data);
+    IF NOT public.has_permission(public.get_user_id(), 'admin_rules') THEN
+        RAISE EXCEPTION 'Insufficient permissions';
+    END IF;
+
+    -- Upsert all translations first
+    FOR v_category IN SELECT * FROM jsonb_array_elements(p_rules_data)
+    LOOP
+        INSERT INTO public.translations (key, en, ar)
+        VALUES (v_category->>'titleKey', v_category->>'titleEn', v_category->>'titleAr')
+        ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar;
+        
+        IF jsonb_typeof(v_category->'rules') = 'array' THEN
+            FOR v_rule IN SELECT * FROM jsonb_array_elements(v_category->'rules')
+            LOOP
+                INSERT INTO public.translations (key, en, ar)
+                VALUES (v_rule->>'textKey', v_rule->>'textEn', v_rule->>'textAr')
+                ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar;
+            END LOOP;
+        END IF;
+    END LOOP;
+    
+    -- Rebuild the rules table, extracting only the necessary fields
+    DELETE FROM public.rules WHERE true;
+    
+    INSERT INTO public.rules (id, "titleKey", position, rules)
+    SELECT
+        (c->>'id')::uuid,
+        c->>'titleKey',
+        (c->>'position')::int,
+        (
+            SELECT jsonb_agg(
+                jsonb_build_object(
+                    'id', r->>'id',
+                    'textKey', r->>'textKey'
+                )
+            )
+            FROM jsonb_array_elements(c->'rules') AS r
+        )
+    FROM jsonb_array_elements(p_rules_data) AS c;
+
 END;
 $$;
+
 
 CREATE OR REPLACE FUNCTION public.update_config(new_config jsonb)
 RETURNS void
@@ -548,7 +626,7 @@ BEGIN
           )
         )
       ),
-      'application/json',
+      'application/json'::text,
       jsonb_build_object('Authorization', 'Bearer ' || (SELECT value FROM private.secrets WHERE key = 'VITE_DISCORD_BOT_API_KEY'))
     );
   END IF;
@@ -751,6 +829,15 @@ INSERT INTO public.translations (key, en, ar) VALUES
 ('config_updated_success', 'Settings updated successfully!', 'تم تحديث الإعدادات بنجاح!'),
 ('rules_updated_success', 'Rules updated successfully!', 'تم تحديث القوانين بنجاح!'),
 ('permissions_saved_success', 'Permissions saved successfully!', 'تم حفظ الصلاحيات بنجاح!'),
+('permissions_load_error', 'Failed to load permissions', 'فشل تحميل الصلاحيات'),
+('text_en', 'Text (English)', 'النص بالإنجليزي'),
+('text_ar', 'Text (Arabic)', 'النص بالعربي'),
+('title_en', 'Title (English)', 'العنوان بالإنجليزي'),
+('title_ar', 'Title (Arabic)', 'العنوان بالعربي'),
+('description_en', 'Description (English)', 'الوصف بالإنجليزي'),
+('description_ar', 'Description (Arabic)', 'الوصف بالعربي'),
+('name_en', 'Name (English)', 'الاسم بالإنجليزي'),
+('name_ar', 'Name (Arabic)', 'الاسم بالعربي'),
 ('discord_id_placeholder', 'Discord User ID...', 'معرف مستخدم ديسكورد...'),
 ('search', 'Search', 'بحث'),
 ('ban', 'Ban', 'حظر'),

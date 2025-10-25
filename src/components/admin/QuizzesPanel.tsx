@@ -4,8 +4,24 @@ import { useLocalization } from '../../hooks/useLocalization';
 import { useToast } from '../../hooks/useToast';
 import { getQuizzes, saveQuiz, deleteQuiz } from '../../lib/api';
 import type { Quiz, QuizQuestion } from '../../types';
+import { useTranslations } from '../../hooks/useTranslations';
 import Modal from '../Modal';
 import { Loader2, Plus, Edit, Trash2 } from 'lucide-react';
+
+interface EditingQuizData {
+    id: string;
+    titleKey: string;
+    titleEn: string;
+    titleAr: string;
+    descriptionKey: string;
+    descriptionEn: string;
+    descriptionAr: string;
+    isOpen: boolean;
+    allowedTakeRoles: string[];
+    logoUrl?: string;
+    bannerUrl?: string;
+    questions: (Omit<QuizQuestion, 'textKey'> & { textKey: string; textEn: string; textAr: string; })[];
+}
 
 const Panel: React.FC<{ children: React.ReactNode; isLoading: boolean, loadingText: string }> = ({ children, isLoading, loadingText }) => {
     if (isLoading) {
@@ -22,10 +38,11 @@ const Panel: React.FC<{ children: React.ReactNode; isLoading: boolean, loadingTe
 const QuizzesPanel: React.FC = () => {
     const { t } = useLocalization();
     const { showToast } = useToast();
+    const { translations } = useTranslations();
     const [quizzes, setQuizzes] = useState<Quiz[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-    const [editingQuiz, setEditingQuiz] = useState<Quiz | null>(null);
+    const [editingQuiz, setEditingQuiz] = useState<EditingQuizData | null>(null);
 
     const fetchQuizzes = useCallback(async () => {
         setIsLoading(true);
@@ -37,27 +54,47 @@ const QuizzesPanel: React.FC = () => {
 
     useEffect(() => { fetchQuizzes(); }, [fetchQuizzes]);
 
-    const handleCreateNew = () => setEditingQuiz({
-        id: '', 
-        titleKey: '',
-        descriptionKey: '',
-        isOpen: false,
-        questions: [{ id: `q_${Date.now()}`, textKey: '', timeLimit: 60 }],
-        allowedTakeRoles: [],
-        logoUrl: '',
-        bannerUrl: ''
-    });
+    const handleCreateNew = () => {
+        const newId = crypto.randomUUID();
+        setEditingQuiz({
+            id: newId,
+            titleKey: `quiz_${newId}_title`,
+            titleEn: '',
+            titleAr: '',
+            descriptionKey: `quiz_${newId}_desc`,
+            descriptionEn: '',
+            descriptionAr: '',
+            isOpen: false,
+            questions: [],
+            allowedTakeRoles: [],
+            logoUrl: '',
+            bannerUrl: ''
+        });
+    };
+
+    const handleEdit = (quiz: Quiz) => {
+        setEditingQuiz({
+            id: quiz.id,
+            titleKey: quiz.titleKey,
+            titleEn: translations[quiz.titleKey]?.en || '',
+            titleAr: translations[quiz.titleKey]?.ar || '',
+            descriptionKey: quiz.descriptionKey,
+            descriptionEn: translations[quiz.descriptionKey]?.en || '',
+            descriptionAr: translations[quiz.descriptionKey]?.ar || '',
+            isOpen: quiz.isOpen,
+            allowedTakeRoles: quiz.allowedTakeRoles || [],
+            logoUrl: quiz.logoUrl,
+            bannerUrl: quiz.bannerUrl,
+            questions: (quiz.questions || []).map(q => ({
+                ...q,
+                textEn: translations[q.textKey]?.en || '',
+                textAr: translations[q.textKey]?.ar || '',
+            }))
+        });
+    };
 
     const handleSave = async () => {
         if (!editingQuiz) return;
-        if (!editingQuiz.titleKey || !editingQuiz.descriptionKey) {
-            showToast('Title and Description keys are required.', 'error');
-            return;
-        }
-        if (editingQuiz.questions.some(q => !q.textKey || !q.timeLimit)) {
-            showToast('All questions must have a text key and a time limit.', 'error');
-            return;
-        }
         setIsSaving(true);
         try {
             await saveQuiz(editingQuiz);
@@ -83,25 +120,28 @@ const QuizzesPanel: React.FC = () => {
         }
     };
     
-    const handleQuestionChange = (index: number, field: keyof QuizQuestion, value: string | number) => {
+    const handleQuestionChange = (index: number, field: keyof EditingQuizData['questions'][0], value: string | number) => {
         if (!editingQuiz) return;
         const newQuestions = [...editingQuiz.questions];
-        newQuestions[index] = { ...newQuestions[index], [field]: value };
+        (newQuestions[index] as any)[field] = value;
         setEditingQuiz({ ...editingQuiz, questions: newQuestions });
     };
 
     const addQuestion = () => {
         if (!editingQuiz) return;
-        const newQuestion: QuizQuestion = { id: `q_${Date.now()}`, textKey: '', timeLimit: 60 };
+        const newQId = crypto.randomUUID();
+        const newQuestion = { 
+            id: newQId, 
+            textKey: `quiz_${editingQuiz.id}_q_${newQId}_text`, 
+            textEn: '', 
+            textAr: '', 
+            timeLimit: 60 
+        };
         setEditingQuiz({ ...editingQuiz, questions: [...editingQuiz.questions, newQuestion] });
     };
 
     const removeQuestion = (index: number) => {
         if (!editingQuiz) return;
-        if (editingQuiz.questions.length <= 1) {
-            showToast('A quiz must have at least one question.', 'warning');
-            return;
-        }
         const newQuestions = editingQuiz.questions.filter((_, i) => i !== index);
         setEditingQuiz({ ...editingQuiz, questions: newQuestions });
     };
@@ -136,7 +176,7 @@ const QuizzesPanel: React.FC = () => {
                                     <td className="p-4 text-gray-300">{(quiz.questions || []).length}</td>
                                     <td className="p-4 text-right">
                                         <div className="inline-flex gap-4">
-                                            <button onClick={() => setEditingQuiz(JSON.parse(JSON.stringify(quiz)))} className="text-gray-300 hover:text-brand-cyan"><Edit size={20}/></button>
+                                            <button onClick={() => handleEdit(quiz)} className="text-gray-300 hover:text-brand-cyan"><Edit size={20}/></button>
                                             <button onClick={() => handleDelete(quiz)} className="text-gray-300 hover:text-red-500"><Trash2 size={20}/></button>
                                         </div>
                                     </td>
@@ -146,24 +186,25 @@ const QuizzesPanel: React.FC = () => {
                     </table>
                 </div>
             </div>
-            {editingQuiz && <Modal isOpen={!!editingQuiz} onClose={() => setEditingQuiz(null)} title={t(editingQuiz.id ? 'edit_quiz' : 'create_new_quiz')} maxWidth="3xl">
-                <div className="space-y-4 text-white max-h-[70vh] overflow-y-auto pr-2">
+            {editingQuiz && <Modal isOpen={!!editingQuiz} onClose={() => setEditingQuiz(null)} title={t(editingQuiz.titleEn ? 'edit_quiz' : 'create_new_quiz')} maxWidth="3xl">
+                <div className="space-y-4 text-white">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label className="block mb-1 font-semibold text-gray-300">{t('quiz_title')}</label>
-                            <input type="text" value={editingQuiz.titleKey} onChange={(e) => setEditingQuiz({ ...editingQuiz, titleKey: e.target.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
+                            <label className="block mb-1 font-semibold text-gray-300">{t('title_en')}</label>
+                            <input type="text" value={editingQuiz.titleEn} onChange={(e) => setEditingQuiz({ ...editingQuiz, titleEn: e.target.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                         </div>
-                        <div className="flex items-center gap-4 pt-6">
-                            <label className="font-semibold text-gray-300">{t('status')}:</label>
-                            <button onClick={() => setEditingQuiz({ ...editingQuiz, isOpen: !editingQuiz.isOpen })}
-                                className={`px-4 py-1 rounded-full font-bold ${editingQuiz.isOpen ? 'bg-green-500/30 text-green-300' : 'bg-red-500/30 text-red-300'}`}>
-                                {editingQuiz.isOpen ? t('open') : t('closed')}
-                            </button>
+                        <div>
+                            <label className="block mb-1 font-semibold text-gray-300">{t('title_ar')}</label>
+                            <input type="text" dir="rtl" value={editingQuiz.titleAr} onChange={(e) => setEditingQuiz({ ...editingQuiz, titleAr: e.target.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                         </div>
                     </div>
-                    <div>
-                        <label className="block mb-1 font-semibold text-gray-300">{t('quiz_description')}</label>
-                        <textarea value={editingQuiz.descriptionKey} onChange={(e) => setEditingQuiz({ ...editingQuiz, descriptionKey: e.target.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 h-24" />
+                     <div>
+                        <label className="block mb-1 font-semibold text-gray-300">{t('description_en')}</label>
+                        <textarea value={editingQuiz.descriptionEn} onChange={(e) => setEditingQuiz({ ...editingQuiz, descriptionEn: e.target.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 h-24" />
+                    </div>
+                     <div>
+                        <label className="block mb-1 font-semibold text-gray-300">{t('description_ar')}</label>
+                        <textarea dir="rtl" value={editingQuiz.descriptionAr} onChange={(e) => setEditingQuiz({ ...editingQuiz, descriptionAr: e.target.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 h-24" />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -180,6 +221,13 @@ const QuizzesPanel: React.FC = () => {
                         <input type="text" placeholder="e.g. 123,456" value={(editingQuiz.allowedTakeRoles || []).join(',')} onChange={(e) => setEditingQuiz({ ...editingQuiz, allowedTakeRoles: e.target.value.split(',').map(s => s.trim()).filter(Boolean) })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                         <p className="text-xs text-gray-400 mt-1">{t('quiz_handler_roles_desc')}</p>
                     </div>
+                     <div className="flex items-center gap-4 pt-2">
+                        <label className="font-semibold text-gray-300">{t('status')}:</label>
+                        <button onClick={() => setEditingQuiz({ ...editingQuiz, isOpen: !editingQuiz.isOpen })}
+                            className={`px-4 py-1 rounded-full font-bold ${editingQuiz.isOpen ? 'bg-green-500/30 text-green-300' : 'bg-red-500/30 text-red-300'}`}>
+                            {editingQuiz.isOpen ? t('open') : t('closed')}
+                        </button>
+                    </div>
                     
                     <div className="pt-4 border-t border-brand-light-blue/50">
                         <h3 className="text-xl font-bold mb-3">{t('quiz_questions')}</h3>
@@ -190,20 +238,9 @@ const QuizzesPanel: React.FC = () => {
                                         <label className="font-semibold text-gray-300">Question {index + 1}</label>
                                         <button onClick={() => removeQuestion(index)} className="text-red-500 hover:text-red-400"><Trash2 size={18} /></button>
                                     </div>
-                                    <input
-                                        type="text"
-                                        placeholder={t('question_text')}
-                                        value={q.textKey}
-                                        onChange={(e) => handleQuestionChange(index, 'textKey', e.target.value)}
-                                        className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"
-                                    />
-                                    <input
-                                        type="number"
-                                        placeholder={t('time_limit_seconds')}
-                                        value={q.timeLimit}
-                                        onChange={(e) => handleQuestionChange(index, 'timeLimit', parseInt(e.target.value) || 0)}
-                                        className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"
-                                    />
+                                    <input type="text" placeholder={t('text_en')} value={q.textEn} onChange={(e) => handleQuestionChange(index, 'textEn', e.target.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
+                                    <input type="text" dir="rtl" placeholder={t('text_ar')} value={q.textAr} onChange={(e) => handleQuestionChange(index, 'textAr', e.target.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
+                                    <input type="number" placeholder={t('time_limit_seconds')} value={q.timeLimit} onChange={(e) => handleQuestionChange(index, 'timeLimit', parseInt(e.target.value) || 0)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
                                 </div>
                             ))}
                         </div>

@@ -4,16 +4,25 @@ import { useLocalization } from '../../hooks/useLocalization';
 import { useToast } from '../../hooks/useToast';
 import { getProducts, saveProduct, deleteProduct } from '../../lib/api';
 import type { Product } from '../../types';
+import { useTranslations } from '../../hooks/useTranslations';
 import Modal from '../Modal';
 import { Loader2, Plus, Edit, Trash2 } from 'lucide-react';
+
+interface EditingProductData extends Product {
+    nameEn: string;
+    nameAr: string;
+    descriptionEn: string;
+    descriptionAr: string;
+}
 
 const StorePanel: React.FC = () => {
     const { t } = useLocalization();
     const { showToast } = useToast();
+    const { translations } = useTranslations();
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-    const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const [editingProduct, setEditingProduct] = useState<EditingProductData | null>(null);
 
     const fetchProducts = useCallback(async () => {
         setIsLoading(true);
@@ -31,7 +40,28 @@ const StorePanel: React.FC = () => {
     }, [fetchProducts]);
 
     const handleCreateNew = () => {
-        setEditingProduct({ id: '', nameKey: '', descriptionKey: '', price: 0, imageUrl: '' });
+        const newId = crypto.randomUUID();
+        setEditingProduct({
+            id: newId,
+            nameKey: `product_${newId}_name`,
+            nameEn: '',
+            nameAr: '',
+            descriptionKey: `product_${newId}_desc`,
+            descriptionEn: '',
+            descriptionAr: '',
+            price: 0,
+            imageUrl: ''
+        });
+    };
+
+    const handleEdit = (product: Product) => {
+        setEditingProduct({
+            ...product,
+            nameEn: translations[product.nameKey]?.en || '',
+            nameAr: translations[product.nameKey]?.ar || '',
+            descriptionEn: translations[product.descriptionKey]?.en || '',
+            descriptionAr: translations[product.descriptionKey]?.ar || '',
+        });
     };
 
     const handleSave = async () => {
@@ -93,7 +123,7 @@ const StorePanel: React.FC = () => {
                                     <td className="p-4 text-brand-cyan font-bold">${product.price.toFixed(2)}</td>
                                     <td className="p-4 text-right">
                                         <div className="inline-flex gap-4">
-                                            <button onClick={() => setEditingProduct(product)} className="text-gray-300 hover:text-brand-cyan"><Edit size={20}/></button>
+                                            <button onClick={() => handleEdit(product)} className="text-gray-300 hover:text-brand-cyan"><Edit size={20}/></button>
                                             <button onClick={() => handleDelete(product)} className="text-gray-300 hover:text-red-500"><Trash2 size={20}/></button>
                                         </div>
                                     </td>
@@ -104,15 +134,23 @@ const StorePanel: React.FC = () => {
                 </div>
             </div>
             {editingProduct && (
-                <Modal isOpen={!!editingProduct} onClose={() => setEditingProduct(null)} title={editingProduct.id ? 'Edit Product' : 'Create Product'}>
+                <Modal isOpen={!!editingProduct} onClose={() => setEditingProduct(null)} title={editingProduct.nameEn ? 'Edit Product' : 'Create Product'}>
                     <div className="space-y-4 text-white">
                         <div>
-                            <label className="block mb-1 font-semibold text-gray-300">Name Key</label>
-                            <input type="text" value={editingProduct.nameKey} onChange={(e) => setEditingProduct({ ...editingProduct, nameKey: e.target.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
+                            <label className="block mb-1 font-semibold text-gray-300">{t('name_en')}</label>
+                            <input type="text" value={editingProduct.nameEn} onChange={(e) => setEditingProduct({ ...editingProduct, nameEn: e.target.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                         </div>
                         <div>
-                            <label className="block mb-1 font-semibold text-gray-300">Description Key</label>
-                            <input type="text" value={editingProduct.descriptionKey} onChange={(e) => setEditingProduct({ ...editingProduct, descriptionKey: e.target.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
+                            <label className="block mb-1 font-semibold text-gray-300">{t('name_ar')}</label>
+                            <input type="text" dir="rtl" value={editingProduct.nameAr} onChange={(e) => setEditingProduct({ ...editingProduct, nameAr: e.target.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
+                        </div>
+                        <div>
+                            <label className="block mb-1 font-semibold text-gray-300">{t('description_en')}</label>
+                            <input type="text" value={editingProduct.descriptionEn} onChange={(e) => setEditingProduct({ ...editingProduct, descriptionEn: e.target.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
+                        </div>
+                        <div>
+                            <label className="block mb-1 font-semibold text-gray-300">{t('description_ar')}</label>
+                            <input type="text" dir="rtl" value={editingProduct.descriptionAr} onChange={(e) => setEditingProduct({ ...editingProduct, descriptionAr: e.target.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                         </div>
                         <div>
                             <label className="block mb-1 font-semibold text-gray-300">Price</label>
