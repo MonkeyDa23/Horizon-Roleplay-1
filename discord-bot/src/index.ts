@@ -1,4 +1,3 @@
-
 // discord-bot/src/index.ts
 import express from 'express';
 import cors from 'cors';
@@ -201,8 +200,6 @@ app.post('/api/notify', authenticate, async (req: any, res: any) => {
         if (type === 'new_submission' || type === 'audit_log') {
             const channelId = type === 'new_submission' ? payload.submissionsChannelId : payload.auditLogChannelId;
             const channel = await client.channels.fetch(channelId);
-            // FIX: Refined the type guard to specifically check for GuildText or GuildAnnouncement channels,
-            // which guarantees the channel is a send-able, non-DM, non-voice guild channel.
             if (channel?.type === Discord.ChannelType.GuildText || channel?.type === Discord.ChannelType.GuildAnnouncement) {
                 await channel.send({ embeds: [payload.embed] });
             } else {

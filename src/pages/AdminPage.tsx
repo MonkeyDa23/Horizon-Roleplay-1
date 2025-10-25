@@ -1,4 +1,3 @@
-
 // src/pages/AdminPage.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
@@ -109,7 +108,7 @@ const Panel: React.FC<{ children: React.ReactNode; isLoading: boolean, loadingTe
 
 const SubmissionsPanel: React.FC = () => {
     const { t } = useLocalization();
-    const { user } = useAuth();
+    const { user, hasPermission } = useAuth();
     const { showToast } = useToast();
     const [submissions, setSubmissions] = useState<QuizSubmission[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -166,7 +165,7 @@ const SubmissionsPanel: React.FC = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {submissions.map((sub) => (
+                        {submissions.length > 0 ? submissions.map((sub) => (
                              <tr key={sub.id} className="border-b border-brand-light-blue/50 last:border-none">
                                 <td className="p-4 font-semibold">{sub.username}</td>
                                 <td className="p-4">{sub.quizTitle}</td>
@@ -180,7 +179,9 @@ const SubmissionsPanel: React.FC = () => {
                                     </div>
                                 </td>
                             </tr>
-                        ))}
+                        )) : (
+                            <tr><td colSpan={5} className="p-8 text-center text-gray-400">{t('no_pending_submissions')}</td></tr>
+                        )}
                     </tbody>
                 </table>
             </div>
@@ -200,7 +201,7 @@ const SubmissionsPanel: React.FC = () => {
                             ))}
                         </div>
                     </div>
-                    {viewingSubmission.status === 'taken' && viewingSubmission.adminId === user.id && (
+                    {(hasPermission('_super_admin') || (viewingSubmission.status === 'taken' && viewingSubmission.adminId === user.id)) && (
                         <div className="flex justify-end gap-4 pt-6 border-t border-brand-light-blue">
                             <button onClick={() => handleUpdateStatus(viewingSubmission.id, 'refused')} className="flex items-center gap-2 bg-red-600 text-white font-bold py-2 px-5 rounded-md hover:bg-red-500 transition-colors"><X size={20}/> {t('refuse')}</button>
                             <button onClick={() => handleUpdateStatus(viewingSubmission.id, 'accepted')} className="flex items-center gap-2 bg-green-600 text-white font-bold py-2 px-5 rounded-md hover:bg-green-500 transition-colors"><Check size={20}/> {t('accept')}</button>

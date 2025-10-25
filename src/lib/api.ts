@@ -1,4 +1,3 @@
-
 // src/lib/api.ts
 import { supabase } from './supabaseClient';
 import type { 
@@ -284,7 +283,6 @@ export const getMtaServerStatus = async (): Promise<MtaServerStatus> => {
         name: "Vixel Roleplay Server",
         players: Math.floor(Math.random() * 100),
         maxPlayers: 150,
-        // FIX: Added missing 'ping' property to match the MtaServerStatus type.
         ping: Math.floor(Math.random() * 50) + 10,
         version: "1.6"
       });
