@@ -48,7 +48,8 @@ serve(async (req) => {
     }
 
     // Fetch member data from our external bot
-    const botResponse = await fetch(`${BOT_URL}/api/user/${discordId}`, {
+    const endpoint = new URL(`/api/user/${discordId}`, BOT_URL);
+    const botResponse = await fetch(endpoint, {
         headers: { 'Authorization': `Bearer ${BOT_API_KEY}` }
     });
     

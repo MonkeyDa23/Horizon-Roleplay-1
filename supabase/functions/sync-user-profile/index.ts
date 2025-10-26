@@ -106,7 +106,8 @@ serve(async (req) => {
         const BOT_API_KEY = Deno.env.get('VITE_DISCORD_BOT_API_KEY');
         if (!BOT_URL || !BOT_API_KEY) throw new Error("Bot integration secrets are not configured.");
 
-        const botResponse = await fetch(`${BOT_URL}/api/user/${discordUserId}`, {
+        const endpoint = new URL(`/api/user/${discordUserId}`, BOT_URL);
+        const botResponse = await fetch(endpoint, {
           headers: { 'Authorization': `Bearer ${BOT_API_KEY}` }
         });
 
@@ -124,8 +125,18 @@ serve(async (req) => {
         }
 
       } catch (e) {
-        syncError = `Could not sync with Discord: ${e.message}. Using last known data.`;
-        console.warn(`[SYNC-FAIL] User ${authUser.id}: ${e.message}`);
+        let friendlyMessage = e.message;
+        // Check for common, actionable network errors to provide better feedback to the user.
+        if (e.message.includes('Connection refused')) {
+            friendlyMessage = "The website could not connect to the Discord bot. The bot might be offline, the URL in your configuration might be incorrect, or a firewall could be blocking the connection. Please check the bot's status.";
+        } else if (e.message.includes('Bot API error (404)')) {
+            friendlyMessage = "The bot reported that you are not a member of the Discord server. If you have recently joined, please wait a few minutes before trying again.";
+        } else if (e.message.includes('Server Members Intent')) {
+            friendlyMessage = "Sync failed because the bot returned no roles. This is almost always caused by the 'Server Members Intent' being disabled in the Discord Developer Portal. Please enable it and restart the bot.";
+        }
+
+        syncError = `Could not sync with Discord: ${friendlyMessage}. Using last known data.`;
+        console.warn(`[SYNC-FAIL] User ${authUser.id}: ${e.message}`); // Log original error for debugging
       }
     }
     

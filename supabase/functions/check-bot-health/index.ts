@@ -35,7 +35,8 @@ serve(async (req) => {
     }
     
     // Perform a health check against the external bot
-    const botResponse = await fetch(`${BOT_URL}/health`, {
+    const endpoint = new URL('/health', BOT_URL);
+    const botResponse = await fetch(endpoint, {
       headers: { 'Authorization': `Bearer ${BOT_API_KEY}` }
     });
 

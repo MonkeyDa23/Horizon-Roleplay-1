@@ -1,10 +1,10 @@
-// -- Vixel Roleplay Website - Full Database Schema (V31 - Trigger-based Notifications)
+// -- Vixel Roleplay Website - Full Database Schema (V32 - Enhanced Logging & Deletion)
 export const schema = `
 /*
 ====================================================================================================
- Vixel Roleplay Website - Full Database Schema (V31 - Trigger-based Notifications)
+ Vixel Roleplay Website - Full Database Schema (V32 - Enhanced Logging & Deletion)
  Author: AI
- Date: 2024-06-17
+ Date: 2024-06-18
  
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -12,11 +12,10 @@ export const schema = `
  or for a clean installation. DO NOT run this on a production database with live user data
  unless you intend to wipe it completely.
 
- !! WHAT'S NEW (V31) !!
- This version completely overhauls the Discord notification system for reliability. It replaces
- direct HTTP calls from within Postgres with a modern trigger-based system. Now, actions like
- new submissions or admin logs fire a trigger that asynchronously calls a Supabase Edge Function.
- This is more robust and solves the issue of notifications not being sent.
+ !! WHAT'S NEW (V32) !!
+ - Added `delete_submission` function to allow admins to permanently remove an application.
+ - Enhanced the notification trigger to also create an audit log when a DM is sent to a user,
+   providing a public record that a notification was dispatched.
 
  !! ADMIN SETUP NOTE !!
  To grant the first Super Admin permission, you must manually add a row to the database:
@@ -58,6 +57,7 @@ DROP FUNCTION IF EXISTS public.get_config();
 DROP FUNCTION IF EXISTS public.get_all_submissions();
 DROP FUNCTION IF EXISTS public.add_submission(jsonb);
 DROP FUNCTION IF EXISTS public.update_submission_status(uuid, text);
+DROP FUNCTION IF EXISTS public.delete_submission(uuid);
 DROP FUNCTION IF EXISTS public.save_quiz(jsonb);
 DROP FUNCTION IF EXISTS public.save_quiz_with_translations(jsonb);
 DROP FUNCTION IF EXISTS public.save_product_with_translations(jsonb);
@@ -365,6 +365,30 @@ BEGIN
   PERFORM public.log_action(format('قام بتغيير حالة تقديم (%s) للمستخدم %s إلى %s', submission_record."quizTitle", submission_record.username, p_new_status), 'submission');
 END;
 $$;
+
+-- New function to delete a submission
+CREATE OR REPLACE FUNCTION public.delete_submission(p_submission_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  submission_record record;
+BEGIN
+  IF NOT public.has_permission(public.get_user_id(), 'admin_submissions') THEN
+    RAISE EXCEPTION 'Insufficient permissions.';
+  END IF;
+
+  SELECT username, "quizTitle" INTO submission_record FROM public.submissions WHERE id = p_submission_id;
+
+  IF FOUND THEN
+    DELETE FROM public.submissions WHERE id = p_submission_id;
+    PERFORM public.log_action(format('🗑️ قام بحذف تقديم (%s) للمستخدم %s', submission_record."quizTitle", submission_record.username), 'submission');
+  END IF;
+END;
+$$;
+
 
 -- Simplified: Just inserts the log. Notification is handled by a trigger.
 CREATE OR REPLACE FUNCTION public.log_action(p_action text, p_log_type text DEFAULT 'general')
@@ -703,6 +727,10 @@ BEGIN
         )
       )
   );
+
+  -- Log that a DM was sent
+  PERFORM public.log_action(format('📧 أرسل رسالة خاصة إلى **%s** بخصوص تقديم (%s) بعنوان: "%s"', NEW.username, NEW."quizTitle", embed_title), 'submission');
+  
   RETURN NEW;
 END;
 $$;
@@ -850,6 +878,9 @@ INSERT INTO public.translations (key, en, ar) VALUES
 ('save_translations', 'Save Translations', 'حفظ الترجمات'),
 ('save_permissions', 'Save Permissions', 'حفظ الصلاحيات'),
 ('delete_quiz', 'Delete Quiz', 'حذف التقديم'),
+('delete_submission', 'Delete Submission', 'حذف التقديم'),
+('delete_submission_confirm', 'Are you sure you want to delete the submission from {username} for {quizTitle}? This action cannot be undone.', 'هل أنت متأكد من رغبتك في حذف تقديم {username} لـ {quizTitle}؟ لا يمكن التراجع عن هذا الإجراء.'),
+('submission_deleted_success', 'Submission deleted successfully.', 'تم حذف التقديم بنجاح.'),
 ('status', 'Status', 'الحالة'),
 ('open', 'Open', 'مفتوح'),
 ('closed', 'Closed', 'مغلق'),

@@ -44,7 +44,8 @@ serve(async (req) => {
     if (!user) return createResponse({ error: 'Unauthorized' }, 401)
     
     // Fetch roles from the external bot
-    const botResponse = await fetch(`${BOT_URL}/api/roles`, {
+    const endpoint = new URL('/api/roles', BOT_URL);
+    const botResponse = await fetch(endpoint, {
       headers: { 'Authorization': `Bearer ${BOT_API_KEY}` }
     });
 

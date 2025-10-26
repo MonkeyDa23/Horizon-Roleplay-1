@@ -170,6 +170,11 @@ export const updateSubmissionStatus = async (submissionId: string, status: 'take
   return handleResponse(await supabase.rpc('update_submission_status', { p_submission_id: submissionId, p_new_status: status }));
 };
 
+export const deleteSubmission = async (submissionId: string): Promise<void> => {
+  if (!supabase) throw new Error("Supabase not configured");
+  return handleResponse(await supabase.rpc('delete_submission', { p_submission_id: submissionId }));
+};
+
 
 // =============================================
 // RULES API

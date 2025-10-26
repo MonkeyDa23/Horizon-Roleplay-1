@@ -3,10 +3,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalization } from '../../hooks/useLocalization';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../hooks/useToast';
-import { getSubmissions, updateSubmissionStatus, getQuizzes } from '../../lib/api';
+import { getSubmissions, updateSubmissionStatus, getQuizzes, deleteSubmission } from '../../lib/api';
 import type { QuizSubmission, SubmissionStatus, Quiz } from '../../types';
 import Modal from '../Modal';
-import { Eye, Loader2, Check, X, ListChecks } from 'lucide-react';
+import { Eye, Loader2, Check, X, ListChecks, Trash2 } from 'lucide-react';
 
 const Panel: React.FC<{ children: React.ReactNode; isLoading: boolean, loadingText: string }> = ({ children, isLoading, loadingText }) => {
     if (isLoading) {
@@ -54,6 +54,18 @@ const SubmissionsPanel: React.FC = () => {
             showToast('Submission updated!', 'success');
         } catch (e) {
             showToast((e as Error).message, 'error');
+        }
+    };
+
+    const handleDelete = async (submission: QuizSubmission) => {
+        if (window.confirm(t('delete_submission_confirm', { username: submission.username, quizTitle: submission.quizTitle }))) {
+            try {
+                await deleteSubmission(submission.id);
+                showToast(t('submission_deleted_success'), 'success');
+                fetchData(); // Refresh the list
+            } catch (e) {
+                showToast((e as Error).message, 'error');
+            }
         }
     };
 
@@ -117,6 +129,7 @@ const SubmissionsPanel: React.FC = () => {
                                             <TakeOrderButton submission={sub} />
                                             {sub.status === 'taken' && <span className="text-xs text-gray-400 italic">{t('taken_by')} {sub.adminUsername === user?.username ? 'You' : sub.adminUsername}</span>}
                                             <button onClick={() => setViewingSubmission(sub)} className="text-gray-300 hover:text-brand-cyan" title={t('view_submission')}><Eye size={20}/></button>
+                                            <button onClick={() => handleDelete(sub)} className="text-gray-400 hover:text-red-500" title={t('delete_submission')}><Trash2 size={20}/></button>
                                         </div>
                                     </td>
                                 </tr>

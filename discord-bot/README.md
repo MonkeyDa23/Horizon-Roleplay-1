@@ -117,7 +117,7 @@ It's highly recommended to use a process manager like **PM2** to keep the bot ru
 
 ## Firewall
 
-Ensure that the port the bot is running on (default is **3000**) is open in your server's firewall, so that Supabase and your website can reach it.
+Ensure that the port the bot is running on (default is **12857**) is open in your server's firewall, so that Supabase and your website can reach it.
 
 ## Troubleshooting
 

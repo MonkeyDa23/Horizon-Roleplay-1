@@ -29,7 +29,8 @@ serve(async (req) => {
     // The database trigger sends the payload in the 'record' property of the body
     const body = await req.json();
 
-    const botResponse = await fetch(`${botUrl}/api/notify`, {
+    const endpoint = new URL('/api/notify', botUrl);
+    const botResponse = await fetch(endpoint, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
