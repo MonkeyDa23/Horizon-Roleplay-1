@@ -249,7 +249,7 @@ export const translations: Translations = {
   health_check_test_running: { ar: 'جاري الاختبار...', en: 'Testing...'},
   health_check_test_result: { ar: 'نتيجة الاختبار', en: 'Test Result'},
   health_check_step4: { ar: 'الخطوة 4: اختبار مزامنة المستخدم', en: 'Step 4: User Sync Test'},
-  // FIX: Escaped single quote in the English translation string.
+  // FIX: Escaped single quote in the 'en' translation string.
   health_check_step4_desc: { ar: 'اختبر جلب بيانات مستخدم معين من ديسكورد عبر البوت.', en: 'Test fetching a specific user\'s data from Discord via the bot.'},
   health_check_get_discord_id: { ar: 'كيف أحصل على معرف ديسكورد؟', en: 'How to get a Discord ID?'},
   health_check_get_discord_id_steps: { ar: 'في ديسكورد، اذهب إلى الإعدادات > متقدم > فعل وضع المطور. ثم انقر بزر الماوس الأيمن على أي مستخدم واختر "نسخ معرف المستخدم".', en: 'In Discord, go to Settings > Advanced > enable Developer Mode. Then, right-click any user and select "Copy User ID".'},
@@ -258,11 +258,11 @@ export const translations: Translations = {
   health_check_sync_test_result: { ar: 'نتيجة المزامنة', en: 'Sync Result'},
   health_check_result_interpretation: { ar: 'تفسير النتائج', en: 'Interpreting the Results'},
   health_check_result_success: { ar: '<ul><li class="mb-2"><strong>Success (200 OK):</strong> Excellent! The user was found in the guild and their data was fetched successfully. This confirms everything is working.</li>', en: '<ul><li class="mb-2"><strong>Success (200 OK):</strong> Excellent! The user was found in the guild and their data was fetched successfully. This confirms everything is working.</li>'},
-  // FIX: Escaped single quote in translation strings to fix parsing error.
+  // FIX: Escaped single quote in the 'ar' and 'en' translation strings.
   health_check_result_404: { ar: '<li class="mb-2"><strong>Error (404 Not Found):</strong> This means the bot connected to Discord correctly, but couldn\'t find a user with that ID in your server. Check the ID or ensure the user is a member.</li>', en: '<li class="mb-2"><strong>Error (404 Not Found):</strong> This means the bot connected to Discord correctly, but couldn\'t find a user with that ID in your server. Check the ID or ensure the user is a member.</li>'},
-  // FIX: Escaped single quote in translation strings to fix parsing error.
+  // FIX: Escaped single quote in the 'ar' and 'en' translation strings.
   health_check_result_503: { ar: '<li class="mb-2"><strong>Error (503 Service Unavailable):</strong> The most common cause is that the <strong>Server Members Intent</strong> is not enabled in the Discord Developer Portal. Go to your bot\'s settings and turn it on.</li>', en: '<li class="mb-2"><strong>Error (503 Service Unavailable):</strong> The most common cause is that the <strong>Server Members Intent</strong> is not enabled in the Discord Developer Portal. Go to your bot\'s settings and turn it on.</li>'},
-  // FIX: Escaped single quotes in translation strings to fix parsing error.
+  // FIX: Escaped single quotes in the 'ar' and 'en' translation strings.
   health_check_result_other: { ar: '<li><strong>Other Errors:</strong> Usually indicates a problem with the bot\'s configuration or it being offline. Check the bot\'s logs for more details.</li></ul>', en: '<li><strong>Other Errors:</strong> Usually indicates a problem with the bot\'s configuration or it being offline. Check the bot\'s logs for more details.</li></ul>'},
   health_check_banner_link: { ar: 'اضغط هنا لتشغيل فحص النظام التشخيصي.', en: 'Click here to run system diagnostics.' },
   
