@@ -16,8 +16,8 @@
 // =============================================
 // IMPORTS
 // =============================================
-// FIX: Imported Request, Response, and NextFunction types from express to correctly type middleware and handlers.
-import express, { Request, Response, NextFunction } from 'express';
+// FIX: Changed import to use default export and namespace for types to resolve TS errors.
+import express from 'express';
 import cors from 'cors';
 import {
     Client,
@@ -92,8 +92,6 @@ const loadConfig = (): BotConfig => {
         return config;
     } catch (error) {
         logger('FATAL', 'Failed to load or parse config.json.', error);
-        // Re-throw the error to be handled by the top-level catch block.
-        // This resolves the TypeScript error "Function lacks ending return statement".
         throw error;
     }
 };
@@ -151,20 +149,15 @@ const main = async () => {
             } else {
                 logger('ERROR', 'Full Error Details:', error);
             }
-            // FIX: Cast `process` to `any` to access `exit` due to missing Node.js types.
-            (process as any).exit(1);
+            process.exit(1);
         }
     });
 
     client.on(Events.InteractionCreate, async (interaction) => {
         if (!interaction.isChatInputCommand() || !interaction.inGuild() || interaction.commandName !== 'setstatus') return;
     
-        // Destructure guild and user, then guard to help TypeScript's control flow analysis.
         const { guild, user } = interaction;
-        if (!guild) {
-            // This should technically be unreachable due to inGuild() check, but it satisfies the compiler.
-            return;
-        }
+        if (!guild) return;
     
         logger('INFO', `Received /setstatus command from ${user.tag}.`);
     
@@ -202,14 +195,12 @@ const main = async () => {
     // --- Express Server Setup ---
     logger('INFO', 'Initializing Express server...');
     const app = express();
-    // FIX: Ensure PORT is a number to satisfy the `app.listen` overload.
     const PORT = Number(process.env.PORT) || 12857;
 
     app.use(cors());
     app.use(express.json());
 
-    // FIX: Use types imported directly from express.
-    const authenticate = (req: Request, res: Response, next: NextFunction) => {
+    const authenticate = (req: express.Request, res: express.Response, next: express.NextFunction) => {
         const authHeader = req.headers.authorization;
         const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
         
@@ -222,9 +213,9 @@ const main = async () => {
         }
     };
     
-    app.get('/', (req: Request, res: Response) => res.status(200).send('Vixel Roleplay Bot is alive!'));
+    app.get('/', (req: express.Request, res: express.Response) => res.status(200).send('Vixel Roleplay Bot is alive!'));
 
-    app.get('/health', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+    app.get('/health', authenticate, async (req: express.Request, res: express.Response, next: express.NextFunction) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
             await guild.members.fetch({ limit: 1 }); // Test member fetching ability
@@ -235,7 +226,7 @@ const main = async () => {
         }
     });
 
-    app.get('/api/roles', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+    app.get('/api/roles', authenticate, async (req: express.Request, res: express.Response, next: express.NextFunction) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
             const roles = (await guild.roles.fetch())
@@ -249,7 +240,7 @@ const main = async () => {
         }
     });
 
-    app.get('/api/user/:id', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+    app.get('/api/user/:id', authenticate, async (req: express.Request, res: express.Response, next: express.NextFunction) => {
         const { id } = req.params;
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
@@ -281,7 +272,7 @@ const main = async () => {
         }
     });
 
-    app.post('/api/notify', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+    app.post('/api/notify', authenticate, async (req: express.Request, res: express.Response, next: express.NextFunction) => {
         try {
             const body: NotifyPayload = req.body;
             logger('INFO', `[API /notify] Received notification request. Type: ${body.type}`);
@@ -329,14 +320,11 @@ const main = async () => {
         }
     });
 
-    // FIX: Use types imported directly from express.
-    app.use((req: Request, res: Response) => {
+    app.use((req: express.Request, res: express.Response) => {
         res.status(404).json({ error: 'Not Found' });
     });
     
-    // FIX: Use types imported directly from express.
-    // FIX: Explicitly cast `err` to access `status` property after `instanceof` check to satisfy type checker.
-    app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+    app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
         logger('ERROR', `[Express Error] An error occurred on ${req.method} ${req.path}`, err);
         const status = err instanceof DiscordAPIError ? (err as DiscordAPIError).status : 500;
         res.status(status).json({ error: err.message || 'An internal server error occurred.' });
@@ -351,21 +339,17 @@ const main = async () => {
 };
 
 // --- Process-wide Error Handling ---
-// FIX: Cast `process` to `any` to access `on` due to missing Node.js types.
-(process as any).on('unhandledRejection', (reason: any, promise: any) => {
+process.on('unhandledRejection', (reason: any, promise: any) => {
     logger('FATAL', 'Unhandled Rejection at:', promise);
     logger('FATAL', 'Reason:', reason);
 });
 
-// FIX: Cast `process` to `any` to access `on` due to missing Node.js types.
-(process as any).on('uncaughtException', (error: Error) => {
+process.on('uncaughtException', (error: Error) => {
     logger('FATAL', 'Uncaught Exception:', error);
-    // FIX: Cast `process` to `any` to access `exit` due to missing Node.js types.
-    (process as any).exit(1);
+    process.exit(1);
 });
 
 main().catch(error => {
     logger('FATAL', 'A critical error occurred during bot startup.', error);
-    // FIX: Cast `process` to `any` to access `exit` due to missing Node.js types.
-    (process as any).exit(1);
+    process.exit(1);
 });
