@@ -1,10 +1,10 @@
-// -- Vixel Roleplay Website - Full Database Schema (V32 - Enhanced Logging & Deletion)
+// -- Vixel Roleplay Website - Full Database Schema (V33 - Anti-Cheat Logging)
 export const schema = `
 /*
 ====================================================================================================
- Vixel Roleplay Website - Full Database Schema (V32 - Enhanced Logging & Deletion)
+ Vixel Roleplay Website - Full Database Schema (V33 - Anti-Cheat Logging)
  Author: AI
- Date: 2024-06-18
+ Date: 2024-06-19
  
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -12,10 +12,9 @@ export const schema = `
  or for a clean installation. DO NOT run this on a production database with live user data
  unless you intend to wipe it completely.
 
- !! WHAT'S NEW (V32) !!
- - Added `delete_submission` function to allow admins to permanently remove an application.
- - Enhanced the notification trigger to also create an audit log when a DM is sent to a user,
-   providing a public record that a notification was dispatched.
+ !! WHAT'S NEW (V33) !!
+ - Enhanced `add_submission` function to automatically create an audit log entry if the
+   submission contains any cheat attempts, sending a notification to Discord.
 
  !! ADMIN SETUP NOTE !!
  To grant the first Super Admin permission, you must manually add a row to the database:
@@ -69,6 +68,7 @@ DROP FUNCTION IF EXISTS public.unban_user(uuid);
 DROP FUNCTION IF EXISTS public.has_permission(uuid, text);
 DROP FUNCTION IF EXISTS public.save_role_permissions(text, text[]);
 DROP FUNCTION IF EXISTS public.get_user_id();
+DROP FUNCTION IF EXISTS public.test_pg_net();
 DROP FUNCTION IF EXISTS private.handle_new_submission_notification();
 DROP FUNCTION IF EXISTS private.handle_submission_status_update();
 DROP FUNCTION IF EXISTS private.handle_audit_log_notification();
@@ -291,6 +291,41 @@ CREATE POLICY "Admins can manage submissions" ON public.submissions FOR ALL USIN
 -- =================================================================
 -- 6. RPC FUNCTIONS (Simplified for Trigger-based System)
 -- =================================================================
+
+-- NEW Health Check function
+CREATE OR REPLACE FUNCTION public.test_pg_net()
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  response_body text;
+  request_id bigint;
+BEGIN
+    IF NOT public.has_permission(public.get_user_id(), 'admin_panel') THEN
+        RAISE EXCEPTION 'Insufficient permissions.';
+    END IF;
+
+    SELECT net.http_get(
+        url := 'https://httpbin.org/get'
+    ) INTO request_id;
+
+    -- Using async false to wait for the response directly
+    SELECT body INTO response_body FROM net.http_collect_response(request_id, async := false);
+    
+    IF response_body IS NOT NULL AND response_body LIKE '%"url": "https://httpbin.org/get"%' THEN
+        RETURN 'SUCCESS: pg_net is configured correctly and can make outbound requests.';
+    ELSE
+        RETURN 'FAILURE: pg_net could not make an outbound request. Please check your Database Network Restrictions in the Supabase dashboard and ensure you have allowed egress traffic for ports 80 and 443.';
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN 'ERROR: An unexpected error occurred while testing pg_net. This usually means Network Restrictions are blocking the request. Details: ' || SQLERRM;
+END;
+$$;
+
+
 CREATE OR REPLACE FUNCTION public.get_config()
 RETURNS json
 LANGUAGE sql STABLE
@@ -312,7 +347,7 @@ BEGIN
 END;
 $$;
 
--- Simplified: Just inserts the data. Notification is handled by a trigger.
+-- Enhanced: Now logs cheat attempts automatically.
 CREATE OR REPLACE FUNCTION public.add_submission(submission_data jsonb)
 RETURNS public.submissions
 LANGUAGE plpgsql
@@ -330,6 +365,17 @@ BEGIN
     submission_data->'cheatAttempts',
     submission_data->>'user_highest_role'
   ) RETURNING * INTO new_submission;
+
+  IF jsonb_array_length(submission_data->'cheatAttempts') > 0 THEN
+    PERFORM public.log_action(
+      format('⚠️ تم تسجيل %s محاولة غش للمستخدم **%s** في تقديم (*%s*).', 
+        jsonb_array_length(submission_data->'cheatAttempts'),
+        submission_data->>'username', 
+        submission_data->>'quizTitle'
+      ), 
+      'submission'
+    );
+  END IF;
 
   RETURN new_submission;
 END;
@@ -1021,7 +1067,8 @@ INSERT INTO public.translations (key, en, ar) VALUES
 ('q_medic_1', 'What is your top priority when arriving at an accident scene?', 'ما هي أولويتك القصوى عند الوصول إلى مكان الحادث؟'),
 ('admin_dashboard_welcome_message', 'Welcome to the control panel. You can manage all website settings from the sidebar.', 'أهلاً بك في لوحة التحكم. يمكنك إدارة جميع إعدادات الموقع من الشريط الجانبي.'),
 ('dashboard', 'Dashboard', 'الرئيسية'),
-('loading_submissions', 'Loading submissions...', 'جاري تحميل التقديمات...')
+('loading_submissions', 'Loading submissions...', 'جاري تحميل التقديمات...'),
+('highest_role', 'Highest Role', 'أعلى رتبة')
 ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar;
 
 COMMIT;

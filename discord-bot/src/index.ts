@@ -1,3 +1,4 @@
+
 // discord-bot/src/index.ts
 /**
  * Vixel Roleplay - Discord Bot Backend
@@ -5,19 +6,10 @@
  * This bot serves as the crucial link between the website and the Discord API.
  * It provides an authenticated REST API for the website (via Supabase Edge Functions)
  * to fetch real-time Discord data and send notifications.
- * 
- * Main responsibilities:
- * - Fetching user profiles, roles, and guild information.
- * - Receiving and processing notification requests (e.g., new submissions, admin actions).
- * - Providing a slash command for admins to update the bot's presence.
- * - Ensuring all communication is secure and authenticated.
  */
 
-// =============================================
-// IMPORTS
-// =============================================
-// FIX: Changed import to use default export and namespace for types to resolve TS errors.
-import express from 'express';
+// FIX: Using named imports for express types to resolve type conflicts and errors.
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import {
     Client,
@@ -30,7 +22,11 @@ import {
     PresenceStatusData,
     DiscordAPIError,
     TextChannel,
-    REST
+    REST,
+    Guild,
+    GuildMember,
+    EmbedBuilder,
+    GuildMemberRoleManager
 } from 'discord.js';
 import fs from 'fs';
 import path from 'path';
@@ -40,26 +36,20 @@ import type { BotConfig, DiscordRole, NotifyPayload } from './types.js';
 // =============================================
 // LOGGER UTILITY
 // =============================================
-const LOG_LEVELS = { DEBUG: 0, INFO: 1, WARN: 2, ERROR: 3, FATAL: 4 };
-type LogLevel = keyof typeof LOG_LEVELS;
-
-const logger = (level: LogLevel, message: string, data?: any) => {
+const logger = (level: 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'FATAL', message: string, data?: any) => {
     const timestamp = new Date().toISOString();
     const logMessage = `[${timestamp}] [${level}] ${message}`;
-    
-    switch(level) {
-        case 'DEBUG': console.debug(logMessage); break;
-        case 'INFO': console.info(logMessage); break;
-        case 'WARN': console.warn(`\x1b[33m${logMessage}\x1b[0m`); break; // Yellow for WARN
-        case 'ERROR': console.error(`\x1b[31m${logMessage}\x1b[0m`); break; // Red for ERROR
-        case 'FATAL': console.error(`\x1b[41m\x1b[37m${logMessage}\x1b[0m`); break; // Red background for FATAL
-        default: console.log(logMessage);
-    }
-
-    if (data) {
-        if (LOG_LEVELS[level] >= LOG_LEVELS.ERROR || process.env.NODE_ENV === 'development') {
-            console.log(JSON.stringify(data, null, 2));
-        }
+    const colorMap = {
+        DEBUG: '\x1b[36m', // Cyan
+        INFO: '\x1b[32m',  // Green
+        WARN: '\x1b[33m',  // Yellow
+        ERROR: '\x1b[31m', // Red
+        FATAL: '\x1b[41m\x1b[37m', // White on Red BG
+        RESET: '\x1b[0m'
+    };
+    console.log(`${colorMap[level]}${logMessage}${colorMap[level] === colorMap.FATAL ? '' : colorMap.RESET}`);
+    if (data && (level === 'ERROR' || level === 'FATAL' || level === 'DEBUG')) {
+        console.error(data);
     }
 };
 
@@ -76,280 +66,204 @@ const loadConfig = (): BotConfig => {
             throw new Error(`config.json not found at ${configPath}. Please copy config.example.json to config.json and fill it out.`);
         }
         
-        const rawConfig = fs.readFileSync(configPath, 'utf-8');
-        const config: BotConfig = JSON.parse(rawConfig);
+        const config: BotConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
 
-        // --- Configuration Validation ---
-        if (!config.DISCORD_BOT_TOKEN) throw new Error('DISCORD_BOT_TOKEN is missing.');
-        if (!config.DISCORD_GUILD_ID) throw new Error('DISCORD_GUILD_ID is missing.');
-        if (!config.API_SECRET_KEY) throw new Error('API_SECRET_KEY is missing.');
-        if (!Array.isArray(config.PRESENCE_COMMAND_ROLE_IDS)) {
-            logger('WARN', 'PRESENCE_COMMAND_ROLE_IDS is missing or not an array. Defaulting to an empty array.');
-            config.PRESENCE_COMMAND_ROLE_IDS = [];
+        if (!config.DISCORD_BOT_TOKEN || !config.DISCORD_GUILD_ID || !config.API_SECRET_KEY) {
+            throw new Error('One or more required fields are missing from config.json (DISCORD_BOT_TOKEN, DISCORD_GUILD_ID, API_SECRET_KEY).');
         }
-
         logger('INFO', '✅ Configuration loaded and validated successfully.');
         return config;
     } catch (error) {
         logger('FATAL', 'Failed to load or parse config.json.', error);
-        throw error;
+        process.exit(1);
     }
 };
 
 // =============================================
-// MAIN APPLICATION LOGIC
+// MAIN APPLICATION
 // =============================================
 const main = async () => {
     const config = loadConfig();
-    const maskedToken = `${config.DISCORD_BOT_TOKEN.substring(0, 5)}...${config.DISCORD_BOT_TOKEN.substring(config.DISCORD_BOT_TOKEN.length - 5)}`;
-    logger('INFO', `Using Guild ID: ${config.DISCORD_GUILD_ID}`);
-    logger('DEBUG', `Using Bot Token: ${maskedToken}`);
-    
-    // --- Discord Client Setup ---
-    logger('INFO', 'Initializing Discord Client...');
     const client = new Client({
-        intents: [
-            GatewayIntentBits.Guilds,
-            GatewayIntentBits.GuildMembers, // CRITICAL: This intent is required for fetching member roles.
-        ],
-        partials: [Partials.Channel], // Necessary for DMs
+        intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
+        partials: [Partials.Channel],
     });
 
-    client.once(Events.ClientReady, async (readyClient) => {
-        logger('INFO', `✅ Discord Client Ready! Logged in as ${readyClient.user.tag}`);
+    client.once(Events.ClientReady, async c => {
+        logger('INFO', `✅ Discord Client Ready! Logged in as ${c.user.tag}`);
         try {
-            const guild = await readyClient.guilds.fetch(config.DISCORD_GUILD_ID);
+            const guild = await c.guilds.fetch(config.DISCORD_GUILD_ID);
             logger('INFO', `✅ Successfully connected to Guild: "${guild.name}"`);
-
-            const setStatusCommand = new SlashCommandBuilder()
-                .setName('setstatus')
-                .setDescription("Sets the bot's status and activity.")
-                .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-                .addStringOption(option => option.setName('status').setDescription("The bot's status.").setRequired(true).addChoices({ name: 'Online', value: 'online' }, { name: 'Idle', value: 'idle' }, { name: 'Do Not Disturb', value: 'dnd' }, { name: 'Invisible', value: 'invisible' }))
-                .addStringOption(option => option.setName('activity_type').setDescription("The bot's activity type.").setRequired(true).addChoices({ name: 'Playing', value: 'Playing' }, { name: 'Watching', value: 'Watching' }, { name: 'Listening to', value: 'Listening' }, { name: 'Competing in', value: 'Competing' }))
-                .addStringOption(option => option.setName('activity_name').setDescription("The bot's activity name.").setRequired(true));
-            
-            logger('INFO', 'Attempting to register slash commands...');
-            const rest = new REST().setToken(config.DISCORD_BOT_TOKEN);
-            await rest.put(
-                `/applications/${readyClient.user.id}/guilds/${config.DISCORD_GUILD_ID}/commands`,
-                { body: [setStatusCommand.toJSON()] },
-            );
-
-            logger('INFO', '✅ Slash commands registered/updated successfully.');
-
+            await registerCommands(c.user.id);
         } catch (error) {
-            logger('FATAL', `Could not fetch guild with ID ${config.DISCORD_GUILD_ID}.`);
-            logger('FATAL', `ADVICE: Ensure the 'DISCORD_GUILD_ID' in config.json is correct and the bot has been invited to that server.`);
-            if (error instanceof DiscordAPIError) {
-                logger('ERROR', `Discord API Error Code: ${error.code} - ${error.message}`);
-                if (error.code === 50001) {
-                     logger('FATAL', `ADVICE: The bot is missing 'Access' to the guild. It might not be in the server.`);
-                }
-            } else {
-                logger('ERROR', 'Full Error Details:', error);
-            }
-            process.exit(1);
+            handleGuildFetchError(error);
         }
     });
-
-    client.on(Events.InteractionCreate, async (interaction) => {
-        if (!interaction.isChatInputCommand() || !interaction.inGuild() || interaction.commandName !== 'setstatus') return;
     
-        const { guild, user } = interaction;
-        if (!guild) return;
-    
-        logger('INFO', `Received /setstatus command from ${user.tag}.`);
-    
+    const registerCommands = async (clientId: string) => {
+        const setStatusCommand = new SlashCommandBuilder()
+            .setName('setstatus')
+            .setDescription("Sets the bot's status and activity.")
+            .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+            .addStringOption(o => o.setName('status').setDescription("Bot's status.").setRequired(true).addChoices({ name: 'Online', value: 'online' }, { name: 'Idle', value: 'idle' }, { name: 'Do Not Disturb', value: 'dnd' }))
+            .addStringOption(o => o.setName('activity_type').setDescription("Bot's activity type.").setRequired(true).addChoices({ name: 'Playing', value: 'Playing' }, { name: 'Watching', value: 'Watching' }, { name: 'Listening to', value: 'Listening' }, { name: 'Competing in', value: 'Competing' }))
+            .addStringOption(o => o.setName('activity_name').setDescription("Bot's activity name.").setRequired(true));
+            
+        logger('INFO', `Attempting to register slash commands for guild ${config.DISCORD_GUILD_ID}...`);
+        const rest = new REST().setToken(config.DISCORD_BOT_TOKEN);
         try {
-            const member = await guild.members.fetch(user.id);
-            const isOwner = guild.ownerId === member.id;
-            const hasRole = member.roles.cache.some((role) => config.PRESENCE_COMMAND_ROLE_IDS.includes(role.id));
-    
-            if (!isOwner && !hasRole) {
-                logger('WARN', `↳ Denied /setstatus for ${user.tag} (missing permissions).`);
-                await interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true });
-                return;
-            }
-    
-            const status = interaction.options.getString('status', true) as PresenceStatusData;
-            const activityTypeStr = interaction.options.getString('activity_type', true);
-            const activityName = interaction.options.getString('activity_name', true);
-    
-            const activityTypeMap: { [key: string]: ActivityType } = { 'Playing': ActivityType.Playing, 'Watching': ActivityType.Watching, 'Listening': ActivityType.Listening, 'Competing': ActivityType.Competing };
-            const activityType = activityTypeMap[activityTypeStr];
+            await rest.put(`/applications/${clientId}/guilds/${config.DISCORD_GUILD_ID}/commands`, { body: [setStatusCommand.toJSON()] });
+            logger('INFO', '✅ Slash commands registered/updated successfully.');
+        } catch(error) {
+            logger('ERROR', 'Failed to register slash commands. ADVICE: Ensure the bot was invited with both `bot` and `applications.commands` scopes.', error);
+        }
+    };
+
+    const handleGuildFetchError = (error: unknown) => {
+        logger('FATAL', `Could not fetch guild with ID ${config.DISCORD_GUILD_ID}.`);
+        if (error instanceof DiscordAPIError && error.code === 50001) {
+            logger('FATAL', `ADVICE: The bot is missing 'Access' to the guild. It might not be in the server.`);
+        } else {
+             logger('FATAL', `ADVICE: Ensure the 'DISCORD_GUILD_ID' in config.json is correct and the bot has been invited to that server.`);
+             logger('FATAL', `ADVICE: Also, ensure the 'SERVER MEMBERS INTENT' is enabled in the Discord Developer Portal.`);
+        }
+        process.exit(1);
+    }
+
+    client.on(Events.InteractionCreate, async interaction => {
+        if (!interaction.isChatInputCommand() || !interaction.inGuild() || interaction.commandName !== 'setstatus') return;
+        
+        logger('INFO', `Received /setstatus command from user ${interaction.user.tag} (${interaction.user.id})`);
+
+        try {
+            const memberRoles = interaction.member.roles;
+            const hasRole = (memberRoles instanceof GuildMemberRoleManager)
+                ? config.PRESENCE_COMMAND_ROLE_IDS.some(id => memberRoles.cache.has(id))
+                : config.PRESENCE_COMMAND_ROLE_IDS.some(id => memberRoles.includes(id));
             
-            interaction.client.user?.setPresence({ status, activities: [{ name: activityName, type: activityType }] });
-    
-            logger('INFO', `↳ Successfully updated presence for ${user.tag}.`);
-            await interaction.reply({ content: 'Status updated successfully!', ephemeral: true });
-    
-        } catch (error) {
-            logger('ERROR', "Error handling /setstatus command:", error);
-            if (!interaction.replied) {
-                await interaction.reply({ content: 'An error occurred while processing this command.', ephemeral: true }).catch(() => {});
+            const hasPermission = interaction.memberPermissions.has(PermissionFlagsBits.Administrator) || hasRole;
+
+            if (!hasPermission) {
+                logger('WARN', `User ${interaction.user.tag} tried to use /setstatus without permission.`);
+                return interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true });
             }
+            const status = interaction.options.getString('status', true) as PresenceStatusData;
+            const activityType = ActivityType[interaction.options.getString('activity_type', true) as keyof typeof ActivityType];
+            const activityName = interaction.options.getString('activity_name', true);
+            client.user?.setPresence({ status, activities: [{ name: activityName, type: activityType }] });
+            logger('INFO', 'Bot presence updated successfully.');
+            interaction.reply({ content: 'Status updated successfully!', ephemeral: true });
+        } catch (error) {
+            logger('ERROR', 'Error handling /setstatus command:', error);
         }
     });
-    
-    // --- Express Server Setup ---
-    logger('INFO', 'Initializing Express server...');
-    const app = express();
-    const PORT = Number(process.env.PORT) || 12857;
 
+    const app = express();
+    const PORT = Number(process.env.PORT) || 14355;
     app.use(cors());
     app.use(express.json());
 
-    const authenticate = (req: express.Request, res: express.Response, next: express.NextFunction) => {
-        const authHeader = req.headers.authorization;
-        const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-        
-        if (authHeader && authHeader === `Bearer ${config.API_SECRET_KEY}`) {
-            logger('DEBUG', `[${req.method} ${req.path}] ✅ Authenticated from IP: ${ip}`);
-            next();
-        } else {
-            logger('WARN', `[${req.method} ${req.path}] ❌ Authentication failed from IP: ${ip}. Incorrect API Key.`);
-            res.status(401).json({ error: 'Unauthorized' });
+    const authenticate = (req: Request, res: Response, next: NextFunction) => {
+        if (req.headers.authorization === `Bearer ${config.API_SECRET_KEY}`) {
+            logger('DEBUG', `[AUTH] Successful authentication from ${req.ip}. Path: ${req.path}`);
+            return next();
         }
+        logger('WARN', `[AUTH] Failed authentication attempt from ${req.ip}. Path: ${req.path}. ADVICE: Check that API_SECRET_KEY in config.json matches the VITE_DISCORD_BOT_API_KEY secret in Supabase.`);
+        res.status(401).send({ error: 'Authentication failed.' });
     };
+
+    app.get('/health', (req: Request, res: Response) => {
+        if (!client.isReady()) return res.status(503).send({ status: 'error', message: 'Discord Client not ready.' });
+        const guild = client.guilds.cache.get(config.DISCORD_GUILD_ID);
+        if (!guild) return res.status(500).send({ status: 'error', message: 'Guild not found in cache.' });
+        res.send({ status: 'ok', details: { guildName: guild.name, memberCount: guild.memberCount } });
+    });
     
-    app.get('/', (req: express.Request, res: express.Response) => res.status(200).send('Vixel Roleplay Bot is alive!'));
-
-    app.get('/health', authenticate, async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    app.get('/api/roles', authenticate, async (req: Request, res: Response) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
-            await guild.members.fetch({ limit: 1 }); // Test member fetching ability
-            res.status(200).json({ status: 'ok', details: { guildName: guild.name, memberCount: guild.memberCount } });
-        } catch (e) {
-            logger('ERROR', `[API /health] Health check failed: ${(e as Error).message}`);
-            next(e);
+            const roles = (await guild.roles.fetch()).map(role => ({ id: role.id, name: role.name, color: role.color, position: role.position }));
+            const sortedRoles = roles.sort((a, b) => b.position - a.position);
+            res.json(sortedRoles);
+        } catch (error) {
+             logger('ERROR', 'Failed to fetch guild roles for /api/roles.', error);
+             res.status(500).json({ error: 'Failed to fetch roles.' });
         }
     });
 
-    app.get('/api/roles', authenticate, async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    app.get('/api/user/:id', authenticate, async (req: Request, res: Response) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
-            const roles = (await guild.roles.fetch())
-                .map(r => ({ id: r.id, name: r.name, color: r.color, position: r.position }))
-                .sort((a, b) => b.position - a.position);
-            logger('INFO', `[API /api/roles] Fetched ${roles.length} roles.`);
-            res.status(200).json(roles);
-        } catch (error) {
-            logger('ERROR', '[API /api/roles] Could not fetch guild roles.', error);
-            next(error);
-        }
-    });
-
-    app.get('/api/user/:id', authenticate, async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-        const { id } = req.params;
-        try {
-            const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
-            const member = await guild.members.fetch(id);
-
-            const roles: DiscordRole[] = member.roles.cache
-                .filter(r => r.id !== guild.id)
-                .map(r => ({ id: r.id, name: r.name, color: r.color, position: r.position }))
-                .sort((a, b) => b.position - a.position);
+            const member = await guild.members.fetch(req.params.id);
+            if (!member) return res.status(404).json({ error: 'User not found in guild.' });
             
-            logger('INFO', `[API /user] Fetched member ${member.user.tag}. Role count: ${roles.length}.`);
-            if (roles.length === 0) {
-                logger('WARN', `[API /user] Fetched 0 roles for ${member.user.tag}.`);
-                logger('WARN', `[API /user] THIS IS THE #1 CAUSE OF LOGIN ISSUES. IT ALMOST ALWAYS MEANS THE 'SERVER MEMBERS INTENT' IS DISABLED IN THE DISCORD DEVELOPER PORTAL!`);
-            }
+            const roles = member.roles.cache
+                .filter(role => role.name !== '@everyone')
+                .map(role => ({ id: role.id, name: role.name, color: role.color, position: role.position }))
+                .sort((a, b) => b.position - a.position);
+
+            const highestRole = roles[0] || null;
+            const avatar = member.user.displayAvatarURL({ extension: 'png', size: 256 });
             
-            res.status(200).json({
-                username: member.user.globalName || member.user.username,
-                avatar: member.displayAvatarURL({ extension: 'png', size: 256 }),
-                roles,
-                highest_role: roles[0] || null
-            });
+            res.json({ username: member.user.globalName || member.user.username, avatar, roles, highest_role: highestRole });
         } catch (error) {
-            logger('ERROR', `[API /user/${id}] Failed to fetch user.`, error);
-            if (error instanceof DiscordAPIError && error.code === 10007) { // Unknown Member
+            if (error instanceof DiscordAPIError && (error.code === 10007 || error.code === 10013)) { // Unknown Member or User
                 return res.status(404).json({ error: 'User not found in guild.' });
             }
-            next(error);
+             if (error instanceof DiscordAPIError && error.code === 50035 && error.message.includes("SERVER_MEMBERS")) {
+                logger('ERROR', "SERVER_MEMBERS_INTENT is likely disabled! Failed to fetch user.", error);
+                return res.status(503).json({ error: "Bot is missing SERVER_MEMBERS_INTENT." });
+            }
+            logger('ERROR', `Failed to fetch user ${req.params.id}.`, error);
+            res.status(500).json({ error: 'An internal error occurred.' });
         }
     });
-
-    app.post('/api/notify', authenticate, async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    
+    app.post('/api/notify', authenticate, async (req: Request, res: Response) => {
+        const body: NotifyPayload = req.body;
+        logger('INFO', `Received notification request of type: ${body.type}`);
+        logger('DEBUG', 'Full notification payload:', body.payload);
+        
         try {
-            const body: NotifyPayload = req.body;
-            logger('INFO', `[API /notify] Received notification request. Type: ${body.type}`);
-            logger('DEBUG', `[API /notify] Payload:`, body.payload);
+            const embed = new EmbedBuilder(body.payload.embed);
             
-            switch (body.type) {
-                case 'new_submission':
-                case 'audit_log': {
-                    logger('INFO', `↳ Handling channel notification for channel ID: ${body.payload.channelId}`);
-                    const channel = await client.channels.fetch(body.payload.channelId);
-                    if (!channel?.isTextBased() || channel.isDMBased()) {
-                        throw new Error(`Channel ${body.payload.channelId} is not a valid text channel.`);
-                    }
-                    logger('DEBUG', `↳ Successfully fetched channel #${(channel as TextChannel).name}.`);
-                    await (channel as TextChannel).send({ embeds: [body.payload.embed] });
-                    logger('INFO', `↳ ✅ Message sent successfully to #${(channel as TextChannel).name}.`);
-                    break;
-                }
-                case 'submission_result':
-                case 'submission_receipt': {
-                    logger('INFO', `↳ Handling DM notification for user ID: ${body.payload.userId}`);
-                    const user = await client.users.fetch(body.payload.userId);
-                    logger('DEBUG', `↳ Successfully fetched user ${user.tag}.`);
-                    await user.send({ embeds: [body.payload.embed] });
-                    logger('INFO', `↳ ✅ DM sent successfully to ${user.tag}.`);
-                    break;
-                }
-                default:
-                    // @ts-ignore
-                    throw new Error(`Invalid notification type: ${body.type}`);
+            if (body.type === 'submission_result' || body.type === 'submission_receipt') {
+                const user = await client.users.fetch(body.payload.userId);
+                await user.send({ embeds: [embed] });
+                logger('INFO', `↳ Sent DM to user ${user.tag}.`);
+            } else {
+                const channel = await client.channels.fetch(body.payload.channelId) as TextChannel;
+                if (!channel) throw new Error(`Target channel with ID ${body.payload.channelId} not found or not a text channel.`);
+                await channel.send({ embeds: [embed] });
+                logger('INFO', `↳ Sent embed to channel #${channel.name}.`);
             }
-            res.status(200).json({ success: true, message: 'Notification processed.' });
-        } catch (error) {
-            logger('ERROR', `[API /notify] ❌ FAILED to process notification.`, error);
+            res.status(200).json({ message: 'Notification sent successfully.' });
+        } catch(error) {
+            let errorMessage = 'Failed to process notification.';
             if (error instanceof DiscordAPIError) {
-                 let advice = "Check bot permissions or the ID validity.";
-                 if(error.code === 50007) advice = "Cannot send DMs to this user (DMs disabled or bot blocked).";
-                 else if (error.code === 50013) advice = "Missing Permissions (e.g., Send Messages, View Channel).";
-                 else if (error.code === 10003) advice = "Unknown Channel. The Channel ID is incorrect.";
-                 else if (error.code === 10013) advice = "Unknown User. The User ID is incorrect.";
-                 logger('ERROR', `↳ DISCORD ERROR CODE: ${error.code}`);
-                 logger('ERROR', `↳ ADVICE: ${advice}`);
+                errorMessage = `Discord API Error (${error.code}): ${error.message}`;
+                if (error.code === 50007) { // Cannot send messages to this user
+                    errorMessage += ' - ADVICE: The bot could not DM the user. They may have DMs disabled or have blocked the bot.';
+                } else if (error.code === 50001) { // Missing Access
+                     errorMessage += ' - ADVICE: The bot lacks permissions to view or send messages in the target channel.';
+                }
+            } else if (error instanceof Error) {
+                errorMessage = error.message;
             }
-            next(error);
+            logger('ERROR', `Failed to process notification of type ${body.type}. Error: ${errorMessage}`, error);
+            res.status(500).json({ error: 'Failed to send notification.', details: errorMessage });
         }
     });
 
-    app.use((req: express.Request, res: express.Response) => {
-        res.status(404).json({ error: 'Not Found' });
-    });
-    
-    app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
-        logger('ERROR', `[Express Error] An error occurred on ${req.method} ${req.path}`, err);
-        const status = err instanceof DiscordAPIError ? (err as DiscordAPIError).status : 500;
-        res.status(status).json({ error: err.message || 'An internal server error occurred.' });
-    });
-
-    app.listen(PORT, '0.0.0.0', () => {
-        logger('INFO', `🚀 API server is listening on 0.0.0.0:${PORT}`);
-    });
-    
-    logger('INFO', 'Logging into Discord...');
-    await client.login(config.DISCORD_BOT_TOKEN);
+    try {
+        await client.login(config.DISCORD_BOT_TOKEN);
+        app.listen(PORT, '0.0.0.0', () => {
+            logger('INFO', `✅ Express server is listening on http://0.0.0.0:${PORT}`);
+        });
+    } catch(error) {
+        logger('FATAL', 'Failed to log in to Discord. Is the token in config.json correct?', error);
+        process.exit(1);
+    }
 };
 
-// --- Process-wide Error Handling ---
-process.on('unhandledRejection', (reason: any, promise: any) => {
-    logger('FATAL', 'Unhandled Rejection at:', promise);
-    logger('FATAL', 'Reason:', reason);
-});
-
-process.on('uncaughtException', (error: Error) => {
-    logger('FATAL', 'Uncaught Exception:', error);
-    process.exit(1);
-});
-
-main().catch(error => {
-    logger('FATAL', 'A critical error occurred during bot startup.', error);
-    process.exit(1);
-});
+main().catch(error => logger('FATAL', 'Unhandled exception in main function.', error));

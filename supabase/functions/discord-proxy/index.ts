@@ -22,13 +22,14 @@ serve(async (req) => {
     const apiKey = Deno.env.get('VITE_DISCORD_BOT_API_KEY');
 
     if (!botUrl || !apiKey) {
-      console.error("Discord Bot integration is not configured in this function's environment variables.");
-      throw new Error("Internal server configuration error.");
+      console.error("[FATAL] Discord Bot integration is not configured. 'VITE_DISCORD_BOT_URL' or 'VITE_DISCORD_BOT_API_KEY' secrets are missing in this function's environment variables.");
+      throw new Error("Internal server configuration error: Missing bot credentials.");
     }
     
-    // The database trigger sends the payload in the 'record' property of the body
     const body = await req.json();
-
+    console.log("[INFO] Received notification request from database trigger. Forwarding to bot...");
+    console.debug("[DEBUG] Payload being sent to bot:", JSON.stringify(body, null, 2));
+    
     const endpoint = new URL('/api/notify', botUrl);
     const botResponse = await fetch(endpoint, {
         method: 'POST',
@@ -41,24 +42,26 @@ serve(async (req) => {
 
     if (!botResponse.ok) {
         const errorData = await botResponse.json().catch(() => ({ error: 'Failed to parse bot error response' }));
-        console.error(`Error from bot API (HTTP ${botResponse.status}):`, errorData.error);
+        console.error(`[ERROR] Error from bot API (HTTP ${botResponse.status}):`, errorData.error || 'No error details from bot.');
         // It's crucial to still return a 200 OK to the database trigger that called this function.
         // This prevents the original database operation from failing or retrying indefinitely
         // just because a notification failed to send. The failure is logged here and in the bot itself.
-        return new Response(JSON.stringify({ success: false, reason: errorData.error || 'Bot API error' }), {
+        return new Response(JSON.stringify({ success: false, reason: errorData.error || `Bot API error: ${botResponse.statusText}` }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 200,
         });
     }
 
     // Success
+    const botSuccessData = await botResponse.json();
+    console.log(`[SUCCESS] Notification successfully proxied to the bot. Bot response: ${botSuccessData.message}`);
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });
 
   } catch (error) {
-    console.error('Fatal error in discord-proxy function:', error.message)
+    console.error('[FATAL] An unhandled error occurred in the discord-proxy function:', error.message);
     // Also return 200 OK here for database triggers to prevent them from failing.
     return new Response(JSON.stringify({ success: false, reason: error.message }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

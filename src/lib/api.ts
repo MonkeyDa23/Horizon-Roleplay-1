@@ -311,6 +311,17 @@ export const getMtaPlayerLogs = async (userId: string): Promise<MtaLogEntry[]> =
 // =============================================
 // HEALTH CHECK API
 // =============================================
+export const runPgNetTest = async (): Promise<string> => {
+    if (!supabase) throw new Error("Supabase not configured");
+    const { data, error } = await supabase.rpc('test_pg_net');
+    if (error) throw error;
+    return data;
+};
+
+export const checkFunctionSecrets = async (): Promise<any> => {
+    return invokeFunction('check-function-secrets');
+};
+
 export const checkDiscordApiHealth = async (): Promise<any> => {
     return invokeFunction('check-bot-health');
 };

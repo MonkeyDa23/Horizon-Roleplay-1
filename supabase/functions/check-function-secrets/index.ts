@@ -1,4 +1,3 @@
-
 // supabase/functions/check-function-secrets/index.ts
 
 // @deno-types="https://esm.sh/@supabase/functions-js@2"
@@ -22,10 +21,12 @@ serve(async (req) => {
   }
 
   try {
-    // This variable must be set as a secret in the Supabase project settings
+    // These variables must be set as a secret in the Supabase project settings
     // under Settings > Edge Functions.
     // @ts-ignore
-    const botToken = Deno.env.get('DISCORD_BOT_TOKEN');
+    const botUrl = Deno.env.get('VITE_DISCORD_BOT_URL');
+    // @ts-ignore
+    const apiKey = Deno.env.get('VITE_DISCORD_BOT_API_KEY');
 
     // For security, we only show a portion of the secret key.
     const maskValue = (value: string | undefined) => {
@@ -35,9 +36,13 @@ serve(async (req) => {
     };
 
     const secrets = {
-      DISCORD_BOT_TOKEN: {
-        found: !!botToken,
-        value: maskValue(botToken), // Mask the token
+      VITE_DISCORD_BOT_URL: {
+        found: !!botUrl,
+        value: botUrl || null, // URL is not a secret, can be shown
+      },
+      VITE_DISCORD_BOT_API_KEY: {
+        found: !!apiKey,
+        value: maskValue(apiKey), // Mask the key
       },
     };
 

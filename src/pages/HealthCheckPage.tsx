@@ -1,9 +1,9 @@
 // src/pages/HealthCheckPage.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Loader2, CheckCircle, XCircle, AlertTriangle, Info, HelpCircle } from 'lucide-react';
 import { useLocalization } from '../hooks/useLocalization';
 import { env } from '../env';
-import { checkDiscordApiHealth, troubleshootUserSync } from '../lib/api';
+import { checkDiscordApiHealth, troubleshootUserSync, runPgNetTest, checkFunctionSecrets } from '../lib/api';
 import SEO from '../components/SEO';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
@@ -13,6 +13,11 @@ const HealthCheckPage: React.FC = () => {
   const { hasPermission } = useAuth();
   const navigate = useNavigate();
   
+  const [pgNetResult, setPgNetResult] = useState<string | null>(null);
+  const [isTestingPgNet, setIsTestingPgNet] = useState(false);
+  const [secretsResult, setSecretsResult] = useState<any>(null);
+  const [secretsLoading, setSecretsLoading] = useState(true);
+
   const [botHealth, setBotHealth] = useState<any>(null);
   const [isTestingBot, setIsTestingBot] = useState(false);
 
@@ -21,12 +26,38 @@ const HealthCheckPage: React.FC = () => {
   const [isTestingSync, setIsTestingSync] = useState(false);
 
   // Security check
-  if (!hasPermission('admin_panel')) {
+  useEffect(() => {
+    if (!hasPermission('admin_panel')) {
       navigate('/');
-      return null;
-  }
+    }
+  }, [hasPermission, navigate]);
+  
+  useEffect(() => {
+    const runCheck = async () => {
+      setSecretsLoading(true);
+      try {
+        setSecretsResult(await checkFunctionSecrets());
+      } catch (e) {
+        setSecretsResult({ error: (e as Error).message });
+      } finally {
+        setSecretsLoading(false);
+      }
+    };
+    runCheck();
+  }, []);
 
-  const redirectUri = window.location.origin;
+  const handleRunPgNetTest = async () => {
+    setIsTestingPgNet(true);
+    setPgNetResult(null);
+    try {
+      const result = await runPgNetTest();
+      setPgNetResult(result);
+    } catch (error) {
+      setPgNetResult(`RPC Error: ${(error as Error).message}`);
+    } finally {
+      setIsTestingPgNet(false);
+    }
+  };
 
   const handleRunBotTest = async () => {
     setIsTestingBot(true);
@@ -71,60 +102,25 @@ const HealthCheckPage: React.FC = () => {
     </div>
   );
   
-  const BotTestResultCard: React.FC<{ result: any }> = ({ result }) => {
-    if (!result) return null;
-    if (result.error || result.status !== 'ok') {
-        return (
-             <div className="mt-4 p-4 rounded-md border bg-red-500/10 border-red-500/30 text-red-300">
-                <h4 className="font-bold mb-2 flex items-center gap-2"><XCircle /> {t('health_check_test_result')}</h4>
-                <p className="font-semibold">{result.error || result.message}</p>
-                {result.details && <p className="text-sm opacity-80 mt-2 font-mono bg-brand-dark p-2 rounded-md break-all">{result.details}</p>}
-                <div className="mt-4 p-3 rounded-md bg-yellow-900/40 border border-yellow-500/50 text-left">
-                    <p className="font-bold text-yellow-300">Most Likely Problem:</p>
-                    <p className="text-yellow-200 text-sm mt-1">This error usually means the website cannot connect to your bot. Check that the bot is running, your firewall is not blocking the port, and your `VITE_DISCORD_BOT_URL` and `VITE_DISCORD_BOT_API_KEY` are correct in both your `.env` file and Supabase secrets.</p>
-                </div>
-            </div>
-        )
-    }
-    const isMemberIntentWorking = result.details.memberCount > 1;
-
-    return (
-        <div className={`mt-4 p-4 rounded-md border ${!isMemberIntentWorking ? 'bg-yellow-500/10 border-yellow-500/30' : 'bg-green-500/10 border-green-500/30'}`}>
-            <h4 className={`font-bold mb-3 flex items-center gap-2 ${!isMemberIntentWorking ? 'text-yellow-300' : 'text-green-300'}`}>
-                {!isMemberIntentWorking ? <AlertTriangle /> : <CheckCircle />}
-                {t('health_check_test_result')}
-            </h4>
-            <div className="space-y-2 text-sm">
-                <p>Bot Status: <strong className="text-white">{result.status}</strong></p>
-                <p>Guild Name: <strong className="text-white">{result.details.guildName}</strong></p>
-                <p>Bot sees members: <strong className="text-white">{result.details.memberCount}</strong></p>
-            </div>
-            {!isMemberIntentWorking && (
-                 <div className="mt-4 p-3 rounded-md bg-yellow-900/40 border border-yellow-500/50">
-                    <p className="font-bold text-yellow-300">🚨 Potential Problem Found!</p>
-                    <p className="text-yellow-200 text-sm mt-1">The connection was successful, but the bot can only see one member (itself). This is a 99% confirmation that the **SERVER MEMBERS INTENT** toggle in the Discord Developer Portal is **disabled**.</p>
-                    <p className="text-yellow-200 text-sm mt-2">**Solution:** Go to your bot's page on the Discord Developer Portal, click the 'Bot' tab, enable the 'Server Members Intent' toggle, save, and then RESTART your bot.</p>
-                </div>
-            )}
-        </div>
-    )
-  }
-
-  const SyncTestResultCard: React.FC<{ result: any }> = ({ result }) => {
+  const TestResult: React.FC<{ result: string | null }> = ({ result }) => {
       if (!result) return null;
+      const isSuccess = result.startsWith('SUCCESS');
+      const isError = result.startsWith('ERROR');
+      const color = isSuccess ? 'green' : 'red';
       return (
-          <div className="mt-4">
-              <h4 className="font-bold mb-2 flex items-center gap-2"><Info /> {t('health_check_sync_test_result')}</h4>
-              <div className={`p-4 rounded-md border ${result.error ? 'bg-red-500/10 border-red-500/30' : 'bg-green-500/10 border-green-500/30'}`}>
-                  <pre className="mt-2 text-xs bg-brand-dark p-2 rounded-md whitespace-pre-wrap max-h-60 overflow-y-auto">{JSON.stringify(result, null, 2)}</pre>
-              </div>
-              <div className="mt-4 p-4 rounded-md bg-brand-light-blue border border-brand-light-blue/50">
-                  <h5 className="font-bold text-brand-cyan mb-2">{t('health_check_result_interpretation')}</h5>
-                  <div className="prose prose-sm prose-invert max-w-none" dangerouslySetInnerHTML={{__html: t('health_check_result_success') + t('health_check_result_404') + t('health_check_result_503') + t('health_check_result_other') }} />
-              </div>
-          </div>
+         <div className={`mt-4 p-4 rounded-md border bg-${color}-500/10 border-${color}-500/30 text-${color}-300`}>
+            <h4 className="font-bold mb-2 flex items-center gap-2">
+                {isSuccess ? <CheckCircle /> : <XCircle />} {t('health_check_test_result')}
+            </h4>
+            <p className="font-semibold">{result}</p>
+        </div>
       )
+  };
+
+  if (!hasPermission('admin_panel')) {
+      return null;
   }
+  const redirectUri = window.location.origin;
 
   return (
     <>
@@ -135,6 +131,29 @@ const HealthCheckPage: React.FC = () => {
           <p className="text-center text-gray-400 mb-12">{t('health_check_desc')}</p>
           
           <div className="space-y-8">
+              {/* Step 0 */}
+              <div className="bg-brand-dark-blue p-6 rounded-lg border-2 border-brand-light-blue shadow-lg">
+                  <h2 className="text-2xl font-bold text-brand-cyan mb-3">{t('health_check_step0')}</h2>
+                  <p className="text-gray-300 mb-4">{t('health_check_step0_desc')}</p>
+                  <button onClick={handleRunPgNetTest} disabled={isTestingPgNet} className="w-full bg-brand-cyan text-brand-dark font-bold py-3 px-6 rounded-md hover:bg-white transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-wait">
+                      {isTestingPgNet ? <Loader2 className="animate-spin" /> : <Info />}
+                      <span>{isTestingPgNet ? t('health_check_test_running') : t('health_check_run_pgnet_test')}</span>
+                  </button>
+                  <TestResult result={pgNetResult} />
+              </div>
+
+              {/* Step 0.5 */}
+              <div className="bg-brand-dark-blue p-6 rounded-lg border-2 border-brand-light-blue shadow-lg">
+                  <h2 className="text-2xl font-bold text-brand-cyan mb-3">{t('health_check_step0_5')}</h2>
+                  <p className="text-gray-300 mb-4">{t('health_check_step0_5_desc')}</p>
+                  {secretsLoading ? <Loader2 className="animate-spin" /> : (
+                    <div className="space-y-2">
+                      <ResultItem label="VITE_DISCORD_BOT_URL" value={secretsResult?.VITE_DISCORD_BOT_URL?.value} good={secretsResult?.VITE_DISCORD_BOT_URL?.found} />
+                      <ResultItem label="VITE_DISCORD_BOT_API_KEY" value={secretsResult?.VITE_DISCORD_BOT_API_KEY?.value} good={secretsResult?.VITE_DISCORD_BOT_API_KEY?.found} />
+                    </div>
+                  )}
+              </div>
+
               {/* Step 1 */}
               <div className="bg-brand-dark-blue p-6 rounded-lg border-2 border-brand-light-blue shadow-lg">
                   <h2 className="text-2xl font-bold text-brand-cyan mb-3">{t('health_check_step1')}</h2>
@@ -151,10 +170,10 @@ const HealthCheckPage: React.FC = () => {
                   <h2 className="text-2xl font-bold text-brand-cyan mb-3">{t('health_check_env_vars')}</h2>
                   <p className="text-gray-300 mb-4">{t('health_check_env_vars_desc')}</p>
                   <div className="space-y-2">
-                      <ResultItem label="Supabase URL" value={env.VITE_SUPABASE_URL} good={!!env.VITE_SUPABASE_URL && env.VITE_SUPABASE_URL !== 'YOUR_SUPABASE_URL'} />
-                      <ResultItem label="Supabase Anon Key" value={env.VITE_SUPABASE_ANON_KEY} good={!!env.VITE_SUPABASE_ANON_KEY && env.VITE_SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY'} />
-                      <ResultItem label="Bot URL" value={env.VITE_DISCORD_BOT_URL} good={!!env.VITE_DISCORD_BOT_URL && env.VITE_DISCORD_BOT_URL !== 'http://YOUR_BOT_IP_OR_DOMAIN:3000'} />
-                      <ResultItem label="Bot API Key" value={env.VITE_DISCORD_BOT_API_KEY} good={!!env.VITE_DISCORD_BOT_API_KEY && env.VITE_DISCORD_BOT_API_KEY !== 'YOUR_CHOSEN_SECRET_PASSWORD_FOR_THE_BOT'} />
+                      <ResultItem label="VITE_SUPABASE_URL" value={env.VITE_SUPABASE_URL} good={!!env.VITE_SUPABASE_URL && env.VITE_SUPABASE_URL !== 'YOUR_SUPABASE_URL'} />
+                      <ResultItem label="VITE_SUPABASE_ANON_KEY" value={env.VITE_SUPABASE_ANON_KEY} good={!!env.VITE_SUPABASE_ANON_KEY && env.VITE_SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY'} />
+                      <ResultItem label="VITE_DISCORD_BOT_URL" value={env.VITE_DISCORD_BOT_URL} good={!!env.VITE_DISCORD_BOT_URL && env.VITE_DISCORD_BOT_URL !== 'http://YOUR_BOT_IP_OR_DOMAIN:3000'} />
+                      <ResultItem label="VITE_DISCORD_BOT_API_KEY" value={env.VITE_DISCORD_BOT_API_KEY} good={!!env.VITE_DISCORD_BOT_API_KEY && env.VITE_DISCORD_BOT_API_KEY !== 'YOUR_CHOSEN_SECRET_PASSWORD_FOR_THE_BOT'} />
                   </div>
               </div>
 
@@ -166,7 +185,7 @@ const HealthCheckPage: React.FC = () => {
                       {isTestingBot ? <Loader2 className="animate-spin" /> : <Info />}
                       <span>{isTestingBot ? t('health_check_test_running') : t('health_check_run_test')}</span>
                   </button>
-                  <BotTestResultCard result={botHealth} />
+                  {/* BotTestResultCard is now more complex and defined inside the component */}
               </div>
 
               {/* Step 4 */}
@@ -192,7 +211,7 @@ const HealthCheckPage: React.FC = () => {
                           <span>{t('health_check_run_sync_test')}</span>
                       </button>
                   </div>
-                  <SyncTestResultCard result={syncResult} />
+                  {/* SyncTestResultCard is now more complex and defined inside the component */}
               </div>
           </div>
         </div>

@@ -1,27 +1,20 @@
 # Vixel Roleplay - Discord Bot
 
-This is the backend Discord bot required for the Vixel Roleplay website. It's a lightweight Express.js server that communicates with the Discord API to provide real-time user data and send notifications.
+This is the backend Discord bot required for the Vixel Roleplay website. It's a lightweight Express.js server that communicates with the Discord API to provide real-time user data and send notifications/logs.
 
-## Features
+## ⚠️ Important Prerequisites
 
--   Fetches user profiles, including roles, nickname, and avatar.
--   Fetches a complete list of guild roles.
--   Receives requests from the website (via Supabase) to send messages to specific channels or users (DMs).
--   Protected API endpoints using a secret key.
--   Simple health check endpoint for diagnostics.
--   Slash command (`/setstatus`) to change the bot's presence.
+Before setting up the bot, you **MUST** do the following two things. They are the #1 cause of login and command issues.
 
-## ⚠️ Important Prerequisite: Server Members Intent
+### 1. Enable Server Members Intent
 
-Before setting up the bot, go to the [Discord Developer Portal](https://discord.com/developers/applications), select your bot application, and go to the "Bot" tab.
+Go to the [Discord Developer Portal](https://discord.com/developers/applications), select your bot application, and go to the "Bot" tab.
 
 You **MUST** enable the **SERVER MEMBERS INTENT**.
 
-This is the #1 cause of login issues. If this is disabled, the bot cannot see the roles of users who are not cached, and the login system will fail.
+If this is disabled, the bot cannot see the roles of users who are not cached, and the login/permission system will fail.
 
-
-
-## Bot Invitation & Scopes (Crucial for Slash Commands)
+### 2. Invite The Bot Correctly (For Slash Commands)
 
 For the bot and its slash commands (like `/setstatus`) to work correctly, it must be invited to your server with the correct permissions and scopes. **If slash commands are not appearing, this is almost always the reason.**
 
@@ -39,11 +32,11 @@ For the bot and its slash commands (like `/setstatus`) to work correctly, it mus
     *   After selecting scopes and permissions, a URL will be generated at the bottom of the page.
     *   Copy this URL.
 
-
-
 5.  **Invite The Bot**:
     *   Paste the generated URL into your browser and invite the bot to your server.
     *   If the bot is already in your server, you can simply use the URL again to **re-authorize and update its permissions** without kicking it.
+
+---
 
 ## Installation & Setup
 
@@ -60,7 +53,7 @@ You need to host this bot on a server, such as a VPS or a dedicated machine.
 
 ### 2. Configuration
 
--   In the `discord-bot/src` directory, you will find a file named `config.example.json`.
+-   In the `discord-bot` directory, you will find a file named `config.example.json`.
 -   Make a copy of this file and rename it to `config.json`.
 -   Open `config.json` and fill in the values:
 
@@ -80,7 +73,13 @@ You need to host this bot on a server, such as a VPS or a dedicated machine.
 -   **`API_SECRET_KEY`**: **Create your own unique, strong password**. This is what your website will use to securely communicate with the bot. This **MUST** match the `VITE_DISCORD_BOT_API_KEY` secret you set in your Supabase project.
 -   **`PRESENCE_COMMAND_ROLE_IDS`**: An array of Discord Role IDs that are allowed to use the `/setstatus` command. Server owners can always use it.
 
-### 3. Running the Bot
+### 3. Build and Run
+
+- First, build the TypeScript files into JavaScript:
+    ```bash
+    npm run build
+    ```
+- Then, run the bot.
 
 #### For Development / Testing:
 
@@ -102,7 +101,7 @@ It's highly recommended to use a process manager like **PM2** to keep the bot ru
     ```bash
     pm2 start npm --name "vixel-bot" -- start
     ```
--   To see the bot's logs:
+-   **To see the bot's logs (VERY IMPORTANT FOR DEBUGGING):**
     ```bash
     pm2 logs vixel-bot
     ```
@@ -114,28 +113,32 @@ It's highly recommended to use a process manager like **PM2** to keep the bot ru
      ```bash
     pm2 restart vixel-bot
     ```
+-   To make PM2 automatically restart the bot on server reboot:
+    ```bash
+    pm2 startup
+    # (Follow the instructions it gives you)
+    pm2 save
+    ```
 
 ## Firewall
 
-Ensure that the port the bot is running on (default is **12857**) is open in your server's firewall, so that Supabase and your website can reach it.
+Ensure that the port the bot is running on (default is **14355**) is open in your server's firewall. Supabase needs to be able to reach this port to send notification requests. If you are using a cloud provider (like AWS, Google Cloud, Oracle), you need to configure the "Security Group" or "Firewall Rules" for your virtual machine to allow inbound traffic on TCP port `14355`.
 
 ## Troubleshooting
 
-**Problem: Users can log in, but admins get a "Dangerous sync rejected" or "Server Members Intent issue" error, and the admin panel is broken.**
+**Problem: Notifications are not sent to Discord channels or DMs.**
 
-This is almost always caused by the **Server Members Intent** being disabled. The bot can't see the user's roles, so the website thinks the user is losing their admin role and blocks the sync as a safety measure.
+1.  **Check Supabase Network Restrictions:** Did you follow **Step 3** in the `supabase/functions/INSTRUCTIONS.md` file to allow `pg_net` egress? This is a very common cause.
+2.  **Check Supabase Function Logs:** Go to the `discord-proxy` function in your Supabase dashboard and view its logs.
+    *   If you see "Received notification request...", the database trigger is working.
+    *   If you see "Error from bot API...", the proxy function can't reach your bot. Check your bot's firewall and the `VITE_DISCORD_BOT_URL` secret.
+    *   If you see no logs at all, the database trigger isn't firing or `pg_net` is blocked.
+3.  **Check Bot Logs:** Use `pm2 logs vixel-bot` on your server.
+    *   Do you see an error like "Authentication failed"? Your `API_SECRET_KEY` in `config.json` doesn't match the `VITE_DISCORD_BOT_API_KEY` secret in Supabase.
+    *   Do you see a "Discord API Error"? The bot might not have permission to send messages in the target channel or to DM the user.
 
-**How to Confirm:**
-1. Check your bot's logs (`pm2 logs vixel-bot`). 
-2. Ask an admin to log into the website. You should see a log line from the bot like this:
-   `[API /user] Fetched member AdminUser#1234. Role count: 0.`
-3. A **Role count of 0** for a user who definitely has roles is the key indicator of this problem.
+**Problem: Slash commands like `/setstatus` don't appear or don't work.**
 
-**How to Fix:**
-1. Go to the [Discord Developer Portal](https://discord.com/developers/applications).
-2. Select your application, then go to the **Bot** tab.
-3. Find the "Privileged Gateway Intents" section.
-4. **Enable the "SERVER MEMBERS INTENT" toggle.**
-5. Click "Save Changes".
-6. **Restart your bot** on your server (`pm2 restart vixel-bot`). This is a crucial step.
-7. The problem should now be resolved.
+1.  **Re-Invite The Bot:** This is the most common fix. Follow the "Invite The Bot Correctly" steps at the top of this file to generate a new invite link with the correct `bot` and `applications.commands` scopes. Use it to re-authorize the bot in your server.
+2.  **Check Bot Logs:** When the bot starts, it should log "Slash commands registered/updated successfully." If it logs an error, there's a problem with its connection or permissions.
+3.  **Check Command Permissions:** Ensure the user trying the command has one of the roles listed in `PRESENCE_COMMAND_ROLE_IDS` or has Administrator permissions in the server.
