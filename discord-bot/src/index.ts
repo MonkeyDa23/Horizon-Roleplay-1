@@ -7,8 +7,10 @@
  * to fetch real-time Discord data and send notifications.
  */
 
-// FIX: Import Request, Response, and NextFunction types explicitly from express to resolve type errors.
+// FIX: Add explicit type imports from 'express' to resolve type inference issues.
 import express, { Request, Response, NextFunction } from 'express';
+// FIX: Import 'process' module to provide types for process.exit.
+import process from 'process';
 import cors from 'cors';
 import {
     Client,
@@ -120,8 +122,14 @@ const main = async () => {
 
     const handleGuildFetchError = (error: unknown) => {
         logger('FATAL', `Could not fetch guild with ID ${config.DISCORD_GUILD_ID}.`);
-        if (error instanceof DiscordAPIError && error.code === 50001) {
-            logger('FATAL', `ADVICE: The bot is missing 'Access' to the guild. It might not be in the server.`);
+        // FIX: Nest checks to ensure `error.code` is only accessed after type is confirmed.
+        if (error instanceof DiscordAPIError) {
+            if (error.code === 50001) {
+                logger('FATAL', `ADVICE: The bot is missing 'Access' to the guild. It might not be in the server.`);
+            } else {
+                 logger('FATAL', `ADVICE: Ensure the 'DISCORD_GUILD_ID' in config.json is correct and the bot has been invited to that server.`);
+                 logger('FATAL', `ADVICE: Also, ensure the 'SERVER MEMBERS INTENT' is enabled in the Discord Developer Portal.`);
+            }
         } else {
              logger('FATAL', `ADVICE: Ensure the 'DISCORD_GUILD_ID' in config.json is correct and the bot has been invited to that server.`);
              logger('FATAL', `ADVICE: Also, ensure the 'SERVER MEMBERS INTENT' is enabled in the Discord Developer Portal.`);
@@ -162,7 +170,6 @@ const main = async () => {
     app.use(cors());
     app.use(express.json());
 
-    // FIX: Use imported Request, Response, and NextFunction types.
     const authenticate = (req: Request, res: Response, next: NextFunction) => {
         if (req.headers.authorization === `Bearer ${config.API_SECRET_KEY}`) {
             logger('DEBUG', `[AUTH] Successful authentication from ${req.ip}. Path: ${req.path}`);
@@ -172,7 +179,6 @@ const main = async () => {
         res.status(401).send({ error: 'Authentication failed.' });
     };
 
-    // FIX: Use imported Request and Response types.
     app.get('/health', (req: Request, res: Response) => {
         if (!client.isReady()) return res.status(503).send({ status: 'error', message: 'Discord Client not ready.' });
         const guild = client.guilds.cache.get(config.DISCORD_GUILD_ID);
@@ -180,7 +186,6 @@ const main = async () => {
         res.send({ status: 'ok', details: { guildName: guild.name, memberCount: guild.memberCount } });
     });
     
-    // FIX: Use imported Request and Response types.
     app.get('/api/roles', authenticate, async (req: Request, res: Response) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
@@ -193,7 +198,6 @@ const main = async () => {
         }
     });
 
-    // FIX: Use imported Request and Response types.
     app.get('/api/user/:id', authenticate, async (req: Request, res: Response) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
@@ -222,7 +226,6 @@ const main = async () => {
         }
     });
     
-    // FIX: Use imported Request and Response types.
     app.post('/api/notify', authenticate, async (req: Request, res: Response) => {
         const body: NotifyPayload = req.body;
         logger('INFO', `Received notification request of type: ${body.type}`);

@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useLocalization } from '../hooks/useLocalization';
-import { useNavigate } from 'react-router-dom';
+// FIX: Fix "no exported member" errors from 'react-router-dom' by switching to a namespace import.
+import * as ReactRouterDOM from 'react-router-dom';
 import type { PermissionKey } from '../types';
 import SEO from '../components/SEO';
 import { UserCog, FileText, Server, BookCopy, Store, Languages, Palette, Search, ShieldCheck, ShieldQuestion, Bell } from 'lucide-react';
@@ -42,7 +43,7 @@ export const TABS: { id: AdminTab; labelKey: string; icon: React.ElementType; pe
 const AdminPage: React.FC = () => {
     const { t } = useLocalization();
     const { hasPermission, user, loading } = useAuth();
-    const navigate = useNavigate();
+    const navigate = ReactRouterDOM.useNavigate();
     const hasLoggedVisit = useRef(false);
 
     const accessibleTabs = TABS.filter(tab => hasPermission(tab.permission));

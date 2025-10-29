@@ -1,17 +1,18 @@
 // src/pages/HealthCheckPage.tsx
 import React, { useState, useEffect } from 'react';
-import { Loader2, CheckCircle, XCircle, AlertTriangle, Info, HelpCircle } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, AlertTriangle, Info, HelpCircle, Eye } from 'lucide-react';
 import { useLocalization } from '../hooks/useLocalization';
 import { env } from '../env';
 import { checkDiscordApiHealth, troubleshootUserSync, runPgNetTest, checkFunctionSecrets } from '../lib/api';
 import SEO from '../components/SEO';
 import { useAuth } from '../hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+// FIX: Fix "no exported member" errors from 'react-router-dom' by switching to a namespace import.
+import * as ReactRouterDOM from 'react-router-dom';
 
 const HealthCheckPage: React.FC = () => {
   const { t } = useLocalization();
   const { hasPermission } = useAuth();
-  const navigate = useNavigate();
+  const navigate = ReactRouterDOM.useNavigate();
   
   const [pgNetResult, setPgNetResult] = useState<string | null>(null);
   const [isTestingPgNet, setIsTestingPgNet] = useState(false);
@@ -105,8 +106,8 @@ const HealthCheckPage: React.FC = () => {
   const TestResult: React.FC<{ result: string | null }> = ({ result }) => {
       if (!result) return null;
       const isSuccess = result.startsWith('SUCCESS');
-      const isError = result.startsWith('ERROR');
-      const color = isSuccess ? 'green' : 'red';
+      const isFailure = result.startsWith('FAILURE');
+      const color = isSuccess ? 'green' : (isFailure ? 'red' : 'yellow');
       return (
          <div className={`mt-4 p-4 rounded-md border bg-${color}-500/10 border-${color}-500/30 text-${color}-300`}>
             <h4 className="font-bold mb-2 flex items-center gap-2">
@@ -135,6 +136,13 @@ const HealthCheckPage: React.FC = () => {
               <div className="bg-brand-dark-blue p-6 rounded-lg border-2 border-brand-light-blue shadow-lg">
                   <h2 className="text-2xl font-bold text-brand-cyan mb-3">{t('health_check_step0')}</h2>
                   <p className="text-gray-300 mb-4">{t('health_check_step0_desc')}</p>
+                  
+                   <div className="my-6 p-4 rounded-lg bg-yellow-500/10 border-2 border-yellow-500/30">
+                        <h3 className="font-bold text-yellow-300 flex items-center gap-2 text-lg"><Eye size={20}/> دليل مرئي</h3>
+                        <p className="text-yellow-200 mt-2">إذا كنت تواجه صعوبة في العثور على الخيار الصحيح، فهذه الصورة توضح لك بالضبط أين يجب أن تنقر. يجب أن تنزل بالصفحة (scroll down) لتجد قسم **Database Egress**.</p>
+                        <img src="https://i.ibb.co/b3b713p/supabase-egress-guide.png" alt="Supabase Egress Guide" className="mt-4 rounded-md border-2 border-yellow-500/50 shadow-lg"/>
+                   </div>
+
                   <button onClick={handleRunPgNetTest} disabled={isTestingPgNet} className="w-full bg-brand-cyan text-brand-dark font-bold py-3 px-6 rounded-md hover:bg-white transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-wait">
                       {isTestingPgNet ? <Loader2 className="animate-spin" /> : <Info />}
                       <span>{isTestingPgNet ? t('health_check_test_running') : t('health_check_run_pgnet_test')}</span>
@@ -204,7 +212,7 @@ const HealthCheckPage: React.FC = () => {
                         value={syncDiscordId}
                         onChange={(e) => setSyncDiscordId(e.target.value)}
                         placeholder={t('health_check_discord_id_input')}
-                        className="w-full bg-brand-light-blue p-3 rounded border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan"
+                        className="w-full bg-brand-light-blue p-3 rounded-md border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan"
                       />
                       <button onClick={handleRunSyncTest} disabled={isTestingSync || !syncDiscordId} className="w-full sm:w-auto bg-brand-cyan text-brand-dark font-bold py-3 px-6 rounded-md hover:bg-white transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-wait">
                           {isTestingSync ? <Loader2 className="animate-spin" /> : null}
