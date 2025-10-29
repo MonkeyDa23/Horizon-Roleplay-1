@@ -1,4 +1,3 @@
-
 // discord-bot/src/index.ts
 /**
  * Vixel Roleplay - Discord Bot Backend
@@ -8,7 +7,7 @@
  * to fetch real-time Discord data and send notifications.
  */
 
-// FIX: Using named imports for express types to resolve type conflicts and errors.
+// FIX: Re-added explicit types for Express handlers to resolve middleware signature errors.
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import {
@@ -163,6 +162,7 @@ const main = async () => {
     app.use(cors());
     app.use(express.json());
 
+    // FIX: Added explicit types to resolve middleware signature errors.
     const authenticate = (req: Request, res: Response, next: NextFunction) => {
         if (req.headers.authorization === `Bearer ${config.API_SECRET_KEY}`) {
             logger('DEBUG', `[AUTH] Successful authentication from ${req.ip}. Path: ${req.path}`);
@@ -172,6 +172,7 @@ const main = async () => {
         res.status(401).send({ error: 'Authentication failed.' });
     };
 
+    // FIX: Added explicit types to route handler.
     app.get('/health', (req: Request, res: Response) => {
         if (!client.isReady()) return res.status(503).send({ status: 'error', message: 'Discord Client not ready.' });
         const guild = client.guilds.cache.get(config.DISCORD_GUILD_ID);
@@ -179,6 +180,7 @@ const main = async () => {
         res.send({ status: 'ok', details: { guildName: guild.name, memberCount: guild.memberCount } });
     });
     
+    // FIX: Added explicit types to route handler.
     app.get('/api/roles', authenticate, async (req: Request, res: Response) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
@@ -191,6 +193,7 @@ const main = async () => {
         }
     });
 
+    // FIX: Added explicit types to route handler.
     app.get('/api/user/:id', authenticate, async (req: Request, res: Response) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
@@ -219,6 +222,7 @@ const main = async () => {
         }
     });
     
+    // FIX: Added explicit types to route handler.
     app.post('/api/notify', authenticate, async (req: Request, res: Response) => {
         const body: NotifyPayload = req.body;
         logger('INFO', `Received notification request of type: ${body.type}`);
@@ -234,7 +238,13 @@ const main = async () => {
             } else {
                 const channel = await client.channels.fetch(body.payload.channelId) as TextChannel;
                 if (!channel) throw new Error(`Target channel with ID ${body.payload.channelId} not found or not a text channel.`);
-                await channel.send({ embeds: [embed] });
+                
+                const messagePayload: { content?: string, embeds: EmbedBuilder[] } = { embeds: [embed] };
+                if (body.payload.content) {
+                    messagePayload.content = body.payload.content;
+                }
+                
+                await channel.send(messagePayload);
                 logger('INFO', `↳ Sent embed to channel #${channel.name}.`);
             }
             res.status(200).json({ message: 'Notification sent successfully.' });

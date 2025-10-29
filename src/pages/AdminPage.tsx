@@ -1,11 +1,12 @@
 // src/pages/AdminPage.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useLocalization } from '../hooks/useLocalization';
 import { useNavigate } from 'react-router-dom';
 import type { PermissionKey } from '../types';
 import SEO from '../components/SEO';
 import { UserCog, FileText, Server, BookCopy, Store, Languages, Palette, Search, ShieldCheck, ShieldQuestion } from 'lucide-react';
+import { logAdminPageVisit } from '../lib/api'; // Import the new logging function
 
 // Import the new layout and panel components
 import AdminLayout from '../components/admin/AdminLayout';
@@ -40,6 +41,7 @@ const AdminPage: React.FC = () => {
     const { t } = useLocalization();
     const { hasPermission, user, loading } = useAuth();
     const navigate = useNavigate();
+    const hasLoggedVisit = useRef(false);
 
     const accessibleTabs = TABS.filter(tab => hasPermission(tab.permission));
     const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
@@ -55,6 +57,18 @@ const AdminPage: React.FC = () => {
             setActiveTab(accessibleTabs[0]?.id || 'dashboard');
         }
     }, [accessibleTabs, activeTab]);
+    
+    // NEW: Effect to log page visits within the admin panel
+    useEffect(() => {
+        if (user && hasPermission('admin_panel')) {
+            // Avoid logging the initial "dashboard" load as a separate action from "Accessed Admin Panel"
+            if (activeTab === 'dashboard' && !hasLoggedVisit.current) {
+                hasLoggedVisit.current = true;
+                return;
+            }
+            logAdminPageVisit(activeTab).catch(err => console.error("Failed to log page visit:", err));
+        }
+    }, [activeTab, user, hasPermission]);
 
     const renderActivePanel = () => {
         switch(activeTab) {

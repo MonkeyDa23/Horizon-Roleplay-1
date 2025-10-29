@@ -26,6 +26,7 @@ export interface DiscordRole {
 interface ChannelNotificationPayload {
   channelId: string;
   embed: any; // The raw embed object from Supabase/website
+  content?: string; // Optional text content, used for role mentions
 }
 
 /**

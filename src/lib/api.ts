@@ -118,6 +118,7 @@ export const saveProduct = async (productData: any): Promise<Product> => {
 
 export const deleteProduct = async (productId: string): Promise<void> => {
     if (!supabase) throw new Error("Supabase not configured");
+    // Logging is handled by a database trigger on delete
     return handleResponse(await supabase.from('products').delete().eq('id', productId));
 };
 
@@ -142,6 +143,7 @@ export const saveQuiz = async (quizData: any): Promise<Quiz> => {
 
 export const deleteQuiz = async (id: string): Promise<void> => {
   if (!supabase) throw new Error("Supabase not configured");
+  // Logging is handled by a database trigger on delete
   return handleResponse(await supabase.from('quizzes').delete().eq('id', id));
 };
 
@@ -258,7 +260,12 @@ export const getAuditLogs = async (): Promise<AuditLogEntry[]> => {
 
 export const logAdminAccess = async (): Promise<void> => {
     if (!supabase) throw new Error("Supabase not configured");
-    return handleResponse(await supabase.rpc('log_action', { p_action: 'Accessed Admin Panel' }));
+    return handleResponse(await supabase.rpc('log_action', { p_action: '🔑 دخل إلى لوحة التحكم', p_log_type: 'admin' }));
+};
+
+export const logAdminPageVisit = async (pageName: string): Promise<void> => {
+    if (!supabase) throw new Error("Supabase not configured");
+    return handleResponse(await supabase.rpc('log_page_visit', { p_page_name: pageName }));
 };
 
 export const lookupUser = async (discordId: string): Promise<UserLookupResult> => {
