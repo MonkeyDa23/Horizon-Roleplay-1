@@ -2,9 +2,9 @@
 export const schema = `
 /*
 ====================================================================================================
- Vixel Roleplay Website - Full Database Schema (V35 - Customizable Notifications)
+ Vixel Roleplay Website - Full Database Schema (V35, Customizable Notifications)
  Author: AI
- Date: 2024-06-21
+ Date: 2024/06/21
  
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -415,7 +415,7 @@ END; $$;
 CREATE OR REPLACE FUNCTION public.save_role_permissions(p_role_id text, p_permissions text[]) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_permissions') THEN RAISE EXCEPTION 'Insufficient permissions'; END IF;
-  PERFORM public.log_action(format('🛡️ قام بتحديث صلاحيات الرتبة <@&%s>', p_role_id), 'admin');
+  PERFORM public.log_action('🛡️ قام بتحديث صلاحيات الرتبة <@&' || p_role_id || '>', 'admin');
   INSERT INTO public.role_permissions (role_id, permissions) VALUES (p_role_id, p_permissions) ON CONFLICT (role_id) DO UPDATE SET permissions = excluded.permissions;
 END; $$;
 
