@@ -138,35 +138,35 @@ const HealthCheckPage: React.FC = () => {
                   <p className="text-gray-300 mb-4">{t('health_check_step0_desc')}</p>
                   
                     <div className="my-6 p-4 rounded-lg bg-yellow-500/10 border-2 border-yellow-500/30">
-                        <h3 className="font-bold text-yellow-300 flex items-center gap-2 text-lg"><Eye size={20}/> دليل مرئي مفصّل (خطوة بخطوة)</h3>
+                        <h3 className="font-bold text-yellow-300 flex items-center gap-2 text-lg"><Eye size={20}/> {t('health_check_visual_guide_title')}</h3>
                         <p className="text-yellow-200 mt-2">
-                            بما أن الخيار صعب الإيجاد، هذا دليل مفصل بالصور لكل خطوة. اتبع الصور بالترتيب.
+                            {t('health_check_visual_guide_intro')}
                         </p>
                         <div className="mt-4 space-y-6">
                             <div>
-                                <h4 className="font-semibold text-white mb-2">١. من لوحة التحكم الرئيسية لمشروعك، اضغط على أيقونة "Database".</h4>
+                                <h4 className="font-semibold text-white mb-2">{t('health_check_visual_guide_step1_title')}</h4>
                                 <img src="https://i.ibb.co/1rTQKfK/step1-database.png" alt="Step 1: Go to Database" className="rounded-md border-2 border-yellow-500/50 shadow-lg"/>
                             </div>
                             <div>
-                                <h4 className="font-semibold text-white mb-2">٢. من القائمة الجانبية لقاعدة البيانات، اضغط على "Network Restrictions".</h4>
+                                <h4 className="font-semibold text-white mb-2">{t('health_check_visual_guide_step2_title')}</h4>
                                 <p className="text-amber-300 bg-amber-900/40 p-2 rounded-md border border-amber-500/50 text-sm mb-2">
-                                    <strong className="font-bold">ملاحظة هامة:</strong> الخيار الذي تبحث عنه اسمه <strong>"Network Restrictions"</strong>، وليس "Database Egress". ستجد قسم "Database Egress" <strong>داخل</strong> صفحة "Network Restrictions".
+                                    <strong className="font-bold">{t('health_check_visual_guide_step2_warning_title')}</strong> <span dangerouslySetInnerHTML={{ __html: t('health_check_visual_guide_step2_warning_body') }}/>
                                 </p>
                                 <img src="https://i.ibb.co/3zd5NnN/step2-network.png" alt="Step 2: Go to Network Restrictions" className="rounded-md border-2 border-yellow-500/50 shadow-lg"/>
                             </div>
                             <div>
-                                <h4 className="font-semibold text-white mb-2">٣. أنت الآن في صفحة "Network Restrictions". <strong>يجب أن تنزل بالصفحة إلى الأسفل (scroll down)</strong> حتى تجد القسم الذي يحمل عنوان "Database Egress".</h4>
+                                <h4 className="font-semibold text-white mb-2" dangerouslySetInnerHTML={{ __html: t('health_check_visual_guide_step3_title') }}/>
                                 <p className="text-amber-300 bg-amber-900/40 p-2 rounded-md border border-amber-500/50 text-sm mb-2">
-                                    هناك، اضغط على زر "Add new rule". الصورة توضح المكان بالضبط.
+                                    {t('health_check_visual_guide_step3_body')}
                                 </p>
                                 <img src="https://i.ibb.co/b3b713p/supabase-egress-guide.png" alt="Step 3: Find Database Egress" className="rounded-md border-2 border-yellow-500/50 shadow-lg"/>
                             </div>
                             <div>
-                                <h4 className="font-semibold text-white mb-2">٤. املأ النموذج تماماً كما في الصورة ثم اضغط "Create rule".</h4>
+                                <h4 className="font-semibold text-white mb-2">{t('health_check_visual_guide_step4_title')}</h4>
                                 <ul className="text-sm list-disc list-inside mb-2 text-yellow-200">
-                                    <li>Protocol: <code className="bg-brand-dark px-1 rounded">TCP</code></li>
-                                    <li>Address: <code className="bg-brand-dark px-1 rounded">0.0.0.0/0</code></li>
-                                    <li>Ports: <code className="bg-brand-dark px-1 rounded">80, 443</code></li>
+                                    <li dangerouslySetInnerHTML={{ __html: t('health_check_visual_guide_step4_list_item1') }}/>
+                                    <li dangerouslySetInnerHTML={{ __html: t('health_check_visual_guide_step4_list_item2') }}/>
+                                    <li dangerouslySetInnerHTML={{ __html: t('health_check_visual_guide_step4_list_item3') }}/>
                                 </ul>
                                 <img src="https://i.ibb.co/7C9B1Fz/step4-form.png" alt="Step 4: Fill the form" className="rounded-md border-2 border-yellow-500/50 shadow-lg"/>
                             </div>

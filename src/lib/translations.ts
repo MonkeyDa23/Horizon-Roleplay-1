@@ -1,7 +1,4 @@
-
-
-
-
+// src/lib/translations.ts
 import { Translations } from '../types';
 
 // This file serves as a fallback for translations if the database connection fails.
@@ -213,7 +210,10 @@ export const translations: Translations = {
   select_role_to_manage: { ar: 'اختر رتبة لعرض صلاحياتها.', en: 'Select a role to see its permissions.' },
   admin_permissions_instructions: { ar: 'اختر رتبة من القائمة لعرض وتعديل صلاحياتها. صلاحية <code>_super_admin</code> تمنح جميع الصلاحيات الأخرى تلقائياً.', en: 'Select a role from the list to view and modify its permissions. The <code>_super_admin</code> permission automatically grants all other permissions.'},
   admin_permissions_bootstrap_instructions_title: { ar: 'غير قادر على الدخول؟', en: 'Locked Out?' },
-  admin_permissions_bootstrap_instructions_body: { ar: 'لمنح صلاحيات المشرف الأولية، اذهب إلى جدول <code>role_permissions</code> في Supabase. أضف صفاً جديداً، ضع آي دي رتبة المشرف في <code>role_id</code>، واكتب <code>{\\"_super_admin\\"}</code> في حقل <code>permissions</code> ثم قم بتحديث الصفحة.', en: 'To grant initial admin access, go to your Supabase <code>role_permissions</code> table. Insert a new row, put your admin role ID in <code>role_id</code>, and type <code>{\\"_super_admin\\"}</code> into the <code>permissions</code> field, then refresh the site.' },
+  admin_permissions_bootstrap_instructions_body: { 
+    ar: `معك حق، هذه الطريقة معقدة جداً. استخدام أمر SQL مباشر أسهل بكثير.<br/><br/>١. اذهب إلى <strong>محرر SQL</strong> في مشروعك على Supabase.<br/>٢. انسخ والصق الأمر الموجود في الأسفل.<br/>٣. استبدل <code>'YOUR_ADMIN_ROLE_ID_HERE'</code> بآي دي رتبة المشرف الحقيقية في ديسكورد.<br/>٤. اضغط على <strong>RUN</strong>، ثم قم بتحديث هذه الصفحة.<br/><br/><pre class="bg-brand-dark text-white p-3 rounded-md text-sm whitespace-pre-wrap text-left" dir="ltr"><code>INSERT INTO public.role_permissions (role_id, permissions) <br/>VALUES ('YOUR_ADMIN_ROLE_ID_HERE', '{"_super_admin"}');</code></pre>`,
+    en: `You are right, that's way too complicated. A direct SQL command is much easier.<br/><br/>1. Go to your Supabase project's <strong>SQL Editor</strong>.<br/>2. Copy and paste the command below.<br/>3. Replace <code>'YOUR_ADMIN_ROLE_ID_HERE'</code> with your actual Discord Admin Role ID.<br/>4. Click <strong>RUN</strong>, then refresh this page.<br/><br/><pre class="bg-brand-dark text-white p-3 rounded-md text-sm whitespace-pre-wrap"><code>INSERT INTO public.role_permissions (role_id, permissions) <br/>VALUES ('YOUR_ADMIN_ROLE_ID_HERE', '{"_super_admin"}');</code></pre>`
+  },
 
   // Admin Page - Notifications Panel
   notification_templates: { ar: 'قوالب الإشعارات', en: 'Notification Templates'},
@@ -282,7 +282,19 @@ export const translations: Translations = {
   health_check_result_503: { ar: '<li class="mb-2"><strong>Error (503 Service Unavailable):</strong> السبب الأكثر شيوعاً هو أن <strong>Server Members Intent</strong> غير مفعل في بوابة مطوري ديسكورد. اذهب إلى إعدادات البوت الخاص بك وقم بتفعيله.</li>', en: '<li class="mb-2"><strong>Error (503 Service Unavailable):</strong> The most common cause is that the <strong>Server Members Intent</strong> is not enabled in the Discord Developer Portal. Go to your bot\'s settings and turn it on.</li>'},
   health_check_result_other: { ar: '<li><strong>أخطاء أخرى:</strong> عادة ما تشير إلى مشكلة في تكوين البوت أو أنه غير متصل بالإنترنت. تحقق من سجلات البوت لمزيد من التفاصيل.</li></ul>', en: '<li><strong>Other Errors:</strong> Usually indicates a problem with the bot\'s configuration or it being offline. Check the bot\'s logs for more details.</li></ul>'},
   health_check_banner_link: { ar: 'اضغط هنا لتشغيل فحص النظام التشخيصي.', en: 'Click here to run system diagnostics.' },
-  
+  health_check_visual_guide_title: { en: "Detailed Visual Guide (Step-by-Step)", ar: "دليل مرئي مفصّل (خطوة بخطوة)" },
+  health_check_visual_guide_intro: { en: "Since this option can be hard to find, here is a detailed visual guide for each step. Follow the images in order.", ar: "بما أن الخيار صعب الإيجاد، هذا دليل مفصل بالصور لكل خطوة. اتبع الصور بالترتيب." },
+  health_check_visual_guide_step1_title: { en: "1. From your project's main dashboard, click the 'Database' icon.", ar: "١. من لوحة التحكم الرئيسية لمشروعك، اضغط على أيقونة 'Database'." },
+  health_check_visual_guide_step2_title: { en: "2. From the database sidebar, click on 'Network Restrictions'.", ar: "٢. من القائمة الجانبية لقاعدة البيانات، اضغط على 'Network Restrictions'." },
+  health_check_visual_guide_step2_warning_title: { en: "Important Note:", ar: "ملاحظة هامة:" },
+  health_check_visual_guide_step2_warning_body: { en: "The option you are looking for is called <strong>'Network Restrictions'</strong>, not 'Database Egress'. You will find the 'Database Egress' section <strong>inside</strong> the 'Network Restrictions' page.", ar: "الخيار الذي تبحث عنه اسمه <strong>'Network Restrictions'</strong>، وليس 'Database Egress'. ستجد قسم 'Database Egress' <strong>داخل</strong> صفحة 'Network Restrictions'." },
+  health_check_visual_guide_step3_title: { en: "3. You are now on the 'Network Restrictions' page. <strong>You must scroll down</strong> until you find the section titled 'Database Egress'.", ar: "٣. أنت الآن في صفحة 'Network Restrictions'. <strong>يجب أن تنزل بالصفحة إلى الأسفل (scroll down)</strong> حتى تجد القسم الذي يحمل عنوان 'Database Egress'." },
+  health_check_visual_guide_step3_body: { en: "There, click the 'Add new rule' button. The image shows the exact location.", ar: "هناك، اضغط على زر 'Add new rule'. الصورة توضح المكان بالضبط." },
+  health_check_visual_guide_step4_title: { en: "4. Fill the form exactly as shown in the image, then click 'Create rule'.", ar: "٤. املأ النموذج تماماً كما في الصورة ثم اضغط 'Create rule'." },
+  health_check_visual_guide_step4_list_item1: { en: "Protocol: <code>TCP</code>", ar: "Protocol: <code>TCP</code>" },
+  health_check_visual_guide_step4_list_item2: { en: "Address: <code>0.0.0.0/0</code>", ar: "Address: <code>0.0.0.0/0</code>" },
+  health_check_visual_guide_step4_list_item3: { en: "Ports: <code>80, 443</code>", ar: "Ports: <code>80, 443</code>" },
+
   // Session Management
   session_expired_not_in_guild: { ar: 'انتهت صلاحية جلستك أو لم تعد عضواً في السيرفر. تم تسجيل خروجك.', en: 'Your session has expired or you are no longer in the guild. You have been logged out.'},
   
