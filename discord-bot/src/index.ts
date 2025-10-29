@@ -8,7 +8,8 @@
  */
 
 // FIX: Re-added explicit types for Express handlers to resolve middleware signature errors.
-import express, { Request, Response, NextFunction } from 'express';
+// FIX: Aliased Request and Response to avoid conflicts with global types.
+import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
 import cors from 'cors';
 import {
     Client,
@@ -163,7 +164,7 @@ const main = async () => {
     app.use(express.json());
 
     // FIX: Added explicit types to resolve middleware signature errors.
-    const authenticate = (req: Request, res: Response, next: NextFunction) => {
+    const authenticate = (req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
         if (req.headers.authorization === `Bearer ${config.API_SECRET_KEY}`) {
             logger('DEBUG', `[AUTH] Successful authentication from ${req.ip}. Path: ${req.path}`);
             return next();
@@ -173,7 +174,7 @@ const main = async () => {
     };
 
     // FIX: Added explicit types to route handler.
-    app.get('/health', (req: Request, res: Response) => {
+    app.get('/health', (req: ExpressRequest, res: ExpressResponse) => {
         if (!client.isReady()) return res.status(503).send({ status: 'error', message: 'Discord Client not ready.' });
         const guild = client.guilds.cache.get(config.DISCORD_GUILD_ID);
         if (!guild) return res.status(500).send({ status: 'error', message: 'Guild not found in cache.' });
@@ -181,7 +182,7 @@ const main = async () => {
     });
     
     // FIX: Added explicit types to route handler.
-    app.get('/api/roles', authenticate, async (req: Request, res: Response) => {
+    app.get('/api/roles', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
             const roles = (await guild.roles.fetch()).map(role => ({ id: role.id, name: role.name, color: role.color, position: role.position }));
@@ -194,7 +195,7 @@ const main = async () => {
     });
 
     // FIX: Added explicit types to route handler.
-    app.get('/api/user/:id', authenticate, async (req: Request, res: Response) => {
+    app.get('/api/user/:id', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
             const member = await guild.members.fetch(req.params.id);
@@ -223,7 +224,7 @@ const main = async () => {
     });
     
     // FIX: Added explicit types to route handler.
-    app.post('/api/notify', authenticate, async (req: Request, res: Response) => {
+    app.post('/api/notify', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
         const body: NotifyPayload = req.body;
         logger('INFO', `Received notification request of type: ${body.type}`);
         logger('DEBUG', 'Full notification payload:', body.payload);

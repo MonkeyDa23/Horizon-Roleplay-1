@@ -11,10 +11,11 @@ These functions run on Supabase's servers and proxy requests from the website to
 -   **`check-bot-health`**: Used by the "Health Check" page to see if the website can reach your bot.
 -   **`troubleshoot-user-sync`**: A diagnostic tool to test fetching a specific user's data via the bot.
 -   **`discord-proxy`**: Receives notification requests from database triggers (via `pg_net`) and forwards them to the bot. This is how all Discord logs and notifications are sent.
+-   **`test-notification`**: A new function for the admin panel that allows testing notification templates by sending them to a specified user or channel.
 
 ## Step 1: Deploying the Functions
 
-You need to deploy each function using the Supabase Dashboard. Repeat these steps for **all five** functions listed in the `supabase/functions` directory.
+You need to deploy each function using the Supabase Dashboard. Repeat these steps for **all six** functions listed in the `supabase/functions` directory.
 
 1.  Go to your Supabase Project Dashboard.
 2.  Click on the **Edge Functions** icon in the left sidebar (a lambda λ symbol).
@@ -27,7 +28,7 @@ You need to deploy each function using the Supabase Dashboard. Repeat these step
 9.  **Paste the code** into the Supabase editor.
 10. Click **"Deploy"** in the top right corner.
 
-**Repeat this process for all five functions: `sync-user-profile`, `get-guild-roles`, `check-bot-health`, `troubleshoot-user-sync`, and `discord-proxy`.**
+**Repeat this process for all six functions: `sync-user-profile`, `get-guild-roles`, `check-bot-health`, `troubleshoot-user-sync`, `discord-proxy`, and `test-notification`.**
 
 ## Step 2: Setting Secrets
 

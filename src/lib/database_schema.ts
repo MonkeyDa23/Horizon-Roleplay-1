@@ -1,10 +1,10 @@
-// Vixel Roleplay Website - Full Database Schema (V34 - Comprehensive Notifications & Logging)
+// Vixel Roleplay Website - Full Database Schema (V35, Customizable Notifications)
 export const schema = `
 /*
 ====================================================================================================
- Vixel Roleplay Website - Full Database Schema (V34 - Comprehensive Notifications & Logging)
+ Vixel Roleplay Website - Full Database Schema (V35 - Customizable Notifications)
  Author: AI
- Date: 2024-06-20
+ Date: 2024-06-21
  
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -12,22 +12,16 @@ export const schema = `
  or for a clean installation. DO NOT run this on a production database with live user data
  unless you intend to wipe it completely.
 
- !! WHAT'S NEW (V34) !!
- - Complete overhaul of the notification system to be more robust, detailed, and user-friendly.
- - New Submission Workflow:
-   - User receives an immediate, professional DM confirming their submission.
-   - A separate, detailed notification with a ROLE MENTION is sent to a specified admin channel.
- - Status Update DMs: Users now receive a DM when their submission is taken for review, accepted, or refused.
- - Comprehensive Audit Logging:
-   - New triggers to log EVERY new user registration.
-   - New triggers to log the DELETION of quizzes and products.
-   - New RPC for logging admin navigation between pages in the control panel.
-   - All critical actions (CRUD, bans, permissions) now fire detailed logs to specific, configurable Discord channels.
- - New Configurable Fields: Added `SUBMISSIONS_MENTION_ROLE_ID` and specific channel IDs for different log types.
-
- !! ADMIN SETUP NOTE !!
- 1. To grant the first Super Admin permission, you must manually add a row to the `role_permissions` table.
- 2. AFTER RUNNING THIS SCRIPT, go to your website's Admin Panel > Appearance and fill in all the new Channel ID fields and the Mention Role ID field for the notification system to work correctly.
+ !! WHAT'S NEW (V35) !!
+ - Fully Customizable Notifications: All automated Discord messages (DMs and channel posts)
+   are now controlled by entries in the 'translations' table. Admins can edit these messages
+   live from a new "Notifications" panel.
+ - New User Welcome DM: A new trigger has been added that sends a customizable DM to a user
+   when they log in for the first time.
+ - Refactored Notification Functions: All notification triggers in the database have been
+   rewritten to fetch their message content dynamically from the translations table.
+ - New 'test-notification' Function Support: Backend is ready for the new admin panel
+   feature that allows testing each notification.
  
  INSTRUCTIONS:
  1. Go to your Supabase Project Dashboard -> SQL Editor.
@@ -75,6 +69,7 @@ DROP FUNCTION IF EXISTS private.handle_new_submission_notification();
 DROP FUNCTION IF EXISTS private.handle_submission_status_update();
 DROP FUNCTION IF EXISTS private.handle_audit_log_notification();
 DROP FUNCTION IF EXISTS private.handle_new_profile_notification();
+DROP FUNCTION IF EXISTS private.handle_new_profile_welcome_dm();
 DROP FUNCTION IF EXISTS private.handle_quiz_deleted_notification();
 DROP FUNCTION IF EXISTS private.handle_product_deleted_notification();
 
@@ -106,7 +101,7 @@ CREATE TABLE public.config (
     "BACKGROUND_IMAGE_URL" text,
     "SHOW_HEALTH_CHECK" boolean DEFAULT false,
     "SUBMISSIONS_CHANNEL_ID" text,
-    "SUBMISSIONS_MENTION_ROLE_ID" text, -- NEW
+    "SUBMISSIONS_MENTION_ROLE_ID" text,
     "AUDIT_LOG_CHANNEL_ID" text, -- General/Fallback
     "AUDIT_LOG_CHANNEL_ID_SUBMISSIONS" text,
     "AUDIT_LOG_CHANNEL_ID_BANS" text,
@@ -118,7 +113,7 @@ INSERT INTO public.config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
 CREATE TABLE public.profiles (
     id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     discord_id text NOT NULL UNIQUE,
-    username text, -- NEW: store username for logging
+    username text,
     roles jsonb,
     highest_role jsonb,
     last_synced_at timestamptz,
@@ -250,7 +245,7 @@ CREATE POLICY "Admins can manage config" ON public.config FOR ALL USING (public.
 CREATE POLICY "Admins can manage products" ON public.products FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_store'));
 CREATE POLICY "Admins can manage quizzes" ON public.quizzes FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_quizzes'));
 CREATE POLICY "Admins can manage rules" ON public.rules FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_rules'));
-CREATE POLICY "Admins can manage translations" ON public.translations FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_translations'));
+CREATE POLICY "Admins can manage translations" ON public.translations FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_translations') OR public.has_permission(public.get_user_id(), 'admin_notifications'));
 CREATE POLICY "Admins can manage bans" ON public.bans FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_lookup'));
 CREATE POLICY "Admins can manage role permissions" ON public.role_permissions FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_permissions'));
 CREATE POLICY "Admins can read audit log" ON public.audit_log FOR SELECT USING (public.has_permission(public.get_user_id(), 'admin_audit_log'));
@@ -338,7 +333,6 @@ BEGIN
 END;
 $$;
 
--- NEW RPC for frontend page visit logging
 CREATE OR REPLACE FUNCTION public.log_page_visit(p_page_name text) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
 BEGIN
@@ -358,15 +352,13 @@ BEGIN
     "DISCORD_GUILD_ID" = coalesce(new_config->>'DISCORD_GUILD_ID', "DISCORD_GUILD_ID"), "DISCORD_INVITE_URL" = coalesce(new_config->>'DISCORD_INVITE_URL', "DISCORD_INVITE_URL"),
     "MTA_SERVER_URL" = coalesce(new_config->>'MTA_SERVER_URL', "MTA_SERVER_URL"), "BACKGROUND_IMAGE_URL" = coalesce(new_config->>'BACKGROUND_IMAGE_URL', "BACKGROUND_IMAGE_URL"),
     "SHOW_HEALTH_CHECK" = coalesce((new_config->>'SHOW_HEALTH_CHECK')::boolean, "SHOW_HEALTH_CHECK"), "SUBMISSIONS_CHANNEL_ID" = coalesce(new_config->>'SUBMISSIONS_CHANNEL_ID', "SUBMISSIONS_CHANNEL_ID"),
-    "SUBMISSIONS_MENTION_ROLE_ID" = coalesce(new_config->>'SUBMISSIONS_MENTION_ROLE_ID', "SUBMISSIONS_MENTION_ROLE_ID"), -- NEW
+    "SUBMISSIONS_MENTION_ROLE_ID" = coalesce(new_config->>'SUBMISSIONS_MENTION_ROLE_ID', "SUBMISSIONS_MENTION_ROLE_ID"),
     "AUDIT_LOG_CHANNEL_ID" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID', "AUDIT_LOG_CHANNEL_ID"), "AUDIT_LOG_CHANNEL_ID_SUBMISSIONS" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID_SUBMISSIONS', "AUDIT_LOG_CHANNEL_ID_SUBMISSIONS"),
     "AUDIT_LOG_CHANNEL_ID_BANS" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID_BANS', "AUDIT_LOG_CHANNEL_ID_BANS"), "AUDIT_LOG_CHANNEL_ID_ADMIN" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID_ADMIN', "AUDIT_LOG_CHANNEL_ID_ADMIN")
   WHERE id = 1;
 END;
 $$;
 
--- Other RPC functions... (ban, unban, save*, etc. remain largely the same, but logging calls are verified)
--- Example: save_quiz_with_translations now has a verified log_action call.
 CREATE OR REPLACE FUNCTION public.save_quiz_with_translations(p_quiz_data jsonb) RETURNS public.quizzes LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE result public.quizzes; v_question jsonb; action_text text; is_new boolean;
 BEGIN
@@ -428,53 +420,61 @@ BEGIN
 END; $$;
 
 -- =================================================================
--- 7. NOTIFICATION TRIGGERS (REBUILT FOR V34)
+-- 7. NOTIFICATION TRIGGERS (REBUILT FOR V35 - CUSTOMIZABLE)
 -- =================================================================
--- Function to handle NEW SUBMISSION notifications (Channel + DM)
 CREATE OR REPLACE FUNCTION private.handle_new_submission_notification()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE channel_id text; role_id text; user_discord_id text; proxy_url text := 'http://supabase_kong_url/functions/v1/discord-proxy';
+    embed_title text; embed_body text; dm_title text; dm_body text;
 BEGIN
   SELECT "SUBMISSIONS_CHANNEL_ID", "SUBMISSIONS_MENTION_ROLE_ID" INTO channel_id, role_id FROM public.config WHERE id = 1;
-  -- 1. Send to Submissions Channel with mention
+  SELECT ar INTO embed_title FROM public.translations WHERE key = 'notification_new_submission_channel_title';
+  SELECT ar INTO embed_body FROM public.translations WHERE key = 'notification_new_submission_channel_body';
+  SELECT ar INTO dm_title FROM public.translations WHERE key = 'notification_submission_receipt_dm_title';
+  SELECT ar INTO dm_body FROM public.translations WHERE key = 'notification_submission_receipt_dm_body';
+
+  embed_body := replace(embed_body, '{username}', NEW.username);
+  embed_body := replace(embed_body, '{quizTitle}', NEW."quizTitle");
+  embed_body := replace(embed_body, '{userHighestRole}', NEW.user_highest_role);
+  
+  -- 1. Send to Submissions Channel
   IF channel_id IS NOT NULL THEN
     PERFORM net.http_post(url := proxy_url, body := jsonb_build_object('type', 'new_submission', 'payload', jsonb_build_object(
         'channelId', channel_id, 'content', format('<@&%s>', role_id),
-        'embed', jsonb_build_object('title', '📥 تقديم جديد', 'description', 'تم استلام تقديم جديد وهو الآن في انتظار المراجعة.', 'color', 3447003,
-          'fields', jsonb_build_array(jsonb_build_object('name', 'المتقدم', 'value', NEW.username, 'inline', true), jsonb_build_object('name', 'نوع التقديم', 'value', NEW."quizTitle", 'inline', true), jsonb_build_object('name', 'الرتبة', 'value', NEW.user_highest_role, 'inline', true)),
-          'timestamp', NEW."submittedAt", 'footer', jsonb_build_object('text', 'ID: ' || NEW.id)))));
+        'embed', jsonb_build_object('title', embed_title, 'description', embed_body, 'color', 3447003, 'timestamp', NEW."submittedAt"))));
   END IF;
-  -- 2. Send DM to user confirming receipt
+  -- 2. Send DM to user
+  dm_body := replace(dm_body, '{username}', NEW.username);
+  dm_body := replace(dm_body, '{quizTitle}', NEW."quizTitle");
   SELECT discord_id INTO user_discord_id FROM public.profiles WHERE id = NEW.user_id;
   IF user_discord_id IS NOT NULL THEN
      PERFORM net.http_post(url := proxy_url, body := jsonb_build_object('type', 'submission_receipt', 'payload', jsonb_build_object(
-          'userId', user_discord_id,
-          'embed', jsonb_build_object('title', '📄 تم استلام تقديمك بنجاح', 'description', 'شكرًا لك. لقد استلمنا طلبك وسيقوم أحد المسؤولين بمراجعته في أقرب وقت. يمكنك متابعة حالة طلبك من خلال صفحة "تقديماتي" على الموقع.',
-            'color', 3447003, 'fields', jsonb_build_array(jsonb_build_object('name', 'نوع التقديم', 'value', NEW."quizTitle")), 'timestamp', now()))));
+          'userId', user_discord_id, 'embed', jsonb_build_object('title', dm_title, 'description', dm_body, 'color', 3447003, 'timestamp', now()))));
   END IF;
   RETURN NEW;
 END; $$;
 
--- Function to handle SUBMISSION STATUS UPDATE notifications (DM only)
 CREATE OR REPLACE FUNCTION private.handle_submission_status_update()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
-DECLARE user_discord_id text; embed_title text; embed_description text; embed_color int; proxy_url text := 'http://supabase_kong_url/functions/v1/discord-proxy';
+DECLARE user_discord_id text; embed_title text; embed_body text; embed_color int; proxy_url text := 'http://supabase_kong_url/functions/v1/discord-proxy';
 BEGIN
   IF NEW.status = OLD.status THEN RETURN NEW; END IF;
   SELECT discord_id INTO user_discord_id FROM public.profiles WHERE id = NEW.user_id;
   IF user_discord_id IS NULL THEN RETURN NEW; END IF;
-  IF NEW.status = 'taken' THEN embed_title := '👀 تقديمك قيد المراجعة الآن'; embed_description := format('تم استلام تقديمك من قبل المشرف %s وهو الآن قيد المراجعة.', NEW."adminUsername"); embed_color := 3447003;
-  ELSIF NEW.status = 'accepted' THEN embed_title := '✅ تم قبول تقديمك!'; embed_description := 'تهانينا! تم قبول طلبك. سيتم التواصل معك قريبًا بخصوص الخطوات التالية.'; embed_color := 5763719;
-  ELSIF NEW.status = 'refused' THEN embed_title := '❌ تم رفض تقديمك'; embed_description := 'نأسف لإعلامك بأنه تم رفض طلبك في الوقت الحالي. نتمنى لك حظًا أوفر في المرة القادمة.'; embed_color := 15548997;
+  
+  IF NEW.status = 'taken' THEN SELECT ar INTO embed_title FROM translations WHERE key = 'notification_submission_taken_dm_title'; SELECT ar INTO embed_body FROM translations WHERE key = 'notification_submission_taken_dm_body'; embed_color := 3447003;
+  ELSIF NEW.status = 'accepted' THEN SELECT ar INTO embed_title FROM translations WHERE key = 'notification_submission_accepted_dm_title'; SELECT ar INTO embed_body FROM translations WHERE key = 'notification_submission_accepted_dm_body'; embed_color := 5763719;
+  ELSIF NEW.status = 'refused' THEN SELECT ar INTO embed_title FROM translations WHERE key = 'notification_submission_refused_dm_title'; SELECT ar INTO embed_body FROM translations WHERE key = 'notification_submission_refused_dm_body'; embed_color := 15548997;
   ELSE RETURN NEW; END IF;
+  
+  embed_body := replace(replace(replace(embed_body, '{username}', NEW.username), '{quizTitle}', NEW."quizTitle"), '{adminUsername}', NEW."adminUsername");
+  
   PERFORM net.http_post(url := proxy_url, body := jsonb_build_object('type', 'submission_result', 'payload', jsonb_build_object(
-      'userId', user_discord_id, 'embed', jsonb_build_object('title', embed_title, 'description', embed_description, 'color', embed_color,
-        'fields', jsonb_build_array(jsonb_build_object('name', 'التقديم', 'value', NEW."quizTitle"), jsonb_build_object('name', 'الحالة', 'value', NEW.status), jsonb_build_object('name', 'بواسطة', 'value', NEW."adminUsername")), 'timestamp', now()))));
+      'userId', user_discord_id, 'embed', jsonb_build_object('title', embed_title, 'description', embed_body, 'color', embed_color, 'timestamp', now()))));
   PERFORM public.log_action(format('📧 أرسل رسالة خاصة إلى **%s** بخصوص تقديم (%s) بعنوان: "%s"', NEW.username, NEW."quizTitle", embed_title), 'submission');
   RETURN NEW;
 END; $$;
 
--- Function to handle generic AUDIT LOG notifications
 CREATE OR REPLACE FUNCTION private.handle_audit_log_notification()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE channel_id text; proxy_url text := 'http://supabase_kong_url/functions/v1/discord-proxy';
@@ -487,7 +487,6 @@ BEGIN
   END IF; RETURN NEW;
 END; $$;
 
--- NEW function to handle NEW PROFILE creation logs
 CREATE OR REPLACE FUNCTION private.handle_new_profile_notification()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
@@ -495,37 +494,45 @@ BEGIN
   RETURN NEW;
 END; $$;
 
--- NEW function to handle QUIZ DELETION logs
+CREATE OR REPLACE FUNCTION private.handle_new_profile_welcome_dm()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE proxy_url text := 'http://supabase_kong_url/functions/v1/discord-proxy'; title text; body text;
+BEGIN
+    SELECT ar INTO title FROM public.translations WHERE key = 'notification_welcome_dm_title';
+    SELECT ar INTO body FROM public.translations WHERE key = 'notification_welcome_dm_body';
+    body := replace(body, '{username}', NEW.username);
+    PERFORM net.http_post(url := proxy_url, body := jsonb_build_object('type', 'submission_receipt', 'payload', jsonb_build_object(
+          'userId', NEW.discord_id, 'embed', jsonb_build_object('title', title, 'description', body, 'color', 5763719, 'timestamp', now()))));
+    RETURN NEW;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION private.handle_quiz_deleted_notification()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
     PERFORM public.log_action(format('🗑️ قام بحذف نموذج التقديم: *%s*', OLD."titleKey"), 'admin');
     RETURN OLD;
-END;
-$$;
+END; $$;
 
--- NEW function to handle PRODUCT DELETION logs
 CREATE OR REPLACE FUNCTION private.handle_product_deleted_notification()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
     PERFORM public.log_action(format('🗑️ قام بحذف المنتج: *%s*', OLD."nameKey"), 'admin');
     RETURN OLD;
-END;
-$$;
+END; $$;
 
 -- ALL TRIGGERS
 CREATE TRIGGER on_submission_created AFTER INSERT ON public.submissions FOR EACH ROW EXECUTE FUNCTION private.handle_new_submission_notification();
 CREATE TRIGGER on_submission_updated AFTER UPDATE OF status ON public.submissions FOR EACH ROW EXECUTE FUNCTION private.handle_submission_status_update();
 CREATE TRIGGER on_audit_log_created AFTER INSERT ON public.audit_log FOR EACH ROW EXECUTE FUNCTION private.handle_audit_log_notification();
 CREATE TRIGGER on_profile_created AFTER INSERT ON public.profiles FOR EACH ROW EXECUTE FUNCTION private.handle_new_profile_notification();
+CREATE TRIGGER on_profile_created_welcome_dm AFTER INSERT ON public.profiles FOR EACH ROW EXECUTE FUNCTION private.handle_new_profile_welcome_dm();
 CREATE TRIGGER on_quiz_deleted AFTER DELETE ON public.quizzes FOR EACH ROW EXECUTE FUNCTION private.handle_quiz_deleted_notification();
 CREATE TRIGGER on_product_deleted AFTER DELETE ON public.products FOR EACH ROW EXECUTE FUNCTION private.handle_product_deleted_notification();
 
 -- =================================================================
--- 8. INITIAL DATA SEEDING (TRANSLATIONS)
+-- 8. INITIAL DATA SEEDING (TRANSLATIONS, INCLUDING NOTIFICATIONS)
 -- =================================================================
--- (Translation data remains the same as previous versions)
--- Note: It is safe to re-run this INSERT as it uses ON CONFLICT.
 INSERT INTO public.translations (key, en, ar) VALUES
 ('home', 'Home', 'الرئيسية'), ('store', 'Store', 'المتجر'), ('rules', 'Rules', 'القوانين'), ('applies', 'Applies', 'التقديمات'),
 ('about_us', 'About Us', 'من نحن'), ('login_discord', 'Login with Discord', 'تسجيل الدخول'), ('logout', 'Logout', 'تسجيل الخروج'),
@@ -554,7 +561,7 @@ INSERT INTO public.translations (key, en, ar) VALUES
 ('cheat_attempts_count', '{count} attempt(s) were logged.', 'تم تسجيل {count} محاولة/محاولات.'), ('no_cheat_attempts', 'No cheat attempts logged. Great job!', 'لم يتم تسجيل أي محاولات غش. عمل رائع!'),
 ('dashboard', 'Dashboard', 'الرئيسية'), ('admin_dashboard_welcome_message', 'Welcome to the control panel. You can manage all website settings from the sidebar.', 'أهلاً بك في لوحة التحكم. يمكنك إدارة جميع إعدادات الموقع من الشريط الجانبي.'),
 ('loading_submissions', 'Loading submissions...', 'جاري تحميل التقديمات...'), ('quiz_management', 'Quiz Forms Management', 'إدارة نماذج التقديم'), ('submission_management', 'Application Submissions', 'إدارة طلبات التقديم'),
-('rules_management', 'Rules Management', 'إدارة القوانين'), ('store_management', 'Store Management', 'إدارة المتجر'), ('appearance_settings', 'Appearance Settings', 'إعدادات المظهر'),
+('rules_management', 'Rules Management', 'إدارة القوانين'), ('store_management', 'Store Management', 'إدارة المتجر'), ('notifications_management', 'Notifications Management', 'إدارة الإشعارات'), ('appearance_settings', 'Appearance Settings', 'إعدادات المظهر'),
 ('translations_management', 'Translations Management', 'إدارة الترجمات'), ('permissions_management', 'Permissions Management', 'إدارة الصلاحيات'), ('audit_log', 'Audit Log', 'سجل التدقيق'),
 ('user_lookup', 'User Lookup', 'بحث عن مستخدم'), ('create_new_quiz', 'Create New Quiz', 'إنشاء تقديم جديد'), ('edit_quiz', 'Edit Quiz', 'تعديل التقديم'),
 ('quiz_title', 'Quiz Title (Translation Key)', 'عنوان التقديم (مفتاح الترجمة)'), ('quiz_description', 'Quiz Description (Translation Key)', 'وصف التقديم (مفتاح الترجمة)'),
@@ -593,6 +600,10 @@ INSERT INTO public.translations (key, en, ar) VALUES
 ('discord_roles', 'Discord Roles', 'رتب الديسكورد'), ('available_permissions', 'Available Permissions', 'الصلاحيات المتاحة'), ('select_role_to_manage', 'Select a role to see its permissions.', 'اختر رتبة لعرض صلاحياتها.'),
 ('admin_permissions_instructions', 'Select a role from the list to view and modify its permissions. The <code>_super_admin</code> permission automatically grants all other permissions.', 'اختر رتبة من القائمة لعرض وتعديل صلاحياتها. صلاحية <code>_super_admin</code> تمنح جميع الصلاحيات الأخرى تلقائياً.'),
 ('admin_permissions_bootstrap_instructions_title', 'Locked Out?', 'غير قادر على الدخول؟'), ('admin_permissions_bootstrap_instructions_body', 'To grant initial admin access, go to your Supabase <code>role_permissions</code> table. Insert a new row, put your admin role ID in <code>role_id</code>, and type <code>{\\"_super_admin\\"}</code> into the <code>permissions</code> field, then refresh the site.', 'لمنح صلاحيات المشرف الأولية، اذهب إلى جدول <code>role_permissions</code> في Supabase. أضف صفاً جديداً، ضع آي دي رتبة المشرف في <code>role_id</code>، واكتب <code>{\\"_super_admin\\"}</code> في حقل <code>permissions</code> ثم قم بتحديث الصفحة.'),
+('notification_templates', 'Notification Templates', 'قوالب الإشعارات'), ('notifications_desc', 'Edit the content of automated messages sent to users and channels.', 'تعديل محتوى الرسائل الآلية المرسلة للمستخدمين والقنوات.'),
+('test_notification', 'Test Notification', 'اختبار الإشعار'), ('test', 'Test', 'اختبار'), ('target_id', 'Target ID (User or Channel)', 'معرف الهدف (مستخدم أو قناة)'),
+('send_test', 'Send Test', 'إرسال اختبار'), ('available_placeholders', 'Available Placeholders', 'المتغيرات المتاحة'), ('notification_group_welcome', 'Welcome Messages', 'رسائل الترحيب'),
+('notification_group_submission_user', 'Submission Messages (to User)', 'رسائل التقديمات (للمستخدم)'), ('notification_group_submission_admin', 'Submission Notifications (to Admin)', 'إشعارات التقديمات (للإدارة)'),
 ('status_pending', 'Pending', 'قيد الانتظار'), ('status_taken', 'Under Review', 'قيد المراجعة'), ('status_accepted', 'Accepted', 'مقبول'), ('status_refused', 'Refused', 'مرفوض'),
 ('no_applications_submitted', 'You have not submitted any applications yet.', 'لم تقم بتقديم أي طلبات بعد.'), ('application_type', 'Application Type', 'نوع التقديم'),
 ('user_id', 'User ID', 'معرف المستخدم'), ('view_on_discord', 'View on Discord', 'عرض في ديسكورد'), ('recent_applications', 'Recent Applications', 'التقديمات الأخيرة'),
@@ -624,7 +635,20 @@ INSERT INTO public.translations (key, en, ar) VALUES
 ('quiz_police_name', 'Police Department Application', 'تقديم قسم الشرطة'), ('quiz_police_desc', 'Read the rules carefully. Any attempt to cheat will result in immediate rejection.', 'اقرأ القوانين جيداً. أي محاولة غش ستؤدي للرفض الفوري.'),
 ('q_police_1', 'What is the first procedure when dealing with a suspect?', 'ما هو الإجراء الأول عند التعامل مع شخص مشتبه به؟'), ('q_police_2', 'When are you permitted to use lethal force?', 'متى يسمح لك باستخدام القوة المميتة؟'),
 ('quiz_medic_name', 'EMS Department Application', 'تقديم قسم الإسعاف'), ('quiz_medic_desc', 'You are required to be calm and professional at all times.', 'مطلوب منك الهدوء والاحترافية في جميع الأوقات.'),
-('q_medic_1', 'What is your top priority when arriving at an accident scene?', 'ما هي أولويتك القصوى عند الوصول إلى مكان الحادث؟')
+('q_medic_1', 'What is your top priority when arriving at an accident scene?', 'ما هي أولويتك القصوى عند الوصول إلى مكان الحادث؟'),
+-- NEW Notification Translations
+('notification_welcome_dm_title', 'Welcome to {communityName}!', 'أهلاً بك في {communityName}!'),
+('notification_welcome_dm_body', 'Hi {username}, your account has been successfully created on our website. You can now access all our community features!', 'مرحباً {username}، تم إنشاء حسابك بنجاح على موقعنا. يمكنك الآن الوصول إلى جميع ميزات المجتمع!'),
+('notification_submission_receipt_dm_title', 'Application Received', 'تم استلام تقديمك'),
+('notification_submission_receipt_dm_body', 'Thank you, {username}. We have received your application for **{quizTitle}** and it is now pending review.', 'شكراً لك {username}. لقد استلمنا تقديمك لوظيفة **{quizTitle}** وهو الآن قيد الانتظار للمراجعة.'),
+('notification_submission_taken_dm_title', 'Application Under Review', 'تقديمك قيد المراجعة'),
+('notification_submission_taken_dm_body', 'Hi {username}, your application for **{quizTitle}** has been picked up for review by **{adminUsername}**.', 'مرحباً {username}، لقد تم استلام طلب التقديم الخاص بك لوظيفة **{quizTitle}** من قبل المشرف **{adminUsername}** للمراجعة.'),
+('notification_submission_accepted_dm_title', 'Application Accepted!', 'تم قبول تقديمك!'),
+('notification_submission_accepted_dm_body', 'Congratulations {username}! Your application for **{quizTitle}** has been accepted by **{adminUsername}**. Welcome aboard!', 'تهانينا {username}! لقد تم قبول طلبك لوظيفة **{quizTitle}** من قبل **{adminUsername}**. أهلاً بك!'),
+('notification_submission_refused_dm_title', 'Application Update', 'تحديث بخصوص تقديمك'),
+('notification_submission_refused_dm_body', 'Hello {username}, regarding your application for **{quizTitle}**, we regret to inform you that it has not been accepted at this time. Thank you for your interest.', 'مرحباً {username}، بخصوص تقديمك لوظيفة **{quizTitle}**، نأسف لإعلامك بأنه لم يتم قبوله في الوقت الحالي. شكراً لاهتمامك.'),
+('notification_new_submission_channel_title', 'New Application Submitted', 'تقديم جديد'),
+('notification_new_submission_channel_body', 'A new application has been submitted by **{username}** for **{quizTitle}**. Highest Role: `{userHighestRole}`.', 'تم استلام تقديم جديد من قبل **{username}** لوظيفة **{quizTitle}**. أعلى رتبة: `{userHighestRole}`.')
 ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar;
 
 COMMIT;

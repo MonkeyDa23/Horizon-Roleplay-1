@@ -5,7 +5,7 @@ import { useLocalization } from '../hooks/useLocalization';
 import { useNavigate } from 'react-router-dom';
 import type { PermissionKey } from '../types';
 import SEO from '../components/SEO';
-import { UserCog, FileText, Server, BookCopy, Store, Languages, Palette, Search, ShieldCheck, ShieldQuestion } from 'lucide-react';
+import { UserCog, FileText, Server, BookCopy, Store, Languages, Palette, Search, ShieldCheck, ShieldQuestion, Bell } from 'lucide-react';
 import { logAdminPageVisit } from '../lib/api'; // Import the new logging function
 
 // Import the new layout and panel components
@@ -20,9 +20,10 @@ import UserLookupPanel from '../components/admin/UserLookupPanel';
 import PermissionsPanel from '../components/admin/PermissionsPanel';
 import AuditLogPanel from '../components/admin/AuditLogPanel';
 import AdminDashboard from '../components/admin/AdminDashboard';
+import NotificationsPanel from '../components/admin/NotificationsPanel';
 
 
-export type AdminTab = 'dashboard' | 'submissions' | 'quizzes' | 'rules' | 'store' | 'translations' | 'appearance' | 'lookup' | 'permissions' | 'audit';
+export type AdminTab = 'dashboard' | 'submissions' | 'quizzes' | 'rules' | 'store' | 'translations' | 'appearance' | 'lookup' | 'permissions' | 'audit' | 'notifications';
 
 export const TABS: { id: AdminTab; labelKey: string; icon: React.ElementType; permission: PermissionKey }[] = [
     { id: 'dashboard', labelKey: 'dashboard', icon: UserCog, permission: 'admin_panel' },
@@ -30,6 +31,7 @@ export const TABS: { id: AdminTab; labelKey: string; icon: React.ElementType; pe
     { id: 'quizzes', labelKey: 'quiz_management', icon: Server, permission: 'admin_quizzes' },
     { id: 'rules', labelKey: 'rules_management', icon: BookCopy, permission: 'admin_rules' },
     { id: 'store', labelKey: 'store_management', icon: Store, permission: 'admin_store' },
+    { id: 'notifications', labelKey: 'notifications_management', icon: Bell, permission: 'admin_notifications' },
     { id: 'translations', labelKey: 'translations_management', icon: Languages, permission: 'admin_translations' },
     { id: 'appearance', labelKey: 'appearance_settings', icon: Palette, permission: 'admin_appearance' },
     { id: 'lookup', labelKey: 'user_lookup', icon: Search, permission: 'admin_lookup'},
@@ -77,6 +79,7 @@ const AdminPage: React.FC = () => {
             case 'quizzes': return <QuizzesPanel />;
             case 'rules': return <RulesPanel />;
             case 'store': return <StorePanel />;
+            case 'notifications': return <NotificationsPanel />;
             case 'translations': return <TranslationsPanel />;
             case 'appearance': return <AppearancePanel />;
             case 'lookup': return <UserLookupPanel />;

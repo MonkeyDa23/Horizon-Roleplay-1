@@ -282,6 +282,10 @@ export const unbanUser = async (targetUserId: string): Promise<void> => {
   return handleResponse(await supabase.rpc('unban_user', { p_target_user_id: targetUserId }));
 };
 
+export const testNotification = async (type: string, targetId: string): Promise<any> => {
+    return invokeFunction('test-notification', { type, targetId });
+};
+
 
 // =============================================
 // EXTERNAL & MISC API

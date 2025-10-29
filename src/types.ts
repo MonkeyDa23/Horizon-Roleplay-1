@@ -35,7 +35,8 @@ export type PermissionKey =
   | 'admin_appearance'
   | 'admin_audit_log'
   | 'admin_permissions'
-  | 'admin_lookup';
+  | 'admin_lookup'
+  | 'admin_notifications';
 
 export interface DiscordRole {
   id: string;

@@ -1,4 +1,5 @@
 
+
 import { Translations } from '../types';
 
 // This file serves as a fallback for translations if the database connection fails.
@@ -97,6 +98,7 @@ export const translations: Translations = {
   submission_management: { ar: 'إدارة طلبات التقديم', en: 'Application Submissions' },
   rules_management: { ar: 'إدارة القوانين', en: 'Rules Management' },
   store_management: { ar: 'إدارة المتجر', en: 'Store Management' },
+  notifications_management: { ar: 'إدارة الإشعارات', en: 'Notifications Management' },
   appearance_settings: { ar: 'إعدادات المظهر', en: 'Appearance Settings' },
   translations_management: { ar: 'إدارة الترجمات', en: 'Translations Management' },
   permissions_management: { ar: 'إدارة الصلاحيات', en: 'Permissions Management' },
@@ -211,7 +213,19 @@ export const translations: Translations = {
   admin_permissions_bootstrap_instructions_title: { ar: 'غير قادر على الدخول؟', en: 'Locked Out?' },
   admin_permissions_bootstrap_instructions_body: { ar: 'لمنح صلاحيات المشرف الأولية، اذهب إلى جدول <code>role_permissions</code> في Supabase. أضف صفاً جديداً، ضع آي دي رتبة المشرف في <code>role_id</code>، واكتب <code>{\\"_super_admin\\"}</code> في حقل <code>permissions</code> ثم قم بتحديث الصفحة.', en: 'To grant initial admin access, go to your Supabase <code>role_permissions</code> table. Insert a new row, put your admin role ID in <code>role_id</code>, and type <code>{\\"_super_admin\\"}</code> into the <code>permissions</code> field, then refresh the site.' },
 
-
+  // Admin Page - Notifications Panel
+  notification_templates: { ar: 'قوالب الإشعارات', en: 'Notification Templates'},
+  notifications_desc: { ar: 'تعديل محتوى الرسائل الآلية المرسلة للمستخدمين والقنوات.', en: 'Edit the content of automated messages sent to users and channels.'},
+  test_notification: { ar: 'اختبار الإشعار', en: 'Test Notification'},
+  test: { ar: 'اختبار', en: 'Test'},
+  target_id: { ar: 'معرف الهدف (مستخدم أو قناة)', en: 'Target ID (User or Channel)'},
+  send_test: { ar: 'إرسال اختبار', en: 'Send Test'},
+  available_placeholders: { ar: 'المتغيرات المتاحة', en: 'Available Placeholders'},
+  
+  notification_group_welcome: { ar: 'رسائل الترحيب', en: 'Welcome Messages'},
+  notification_group_submission_user: { ar: 'رسائل التقديمات (للمستخدم)', en: 'Submission Messages (to User)'},
+  notification_group_submission_admin: { ar: 'إشعارات التقديمات (للإدارة)', en: 'Submission Notifications (to Admin)'},
+  
   // Submission Statuses
   status_pending: { ar: 'قيد الانتظار', en: 'Pending' },
   status_taken: { ar: 'قيد المراجعة', en: 'Under Review' },

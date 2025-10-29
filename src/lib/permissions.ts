@@ -1,4 +1,5 @@
 
+
 // src/lib/permissions.ts
 
 import type { PermissionKey } from "../types";
@@ -24,6 +25,7 @@ export const PERMISSIONS: Record<PermissionKey, string> = {
   admin_rules: 'Allow user to edit the server rules.',
   admin_store: 'Allow user to manage items in the store.',
   admin_translations: 'Allow user to edit all website text and translations.',
+  admin_notifications: 'Allow user to manage automated Discord notifications and messages.',
   admin_appearance: 'Allow user to change site-wide settings like name, logo, and theme.',
   admin_audit_log: 'Allow user to view the log of all admin actions.',
   admin_permissions: 'Allow user to change permissions for other Discord roles.',
