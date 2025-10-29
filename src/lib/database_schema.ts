@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Vixel Roleplay Website - Full Database Schema (V35, Customizable Notifications)
 export const schema = `
 /*
@@ -292,8 +293,7 @@ BEGIN
     submission_data->'answers', submission_data->'cheatAttempts', submission_data->>'user_highest_role'
   ) RETURNING * INTO new_submission;
   IF jsonb_array_length(submission_data->'cheatAttempts') > 0 THEN
-    PERFORM public.log_action(format('⚠️ تم تسجيل %s محاولة غش للمستخدم **%s** في تقديم (*%s*).', jsonb_array_length(submission_data->'cheatAttempts'),
-    submission_data->>'username', submission_data->>'quizTitle'), 'submission');
+    PERFORM public.log_action('⚠️ تم تسجيل ' || jsonb_array_length(submission_data->'cheatAttempts') || ' محاولة غش للمستخدم **' || (submission_data->>'username') || '** في تقديم (*' || (submission_data->>'quizTitle') || '*).', 'submission');
   END IF;
   RETURN new_submission;
 END;
@@ -307,7 +307,7 @@ BEGIN
   SELECT id, raw_user_meta_data->>'full_name' AS username INTO admin_user FROM auth.users WHERE id = public.get_user_id();
   UPDATE public.submissions SET status = p_new_status, "adminId" = public.get_user_id(), "adminUsername" = admin_user.username, "updatedAt" = now()
   WHERE id = p_submission_id RETURNING * INTO submission_record;
-  PERFORM public.log_action(format('قام بتغيير حالة تقديم (%s) للمستخدم %s إلى %s', submission_record."quizTitle", submission_record.username, p_new_status), 'submission');
+  PERFORM public.log_action('قام بتغيير حالة تقديم (' || submission_record."quizTitle" || ') للمستخدم ' || submission_record.username || ' إلى ' || p_new_status, 'submission');
 END;
 $$;
 
@@ -319,7 +319,7 @@ BEGIN
   SELECT username, "quizTitle" INTO submission_record FROM public.submissions WHERE id = p_submission_id;
   IF FOUND THEN
     DELETE FROM public.submissions WHERE id = p_submission_id;
-    PERFORM public.log_action(format('🗑️ قام بحذف تقديم (%s) للمستخدم %s', submission_record."quizTitle", submission_record.username), 'submission');
+    PERFORM public.log_action('🗑️ قام بحذف تقديم (' || submission_record."quizTitle" || ') للمستخدم ' || submission_record.username, 'submission');
   END IF;
 END;
 $$;
@@ -337,7 +337,7 @@ CREATE OR REPLACE FUNCTION public.log_page_visit(p_page_name text) RETURNS void 
 AS $$
 BEGIN
   IF public.has_permission(public.get_user_id(), 'admin_panel') THEN
-    PERFORM public.log_action(format('👁️ تصفح صفحة: %s', p_page_name), 'admin');
+    PERFORM public.log_action('👁️ تصفح صفحة: ' || p_page_name, 'admin');
   END IF;
 END;
 $$;
@@ -364,8 +364,8 @@ DECLARE result public.quizzes; v_question jsonb; action_text text; is_new boolea
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_quizzes') THEN RAISE EXCEPTION 'Insufficient permissions'; END IF;
   is_new := NOT EXISTS (SELECT 1 FROM public.quizzes WHERE id = (p_quiz_data->>'id')::uuid);
-  IF is_new THEN action_text := format('📝 قام بإنشاء تقديم جديد: %s', p_quiz_data->>'titleEn');
-  ELSE action_text := format('✏️ قام بتعديل بيانات التقديم: %s', p_quiz_data->>'titleEn'); END IF;
+  IF is_new THEN action_text := '📝 قام بإنشاء تقديم جديد: ' || (p_quiz_data->>'titleEn');
+  ELSE action_text := '✏️ قام بتعديل بيانات التقديم: ' || (p_quiz_data->>'titleEn'); END IF;
   PERFORM public.log_action(action_text, 'admin');
   INSERT INTO public.translations (key, en, ar) VALUES (p_quiz_data->>'titleKey', p_quiz_data->>'titleEn', p_quiz_data->>'titleAr'), (p_quiz_data->>'descriptionKey', p_quiz_data->>'descriptionEn', p_quiz_data->>'descriptionAr') ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar;
   IF jsonb_typeof(p_quiz_data->'questions') = 'array' THEN FOR v_question IN SELECT * FROM jsonb_array_elements(p_quiz_data->'questions') LOOP INSERT INTO public.translations (key, en, ar) VALUES (v_question->>'textKey', v_question->>'textEn', v_question->>'textAr') ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar; END LOOP; END IF;
@@ -379,8 +379,8 @@ CREATE OR REPLACE FUNCTION public.save_product_with_translations(p_product_data 
 DECLARE result public.products;
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_store') THEN RAISE EXCEPTION 'Insufficient permissions'; END IF;
-  IF EXISTS (SELECT 1 FROM public.products WHERE id = (p_product_data->>'id')::uuid) THEN PERFORM public.log_action(format('🛍️ قام بتعديل المنتج: %s', p_product_data->>'nameEn'), 'admin');
-  ELSE PERFORM public.log_action(format('➕ قام بإضافة منتج جديد: %s', p_product_data->>'nameEn'), 'admin'); END IF;
+  IF EXISTS (SELECT 1 FROM public.products WHERE id = (p_product_data->>'id')::uuid) THEN PERFORM public.log_action('🛍️ قام بتعديل المنتج: ' || (p_product_data->>'nameEn'), 'admin');
+  ELSE PERFORM public.log_action('➕ قام بإضافة منتج جديد: ' || (p_product_data->>'nameEn'), 'admin'); END IF;
   INSERT INTO public.translations (key, en, ar) VALUES (p_product_data->>'nameKey', p_product_data->>'nameEn', p_product_data->>'nameAr'), (p_product_data->>'descriptionKey', p_product_data->>'descriptionEn', p_product_data->>'descriptionAr') ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar;
   INSERT INTO public.products (id, "nameKey", "descriptionKey", price, "imageUrl") VALUES ((p_product_data->>'id')::uuid, p_product_data->>'nameKey', p_product_data->>'descriptionKey', (p_product_data->>'price')::numeric, p_product_data->>'imageUrl') ON CONFLICT (id) DO UPDATE SET "nameKey" = excluded."nameKey", "descriptionKey" = excluded."descriptionKey", price = excluded.price, "imageUrl" = excluded."imageUrl" RETURNING * INTO result;
   RETURN result;
@@ -401,7 +401,7 @@ BEGIN
   UPDATE public.bans SET is_active = false WHERE user_id = p_target_user_id AND is_active = true;
   INSERT INTO public.bans(user_id, banned_by, reason, expires_at, is_active) VALUES (p_target_user_id, public.get_user_id(), p_reason, v_expires_at, true);
   SELECT username FROM public.profiles WHERE id = p_target_user_id INTO target_username;
-  PERFORM public.log_action(format('🚫 قام بحظر المستخدم **%s** للسبب: *%s*', coalesce(target_username, p_target_user_id::text), p_reason), 'ban');
+  PERFORM public.log_action('🚫 قام بحظر المستخدم **' || coalesce(target_username, p_target_user_id::text) || '** للسبب: *' || p_reason || '*', 'ban');
 END; $$;
 CREATE OR REPLACE FUNCTION public.unban_user(p_target_user_id uuid) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE target_username text;
@@ -410,7 +410,7 @@ BEGIN
   UPDATE public.profiles SET is_banned = false, ban_reason = null, ban_expires_at = null WHERE id = p_target_user_id;
   UPDATE public.bans SET is_active = false, unbanned_by = public.get_user_id(), unbanned_at = now() WHERE user_id = p_target_user_id AND is_active = true;
   SELECT username FROM public.profiles WHERE id = p_target_user_id INTO target_username;
-  PERFORM public.log_action(format('✅ قام بفك الحظر عن المستخدم **%s**', coalesce(target_username, p_target_user_id::text)), 'ban');
+  PERFORM public.log_action('✅ قام بفك الحظر عن المستخدم **' || coalesce(target_username, p_target_user_id::text) || '**', 'ban');
 END; $$;
 CREATE OR REPLACE FUNCTION public.save_role_permissions(p_role_id text, p_permissions text[]) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -440,7 +440,7 @@ BEGIN
   -- 1. Send to Submissions Channel
   IF channel_id IS NOT NULL THEN
     PERFORM net.http_post(url := proxy_url, body := jsonb_build_object('type', 'new_submission', 'payload', jsonb_build_object(
-        'channelId', channel_id, 'content', format('<@&%s>', role_id),
+        'channelId', channel_id, 'content', '<@&' || role_id || '>',
         'embed', jsonb_build_object('title', embed_title, 'description', embed_body, 'color', 3447003, 'timestamp', NEW."submittedAt"))));
   END IF;
   -- 2. Send DM to user
@@ -471,7 +471,7 @@ BEGIN
   
   PERFORM net.http_post(url := proxy_url, body := jsonb_build_object('type', 'submission_result', 'payload', jsonb_build_object(
       'userId', user_discord_id, 'embed', jsonb_build_object('title', embed_title, 'description', embed_body, 'color', embed_color, 'timestamp', now()))));
-  PERFORM public.log_action(format('📧 أرسل رسالة خاصة إلى **%s** بخصوص تقديم (%s) بعنوان: "%s"', NEW.username, NEW."quizTitle", embed_title), 'submission');
+  PERFORM public.log_action('📧 أرسل رسالة خاصة إلى **' || NEW.username || '** بخصوص تقديم (' || NEW."quizTitle" || ') بعنوان: "' || embed_title || '"', 'submission');
   RETURN NEW;
 END; $$;
 
@@ -483,14 +483,14 @@ BEGIN
   IF channel_id IS NOT NULL THEN
      PERFORM net.http_post(url := proxy_url, body := jsonb_build_object('type', 'audit_log', 'payload', jsonb_build_object(
           'channelId', channel_id, 'embed', jsonb_build_object('description', NEW.action, 'color', 16776960,
-            'author', jsonb_build_object('name', format('سجل إدارة | %s', NEW.admin_username)), 'timestamp', now()))));
+            'author', jsonb_build_object('name', 'سجل إدارة | ' || NEW.admin_username), 'timestamp', now()))));
   END IF; RETURN NEW;
 END; $$;
 
 CREATE OR REPLACE FUNCTION private.handle_new_profile_notification()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
-  PERFORM public.log_action(format('✨ انضم مستخدم جديد للموقع: **%s** (`%s`)', NEW.username, NEW.discord_id), 'admin');
+  PERFORM public.log_action('✨ انضم مستخدم جديد للموقع: **' || NEW.username || '** (`' || NEW.discord_id || '`)', 'admin');
   RETURN NEW;
 END; $$;
 
@@ -510,14 +510,14 @@ $$;
 CREATE OR REPLACE FUNCTION private.handle_quiz_deleted_notification()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
-    PERFORM public.log_action(format('🗑️ قام بحذف نموذج التقديم: *%s*', OLD."titleKey"), 'admin');
+    PERFORM public.log_action('🗑️ قام بحذف نموذج التقديم: *' || OLD."titleKey" || '*', 'admin');
     RETURN OLD;
 END; $$;
 
 CREATE OR REPLACE FUNCTION private.handle_product_deleted_notification()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
 BEGIN
-    PERFORM public.log_action(format('🗑️ قام بحذف المنتج: *%s*', OLD."nameKey"), 'admin');
+    PERFORM public.log_action('🗑️ قام بحذف المنتج: *' || OLD."nameKey" || '*', 'admin');
     RETURN OLD;
 END; $$;
 
@@ -627,29 +627,23 @@ INSERT INTO public.translations (key, en, ar) VALUES
 ('health_check_result_404', '<li class="mb-2"><strong>Error (404 Not Found):</strong> This means the bot connected to Discord correctly, but couldn''t find a user with that ID in your server. Check the ID or ensure the user is a member.</li>', '<li class="mb-2"><strong>Error (404 Not Found):</strong> هذا يعني أن البوت متصل بديسكورد بشكل صحيح، لكنه لم يتمكن من العثور على المستخدم بهذا المعرف في السيرفر الخاص بك. تحقق من المعرف أو تأكد من أن المستخدم عضو في السيرفر.</li>'),
 ('health_check_result_503', '<li class="mb-2"><strong>Error (503 Service Unavailable):</strong> The most common cause is that the <strong>Server Members Intent</strong> is not enabled in the Discord Developer Portal. Go to your bot''s settings and turn it on.</li>', '<li class="mb-2"><strong>Error (503 Service Unavailable):</strong> السبب الأكثر شيوعاً هو أن <strong>Server Members Intent</strong> غير مفعل في بوابة مطوري ديسكورد. اذهب إلى إعدادات البوت الخاص بك وقم بتفعيله.</li>'),
 ('health_check_result_other', '<li><strong>Other Errors:</strong> Usually indicates a problem with the bot''s configuration or it being offline. Check the bot''s logs for more details.</li></ul>', '<li><strong>أخطاء أخرى:</strong> عادة ما تشير إلى مشكلة في تكوين البوت أو أنه غير متصل بالإنترنت. تحقق من سجلات البوت لمزيد من التفاصيل.</li></ul>'),
-('health_check_banner_link', 'Click here to run system diagnostics.', 'اضغط هنا لتشغيل فحص النظام التشخيصي.'), ('session_expired_not_in_guild', 'Your session has expired or you are no longer in the guild. You have been logged out.', 'انتهت صلاحية جلستك أو لم تعد عضواً في السيرفر. تم تسجيل خروجك.'),
-('product_vip_bronze_name', 'Bronze VIP Membership', 'عضوية VIP برونزية'), ('product_vip_bronze_desc', 'Exclusive in-server perks for one month.', 'مميزات حصرية داخل السيرفر لمدة شهر.'),
-('product_vip_silver_name', 'Silver VIP Membership', 'عضوية VIP فضية'), ('product_vip_silver_desc', 'Better perks with special vehicle access.', 'مميزات أفضل مع وصول خاص للمركبات.'),
-('product_cash_1_name', '100k Cash Pack', 'حزمة نقدية 100 ألف'), ('product_cash_1_desc', 'An in-game cash boost to get you started.', 'دفعة نقدية داخل اللعبة لتبدأ بقوة.'),
-('product_custom_plate_name', 'Custom License Plate', 'لوحة سيارة مخصصة'), ('product_custom_plate_desc', 'A unique license plate for your favorite vehicle.', 'لوحة فريدة لسيارتك المفضلة.'),
-('quiz_police_name', 'Police Department Application', 'تقديم قسم الشرطة'), ('quiz_police_desc', 'Read the rules carefully. Any attempt to cheat will result in immediate rejection.', 'اقرأ القوانين جيداً. أي محاولة غش ستؤدي للرفض الفوري.'),
-('q_police_1', 'What is the first procedure when dealing with a suspect?', 'ما هو الإجراء الأول عند التعامل مع شخص مشتبه به؟'), ('q_police_2', 'When are you permitted to use lethal force?', 'متى يسمح لك باستخدام القوة المميتة؟'),
-('quiz_medic_name', 'EMS Department Application', 'تقديم قسم الإسعاف'), ('quiz_medic_desc', 'You are required to be calm and professional at all times.', 'مطلوب منك الهدوء والاحترافية في جميع الأوقات.'),
-('q_medic_1', 'What is your top priority when arriving at an accident scene?', 'ما هي أولويتك القصوى عند الوصول إلى مكان الحادث؟'),
--- NEW Notification Translations
-('notification_welcome_dm_title', 'Welcome to {communityName}!', 'أهلاً بك في {communityName}!'),
-('notification_welcome_dm_body', 'Hi {username}, your account has been successfully created on our website. You can now access all our community features!', 'مرحباً {username}، تم إنشاء حسابك بنجاح على موقعنا. يمكنك الآن الوصول إلى جميع ميزات المجتمع!'),
-('notification_submission_receipt_dm_title', 'Application Received', 'تم استلام تقديمك'),
-('notification_submission_receipt_dm_body', 'Thank you, {username}. We have received your application for **{quizTitle}** and it is now pending review.', 'شكراً لك {username}. لقد استلمنا تقديمك لوظيفة **{quizTitle}** وهو الآن قيد الانتظار للمراجعة.'),
-('notification_submission_taken_dm_title', 'Application Under Review', 'تقديمك قيد المراجعة'),
-('notification_submission_taken_dm_body', 'Hi {username}, your application for **{quizTitle}** has been picked up for review by **{adminUsername}**.', 'مرحباً {username}، لقد تم استلام طلب التقديم الخاص بك لوظيفة **{quizTitle}** من قبل المشرف **{adminUsername}** للمراجعة.'),
-('notification_submission_accepted_dm_title', 'Application Accepted!', 'تم قبول تقديمك!'),
-('notification_submission_accepted_dm_body', 'Congratulations {username}! Your application for **{quizTitle}** has been accepted by **{adminUsername}**. Welcome aboard!', 'تهانينا {username}! لقد تم قبول طلبك لوظيفة **{quizTitle}** من قبل **{adminUsername}**. أهلاً بك!'),
-('notification_submission_refused_dm_title', 'Application Update', 'تحديث بخصوص تقديمك'),
-('notification_submission_refused_dm_body', 'Hello {username}, regarding your application for **{quizTitle}**, we regret to inform you that it has not been accepted at this time. Thank you for your interest.', 'مرحباً {username}، بخصوص تقديمك لوظيفة **{quizTitle}**، نأسف لإعلامك بأنه لم يتم قبوله في الوقت الحالي. شكراً لاهتمامك.'),
-('notification_new_submission_channel_title', 'New Application Submitted', 'تقديم جديد'),
-('notification_new_submission_channel_body', 'A new application has been submitted by **{username}** for **{quizTitle}**. Highest Role: `{userHighestRole}`.', 'تم استلام تقديم جديد من قبل **{username}** لوظيفة **{quizTitle}**. أعلى رتبة: `{userHighestRole}`.')
-ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar;
+  ('health_check_banner_link', 'Click here to run system diagnostics.', 'اضغط هنا لتشغيل فحص النظام التشخيصي.'),
+  ('session_expired_not_in_guild', 'Your session has expired or you are no longer in the guild. You have been logged out.', 'انتهت صلاحية جلستك أو لم تعد عضواً في السيرفر. تم تسجيل خروجك.'),
+  ('product_vip_bronze_name', 'Bronze VIP Membership', 'عضوية VIP برونزية'),
+  ('product_vip_bronze_desc', 'Exclusive in-server perks for one month.', 'مميزات حصرية داخل السيرفر لمدة شهر.'),
+  ('product_vip_silver_name', 'Silver VIP Membership', 'عضوية VIP فضية'),
+  ('product_vip_silver_desc', 'Better perks with special vehicle access.', 'مميزات أفضل مع وصول خاص للمركبات.'),
+  ('product_cash_1_name', '100k Cash Pack', 'حزمة نقدية 100 ألف'),
+  ('product_cash_1_desc', 'An in-game cash boost to get you started.', 'دفعة نقدية داخل اللعبة لتبدأ بقوة.'),
+  ('product_custom_plate_name', 'Custom License Plate', 'لوحة سيارة مخصصة'),
+  ('product_custom_plate_desc', 'A unique license plate for your favorite vehicle.', 'لوحة فريدة لسيارتك المفضلة.'),
+  ('quiz_police_name', 'Police Department Application', 'تقديم قسم الشرطة'),
+  ('quiz_police_desc', 'Read the rules carefully. Any attempt to cheat will result in immediate rejection.', 'اقرأ القوانين جيداً. أي محاولة غش ستؤدي للرفض الفوري.'),
+  ('q_police_1', 'What is the first procedure when dealing with a suspect?', 'ما هو الإجراء الأول عند التعامل مع شخص مشتبه به؟'),
+  ('q_police_2', 'When are you permitted to use lethal force?', 'متى يسمح لك باستخدام القوة المميتة؟'),
+  ('quiz_medic_name', 'EMS Department Application', 'تقديم قسم الإسعاف'),
+  ('quiz_medic_desc', 'You are required to be calm and professional at all times.', 'مطلوب منك الهدوء والاحترافية في جميع الأوقات.'),
+  ('q_medic_1', 'What is your top priority when arriving at an accident scene?', 'ما هي أولويتك القصوى عند الوصول إلى مكان الحادث؟');
 
 COMMIT;
 `;

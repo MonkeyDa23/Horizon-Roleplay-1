@@ -7,7 +7,7 @@
  * to fetch real-time Discord data and send notifications.
  */
 
-// FIX: Removed type aliases for Request and Response to fix type resolution issues.
+// FIX: Import Request, Response, and NextFunction types explicitly from express to resolve type errors.
 import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import {
@@ -162,6 +162,7 @@ const main = async () => {
     app.use(cors());
     app.use(express.json());
 
+    // FIX: Use imported Request, Response, and NextFunction types.
     const authenticate = (req: Request, res: Response, next: NextFunction) => {
         if (req.headers.authorization === `Bearer ${config.API_SECRET_KEY}`) {
             logger('DEBUG', `[AUTH] Successful authentication from ${req.ip}. Path: ${req.path}`);
@@ -171,6 +172,7 @@ const main = async () => {
         res.status(401).send({ error: 'Authentication failed.' });
     };
 
+    // FIX: Use imported Request and Response types.
     app.get('/health', (req: Request, res: Response) => {
         if (!client.isReady()) return res.status(503).send({ status: 'error', message: 'Discord Client not ready.' });
         const guild = client.guilds.cache.get(config.DISCORD_GUILD_ID);
@@ -178,6 +180,7 @@ const main = async () => {
         res.send({ status: 'ok', details: { guildName: guild.name, memberCount: guild.memberCount } });
     });
     
+    // FIX: Use imported Request and Response types.
     app.get('/api/roles', authenticate, async (req: Request, res: Response) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
@@ -190,6 +193,7 @@ const main = async () => {
         }
     });
 
+    // FIX: Use imported Request and Response types.
     app.get('/api/user/:id', authenticate, async (req: Request, res: Response) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
@@ -218,6 +222,7 @@ const main = async () => {
         }
     });
     
+    // FIX: Use imported Request and Response types.
     app.post('/api/notify', authenticate, async (req: Request, res: Response) => {
         const body: NotifyPayload = req.body;
         logger('INFO', `Received notification request of type: ${body.type}`);
