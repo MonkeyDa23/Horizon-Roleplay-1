@@ -1,5 +1,5 @@
 // src/pages/HealthCheckPage.tsx
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Loader2, CheckCircle, XCircle, AlertTriangle, Info, HelpCircle, Eye } from 'lucide-react';
 import { useLocalization } from '../hooks/useLocalization';
 import { env } from '../env';
@@ -14,26 +14,26 @@ const HealthCheckPage: React.FC = () => {
   const { hasPermission } = useAuth();
   const navigate = ReactRouterDOM.useNavigate();
   
-  const [pgNetResult, setPgNetResult] = useState<string | null>(null);
-  const [isTestingPgNet, setIsTestingPgNet] = useState(false);
-  const [secretsResult, setSecretsResult] = useState<any>(null);
-  const [secretsLoading, setSecretsLoading] = useState(true);
+  const [pgNetResult, setPgNetResult] = React.useState<string | null>(null);
+  const [isTestingPgNet, setIsTestingPgNet] = React.useState(false);
+  const [secretsResult, setSecretsResult] = React.useState<any>(null);
+  const [secretsLoading, setSecretsLoading] = React.useState(true);
 
-  const [botHealth, setBotHealth] = useState<any>(null);
-  const [isTestingBot, setIsTestingBot] = useState(false);
+  const [botHealth, setBotHealth] = React.useState<any>(null);
+  const [isTestingBot, setIsTestingBot] = React.useState(false);
 
-  const [syncDiscordId, setSyncDiscordId] = useState('');
-  const [syncResult, setSyncResult] = useState<any>(null);
-  const [isTestingSync, setIsTestingSync] = useState(false);
+  const [syncDiscordId, setSyncDiscordId] = React.useState('');
+  const [syncResult, setSyncResult] = React.useState<any>(null);
+  const [isTestingSync, setIsTestingSync] = React.useState(false);
 
   // Security check
-  useEffect(() => {
+  React.useEffect(() => {
     if (!hasPermission('admin_panel')) {
       navigate('/');
     }
   }, [hasPermission, navigate]);
   
-  useEffect(() => {
+  React.useEffect(() => {
     const runCheck = async () => {
       setSecretsLoading(true);
       try {
@@ -137,10 +137,34 @@ const HealthCheckPage: React.FC = () => {
                   <h2 className="text-2xl font-bold text-brand-cyan mb-3">{t('health_check_step0')}</h2>
                   <p className="text-gray-300 mb-4">{t('health_check_step0_desc')}</p>
                   
-                   <div className="my-6 p-4 rounded-lg bg-yellow-500/10 border-2 border-yellow-500/30">
-                        <h3 className="font-bold text-yellow-300 flex items-center gap-2 text-lg"><Eye size={20}/> دليل مرئي</h3>
-                        <p className="text-yellow-200 mt-2">إذا كنت تواجه صعوبة في العثور على الخيار الصحيح، فهذه الصورة توضح لك بالضبط أين يجب أن تنقر. يجب أن تنزل بالصفحة (scroll down) لتجد قسم **Database Egress**.</p>
-                        <img src="https://i.ibb.co/b3b713p/supabase-egress-guide.png" alt="Supabase Egress Guide" className="mt-4 rounded-md border-2 border-yellow-500/50 shadow-lg"/>
+                    <div className="my-6 p-4 rounded-lg bg-yellow-500/10 border-2 border-yellow-500/30">
+                        <h3 className="font-bold text-yellow-300 flex items-center gap-2 text-lg"><Eye size={20}/> دليل مرئي مفصّل (خطوة بخطوة)</h3>
+                        <p className="text-yellow-200 mt-2">
+                            بما أن الخيار صعب الإيجاد، هذا دليل مفصل بالصور لكل خطوة. اتبع الصور بالترتيب.
+                        </p>
+                        <div className="mt-4 space-y-6">
+                            <div>
+                                <h4 className="font-semibold text-white mb-2">١. من لوحة التحكم الرئيسية لمشروعك، اضغط على أيقونة "Database".</h4>
+                                <img src="https://i.ibb.co/1rTQKfK/step1-database.png" alt="Step 1: Go to Database" className="rounded-md border-2 border-yellow-500/50 shadow-lg"/>
+                            </div>
+                            <div>
+                                <h4 className="font-semibold text-white mb-2">٢. من القائمة الجانبية لقاعدة البيانات، اضغط على "Network Restrictions".</h4>
+                                <img src="https://i.ibb.co/3zd5NnN/step2-network.png" alt="Step 2: Go to Network Restrictions" className="rounded-md border-2 border-yellow-500/50 shadow-lg"/>
+                            </div>
+                            <div>
+                                <h4 className="font-semibold text-white mb-2">٣. أنت الآن في الصفحة الصحيحة. انزل بالصفحة (scroll down) حتى تجد قسم "Database Egress" واضغط على "Add new rule".</h4>
+                                <img src="https://i.ibb.co/b3b713p/supabase-egress-guide.png" alt="Step 3: Find Database Egress" className="rounded-md border-2 border-yellow-500/50 shadow-lg"/>
+                            </div>
+                            <div>
+                                <h4 className="font-semibold text-white mb-2">٤. املأ النموذج تماماً كما في الصورة ثم اضغط "Create rule".</h4>
+                                <ul className="text-sm list-disc list-inside mb-2 text-yellow-200">
+                                    <li>Protocol: <code className="bg-brand-dark px-1 rounded">TCP</code></li>
+                                    <li>Address: <code className="bg-brand-dark px-1 rounded">0.0.0.0/0</code></li>
+                                    <li>Ports: <code className="bg-brand-dark px-1 rounded">80, 443</code></li>
+                                </ul>
+                                <img src="https://i.ibb.co/7C9B1Fz/step4-form.png" alt="Step 4: Fill the form" className="rounded-md border-2 border-yellow-500/50 shadow-lg"/>
+                            </div>
+                        </div>
                    </div>
 
                   <button onClick={handleRunPgNetTest} disabled={isTestingPgNet} className="w-full bg-brand-cyan text-brand-dark font-bold py-3 px-6 rounded-md hover:bg-white transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-wait">
