@@ -7,7 +7,7 @@
  * to fetch real-time Discord data and send notifications.
  */
 
-// FIX: Explicitly import Request, Response, and NextFunction types from express to resolve type conflicts.
+// FIX: Correctly import Request, Response, and NextFunction types from express to resolve type conflicts.
 import express, { Request, Response, NextFunction } from 'express';
 // FIX: Import 'process' module to provide types for process.exit.
 import process from 'process';
@@ -168,10 +168,8 @@ const main = async () => {
     const app = express();
     const PORT = Number(process.env.PORT) || 14355;
     app.use(cors());
-    // FIX: Using explicit types for Request/Response resolves type errors for app.use.
     app.use(express.json());
 
-    // FIX: Use Request, Response, and NextFunction types imported directly from 'express'.
     const authenticate = (req: Request, res: Response, next: NextFunction) => {
         if (req.headers.authorization === `Bearer ${config.API_SECRET_KEY}`) {
             logger('DEBUG', `[AUTH] Successful authentication from ${req.ip}. Path: ${req.path}`);
@@ -181,7 +179,6 @@ const main = async () => {
         res.status(401).send({ error: 'Authentication failed.' });
     };
 
-    // FIX: Use Request and Response types imported directly from 'express'.
     app.get('/health', (req: Request, res: Response) => {
         if (!client.isReady()) return res.status(503).send({ status: 'error', message: 'Discord Client not ready.' });
         const guild = client.guilds.cache.get(config.DISCORD_GUILD_ID);
@@ -189,7 +186,6 @@ const main = async () => {
         res.send({ status: 'ok', details: { guildName: guild.name, memberCount: guild.memberCount } });
     });
     
-    // FIX: Use Request and Response types imported directly from 'express'.
     app.get('/api/roles', authenticate, async (req: Request, res: Response) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
@@ -202,7 +198,6 @@ const main = async () => {
         }
     });
 
-    // FIX: Use Request and Response types imported directly from 'express'.
     app.get('/api/user/:id', authenticate, async (req: Request, res: Response) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
@@ -231,7 +226,6 @@ const main = async () => {
         }
     });
     
-    // FIX: Use Request and Response types imported directly from 'express'.
     app.post('/api/notify', authenticate, async (req: Request, res: Response) => {
         const body: NotifyPayload = req.body;
         logger('INFO', `Received notification request of type: ${body.type}`);

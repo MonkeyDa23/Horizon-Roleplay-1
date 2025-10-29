@@ -149,10 +149,16 @@ const HealthCheckPage: React.FC = () => {
                             </div>
                             <div>
                                 <h4 className="font-semibold text-white mb-2">٢. من القائمة الجانبية لقاعدة البيانات، اضغط على "Network Restrictions".</h4>
+                                <p className="text-amber-300 bg-amber-900/40 p-2 rounded-md border border-amber-500/50 text-sm mb-2">
+                                    <strong className="font-bold">ملاحظة هامة:</strong> الخيار الذي تبحث عنه اسمه <strong>"Network Restrictions"</strong>، وليس "Database Egress". ستجد قسم "Database Egress" <strong>داخل</strong> صفحة "Network Restrictions".
+                                </p>
                                 <img src="https://i.ibb.co/3zd5NnN/step2-network.png" alt="Step 2: Go to Network Restrictions" className="rounded-md border-2 border-yellow-500/50 shadow-lg"/>
                             </div>
                             <div>
-                                <h4 className="font-semibold text-white mb-2">٣. أنت الآن في الصفحة الصحيحة. انزل بالصفحة (scroll down) حتى تجد قسم "Database Egress" واضغط على "Add new rule".</h4>
+                                <h4 className="font-semibold text-white mb-2">٣. أنت الآن في صفحة "Network Restrictions". <strong>يجب أن تنزل بالصفحة إلى الأسفل (scroll down)</strong> حتى تجد القسم الذي يحمل عنوان "Database Egress".</h4>
+                                <p className="text-amber-300 bg-amber-900/40 p-2 rounded-md border border-amber-500/50 text-sm mb-2">
+                                    هناك، اضغط على زر "Add new rule". الصورة توضح المكان بالضبط.
+                                </p>
                                 <img src="https://i.ibb.co/b3b713p/supabase-egress-guide.png" alt="Step 3: Find Database Egress" className="rounded-md border-2 border-yellow-500/50 shadow-lg"/>
                             </div>
                             <div>
