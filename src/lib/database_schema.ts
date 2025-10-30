@@ -68,6 +68,7 @@ DROP FUNCTION IF EXISTS public.get_user_id();
 DROP FUNCTION IF EXISTS public.test_pg_net();
 DROP FUNCTION IF EXISTS public.delete_quiz(uuid);
 DROP FUNCTION IF EXISTS public.delete_product(uuid);
+DROP FUNCTION IF EXISTS public.test_http_request();
 
 
 -- Drop private schema for secrets
@@ -424,6 +425,25 @@ BEGIN
   PERFORM public.log_action('🛡️ قام بتحديث صلاحيات الرتبة <@&' || p_role_id || '>', 'admin');
   INSERT INTO public.role_permissions (role_id, permissions) VALUES (p_role_id, p_permissions) ON CONFLICT (role_id) DO UPDATE SET permissions = excluded.permissions;
 END; $$;
+
+CREATE OR REPLACE FUNCTION public.test_http_request()
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = extensions, public
+AS $$
+DECLARE
+  response extensions.http_response;
+BEGIN
+  -- Test if the http extension is available and can make a simple request
+  SELECT * INTO response FROM extensions.http_get('https://example.com');
+  RETURN jsonb_build_object(
+    'status', response.status,
+    'status_text', extensions.http_status_reason(response.status)
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    -- If the http request fails for any reason (e.g., egress blocked), return the error
+    RETURN jsonb_build_object('error', SQLERRM);
+END;
+$$;
 
 -- =================================================================
 -- 7. NOTIFICATION TRIGGERS (REMOVED - HANDLED BY WEBHOOKS)

@@ -7,8 +7,8 @@
  * to fetch real-time Discord data and send notifications.
  */
 
-// FIX: Changed import to a default import and qualified types with `express.` to resolve type conflicts.
-import express from 'express';
+// FIX: Imported express types with aliases to resolve potential conflicts with global types (e.g., from fetch API).
+import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
 // FIX: Import 'process' module to provide types for process.exit.
 import process from 'process';
 import cors from 'cors';
@@ -171,8 +171,8 @@ const main = async () => {
     app.use(cors());
     app.use(express.json());
 
-    // FIX: Using fully qualified types from the express default import to resolve type conflicts.
-    const authenticate = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    // FIX: All request and response types updated to use aliased imports to prevent type conflicts.
+    const authenticate = (req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
         if (req.headers.authorization === `Bearer ${config.API_SECRET_KEY}`) {
             logger('DEBUG', `[AUTH] Successful authentication from ${req.ip}. Path: ${req.path}`);
             return next();
@@ -181,14 +181,14 @@ const main = async () => {
         res.status(401).send({ error: 'Authentication failed.' });
     };
 
-    app.get('/health', (req: express.Request, res: express.Response) => {
+    app.get('/health', (req: ExpressRequest, res: ExpressResponse) => {
         if (!client.isReady()) return res.status(503).send({ status: 'error', message: 'Discord Client not ready.' });
         const guild = client.guilds.cache.get(config.DISCORD_GUILD_ID);
         if (!guild) return res.status(500).send({ status: 'error', message: 'Guild not found in cache.' });
         res.send({ status: 'ok', details: { guildName: guild.name, memberCount: guild.memberCount } });
     });
     
-    app.get('/api/roles', authenticate, async (req: express.Request, res: express.Response) => {
+    app.get('/api/roles', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
             const roles = (await guild.roles.fetch()).map(role => ({ id: role.id, name: role.name, color: role.color, position: role.position }));
@@ -200,7 +200,7 @@ const main = async () => {
         }
     });
 
-    app.get('/api/user/:id', authenticate, async (req: express.Request, res: express.Response) => {
+    app.get('/api/user/:id', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
             const member = await guild.members.fetch(req.params.id);
@@ -228,7 +228,7 @@ const main = async () => {
         }
     });
     
-    app.post('/api/notify', authenticate, async (req: express.Request, res: express.Response) => {
+    app.post('/api/notify', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
         const body: NotifyPayload = req.body;
         logger('INFO', `Received notification request of type: ${body.type}`);
         logger('DEBUG', 'Full notification payload:', body.payload);
