@@ -122,7 +122,8 @@ const main = async () => {
 
     const handleGuildFetchError = (error: unknown) => {
         logger('FATAL', `Could not fetch guild with ID ${config.DISCORD_GUILD_ID}.`);
-        // FIX: Nest checks to ensure `error.code` is only accessed after type is confirmed.
+        // FIX: The 'code' property was accessed on 'error' of type 'unknown' without a type guard.
+        // The logic is restructured to first check if 'error' is an instance of DiscordAPIError.
         if (error instanceof DiscordAPIError) {
             if (error.code === 50001) {
                 logger('FATAL', `ADVICE: The bot is missing 'Access' to the guild. It might not be in the server.`);
