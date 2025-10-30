@@ -1,9 +1,9 @@
 // src/pages/HealthCheckPage.tsx
 import React from 'react';
-import { Loader2, CheckCircle, XCircle, AlertTriangle, Info, HelpCircle, Eye } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, AlertTriangle, HelpCircle } from 'lucide-react';
 import { useLocalization } from '../hooks/useLocalization';
 import { env } from '../env';
-import { checkDiscordApiHealth, troubleshootUserSync, runPgNetTest, checkFunctionSecrets } from '../lib/api';
+import { checkDiscordApiHealth, troubleshootUserSync, checkFunctionSecrets, testHttpRequest } from '../lib/api';
 import SEO from '../components/SEO';
 import { useAuth } from '../hooks/useAuth';
 // FIX: Fix "no exported member" errors from 'react-router-dom' by switching to a namespace import.
@@ -14,8 +14,9 @@ const HealthCheckPage: React.FC = () => {
   const { hasPermission } = useAuth();
   const navigate = useNavigate();
   
-  const [pgNetResult, setPgNetResult] = React.useState<string | null>(null);
-  const [isTestingPgNet, setIsTestingPgNet] = React.useState(false);
+  const [httpTestResult, setHttpTestResult] = React.useState<any>(null);
+  const [httpTestLoading, setHttpTestLoading] = React.useState(false);
+
   const [secretsResult, setSecretsResult] = React.useState<any>(null);
   const [secretsLoading, setSecretsLoading] = React.useState(true);
 
@@ -47,16 +48,16 @@ const HealthCheckPage: React.FC = () => {
     runCheck();
   }, []);
 
-  const handleRunPgNetTest = async () => {
-    setIsTestingPgNet(true);
-    setPgNetResult(null);
+  const handleHttpTest = async () => {
+    setHttpTestLoading(true);
+    setHttpTestResult(null);
     try {
-      const result = await runPgNetTest();
-      setPgNetResult(result);
-    } catch (error) {
-      setPgNetResult(`RPC Error: ${(error as Error).message}`);
+        const result = await testHttpRequest();
+        setHttpTestResult(result);
+    } catch (e) {
+        setHttpTestResult({ error: (e as Error).message });
     } finally {
-      setIsTestingPgNet(false);
+        setHttpTestLoading(false);
     }
   };
 
@@ -103,21 +104,6 @@ const HealthCheckPage: React.FC = () => {
     </div>
   );
   
-  const TestResult: React.FC<{ result: string | null }> = ({ result }) => {
-      if (!result) return null;
-      const isSuccess = result.startsWith('SUCCESS');
-      const isFailure = result.startsWith('FAILURE');
-      const color = isSuccess ? 'green' : (isFailure ? 'red' : 'yellow');
-      return (
-         <div className={`mt-4 p-4 rounded-md border bg-${color}-500/10 border-${color}-500/30 text-${color}-300`}>
-            <h4 className="font-bold mb-2 flex items-center gap-2">
-                {isSuccess ? <CheckCircle /> : <XCircle />} {t('health_check_test_result')}
-            </h4>
-            <p className="font-semibold">{result}</p>
-        </div>
-      )
-  };
-
   if (!hasPermission('admin_panel')) {
       return null;
   }
@@ -132,59 +118,31 @@ const HealthCheckPage: React.FC = () => {
           <p className="text-center text-gray-400 mb-12">{t('health_check_desc')}</p>
           
           <div className="space-y-8">
-              {/* Step 0 */}
+            
+              {/* Step 0: Outbound HTTP */}
               <div className="bg-brand-dark-blue p-6 rounded-lg border-2 border-brand-light-blue shadow-lg">
                   <h2 className="text-2xl font-bold text-brand-cyan mb-3">{t('health_check_step0')}</h2>
                   <p className="text-gray-300 mb-4">{t('health_check_step0_desc')}</p>
-                  
-                  <div className="p-4 mb-6 rounded-lg bg-red-500/10 border-2 border-red-500/30">
-                      <h3 className="font-bold text-red-300 flex items-center gap-2 text-lg">
-                          <AlertTriangle size={20}/> {t('health_check_location_warning_title')}
-                      </h3>
-                      <p className="text-red-200 mt-2" dangerouslySetInnerHTML={{ __html: t('health_check_location_warning_body') }} />
-                  </div>
-
-                    <div className="my-6 p-4 rounded-lg bg-yellow-500/10 border-2 border-yellow-500/30">
-                        <h3 className="font-bold text-yellow-300 flex items-center gap-2 text-lg"><Eye size={20}/> {t('health_check_visual_guide_title')}</h3>
-                        <p className="text-yellow-200 mt-2">
-                            {t('health_check_visual_guide_intro')}
-                        </p>
-                        <div className="mt-4 space-y-6">
-                            <div>
-                                <h4 className="font-semibold text-white mb-2">{t('health_check_visual_guide_step1_title')}</h4>
-                                <img src="https://i.ibb.co/1rTQKfK/step1-database.png" alt="Step 1: Go to Database" className="rounded-md border-2 border-yellow-500/50 shadow-lg"/>
-                            </div>
-                            <div>
-                                <h4 className="font-semibold text-white mb-2">{t('health_check_visual_guide_step2_title')}</h4>
-                                <p className="text-amber-300 bg-amber-900/40 p-2 rounded-md border border-amber-500/50 text-sm mb-2">
-                                    <strong className="font-bold">{t('health_check_visual_guide_step2_warning_title')}</strong> <span dangerouslySetInnerHTML={{ __html: t('health_check_visual_guide_step2_warning_body') }}/>
-                                </p>
-                                <img src="https://i.ibb.co/3zd5NnN/step2-network.png" alt="Step 2: Go to Network Restrictions" className="rounded-md border-2 border-yellow-500/50 shadow-lg"/>
-                            </div>
-                            <div>
-                                <h4 className="font-semibold text-white mb-2" dangerouslySetInnerHTML={{ __html: t('health_check_visual_guide_step3_title') }}/>
-                                <p className="text-amber-300 bg-amber-900/40 p-2 rounded-md border border-amber-500/50 text-sm mb-2">
-                                    {t('health_check_visual_guide_step3_body')}
-                                </p>
-                                <img src="https://i.ibb.co/b3b713p/supabase-egress-guide.png" alt="Step 3: Find Database Egress" className="rounded-md border-2 border-yellow-500/50 shadow-lg"/>
-                            </div>
-                            <div>
-                                <h4 className="font-semibold text-white mb-2">{t('health_check_visual_guide_step4_title')}</h4>
-                                <ul className="text-sm list-disc list-inside mb-2 text-yellow-200">
-                                    <li dangerouslySetInnerHTML={{ __html: t('health_check_visual_guide_step4_list_item1') }}/>
-                                    <li dangerouslySetInnerHTML={{ __html: t('health_check_visual_guide_step4_list_item2') }}/>
-                                    <li dangerouslySetInnerHTML={{ __html: t('health_check_visual_guide_step4_list_item3') }}/>
-                                </ul>
-                                <img src="https://i.ibb.co/7C9B1Fz/step4-form.png" alt="Step 4: Fill the form" className="rounded-md border-2 border-yellow-500/50 shadow-lg"/>
-                            </div>
-                        </div>
-                   </div>
-
-                  <button onClick={handleRunPgNetTest} disabled={isTestingPgNet} className="w-full bg-brand-cyan text-brand-dark font-bold py-3 px-6 rounded-md hover:bg-white transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-wait">
-                      {isTestingPgNet ? <Loader2 className="animate-spin" /> : <Info />}
-                      <span>{isTestingPgNet ? t('health_check_test_running') : t('health_check_run_pgnet_test')}</span>
+                  <button onClick={handleHttpTest} disabled={httpTestLoading} className="w-full bg-brand-cyan text-brand-dark font-bold py-3 px-6 rounded-md hover:bg-white transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-wait">
+                      {httpTestLoading ? <Loader2 className="animate-spin" /> : null}
+                      <span>{t('health_check_run_http_test')}</span>
                   </button>
-                  <TestResult result={pgNetResult} />
+                  {httpTestResult && (
+                      <div className="mt-4 p-4 rounded-md bg-brand-dark">
+                          <h4 className="font-bold text-lg mb-2">{t('health_check_test_result')}</h4>
+                          {httpTestResult.error ? (
+                              <div className="text-red-400">
+                                  <p className="font-bold">Error:</p>
+                                  <pre className="text-xs whitespace-pre-wrap">{httpTestResult.error}</pre>
+                              </div>
+                          ) : (
+                              <div className="text-green-300">
+                                  <p className="font-bold">Success! Received HTTP {httpTestResult.status} ({httpTestResult.status_text})</p>
+                                  <p className="text-xs text-gray-400 mt-2">This confirms the `http` extension is working and your database can make outbound requests.</p>
+                              </div>
+                          )}
+                      </div>
+                  )}
               </div>
 
               {/* Step 0.5 */}
@@ -227,10 +185,9 @@ const HealthCheckPage: React.FC = () => {
                   <h2 className="text-2xl font-bold text-brand-cyan mb-3">{t('health_check_step3')}</h2>
                   <p className="text-gray-300 mb-4">{t('health_check_step3_desc')}</p>
                   <button onClick={handleRunBotTest} disabled={isTestingBot} className="w-full bg-brand-cyan text-brand-dark font-bold py-3 px-6 rounded-md hover:bg-white transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-wait">
-                      {isTestingBot ? <Loader2 className="animate-spin" /> : <Info />}
+                      {isTestingBot ? <Loader2 className="animate-spin" /> : null}
                       <span>{isTestingBot ? t('health_check_test_running') : t('health_check_run_test')}</span>
                   </button>
-                  {/* BotTestResultCard is now more complex and defined inside the component */}
               </div>
 
               {/* Step 4 */}
@@ -256,7 +213,6 @@ const HealthCheckPage: React.FC = () => {
                           <span>{t('health_check_run_sync_test')}</span>
                       </button>
                   </div>
-                  {/* SyncTestResultCard is now more complex and defined inside the component */}
               </div>
           </div>
         </div>

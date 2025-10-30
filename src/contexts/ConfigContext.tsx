@@ -1,4 +1,3 @@
-
 // src/contexts/ConfigContext.tsx
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { getConfig } from '../lib/api';
@@ -22,6 +21,10 @@ const defaultConfig: AppConfig = {
     BACKGROUND_IMAGE_URL: '',
     SHOW_HEALTH_CHECK: false,
     SUBMISSIONS_CHANNEL_ID: null,
+    // FIX: Added missing properties to the defaultConfig to match the AppConfig type.
+    SUBMISSIONS_MENTION_ROLE_ID: null,
+    DISCORD_PROXY_URL: null,
+    DISCORD_PROXY_SECRET: null,
     AUDIT_LOG_CHANNEL_ID: null,
     AUDIT_LOG_CHANNEL_ID_SUBMISSIONS: null,
     AUDIT_LOG_CHANNEL_ID_BANS: null,

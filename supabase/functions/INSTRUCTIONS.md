@@ -1,21 +1,22 @@
-# Supabase Functions: Deployment and Configuration Guide (V4 - Robustness)
+# Supabase Functions: Deployment and Configuration Guide (V6 - Direct Bot Notifications)
 
-This guide provides step-by-step instructions for deploying and configuring all the necessary Supabase Edge Functions. This architecture relies on an **external, self-hosted Discord bot** which you must run separately. These functions act as a secure bridge between your website and your bot.
+This guide provides step-by-step instructions for deploying and configuring all the necessary Supabase Edge Functions. This architecture relies on an **external, self-hosted Discord bot** which you must run separately. These functions act as a secure bridge between your website, your database, and your bot.
+
+This version **DOES NOT USE WEBHOOKS**. Instead, it uses database triggers to call the `discord-proxy` function, which then calls your bot.
 
 ## What Are These Functions?
-
-These functions run on Supabase's servers and proxy requests from the website to your bot. This is more secure than calling the bot directly from the browser.
 
 -   **`sync-user-profile`**: The most important function. It calls your bot's API to fetch a user's latest Discord data (roles, name, etc.) when they log in.
 -   **`get-guild-roles`**: Calls your bot to get a list of all server roles for the Admin Panel.
 -   **`check-bot-health`**: Used by the "Health Check" page to see if the website can reach your bot.
+-   **`check-function-secrets`**: A diagnostic tool for the Health Check page.
 -   **`troubleshoot-user-sync`**: A diagnostic tool to test fetching a specific user's data via the bot.
--   **`discord-proxy`**: Receives notification requests from database triggers (via `pg_net`) and forwards them to the bot. This is how all Discord logs and notifications are sent.
--   **`test-notification`**: A new function for the admin panel that allows testing notification templates by sending them to a specified user or channel.
+-   **`discord-proxy`**: Receives notification requests directly from database triggers and securely forwards them to your self-hosted bot.
+-   **`test-notification`**: A function for the admin panel that allows testing notification templates.
 
 ## Step 1: Deploying the Functions
 
-You need to deploy each function using the Supabase Dashboard. Repeat these steps for **all six** functions listed in the `supabase/functions` directory.
+You need to deploy each function using the Supabase Dashboard. Repeat these steps for **all seven** functions listed in the `supabase/functions` directory.
 
 1.  Go to your Supabase Project Dashboard.
 2.  Click on the **Edge Functions** icon in the left sidebar (a lambda λ symbol).
@@ -28,37 +29,50 @@ You need to deploy each function using the Supabase Dashboard. Repeat these step
 9.  **Paste the code** into the Supabase editor.
 10. Click **"Deploy"** in the top right corner.
 
-**Repeat this process for all six functions: `sync-user-profile`, `get-guild-roles`, `check-bot-health`, `troubleshoot-user-sync`, `discord-proxy`, and `test-notification`.**
+**Repeat this process for all seven functions.**
 
-## Step 2: Setting Secrets
+## Step 2: Setting Secrets (CRITICAL)
 
-This is the most critical step. These secrets allow your Supabase functions to securely communicate with your bot.
+This is the most important step. These secrets allow your Supabase functions to securely communicate with your bot and with each other.
 
 1.  In your Supabase project, click the **Settings** icon (a gear ⚙️) in the left sidebar.
 2.  Click on **"Edge Functions"** in the settings menu.
 3.  Under the **"Secrets"** section, click **"+ Add a new secret"**.
 
-### Secrets to Add
+### Secrets to Add (Total of 3)
 
-| Secret Name                   | Value                                                                              |
-| ----------------------------- | ---------------------------------------------------------------------------------- |
-| `VITE_DISCORD_BOT_URL`        | The full URL where your bot is hosted. **Example:** `http://123.45.67.89:14355`       |
-| `VITE_DISCORD_BOT_API_KEY`    | The secret password you created in your bot's `config.json` file.                  |
+| Secret Name                   | Value                                                                              | Where to get it? |
+| ----------------------------- | ---------------------------------------------------------------------------------- | ---------------- |
+| `VITE_DISCORD_BOT_URL`        | The full URL where your bot is hosted. **Example:** `http://123.45.67.89:14355`       | This is the public IP or domain of the server where you run the Discord Bot. |
+| `VITE_DISCORD_BOT_API_KEY`    | The secret password you created in your bot's `config.json` file.                  | You create this password yourself. It must match what's in the bot's config. |
+| `DISCORD_PROXY_SECRET`        | A new, strong, unique password you create just for this.                           | **Generate a new UUID** or create a strong password. This is NOT the same as the bot's API key. |
 
-## Step 3: Network Configuration for Notifications (CRITICAL)
+**Important:** The `DISCORD_PROXY_SECRET` is used for communication *between your database and your `discord-proxy` function*. It acts as an internal password.
 
-The database sends notifications using the `pg_net` extension, which makes an HTTP request. By default, Supabase blocks all outgoing network traffic from the database for security. You **must** create a rule to allow it to call your Edge Functions. **If notifications and logs are not working, this is the #1 reason.**
+## Step 3: Configure Settings in the Admin Panel
 
-1.  In your Supabase project, click the **Database** icon in the left sidebar.
-2.  In the menu, click on **"Network Restrictions"**.
-3.  Under "Database Egress (Outbound Traffic)", click **"Add new rule"**.
-4.  Fill in the details:
-    *   **Rule name**: `Allow pg_net to call Functions`
-    *   **Protocol**: `TCP`
-    *   **Address**: `0.0.0.0/0`
-    *   **Ports**: `80, 443`
-5.  Click **"Create rule"**.
+After deploying the functions and setting the secrets, you must configure the final pieces in the website's Admin Panel.
 
-**Why `0.0.0.0/0`?** This allows the database to make outbound requests to *any* IP address on the standard web ports. This is necessary for it to reach the Supabase internal network where Edge Functions run, which does not have a static IP address.
+1. Log into your website with an account that has Super Admin permissions.
+2. Go to the **Admin Panel**.
+3. Go to the **Appearance** tab.
+4. Fill in the following two fields under the "Discord & Game Integration" section:
+    - **Discord Proxy Function URL**:
+        - Go back to your Supabase Dashboard -> Edge Functions.
+        - Click on the `discord-proxy` function.
+        - **Copy the "Invocations URL"** and paste it here.
+    - **Discord Proxy Secret**:
+        - **Paste the exact same secret value** you created for `DISCORD_PROXY_SECRET` in Step 2.
 
-After completing these steps, your backend functions will be fully configured to communicate with your bot. Now, you need to set up and run the bot itself by following the instructions in `discord-bot/README.md`.
+**This is a critical step.** The database needs to know the URL of the proxy function and the secret to use when calling it.
+
+## Final Check
+
+Once you have:
+1. Deployed all 7 functions.
+2. Set all 3 secrets.
+3. Configured the Proxy URL and Secret in the Admin Panel.
+4. Run the database schema from `src/lib/database_schema.ts`.
+5. Started your self-hosted Discord bot.
+
+...your notification system should be fully operational. You can use the **Health Check** page in the Admin Panel to test each part of the connection.

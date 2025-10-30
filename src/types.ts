@@ -184,10 +184,13 @@ export interface AppConfig {
     BACKGROUND_IMAGE_URL: string;
     SHOW_HEALTH_CHECK: boolean;
     SUBMISSIONS_CHANNEL_ID: string | null;
+    SUBMISSIONS_MENTION_ROLE_ID: string | null;
     AUDIT_LOG_CHANNEL_ID: string | null;
     AUDIT_LOG_CHANNEL_ID_SUBMISSIONS: string | null;
     AUDIT_LOG_CHANNEL_ID_BANS: string | null;
     AUDIT_LOG_CHANNEL_ID_ADMIN: string | null;
+    DISCORD_PROXY_URL: string | null;
+    DISCORD_PROXY_SECRET: string | null;
 }
 
 // =============================================
@@ -205,7 +208,6 @@ export interface MtaServerStatus {
     name: string;
     players: number;
     maxPlayers: number;
-    ping: number;
     version: string;
 }
 

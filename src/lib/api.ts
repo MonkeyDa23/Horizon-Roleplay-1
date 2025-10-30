@@ -118,8 +118,7 @@ export const saveProduct = async (productData: any): Promise<Product> => {
 
 export const deleteProduct = async (productId: string): Promise<void> => {
     if (!supabase) throw new Error("Supabase not configured");
-    // Logging is handled by a database trigger on delete
-    return handleResponse(await supabase.from('products').delete().eq('id', productId));
+    return handleResponse(await supabase.rpc('delete_product', { p_product_id: productId }));
 };
 
 // =============================================
@@ -143,8 +142,7 @@ export const saveQuiz = async (quizData: any): Promise<Quiz> => {
 
 export const deleteQuiz = async (id: string): Promise<void> => {
   if (!supabase) throw new Error("Supabase not configured");
-  // Logging is handled by a database trigger on delete
-  return handleResponse(await supabase.from('quizzes').delete().eq('id', id));
+  return handleResponse(await supabase.rpc('delete_quiz', { p_quiz_id: id }));
 };
 
 
@@ -299,7 +297,6 @@ export const getMtaServerStatus = async (): Promise<MtaServerStatus> => {
         name: "Vixel Roleplay Server",
         players: Math.floor(Math.random() * 100),
         maxPlayers: 150,
-        ping: Math.floor(Math.random() * 50) + 10,
         version: "1.6"
       });
     }, 1000);
@@ -322,11 +319,9 @@ export const getMtaPlayerLogs = async (userId: string): Promise<MtaLogEntry[]> =
 // =============================================
 // HEALTH CHECK API
 // =============================================
-export const runPgNetTest = async (): Promise<string> => {
+export const testHttpRequest = async (): Promise<any> => {
     if (!supabase) throw new Error("Supabase not configured");
-    const { data, error } = await supabase.rpc('test_pg_net');
-    if (error) throw error;
-    return data;
+    return handleResponse(await supabase.rpc('test_http_request'));
 };
 
 export const checkFunctionSecrets = async (): Promise<any> => {

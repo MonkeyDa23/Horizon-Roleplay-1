@@ -1,11 +1,11 @@
 // @ts-nocheck
-// Vixel Roleplay Website - Full Database Schema (V35, Customizable Notifications)
+// Vixel Roleplay Website - Full Database Schema (V36, Webhook Notifications)
 export const schema = `
 /*
 ====================================================================================================
- Vixel Roleplay Website - Full Database Schema (V35, Customizable Notifications)
+ Vixel Roleplay Website - Full Database Schema (V36, Webhook Notifications)
  Author: AI
- Date: 2024/06/21
+ Date: 2024/06/22
  
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -13,16 +13,16 @@ export const schema = `
  or for a clean installation. DO NOT run this on a production database with live user data
  unless you intend to wipe it completely.
 
- !! WHAT'S NEW (V35) !!
- - Fully Customizable Notifications: All automated Discord messages (DMs and channel posts)
-   are now controlled by entries in the 'translations' table. Admins can edit these messages
-   live from a new "Notifications" panel.
- - New User Welcome DM: A new trigger has been added that sends a customizable DM to a user
-   when they log in for the first time.
- - Refactored Notification Functions: All notification triggers in the database have been
-   rewritten to fetch their message content dynamically from the translations table.
- - New 'test-notification' Function Support: Backend is ready for the new admin panel
-   feature that allows testing each notification.
+ !! WHAT'S NEW (V36) !!
+ - REMOVED pg_net: The entire notification system has been re-architected to use Supabase
+   Database Webhooks instead of the 'pg_net' extension. This removes the need for the
+   "Database Egress" setting that was causing issues.
+ - SIMPLIFIED SETUP: You no longer need to configure network settings. Instead, you will
+   create a few webhooks in the Supabase dashboard. See the new INSTRUCTIONS.md file.
+ - CENTRALIZED LOGIC: All notification logic is now handled inside the 'discord-proxy'
+   Edge Function, making it easier to debug and manage than SQL triggers.
+ - NEW RPCs: Added RPC functions for deleting quizzes and products to ensure these actions
+   are properly logged in the audit log.
  
  INSTRUCTIONS:
  1. Go to your Supabase Project Dashboard -> SQL Editor.
@@ -66,13 +66,9 @@ DROP FUNCTION IF EXISTS public.has_permission(uuid, text);
 DROP FUNCTION IF EXISTS public.save_role_permissions(text, text[]);
 DROP FUNCTION IF EXISTS public.get_user_id();
 DROP FUNCTION IF EXISTS public.test_pg_net();
-DROP FUNCTION IF EXISTS private.handle_new_submission_notification();
-DROP FUNCTION IF EXISTS private.handle_submission_status_update();
-DROP FUNCTION IF EXISTS private.handle_audit_log_notification();
-DROP FUNCTION IF EXISTS private.handle_new_profile_notification();
-DROP FUNCTION IF EXISTS private.handle_new_profile_welcome_dm();
-DROP FUNCTION IF EXISTS private.handle_quiz_deleted_notification();
-DROP FUNCTION IF EXISTS private.handle_product_deleted_notification();
+DROP FUNCTION IF EXISTS public.delete_quiz(uuid);
+DROP FUNCTION IF EXISTS public.delete_product(uuid);
+
 
 -- Drop private schema for secrets
 DROP SCHEMA IF EXISTS private CASCADE;
@@ -84,7 +80,7 @@ DROP SCHEMA IF EXISTS private CASCADE;
 GRANT USAGE, CREATE ON SCHEMA public TO postgres;
 CREATE EXTENSION IF NOT EXISTS http WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS pg_graphql WITH SCHEMA extensions;
-CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
+-- pg_net is NO LONGER REQUIRED. Webhooks are used instead.
 
 -- Create a private schema to store secrets and internal functions.
 CREATE SCHEMA private;
@@ -178,7 +174,7 @@ CREATE TABLE public.audit_log (
     admin_id uuid REFERENCES auth.users(id),
     admin_username text,
     action text,
-    log_type text -- Used by trigger to route to correct channel
+    log_type text -- Used by webhook to route to correct channel
 );
 
 CREATE TABLE public.translations (
@@ -256,23 +252,6 @@ CREATE POLICY "Admins can manage submissions" ON public.submissions FOR ALL USIN
 -- =================================================================
 -- 6. RPC FUNCTIONS
 -- =================================================================
-CREATE OR REPLACE FUNCTION public.test_pg_net()
-RETURNS text LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
-AS $$
-DECLARE response_body text; request_id bigint;
-BEGIN
-    IF NOT public.has_permission(public.get_user_id(), 'admin_panel') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
-    SELECT net.http_get(url := 'https://httpbin.org/get') INTO request_id;
-    SELECT content INTO response_body FROM net.http_collect_response(request_id, async := false);
-    IF response_body IS NOT NULL AND response_body LIKE '%"url": "https://httpbin.org/get"%' THEN
-        RETURN 'SUCCESS: pg_net is configured correctly and can make outbound requests.';
-    ELSE
-        RETURN 'FAILURE: pg_net could not make an outbound request. Check Database Network Restrictions.';
-    END IF;
-EXCEPTION WHEN OTHERS THEN RETURN 'ERROR: An unexpected error occurred. Details: ' || SQLERRM;
-END;
-$$;
-
 CREATE OR REPLACE FUNCTION public.get_config() RETURNS json LANGUAGE sql STABLE AS $$ SELECT row_to_json(c) FROM public.config c WHERE id = 1; $$;
 
 CREATE OR REPLACE FUNCTION public.get_all_submissions() RETURNS SETOF public.submissions LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
@@ -375,6 +354,18 @@ BEGIN
   RETURNING * INTO result;
   RETURN result;
 END; $$;
+
+CREATE OR REPLACE FUNCTION public.delete_quiz(p_quiz_id uuid) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE quiz_record record;
+BEGIN
+    IF NOT public.has_permission(public.get_user_id(), 'admin_quizzes') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
+    SELECT "titleKey" INTO quiz_record FROM public.quizzes WHERE id = p_quiz_id;
+    IF FOUND THEN
+        PERFORM public.log_action('🗑️ قام بحذف نموذج التقديم: *' || quiz_record."titleKey" || '*', 'admin');
+        DELETE FROM public.quizzes WHERE id = p_quiz_id;
+    END IF;
+END; $$;
+
 CREATE OR REPLACE FUNCTION public.save_product_with_translations(p_product_data jsonb) RETURNS public.products LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE result public.products;
 BEGIN
@@ -385,6 +376,18 @@ BEGIN
   INSERT INTO public.products (id, "nameKey", "descriptionKey", price, "imageUrl") VALUES ((p_product_data->>'id')::uuid, p_product_data->>'nameKey', p_product_data->>'descriptionKey', (p_product_data->>'price')::numeric, p_product_data->>'imageUrl') ON CONFLICT (id) DO UPDATE SET "nameKey" = excluded."nameKey", "descriptionKey" = excluded."descriptionKey", price = excluded.price, "imageUrl" = excluded."imageUrl" RETURNING * INTO result;
   RETURN result;
 END; $$;
+
+CREATE OR REPLACE FUNCTION public.delete_product(p_product_id uuid) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE product_record record;
+BEGIN
+    IF NOT public.has_permission(public.get_user_id(), 'admin_store') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
+    SELECT "nameKey" INTO product_record FROM public.products WHERE id = p_product_id;
+    IF FOUND THEN
+        PERFORM public.log_action('🗑️ قام بحذف المنتج: *' || product_record."nameKey" || '*', 'admin');
+        DELETE FROM public.products WHERE id = p_product_id;
+    END IF;
+END; $$;
+
 CREATE OR REPLACE FUNCTION public.save_rules(p_rules_data jsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE v_category jsonb; v_rule jsonb;
 BEGIN
@@ -392,6 +395,7 @@ BEGIN
   FOR v_category IN SELECT * FROM jsonb_array_elements(p_rules_data) LOOP INSERT INTO public.translations (key, en, ar) VALUES (v_category->>'titleKey', v_category->>'titleEn', v_category->>'titleAr') ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar; IF jsonb_typeof(v_category->'rules') = 'array' THEN FOR v_rule IN SELECT * FROM jsonb_array_elements(v_category->'rules') LOOP INSERT INTO public.translations (key, en, ar) VALUES (v_rule->>'textKey', v_rule->>'textEn', v_rule->>'textAr') ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar; END LOOP; END IF; END LOOP;
   DELETE FROM public.rules WHERE true; INSERT INTO public.rules (id, "titleKey", position, rules) SELECT (c->>'id')::uuid, c->>'titleKey', (c->>'position')::int, (SELECT jsonb_agg(jsonb_build_object('id', r->>'id', 'textKey', r->>'textKey')) FROM jsonb_array_elements(c->'rules') AS r) FROM jsonb_array_elements(p_rules_data) AS c;
 END; $$;
+
 CREATE OR REPLACE FUNCTION public.ban_user(p_target_user_id uuid, p_reason text, p_duration_hours int) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE v_expires_at timestamptz; target_username text;
 BEGIN
@@ -403,6 +407,7 @@ BEGIN
   SELECT username FROM public.profiles WHERE id = p_target_user_id INTO target_username;
   PERFORM public.log_action('🚫 قام بحظر المستخدم **' || coalesce(target_username, p_target_user_id::text) || '** للسبب: *' || p_reason || '*', 'ban');
 END; $$;
+
 CREATE OR REPLACE FUNCTION public.unban_user(p_target_user_id uuid) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE target_username text;
 BEGIN
@@ -412,6 +417,7 @@ BEGIN
   SELECT username FROM public.profiles WHERE id = p_target_user_id INTO target_username;
   PERFORM public.log_action('✅ قام بفك الحظر عن المستخدم **' || coalesce(target_username, p_target_user_id::text) || '**', 'ban');
 END; $$;
+
 CREATE OR REPLACE FUNCTION public.save_role_permissions(p_role_id text, p_permissions text[]) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_permissions') THEN RAISE EXCEPTION 'Insufficient permissions'; END IF;
@@ -420,115 +426,10 @@ BEGIN
 END; $$;
 
 -- =================================================================
--- 7. NOTIFICATION TRIGGERS (REBUILT FOR V35 - CUSTOMIZABLE)
+-- 7. NOTIFICATION TRIGGERS (REMOVED - HANDLED BY WEBHOOKS)
+-- All notification logic is now centralized in the 'discord-proxy' Edge Function.
 -- =================================================================
-CREATE OR REPLACE FUNCTION private.handle_new_submission_notification()
-RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
-DECLARE channel_id text; role_id text; user_discord_id text; proxy_url text := 'http://supabase_kong_url/functions/v1/discord-proxy';
-    embed_title text; embed_body text; dm_title text; dm_body text;
-BEGIN
-  SELECT "SUBMISSIONS_CHANNEL_ID", "SUBMISSIONS_MENTION_ROLE_ID" INTO channel_id, role_id FROM public.config WHERE id = 1;
-  SELECT ar INTO embed_title FROM public.translations WHERE key = 'notification_new_submission_channel_title';
-  SELECT ar INTO embed_body FROM public.translations WHERE key = 'notification_new_submission_channel_body';
-  SELECT ar INTO dm_title FROM public.translations WHERE key = 'notification_submission_receipt_dm_title';
-  SELECT ar INTO dm_body FROM public.translations WHERE key = 'notification_submission_receipt_dm_body';
 
-  embed_body := replace(embed_body, '{username}', NEW.username);
-  embed_body := replace(embed_body, '{quizTitle}', NEW."quizTitle");
-  embed_body := replace(embed_body, '{userHighestRole}', NEW.user_highest_role);
-  
-  -- 1. Send to Submissions Channel
-  IF channel_id IS NOT NULL THEN
-    PERFORM net.http_post(url := proxy_url, body := jsonb_build_object('type', 'new_submission', 'payload', jsonb_build_object(
-        'channelId', channel_id, 'content', '<@&' || role_id || '>',
-        'embed', jsonb_build_object('title', embed_title, 'description', embed_body, 'color', 3447003, 'timestamp', NEW."submittedAt"))));
-  END IF;
-  -- 2. Send DM to user
-  dm_body := replace(dm_body, '{username}', NEW.username);
-  dm_body := replace(dm_body, '{quizTitle}', NEW."quizTitle");
-  SELECT discord_id INTO user_discord_id FROM public.profiles WHERE id = NEW.user_id;
-  IF user_discord_id IS NOT NULL THEN
-     PERFORM net.http_post(url := proxy_url, body := jsonb_build_object('type', 'submission_receipt', 'payload', jsonb_build_object(
-          'userId', user_discord_id, 'embed', jsonb_build_object('title', dm_title, 'description', dm_body, 'color', 3447003, 'timestamp', now()))));
-  END IF;
-  RETURN NEW;
-END; $$;
-
-CREATE OR REPLACE FUNCTION private.handle_submission_status_update()
-RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
-DECLARE user_discord_id text; embed_title text; embed_body text; embed_color int; proxy_url text := 'http://supabase_kong_url/functions/v1/discord-proxy';
-BEGIN
-  IF NEW.status = OLD.status THEN RETURN NEW; END IF;
-  SELECT discord_id INTO user_discord_id FROM public.profiles WHERE id = NEW.user_id;
-  IF user_discord_id IS NULL THEN RETURN NEW; END IF;
-  
-  IF NEW.status = 'taken' THEN SELECT ar INTO embed_title FROM translations WHERE key = 'notification_submission_taken_dm_title'; SELECT ar INTO embed_body FROM translations WHERE key = 'notification_submission_taken_dm_body'; embed_color := 3447003;
-  ELSIF NEW.status = 'accepted' THEN SELECT ar INTO embed_title FROM translations WHERE key = 'notification_submission_accepted_dm_title'; SELECT ar INTO embed_body FROM translations WHERE key = 'notification_submission_accepted_dm_body'; embed_color := 5763719;
-  ELSIF NEW.status = 'refused' THEN SELECT ar INTO embed_title FROM translations WHERE key = 'notification_submission_refused_dm_title'; SELECT ar INTO embed_body FROM translations WHERE key = 'notification_submission_refused_dm_body'; embed_color := 15548997;
-  ELSE RETURN NEW; END IF;
-  
-  embed_body := replace(replace(replace(embed_body, '{username}', NEW.username), '{quizTitle}', NEW."quizTitle"), '{adminUsername}', NEW."adminUsername");
-  
-  PERFORM net.http_post(url := proxy_url, body := jsonb_build_object('type', 'submission_result', 'payload', jsonb_build_object(
-      'userId', user_discord_id, 'embed', jsonb_build_object('title', embed_title, 'description', embed_body, 'color', embed_color, 'timestamp', now()))));
-  PERFORM public.log_action('📧 أرسل رسالة خاصة إلى **' || NEW.username || '** بخصوص تقديم (' || NEW."quizTitle" || ') بعنوان: "' || embed_title || '"', 'submission');
-  RETURN NEW;
-END; $$;
-
-CREATE OR REPLACE FUNCTION private.handle_audit_log_notification()
-RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
-DECLARE channel_id text; proxy_url text := 'http://supabase_kong_url/functions/v1/discord-proxy';
-BEGIN
-  SELECT CASE NEW.log_type WHEN 'submission' THEN "AUDIT_LOG_CHANNEL_ID_SUBMISSIONS" WHEN 'ban' THEN "AUDIT_LOG_CHANNEL_ID_BANS" WHEN 'admin' THEN "AUDIT_LOG_CHANNEL_ID_ADMIN" ELSE "AUDIT_LOG_CHANNEL_ID" END INTO channel_id FROM public.config WHERE id = 1;
-  IF channel_id IS NOT NULL THEN
-     PERFORM net.http_post(url := proxy_url, body := jsonb_build_object('type', 'audit_log', 'payload', jsonb_build_object(
-          'channelId', channel_id, 'embed', jsonb_build_object('description', NEW.action, 'color', 16776960,
-            'author', jsonb_build_object('name', 'سجل إدارة | ' || NEW.admin_username), 'timestamp', now()))));
-  END IF; RETURN NEW;
-END; $$;
-
-CREATE OR REPLACE FUNCTION private.handle_new_profile_notification()
-RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
-BEGIN
-  PERFORM public.log_action('✨ انضم مستخدم جديد للموقع: **' || NEW.username || '** (`' || NEW.discord_id || '`)', 'admin');
-  RETURN NEW;
-END; $$;
-
-CREATE OR REPLACE FUNCTION private.handle_new_profile_welcome_dm()
-RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
-DECLARE proxy_url text := 'http://supabase_kong_url/functions/v1/discord-proxy'; title text; body text;
-BEGIN
-    SELECT ar INTO title FROM public.translations WHERE key = 'notification_welcome_dm_title';
-    SELECT ar INTO body FROM public.translations WHERE key = 'notification_welcome_dm_body';
-    body := replace(body, '{username}', NEW.username);
-    PERFORM net.http_post(url := proxy_url, body := jsonb_build_object('type', 'submission_receipt', 'payload', jsonb_build_object(
-          'userId', NEW.discord_id, 'embed', jsonb_build_object('title', title, 'description', body, 'color', 5763719, 'timestamp', now()))));
-    RETURN NEW;
-END;
-$$;
-
-CREATE OR REPLACE FUNCTION private.handle_quiz_deleted_notification()
-RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
-BEGIN
-    PERFORM public.log_action('🗑️ قام بحذف نموذج التقديم: *' || OLD."titleKey" || '*', 'admin');
-    RETURN OLD;
-END; $$;
-
-CREATE OR REPLACE FUNCTION private.handle_product_deleted_notification()
-RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER AS $$
-BEGIN
-    PERFORM public.log_action('🗑️ قام بحذف المنتج: *' || OLD."nameKey" || '*', 'admin');
-    RETURN OLD;
-END; $$;
-
--- ALL TRIGGERS
-CREATE TRIGGER on_submission_created AFTER INSERT ON public.submissions FOR EACH ROW EXECUTE FUNCTION private.handle_new_submission_notification();
-CREATE TRIGGER on_submission_updated AFTER UPDATE OF status ON public.submissions FOR EACH ROW EXECUTE FUNCTION private.handle_submission_status_update();
-CREATE TRIGGER on_audit_log_created AFTER INSERT ON public.audit_log FOR EACH ROW EXECUTE FUNCTION private.handle_audit_log_notification();
-CREATE TRIGGER on_profile_created AFTER INSERT ON public.profiles FOR EACH ROW EXECUTE FUNCTION private.handle_new_profile_notification();
-CREATE TRIGGER on_profile_created_welcome_dm AFTER INSERT ON public.profiles FOR EACH ROW EXECUTE FUNCTION private.handle_new_profile_welcome_dm();
-CREATE TRIGGER on_quiz_deleted AFTER DELETE ON public.quizzes FOR EACH ROW EXECUTE FUNCTION private.handle_quiz_deleted_notification();
-CREATE TRIGGER on_product_deleted AFTER DELETE ON public.products FOR EACH ROW EXECUTE FUNCTION private.handle_product_deleted_notification();
 
 -- =================================================================
 -- 8. INITIAL DATA SEEDING (TRANSLATIONS, INCLUDING NOTIFICATIONS)
