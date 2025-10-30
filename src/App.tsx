@@ -1,7 +1,7 @@
 // src/App.tsx
 import React from 'react';
 // FIX: Fix "no exported member" errors from 'react-router-dom' by switching to a namespace import.
-import * as ReactRouterDOM from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { LocalizationProvider } from './contexts/LocalizationContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
@@ -36,7 +36,7 @@ import type { PermissionKey } from './types';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode; permission: PermissionKey; }> = ({ children, permission }) => {
   const { user, hasPermission, loading } = useAuth();
-  const location = ReactRouterDOM.useLocation();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -47,7 +47,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; permission: Permissi
   }
 
   if (!user || !hasPermission(permission)) {
-    return <ReactRouterDOM.Navigate to="/" state={{ from: location }} replace />;
+    return <Navigate to="/" state={{ from: location }} replace />;
   }
 
   return <>{children}</>;
@@ -111,7 +111,7 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <ReactRouterDOM.BrowserRouter>
+    <BrowserRouter>
       <div 
         className="flex flex-col min-h-screen text-white font-sans"
         style={{ 
@@ -126,23 +126,23 @@ const AppContent: React.FC = () => {
           <Navbar />
           {permissionWarning && <PermissionWarningBanner message={permissionWarning} />}
           <main className="flex-grow">
-            <ReactRouterDOM.Routes>
-              <ReactRouterDOM.Route path="/" element={<HomePage />} />
-              <ReactRouterDOM.Route path="/store" element={<StorePage />} />
-              <ReactRouterDOM.Route path="/rules" element={<RulesPage />} />
-              <ReactRouterDOM.Route path="/applies" element={<AppliesPage />} />
-              <ReactRouterDOM.Route path="/applies/:quizId" element={<QuizPage />} />
-              <ReactRouterDOM.Route path="/about" element={<AboutUsPage />} />
-              <ReactRouterDOM.Route path="/admin" element={
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/store" element={<StorePage />} />
+              <Route path="/rules" element={<RulesPage />} />
+              <Route path="/applies" element={<AppliesPage />} />
+              <Route path="/applies/:quizId" element={<QuizPage />} />
+              <Route path="/about" element={<AboutUsPage />} />
+              <Route path="/admin" element={
                 <ProtectedRoute permission="admin_panel">
                   <AdminPage />
                 </ProtectedRoute>
               } />
-              <ReactRouterDOM.Route path="/my-applications" element={user ? <MyApplicationsPage /> : <ReactRouterDOM.Navigate to="/" replace />} />
-              <ReactRouterDOM.Route path="/profile" element={user ? <ProfilePage /> : <ReactRouterDOM.Navigate to="/" replace />} />
+              <Route path="/my-applications" element={user ? <MyApplicationsPage /> : <Navigate to="/" replace />} />
+              <Route path="/profile" element={user ? <ProfilePage /> : <Navigate to="/" replace />} />
               
               {config.SHOW_HEALTH_CHECK && (
-                <ReactRouterDOM.Route 
+                <Route 
                   path="/health-check" 
                   element={
                      <ProtectedRoute permission="admin_panel">
@@ -152,13 +152,13 @@ const AppContent: React.FC = () => {
                 />
               )}
               {/* Fallback route for any undefined paths */}
-              <ReactRouterDOM.Route path="*" element={<ReactRouterDOM.Navigate to="/" replace />} />
-            </ReactRouterDOM.Routes>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
           </main>
           <Footer />
         </div>
       </div>
-    </ReactRouterDOM.BrowserRouter>
+    </BrowserRouter>
   );
 };
 

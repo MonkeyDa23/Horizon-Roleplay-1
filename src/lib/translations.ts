@@ -254,6 +254,21 @@ export const translations: Translations = {
   // Health Check
   health_check_title: { ar: 'فحص صحة النظام', en: 'System Health Check' },
   health_check_desc: { ar: 'أداة تشخيصية للمطورين للتأكد من أن جميع أجزاء النظام متصلة بشكل صحيح.', en: 'A diagnostic tool for developers to ensure all system components are correctly connected.'},
+  health_check_location_warning_title: { en: "Important: Where to find this setting", ar: "ملاحظة هامة: أين تجد هذا الإعداد" },
+  health_check_location_warning_body: { en: "This setting is <strong>NOT</strong> in the SQL Editor or the Table Editor. It is part of your main project's settings, on the Supabase website dashboard. The visual guide below shows you exactly where to click, starting from your project's home page.", ar: "هذا الإعداد <strong>ليس</strong> موجوداً في محرر SQL أو محرر الجداول. إنه جزء من إعدادات مشروعك الرئيسية في لوحة تحكم Supabase. الدليل المصور بالأسفل يوضح لك بالضبط أين تضغط، بدءاً من الصفحة الرئيسية لمشروعك." },
+  health_check_visual_guide_title: { en: "Visual Guide: How to Enable Database Egress", ar: "دليل مصور: كيفية تفعيل الاتصال الخارجي لقاعدة البيانات" },
+  health_check_visual_guide_intro: { en: "Follow these four steps exactly as shown in the images to enable pg_net.", ar: "اتبع هذه الخطوات الأربع تماماً كما هو موضح في الصور لتفعيل pg_net." },
+  health_check_visual_guide_step1_title: { en: "Step 1: Go to your project's 'Database' settings.", ar: "الخطوة 1: اذهب إلى إعدادات 'Database' في مشروعك." },
+  health_check_visual_guide_step2_title: { en: "Step 2: Click on 'Network Restrictions'.", ar: "الخطوة 2: اضغط على 'Network Restrictions'." },
+  health_check_visual_guide_step2_warning_title: { en: "Attention:", ar: "انتبه:" },
+  health_check_visual_guide_step2_warning_body: { en: "Do <strong>NOT</strong> add anything to 'Allowed IP Addresses'. This section is for inbound traffic and will lock you out if configured incorrectly.", ar: "<strong>لا</strong> تقم بإضافة أي شيء في قسم 'Allowed IP Addresses'. هذا القسم للاتصالات الواردة وقد يمنعك من الوصول لقاعدة بياناتك إذا تم تكوينه بشكل خاطئ." },
+  health_check_visual_guide_step3_title: { en: "Step 3: Scroll down to 'Database Egress' and click 'Add new rule'.", ar: "الخطوة 3: انزل إلى قسم 'Database Egress' واضغط على 'Add new rule'." },
+  health_check_visual_guide_step3_body: { en: "This section controls outbound traffic FROM your database. This is what we need to enable.", ar: "هذا القسم يتحكم في الاتصالات الصادرة من قاعدة بياناتك. هذا هو ما نحتاج لتفعيله." },
+  health_check_visual_guide_step4_title: { en: "Step 4: Fill the form exactly like this and click 'Create rule'.", ar: "الخطوة 4: املأ النموذج تماماً كما في الصورة ثم اضغط 'Create rule'." },
+  health_check_visual_guide_step4_list_item1: { en: "<strong>Rule name:</strong> <code>Allow All Web</code> (or any name you prefer)", ar: "<strong>اسم القاعدة:</strong> <code>Allow All Web</code> (أو أي اسم تفضله)" },
+  health_check_visual_guide_step4_list_item2: { en: "<strong>Address:</strong> <code>0.0.0.0/0</code> (This means 'anywhere on the internet')", ar: "<strong>العنوان:</strong> <code>0.0.0.0/0</code> (هذا يعني 'أي مكان على الإنترنت')" },
+  health_check_visual_guide_step4_list_item3: { en: "<strong>Ports:</strong> <code>80, 443</code> (The standard ports for HTTP and HTTPS)", ar: "<strong>المنافذ:</strong> <code>80, 443</code> (المنافذ القياسية لـ HTTP و HTTPS)" },
+
   health_check_step0: { ar: 'الخطوة 0: الاتصال الخارجي لقاعدة البيانات (pg_net)', en: 'Step 0: Database Egress (pg_net)' },
   health_check_step0_desc: { ar: 'يختبر هذا ما إذا كانت قاعدة البيانات الخاصة بك تستطيع إجراء اتصالات شبكة خارجية، وهو أمر ضروري لإرسال الإشعارات إلى ديسكورد. يجب أن تنجح هذه الخطوة.', en: 'This tests if your database can make outbound network requests, which is essential for sending notifications to Discord. This MUST succeed.'},
   health_check_run_pgnet_test: { ar: 'تشغيل اختبار الاتصال الخارجي', en: 'Run Egress Test' },
@@ -272,50 +287,4 @@ export const translations: Translations = {
   health_check_step4: { ar: 'الخطوة 4: اختبار مزامنة المستخدم', en: 'Step 4: User Sync Test'},
   health_check_step4_desc: { ar: 'اختبر جلب بيانات مستخدم معين من ديسكورد عبر البوت.', en: 'Test fetching a specific user\'s data from Discord via the bot.'},
   health_check_get_discord_id: { ar: 'كيف أحصل على معرف ديسكورد؟', en: 'How to get a Discord ID?'},
-  health_check_get_discord_id_steps: { ar: 'في ديسكورد، اذهب إلى الإعدادات > متقدم > فعل وضع المطور. ثم انقر بزر الماوس الأيمن على أي مستخدم واختر "نسخ معرف المستخدم".', en: 'In Discord, go to Settings > Advanced > enable Developer Mode. Then, right-click any user and select "Copy User ID".'},
-  health_check_discord_id_input: { ar: 'أدخل معرف ديسكورد هنا...', en: 'Enter Discord User ID...'},
-  health_check_run_sync_test: { ar: 'تشغيل اختبار المزامنة', en: 'Run Sync Test'},
-  health_check_sync_test_result: { ar: 'نتيجة المزامنة', en: 'Sync Result'},
-  health_check_result_interpretation: { ar: 'تفسير النتائج', en: 'Interpreting the Results'},
-  health_check_result_success: { ar: '<ul><li class="mb-2"><strong>Success (200 OK):</strong> ممتاز! تم العثور على المستخدم في السيرفر وتم جلب بياناته بنجاح. هذا يؤكد أن كل شيء يعمل.</li>', en: '<ul><li class="mb-2"><strong>Success (200 OK):</strong> Excellent! The user was found in the guild and their data was fetched successfully. This confirms everything is working.</li>'},
-  health_check_result_404: { ar: '<li class="mb-2"><strong>Error (404 Not Found):</strong> هذا يعني أن البوت متصل بديسكورد بشكل صحيح، لكنه لم يتمكن من العثور على المستخدم بهذا المعرف في السيرفر الخاص بك. تحقق من المعرف أو تأكد من أن المستخدم عضو في السيرفر.</li>', en: '<li class="mb-2"><strong>Error (404 Not Found):</strong> This means the bot connected to Discord correctly, but couldn\'t find a user with that ID in your server. Check the ID or ensure the user is a member.</li>'},
-  health_check_result_503: { ar: '<li class="mb-2"><strong>Error (503 Service Unavailable):</strong> السبب الأكثر شيوعاً هو أن <strong>Server Members Intent</strong> غير مفعل في بوابة مطوري ديسكورد. اذهب إلى إعدادات البوت الخاص بك وقم بتفعيله.</li>', en: '<li class="mb-2"><strong>Error (503 Service Unavailable):</strong> The most common cause is that the <strong>Server Members Intent</strong> is not enabled in the Discord Developer Portal. Go to your bot\'s settings and turn it on.</li>'},
-  health_check_result_other: { ar: '<li><strong>أخطاء أخرى:</strong> عادة ما تشير إلى مشكلة في تكوين البوت أو أنه غير متصل بالإنترنت. تحقق من سجلات البوت لمزيد من التفاصيل.</li></ul>', en: '<li><strong>Other Errors:</strong> Usually indicates a problem with the bot\'s configuration or it being offline. Check the bot\'s logs for more details.</li></ul>'},
-  health_check_banner_link: { ar: 'اضغط هنا لتشغيل فحص النظام التشخيصي.', en: 'Click here to run system diagnostics.' },
-  health_check_visual_guide_title: { en: "Detailed Visual Guide (Step-by-Step)", ar: "دليل مرئي مفصّل (خطوة بخطوة)" },
-  health_check_visual_guide_intro: { en: "Since this option can be hard to find, here is a detailed visual guide for each step. Follow the images in order.", ar: "بما أن الخيار صعب الإيجاد، هذا دليل مفصل بالصور لكل خطوة. اتبع الصور بالترتيب." },
-  health_check_visual_guide_step1_title: { en: "1. From your project's main dashboard, click the 'Database' icon.", ar: "١. من لوحة التحكم الرئيسية لمشروعك، اضغط على أيقونة 'Database'." },
-  health_check_visual_guide_step2_title: { en: "2. From the database sidebar, click on 'Network Restrictions'.", ar: "٢. من القائمة الجانبية لقاعدة البيانات، اضغط على 'Network Restrictions'." },
-  health_check_visual_guide_step2_warning_title: { en: "Important Note:", ar: "ملاحظة هامة:" },
-  health_check_visual_guide_step2_warning_body: { en: "The option you are looking for is called <strong>'Network Restrictions'</strong>, not 'Database Egress'. You will find the 'Database Egress' section <strong>inside</strong> the 'Network Restrictions' page.", ar: "الخيار الذي تبحث عنه اسمه <strong>'Network Restrictions'</strong>، وليس 'Database Egress'. ستجد قسم 'Database Egress' <strong>داخل</strong> صفحة 'Network Restrictions'." },
-  health_check_visual_guide_step3_title: { en: "3. You are now on the 'Network Restrictions' page. <strong>You must scroll down</strong> until you find the section titled 'Database Egress'.", ar: "٣. أنت الآن في صفحة 'Network Restrictions'. <strong>يجب أن تنزل بالصفحة إلى الأسفل (scroll down)</strong> حتى تجد القسم الذي يحمل عنوان 'Database Egress'." },
-  health_check_visual_guide_step3_body: { en: "There, click the 'Add new rule' button. The image shows the exact location.", ar: "هناك، اضغط على زر 'Add new rule'. الصورة توضح المكان بالضبط." },
-  health_check_visual_guide_step4_title: { en: "4. Fill the form exactly as shown in the image, then click 'Create rule'.", ar: "٤. املأ النموذج تماماً كما في الصورة ثم اضغط 'Create rule'." },
-  health_check_visual_guide_step4_list_item1: { en: "Protocol: <code>TCP</code>", ar: "Protocol: <code>TCP</code>" },
-  health_check_visual_guide_step4_list_item2: { en: "Address: <code>0.0.0.0/0</code>", ar: "Address: <code>0.0.0.0/0</code>" },
-  health_check_visual_guide_step4_list_item3: { en: "Ports: <code>80, 443</code>", ar: "Ports: <code>80, 443</code>" },
-
-  // Session Management
-  session_expired_not_in_guild: { ar: 'انتهت صلاحية جلستك أو لم تعد عضواً في السيرفر. تم تسجيل خروجك.', en: 'Your session has expired or you are no longer in the guild. You have been logged out.'},
-  
-  // MOCK DATA TRANSLATIONS
-  // Products
-  product_vip_bronze_name: { ar: 'عضوية VIP برونزية', en: 'Bronze VIP Membership' },
-  product_vip_bronze_desc: { ar: 'مميزات حصرية داخل السيرفر لمدة شهر.', en: 'Exclusive in-server perks for one month.' },
-  product_vip_silver_name: { ar: 'عضوية VIP فضية', en: 'Silver VIP Membership' },
-  product_vip_silver_desc: { ar: 'مميزات أفضل مع وصول خاص للمركبات.', en: 'Better perks with special vehicle access.' },
-  product_cash_1_name: { ar: 'حزمة نقدية 100 ألف', en: '100k Cash Pack' },
-  product_cash_1_desc: { ar: 'دفعة نقدية داخل اللعبة لتبدأ بقوة.', en: 'An in-game cash boost to get you started.' },
-  product_custom_plate_name: { ar: 'لوحة سيارة مخصصة', en: 'Custom License Plate' },
-  product_custom_plate_desc: { ar: 'لوحة فريدة لسيارتك المفضلة.', en: 'A unique license plate for your favorite vehicle.' },
-
-  // Quizzes
-  quiz_police_name: { ar: 'تقديم قسم الشرطة', en: 'Police Department Application' },
-  quiz_police_desc: { ar: 'اقرأ القوانين جيداً. أي محاولة غش ستؤدي للرفض الفوري.', en: 'Read the rules carefully. Any attempt to cheat will result in immediate rejection.' },
-  q_police_1: { ar: 'ما هو الإجراء الأول عند التعامل مع شخص مشتبه به؟', en: 'What is the first procedure when dealing with a suspect?' },
-  q_police_2: { ar: 'متى يسمح لك باستخدام القوة المميتة؟', en: 'When are you permitted to use lethal force?' },
-  
-  quiz_medic_name: { ar: 'تقديم قسم الإسعاف', en: 'EMS Department Application' },
-  quiz_medic_desc: { ar: 'مطلوب منك الهدوء والاحترافية في جميع الأوقات.', en: 'You are required to be calm and professional at all times.' },
-  q_medic_1: { ar: 'ما هي أولويتك القصوى عند الوصول إلى مكان الحادث؟', en: 'What is your top priority when arriving at an accident scene?' },
-};
+  health_check_get_discord_id_steps: { ar: 'في ديسكورد

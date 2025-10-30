@@ -7,12 +7,12 @@ import { checkDiscordApiHealth, troubleshootUserSync, runPgNetTest, checkFunctio
 import SEO from '../components/SEO';
 import { useAuth } from '../hooks/useAuth';
 // FIX: Fix "no exported member" errors from 'react-router-dom' by switching to a namespace import.
-import * as ReactRouterDOM from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 const HealthCheckPage: React.FC = () => {
   const { t } = useLocalization();
   const { hasPermission } = useAuth();
-  const navigate = ReactRouterDOM.useNavigate();
+  const navigate = useNavigate();
   
   const [pgNetResult, setPgNetResult] = React.useState<string | null>(null);
   const [isTestingPgNet, setIsTestingPgNet] = React.useState(false);
@@ -137,6 +137,13 @@ const HealthCheckPage: React.FC = () => {
                   <h2 className="text-2xl font-bold text-brand-cyan mb-3">{t('health_check_step0')}</h2>
                   <p className="text-gray-300 mb-4">{t('health_check_step0_desc')}</p>
                   
+                  <div className="p-4 mb-6 rounded-lg bg-red-500/10 border-2 border-red-500/30">
+                      <h3 className="font-bold text-red-300 flex items-center gap-2 text-lg">
+                          <AlertTriangle size={20}/> {t('health_check_location_warning_title')}
+                      </h3>
+                      <p className="text-red-200 mt-2" dangerouslySetInnerHTML={{ __html: t('health_check_location_warning_body') }} />
+                  </div>
+
                     <div className="my-6 p-4 rounded-lg bg-yellow-500/10 border-2 border-yellow-500/30">
                         <h3 className="font-bold text-yellow-300 flex items-center gap-2 text-lg"><Eye size={20}/> {t('health_check_visual_guide_title')}</h3>
                         <p className="text-yellow-200 mt-2">
