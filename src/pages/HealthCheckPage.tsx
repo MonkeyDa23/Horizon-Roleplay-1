@@ -55,7 +55,15 @@ const HealthCheckPage: React.FC = () => {
         const result = await testHttpRequest();
         setHttpTestResult(result);
     } catch (e) {
-        setHttpTestResult({ error: (e as Error).message });
+        const errorMessage = (e as Error).message;
+        if (errorMessage.includes('http_status_reason')) {
+             setHttpTestResult({ 
+                error: "Your database schema is outdated!",
+                details: "The function 'test_http_request' in your database is causing this error. To fix this, you must update your database schema.\n\n1. Go to your Supabase Project -> SQL Editor.\n2. Copy the entire content of the file `src/lib/database_schema.ts`.\n3. Paste it into a new query and click RUN."
+            });
+        } else {
+            setHttpTestResult({ error: errorMessage });
+        }
     } finally {
         setHttpTestLoading(false);
     }
@@ -131,13 +139,17 @@ const HealthCheckPage: React.FC = () => {
                       <div className="mt-4 p-4 rounded-md bg-brand-dark">
                           <h4 className="font-bold text-lg mb-2">{t('health_check_test_result')}</h4>
                           {httpTestResult.error ? (
-                              <div className="text-red-400">
-                                  <p className="font-bold">Error:</p>
-                                  <pre className="text-xs whitespace-pre-wrap">{httpTestResult.error}</pre>
-                              </div>
+                                <div className="text-red-400">
+                                    <p className="font-bold flex items-center gap-2"><AlertTriangle size={18}/> {httpTestResult.error}</p>
+                                    {httpTestResult.details ? (
+                                        <pre className="mt-2 text-sm whitespace-pre-wrap font-sans text-red-200 bg-red-500/10 p-3 rounded-md">{httpTestResult.details}</pre>
+                                    ) : (
+                                        <pre className="text-xs whitespace-pre-wrap mt-2">{httpTestResult.error}</pre>
+                                    )}
+                                </div>
                           ) : (
                               <div className="text-green-300">
-                                  <p className="font-bold">Success! Received HTTP {httpTestResult.status} ({httpTestResult.status_text})</p>
+                                  <p className="font-bold flex items-center gap-2"><CheckCircle size={18}/> Success! Received HTTP {httpTestResult.status}</p>
                                   <p className="text-xs text-gray-400 mt-2">This confirms the `http` extension is working and your database can make outbound requests.</p>
                               </div>
                           )}

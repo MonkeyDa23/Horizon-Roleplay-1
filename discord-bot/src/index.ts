@@ -7,8 +7,9 @@
  * to fetch real-time Discord data and send notifications.
  */
 
-// FIX: Imported express types with aliases to resolve potential conflicts with global types (e.g., from fetch API).
-import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
+// FIX: Separated Express value and type imports to resolve type conflicts.
+import express from 'express';
+import type { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
 // FIX: Import 'process' module to provide types for process.exit.
 import process from 'process';
 import cors from 'cors';

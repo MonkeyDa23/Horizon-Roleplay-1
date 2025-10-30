@@ -435,8 +435,7 @@ BEGIN
   -- Test if the http extension is available and can make a simple request
   SELECT * INTO response FROM extensions.http_get('https://example.com');
   RETURN jsonb_build_object(
-    'status', response.status,
-    'status_text', extensions.http_status_reason(response.status)
+    'status', response.status
   );
 EXCEPTION
   WHEN OTHERS THEN
