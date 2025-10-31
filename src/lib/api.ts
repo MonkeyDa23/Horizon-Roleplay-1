@@ -172,7 +172,18 @@ export const addSubmission = async (submission: Omit<QuizSubmission, 'id' | 'sta
 
 export const updateSubmissionStatus = async (submissionId: string, status: 'taken' | 'accepted' | 'refused', reason?: string): Promise<void> => {
   if (!supabase) throw new Error("Supabase not configured");
-  return handleResponse(await supabase.rpc('update_submission_status', { p_submission_id: submissionId, p_new_status: status, p_reason: reason }));
+  
+  // Construct parameters object conditionally to avoid sending 'undefined' for the reason.
+  const params: { p_submission_id: string; p_new_status: typeof status; p_reason?: string } = {
+    p_submission_id: submissionId,
+    p_new_status: status,
+  };
+
+  if (reason) {
+    params.p_reason = reason;
+  }
+  
+  return handleResponse(await supabase.rpc('update_submission_status', params));
 };
 
 export const deleteSubmission = async (submissionId: string): Promise<void> => {

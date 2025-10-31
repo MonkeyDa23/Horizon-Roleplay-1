@@ -39,6 +39,7 @@ DROP FUNCTION IF EXISTS public.handle_audit_log_notification();
 DROP FUNCTION IF EXISTS public.get_config();
 DROP FUNCTION IF EXISTS public.get_all_submissions();
 DROP FUNCTION IF EXISTS public.add_submission(jsonb);
+DROP FUNCTION IF EXISTS public.update_submission_status(uuid, text);
 DROP FUNCTION IF EXISTS public.update_submission_status(uuid, text, text);
 DROP FUNCTION IF EXISTS public.delete_submission(uuid);
 DROP FUNCTION IF EXISTS public.save_quiz_with_translations(jsonb);

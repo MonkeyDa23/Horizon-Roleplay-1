@@ -6,8 +6,9 @@
  * It provides an authenticated REST API for the website (via Supabase Edge Functions)
  * to fetch real-time Discord data and send notifications.
  */
-// FIX: Import Request, Response, and NextFunction types from express to fix typing errors.
-import express, { Request, Response, NextFunction } from 'express';
+// FIX: Changed express import to default and used namespaced types to resolve type errors and avoid global conflicts.
+// FIX: Explicitly import Request, Response, and NextFunction types from express to resolve type errors.
+import express, { type Request, type Response, type NextFunction } from 'express';
 import process from 'process';
 import cors from 'cors';
 import {
@@ -175,17 +176,35 @@ const main = async () => {
     app.use(cors());
     app.use(express.json());
 
-    // FIX: Use explicit Request, Response, NextFunction types from express.
+    // FIX: Replaced express.Request, express.Response, and express.NextFunction with imported types.
     const authenticate = (req: Request, res: Response, next: NextFunction) => {
-        if (req.headers.authorization === `Bearer ${config.API_SECRET_KEY}`) {
-            logger('DEBUG', `[AUTH] Successful authentication from ${req.ip}. Path: ${req.path}`);
+        const receivedAuthHeader = req.headers.authorization;
+        const expectedAuthHeader = `Bearer ${config.API_SECRET_KEY}`;
+
+        logger('DEBUG', `[AUTH] Received auth header of length: ${receivedAuthHeader?.length || 0}. Path: ${req.path} from ${req.ip}.`);
+        
+        // Use .trim() to prevent issues with trailing whitespace in config files
+        if (receivedAuthHeader && receivedAuthHeader.trim() === expectedAuthHeader.trim()) {
+            logger('DEBUG', `[AUTH] SUCCESS: Authentication successful.`);
             return next();
         }
-        logger('WARN', `[AUTH] Failed authentication attempt from ${req.ip}. Path: ${req.path}. ADVICE: Check that API_SECRET_KEY in config.json matches the VITE_DISCORD_BOT_API_KEY secret in Supabase.`);
+
+        let failureReason = '';
+        if (!receivedAuthHeader) {
+            failureReason = 'No Authorization header was received.';
+        } else if (!receivedAuthHeader.startsWith('Bearer ')) {
+            failureReason = 'Authorization header is not in the "Bearer <token>" format.';
+        } else if (receivedAuthHeader.trim() !== expectedAuthHeader.trim()) {
+            failureReason = 'The provided token does not match the expected API key. This could be due to a mismatch or extra whitespace.';
+            logger('DEBUG', `Received token length: ${receivedAuthHeader.length}, Expected token length: ${expectedAuthHeader.length}`);
+        }
+        
+        logger('WARN', `[AUTH] FAILED: Authentication failed. Reason: ${failureReason}`);
+        logger('WARN', `ADVICE: Check that VITE_DISCORD_BOT_API_KEY secret in Supabase EXACTLY matches API_SECRET_KEY in the bot's config.json. Ensure there are no extra spaces or characters.`);
         res.status(401).send({ error: 'Authentication failed.' });
     };
 
-    // FIX: Use explicit Request, Response types from express.
+    // FIX: Replaced express.Request and express.Response with imported types.
     app.get('/health', (req: Request, res: Response) => {
         if (!client.isReady()) return res.status(503).send({ status: 'error', message: 'Discord Client not ready.' });
         const guild = client.guilds.cache.get(config.DISCORD_GUILD_ID);
@@ -193,7 +212,7 @@ const main = async () => {
         res.send({ status: 'ok', details: { guildName: guild.name, memberCount: guild.memberCount } });
     });
     
-    // FIX: Use explicit Request, Response types from express.
+    // FIX: Replaced express.Request and express.Response with imported types.
     app.get('/api/roles', authenticate, async (req: Request, res: Response) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
@@ -206,7 +225,7 @@ const main = async () => {
         }
     });
 
-    // FIX: Use explicit Request, Response types from express.
+    // FIX: Replaced express.Request and express.Response with imported types.
     app.get('/api/user/:id', authenticate, async (req: Request, res: Response) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
@@ -235,7 +254,7 @@ const main = async () => {
         }
     });
     
-    // FIX: Use explicit Request, Response types from express.
+    // FIX: Replaced express.Request and express.Response with imported types.
     app.post('/api/notify', authenticate, async (req: Request, res: Response) => {
         const body: NotifyPayload = req.body;
         logger('INFO', `Received notification request of type: ${body.type}`);
@@ -259,18 +278,34 @@ const main = async () => {
             }
 
             if ('userId' in body.payload) { // DM Notification
-                const user = await client.users.fetch(body.payload.userId);
-                await user.send({ embeds: [embed] });
-                logger('INFO', `↳ Sent DM to user ${user.tag}.`);
+                const userId = body.payload.userId;
+                logger('DEBUG', `Attempting to send DM to user ID: ${userId}`);
+                try {
+                    const user = await client.users.fetch(userId);
+                    await user.send({ embeds: [embed] });
+                    logger('INFO', `✅ Sent DM to user ${user.tag}.`);
+                } catch (dmError) {
+                    if (dmError instanceof DiscordAPIError && dmError.code === 50007) {
+                        logger('WARN', `Could not DM user ${userId}. They likely have DMs disabled or have blocked the bot.`);
+                        // Don't throw an error back to Supabase for this, it's a user setting, not a system failure.
+                        return res.status(200).json({ message: 'Could not DM user, but request was processed.' });
+                    }
+                    throw dmError; // Re-throw other errors to be caught below
+                }
             } else { // Channel Notification
-                const channel = await client.channels.fetch(body.payload.channelId) as TextChannel;
-                if (!channel) throw new Error(`Target channel with ID ${body.payload.channelId} not found or not a text channel.`);
+                const channelId = body.payload.channelId;
+                logger('DEBUG', `Attempting to send message to channel ID: ${channelId}`);
+                const channel = await client.channels.fetch(channelId);
+
+                if (!channel || !(channel instanceof TextChannel)) {
+                    throw new Error(`Target channel with ID ${channelId} not found or is not a text-based channel.`);
+                }
                 
                 const messagePayload: { content?: string, embeds: EmbedBuilder[] } = { embeds: [embed] };
                 if (body.payload.content) messagePayload.content = body.payload.content;
                 
                 await channel.send(messagePayload);
-                logger('INFO', `↳ Sent embed to channel #${channel.name}.`);
+                logger('INFO', `✅ Sent embed to channel #${channel.name}.`);
             }
             res.status(200).json({ message: 'Notification sent successfully.' });
         } catch(error) {
