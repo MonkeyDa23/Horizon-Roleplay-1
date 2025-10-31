@@ -1,14 +1,33 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocalization } from '../hooks/useLocalization';
 import { useConfig } from '../hooks/useConfig';
-import { Info } from 'lucide-react';
+import { Info, Loader2 } from 'lucide-react';
 import DiscordEmbed from '../components/DiscordEmbed';
 import SEO from '../components/SEO';
+import { getDiscordWidgets } from '../lib/api';
+import type { DiscordWidget } from '../types';
 
 const AboutUsPage: React.FC = () => {
   const { t } = useLocalization();
   const { config } = useConfig();
   const communityName = config.COMMUNITY_NAME;
+  const [widgets, setWidgets] = useState<DiscordWidget[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchWidgets = async () => {
+        setIsLoading(true);
+        try {
+            const data = await getDiscordWidgets();
+            setWidgets(data);
+        } catch (error) {
+            console.error("Failed to fetch Discord widgets:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    fetchWidgets();
+  }, []);
 
   return (
     <>
@@ -26,16 +45,33 @@ const AboutUsPage: React.FC = () => {
           <p className="text-lg text-gray-300 max-w-3xl mx-auto">{t('about_intro', { communityName: config.COMMUNITY_NAME })}</p>
         </div>
 
-        <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-8 items-center">
-          <div className="bg-brand-dark-blue p-8 rounded-lg border border-brand-light-blue">
+        <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 items-start">
+          <div className="bg-brand-dark-blue p-8 rounded-lg border border-brand-light-blue h-full">
             <h2 className="text-3xl font-bold text-brand-cyan mb-4">{t('our_mission')}</h2>
             <p className="text-gray-300 leading-relaxed">
               {t('mission_text')}
             </p>
           </div>
           
-          <div className="flex flex-col items-center justify-center">
-            <DiscordEmbed />
+          <div className="space-y-8">
+             {isLoading ? (
+                <div className="flex justify-center items-center h-48">
+                    <Loader2 size={40} className="text-brand-cyan animate-spin" />
+                </div>
+             ) : widgets.length > 0 ? (
+                widgets.map(widget => (
+                    <DiscordEmbed 
+                        key={widget.id}
+                        serverName={widget.server_name}
+                        inviteUrl={widget.invite_url}
+                    />
+                ))
+             ) : (
+                <DiscordEmbed 
+                    serverName={config.COMMUNITY_NAME}
+                    inviteUrl={config.DISCORD_INVITE_URL}
+                />
+             )}
           </div>
         </div>
       </div>

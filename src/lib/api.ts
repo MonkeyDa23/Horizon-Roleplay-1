@@ -3,7 +3,7 @@ import { supabase } from './supabaseClient';
 import type { 
   AppConfig, Product, Quiz, QuizSubmission, RuleCategory, Translations, 
   User, PermissionKey, DiscordRole, UserLookupResult,
-  MtaServerStatus, AuditLogEntry, MtaLogEntry, DiscordAnnouncement, RolePermission
+  MtaServerStatus, AuditLogEntry, MtaLogEntry, DiscordAnnouncement, RolePermission, DiscordWidget
 } from '../types';
 
 // Custom Error class for API responses
@@ -110,6 +110,11 @@ export const getProducts = async (): Promise<Product[]> => {
   return handleResponse(await supabase.from('products').select('*'));
 };
 
+export const getProductById = async (id: string): Promise<Product | null> => {
+  if (!supabase) throw new Error("Supabase not configured");
+  return handleResponse(await supabase.from('products').select('*').eq('id', id).single());
+};
+
 export const saveProduct = async (productData: any): Promise<Product> => {
     if (!supabase) throw new Error("Supabase not configured");
     const response = await supabase.rpc('save_product_with_translations', { p_product_data: productData });
@@ -165,9 +170,9 @@ export const addSubmission = async (submission: Omit<QuizSubmission, 'id' | 'sta
   return handleResponse(await supabase.rpc('add_submission', { submission_data: submission }));
 };
 
-export const updateSubmissionStatus = async (submissionId: string, status: 'taken' | 'accepted' | 'refused'): Promise<void> => {
+export const updateSubmissionStatus = async (submissionId: string, status: 'taken' | 'accepted' | 'refused', reason?: string): Promise<void> => {
   if (!supabase) throw new Error("Supabase not configured");
-  return handleResponse(await supabase.rpc('update_submission_status', { p_submission_id: submissionId, p_new_status: status }));
+  return handleResponse(await supabase.rpc('update_submission_status', { p_submission_id: submissionId, p_new_status: status, p_reason: reason }));
 };
 
 export const deleteSubmission = async (submissionId: string): Promise<void> => {
@@ -189,6 +194,21 @@ export const saveRules = async (rulesData: any[]): Promise<void> => {
     if (!supabase) throw new Error("Supabase not configured");
     return handleResponse(await supabase.rpc('save_rules', { p_rules_data: rulesData }));
 };
+
+// =============================================
+// DISCORD WIDGETS API (NEW)
+// =============================================
+export const getDiscordWidgets = async (): Promise<DiscordWidget[]> => {
+    if (!supabase) throw new Error("Supabase not configured");
+    const response = await supabase.from('discord_widgets').select('*').order('position', { ascending: true });
+    return handleResponse(response);
+};
+
+export const saveDiscordWidgets = async (widgets: Omit<DiscordWidget, 'id'>[]): Promise<void> => {
+    if (!supabase) throw new Error("Supabase not configured");
+    return handleResponse(await supabase.rpc('save_discord_widgets', { p_widgets_data: widgets }));
+};
+
 
 // =============================================
 // TRANSLATIONS API

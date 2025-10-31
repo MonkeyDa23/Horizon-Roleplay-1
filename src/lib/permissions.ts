@@ -30,4 +30,6 @@ export const PERMISSIONS: Record<PermissionKey, string> = {
   admin_audit_log: 'Allow user to view the log of all admin actions.',
   admin_permissions: 'Allow user to change permissions for other Discord roles.',
   admin_lookup: 'Allow user to look up user profiles by Discord ID.',
+  // FIX: Added missing 'admin_widgets' permission.
+  admin_widgets: 'Allow user to create, edit, and delete Discord widgets on the "About Us" page.',
 } as const;

@@ -128,17 +128,28 @@ Ensure that the port the bot is running on (default is **14355**) is open in you
 
 **Problem: Notifications are not sent to Discord channels or DMs.**
 
-1.  **Check Supabase Network Restrictions:** Did you follow **Step 3** in the `supabase/functions/INSTRUCTIONS.md` file to allow `pg_net` egress? This is a very common cause.
-2.  **Check Supabase Function Logs:** Go to the `discord-proxy` function in your Supabase dashboard and view its logs.
-    *   If you see "Received notification request...", the database trigger is working.
-    *   If you see "Error from bot API...", the proxy function can't reach your bot. Check your bot's firewall and the `VITE_DISCORD_BOT_URL` secret.
-    *   If you see no logs at all, the database trigger isn't firing or `pg_net` is blocked.
+The new architecture is more direct: A function in your Supabase database makes an HTTP request to the `discord-proxy` Edge Function, which then calls your bot.
+
+1.  **Check the Health Check Page:**
+    *   Go to your website's Admin Panel -> Health Check.
+    *   Run **"Step 0: Database Outbound HTTP"**. This is the most critical test.
+    *   **If it fails:** Your database cannot make external requests. This is rare, but could be due to an outdated Supabase project or network restrictions. The error message will provide clues. Ensure the `http` extension is enabled in your database (the schema script does this automatically).
+    *   **If it succeeds:** The database *can* send requests. The problem is further down the line. Proceed to the next step.
+
+2.  **Check the `discord-proxy` Function Logs:**
+    *   Go to Supabase -> Edge Functions -> `discord-proxy`.
+    *   Trigger an action that should send a notification (e.g., submit an application).
+    *   Check the logs for an incoming request.
+    *   **If you see `Unauthorized`**: Your `DISCORD_PROXY_SECRET` in the function's Secrets does not match what the database is sending. This is an internal configuration error, likely in the database schema's `private.send_notification` function.
+    *   **If you see "Bot integration secrets are not configured"**: You missed Step 2 of the `supabase/functions/INSTRUCTIONS.md` guide. You need to set `VITE_DISCORD_BOT_URL` and `VITE_DISCORD_BOT_API_KEY` as secrets.
+    *   **If you see "Error from bot API..." or a connection error**: The proxy function can't reach your bot. Check your bot's firewall and the `VITE_DISCORD_BOT_URL` secret. The error message will give you a hint.
+
 3.  **Check Bot Logs:** Use `pm2 logs vixel-bot` on your server.
     *   Do you see an error like "Authentication failed"? Your `API_SECRET_KEY` in `config.json` doesn't match the `VITE_DISCORD_BOT_API_KEY` secret in Supabase.
-    *   Do you see a "Discord API Error"? The bot might not have permission to send messages in the target channel or to DM the user.
+    *   Do you see a "Discord API Error"? The bot might not have permission to send messages in the target channel or to DM the user. The error message in the log is very specific and will tell you what's wrong (e.g., "Missing Access", "Cannot send messages to this user").
 
 **Problem: Slash commands like `/setstatus` don't appear or don't work.**
 
 1.  **Re-Invite The Bot:** This is the most common fix. Follow the "Invite The Bot Correctly" steps at the top of this file to generate a new invite link with the correct `bot` and `applications.commands` scopes. Use it to re-authorize the bot in your server.
 2.  **Check Bot Logs:** When the bot starts, it should log "Slash commands registered/updated successfully." If it logs an error, there's a problem with its connection or permissions.
-3.  **Check Command Permissions:** Ensure the user trying the command has one of the roles listed in `PRESENCE_COMMAND_ROLE_IDS` or has Administrator permissions in the server.
+3.  **Check Command Permissions:** Ensure the user trying the command has one of the roles listed in `PRESENCE_COMMAND_ROLE_IDS` or has Administrator permissions in the server. The bot logs will show a detailed permission check every time the command is used.

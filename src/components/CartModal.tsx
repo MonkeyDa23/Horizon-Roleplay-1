@@ -3,7 +3,7 @@ import { useLocalization } from '../hooks/useLocalization';
 import { useCart } from '../hooks/useCart';
 import { useConfig } from '../hooks/useConfig';
 import Modal from './Modal';
-import { X, Trash2, ShoppingBag } from 'lucide-react';
+import { X, Trash2, ShoppingBag, Plus, Minus } from 'lucide-react';
 import DiscordLogo from './icons/DiscordLogo';
 
 
@@ -37,16 +37,19 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
 
   return (
     <>
-    <div 
-      className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex justify-end"
-      onClick={onClose}
-    >
+      <div 
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[999]"
+        onClick={onClose}
+        aria-hidden="true"
+      ></div>
       <div
-        className="bg-brand-dark-blue w-full max-w-lg h-full flex flex-col shadow-2xl shadow-black/50 animate-slide-in"
-        onClick={(e) => e.stopPropagation()}
+        className="fixed top-0 end-0 bg-brand-dark-blue w-full max-w-md h-full flex flex-col shadow-2xl shadow-black/50 animate-slide-in z-[1000]"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="cart-heading"
       >
-        <div className="p-6 border-b border-brand-light-blue flex justify-between items-center">
-          <h2 className="text-2xl font-bold text-brand-cyan flex items-center gap-3">
+        <div className="p-6 border-b border-brand-light-blue flex justify-between items-center flex-shrink-0">
+          <h2 id="cart-heading" className="text-2xl font-bold text-brand-cyan flex items-center gap-3">
             <ShoppingBag size={28}/>
             {t('your_cart')} ({totalItems})
           </h2>
@@ -56,29 +59,28 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
         </div>
 
         {cartItems.length === 0 ? (
-          <div className="flex-grow flex items-center justify-center">
-            <p className="text-xl text-gray-400">{t('empty_cart')}</p>
+          <div className="flex-grow flex flex-col items-center justify-center text-center p-6">
+            <ShoppingBag size={64} className="text-brand-light-blue mb-4"/>
+            <p className="text-xl text-gray-400 font-semibold">{t('empty_cart')}</p>
           </div>
         ) : (
-          <div className="flex-grow overflow-y-auto p-6 space-y-4">
+          <div className="flex-grow overflow-y-auto p-6 space-y-6">
             {cartItems.map(item => (
-              <div key={item.id} className="flex items-center gap-4">
-                <img src={item.imageUrl} alt={t(item.nameKey)} className="w-20 h-20 rounded-md object-cover" />
-                <div className="flex-grow">
+              <div key={item.id} className="flex items-start gap-4">
+                <img src={item.imageUrl} alt={t(item.nameKey)} className="w-24 h-24 rounded-md object-cover border-2 border-brand-light-blue" />
+                <div className="flex-grow flex flex-col h-24">
                   <h3 className="text-lg font-semibold text-white">{t(item.nameKey)}</h3>
                   <p className="text-brand-cyan font-bold">${item.price.toFixed(2)}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="number"
-                    min="1"
-                    value={item.quantity}
-                    onChange={(e) => updateQuantity(item.id, parseInt(e.target.value, 10))}
-                    className="w-16 bg-brand-light-blue text-white text-center rounded-md border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan"
-                  />
-                  <button onClick={() => removeFromCart(item.id)} className="text-red-500 hover:text-red-400">
-                    <Trash2 size={20} />
-                  </button>
+                  <div className="flex items-center gap-3 mt-auto">
+                    <div className="flex items-center border border-gray-600 rounded-md">
+                        <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="p-2 text-gray-400 hover:text-white"><Minus size={16} /></button>
+                        <span className="px-3 font-bold">{item.quantity}</span>
+                        <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="p-2 text-gray-400 hover:text-white"><Plus size={16} /></button>
+                    </div>
+                    <button onClick={() => removeFromCart(item.id)} className="text-red-500 hover:text-red-400 ml-auto" aria-label={t('remove')}>
+                        <Trash2 size={20} />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -86,12 +88,12 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
         )}
 
         {cartItems.length > 0 && (
-          <div className="p-6 border-t border-brand-light-blue space-y-4">
+          <div className="p-6 border-t border-brand-light-blue space-y-4 flex-shrink-0 bg-brand-dark">
             <div className="flex justify-between items-center text-xl">
-              <span className="text-gray-300">{t('subtotal')}:</span>
-              <span className="font-bold text-white">${totalPrice.toFixed(2)}</span>
+              <span className="text-gray-300 font-semibold">{t('subtotal')}:</span>
+              <span className="font-bold text-white text-2xl">${totalPrice.toFixed(2)}</span>
             </div>
-            <button onClick={handleCheckout} className="w-full bg-brand-cyan text-brand-dark font-bold py-4 rounded-lg shadow-glow-cyan hover:bg-white transition-all duration-300">
+            <button onClick={handleCheckout} className="w-full bg-brand-cyan text-brand-dark font-bold py-4 rounded-lg shadow-glow-cyan hover:bg-white transition-all duration-300 text-lg">
               {t('checkout')}
             </button>
           </div>
@@ -103,12 +105,11 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
           to { transform: translateX(0); }
         }
         .animate-slide-in {
-          animation: slide-in 0.3s ease-out forwards;
+          animation: slide-in 0.4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
         }
       `}</style>
-    </div>
     
-    <Modal isOpen={isCheckoutModalOpen} onClose={closeAllModals} title={t('checkout_via_discord')}>
+      <Modal isOpen={isCheckoutModalOpen} onClose={closeAllModals} title={t('checkout_via_discord')}>
         <div className="text-center">
             <p className="text-gray-300 mb-6 leading-relaxed">
                 {t('checkout_instructions')}
@@ -121,7 +122,7 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
                 <span>{t('open_ticket')}</span>
             </button>
         </div>
-    </Modal>
+      </Modal>
     </>
   );
 };

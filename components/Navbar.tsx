@@ -2,8 +2,7 @@
 
 import React, { useState } from 'react';
 // FIX: Switched to a namespace import for react-router-dom to resolve module resolution errors.
-// FIX: Switched to named imports to fix component resolution errors.
-import { NavLink, Link } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { useLocalization } from '../hooks/useLocalization';
 import { useAuth } from '../hooks/useAuth';
 import { useCart } from '../hooks/useCart';
@@ -43,7 +42,7 @@ const Navbar: React.FC = () => {
           <div className="hidden md:flex items-center gap-8">
             {navLinks.map((link) => (
               // FIX: Use NavLink directly from react-router-dom import.
-              <NavLink
+              <ReactRouterDOM.NavLink
                 key={link.to}
                 to={link.to}
                 className="text-gray-300 hover:text-brand-cyan transition-colors duration-300 font-medium"
@@ -52,7 +51,7 @@ const Navbar: React.FC = () => {
                 end={link.to === '/'}
               >
                 {link.text}
-              </NavLink>
+              </ReactRouterDOM.NavLink>
             ))}
           </div>
           <div className="flex items-center gap-4">
@@ -100,16 +99,16 @@ const Navbar: React.FC = () => {
                 {userDropdownOpen && (
                    <div className="absolute top-full mt-2 end-0 bg-brand-light-blue rounded-md shadow-lg py-1 w-48">
                      {/* FIX: Use Link directly from react-router-dom import. */}
-                     <Link to="/my-applications" className="flex items-center gap-2 w-full text-start px-4 py-2 text-sm text-white hover:bg-brand-cyan/20">
+                     <ReactRouterDOM.Link to="/my-applications" className="flex items-center gap-2 w-full text-start px-4 py-2 text-sm text-white hover:bg-brand-cyan/20">
                        <FileText size={16} />
                        {t('my_applications')}
-                     </Link>
+                     </ReactRouterDOM.Link>
                      {user.isAdmin && (
                        // FIX: Use Link directly from react-router-dom import.
-                       <Link to="/admin" className="flex items-center gap-2 w-full text-start px-4 py-2 text-sm text-white hover:bg-brand-cyan/20">
+                       <ReactRouterDOM.Link to="/admin" className="flex items-center gap-2 w-full text-start px-4 py-2 text-sm text-white hover:bg-brand-cyan/20">
                          <UserCog size={16} />
                          {t('admin_panel')}
-                       </Link>
+                       </ReactRouterDOM.Link>
                      )}
                      <button onClick={logout} className="flex items-center gap-2 w-full text-start px-4 py-2 text-sm text-red-400 hover:bg-red-500/20">
                        <LogOut size={16} />

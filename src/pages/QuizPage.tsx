@@ -2,9 +2,13 @@
 
 
 
+
+
+
+
 import React, { useState, useEffect, useCallback } from 'react';
 // FIX: Fix "no exported member" errors from 'react-router-dom' by switching to a namespace import.
-import { useParams, useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { useLocalization } from '../hooks/useLocalization';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
@@ -54,8 +58,8 @@ const CircularTimer: React.FC<{ timeLeft: number; timeLimit: number }> = ({ time
 
 
 const QuizPage: React.FC = () => {
-  const { quizId } = useParams<{ quizId: string }>();
-  const navigate = useNavigate();
+  const { quizId } = ReactRouterDOM.useParams<{ quizId: string }>();
+  const navigate = ReactRouterDOM.useNavigate();
   const { t } = useLocalization();
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -129,7 +133,9 @@ const QuizPage: React.FC = () => {
 
     setTimeout(() => {
         const currentQuestion = quiz.questions[currentQuestionIndex];
-        const newAnswers = [...answers, { questionId: currentQuestion.id, questionText: t(currentQuestion.textKey), answer: currentAnswer || 'No answer (time out)' }];
+        // FIX: Add missing 'timeTaken' property to the answer object.
+        const timeTaken = currentQuestion.timeLimit - timeLeft;
+        const newAnswers = [...answers, { questionId: currentQuestion.id, questionText: t(currentQuestion.textKey), answer: currentAnswer || 'No answer (time out)', timeTaken }];
         setAnswers(newAnswers);
         setCurrentAnswer('');
 
@@ -142,7 +148,7 @@ const QuizPage: React.FC = () => {
             handleSubmit(newAnswers);
         }
     }, 500);
-  }, [quiz, currentQuestionIndex, answers, currentAnswer, t, handleSubmit]);
+  }, [quiz, currentQuestionIndex, answers, currentAnswer, t, handleSubmit, timeLeft]);
   
   useEffect(() => {
     if (quizState !== 'taking' || !quiz) return;

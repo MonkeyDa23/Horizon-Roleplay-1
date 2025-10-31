@@ -36,7 +36,8 @@ export type PermissionKey =
   | 'admin_audit_log'
   | 'admin_permissions'
   | 'admin_lookup'
-  | 'admin_notifications';
+  | 'admin_notifications'
+  | 'admin_widgets'; // New permission for Discord widgets
 
 export interface DiscordRole {
   id: string;
@@ -116,25 +117,14 @@ export interface CartContextType {
 export interface QuizQuestion {
   id: string;
   textKey: string;
-  timeLimit: number;
-}
-
-export interface Quiz {
-  id: string;
-  titleKey: string;
-  descriptionKey: string;
-  questions: QuizQuestion[];
-  isOpen: boolean;
-  allowedTakeRoles?: string[];
-  logoUrl?: string;
-  bannerUrl?: string;
-  lastOpenedAt?: string;
+  timeLimit: number; // in seconds
 }
 
 export interface Answer {
   questionId: string;
   questionText: string;
   answer: string;
+  timeTaken: number; // Time taken in seconds for this question
 }
 
 export interface CheatAttempt {
@@ -158,7 +148,21 @@ export interface QuizSubmission {
   updatedAt?: string;
   cheatAttempts?: CheatAttempt[];
   user_highest_role?: string;
+  reason?: string; // Reason for accept/refuse
 }
+
+export interface Quiz {
+  id: string;
+  titleKey: string;
+  descriptionKey: string;
+  questions: QuizQuestion[];
+  isOpen: boolean;
+  allowedTakeRoles?: string[];
+  logoUrl?: string;
+  bannerUrl?: string;
+  lastOpenedAt?: string; // To track "application seasons"
+}
+
 
 // =============================================
 // RULES & CONFIG
@@ -173,6 +177,14 @@ export interface RuleCategory {
     titleKey: string;
     position: number;
     rules: Rule[];
+}
+
+export interface DiscordWidget {
+    id: string;
+    server_name: string;
+    server_id: string;
+    invite_url: string;
+    position: number;
 }
 
 export interface AppConfig {

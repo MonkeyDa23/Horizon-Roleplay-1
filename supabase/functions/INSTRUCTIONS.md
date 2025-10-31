@@ -1,78 +1,63 @@
-# Supabase Functions: Deployment and Configuration Guide (V6 - Direct Bot Notifications)
+# Supabase & Bot Setup Guide (V7 - Direct HTTP Architecture)
 
-This guide provides step-by-step instructions for deploying and configuring all the necessary Supabase Edge Functions. This architecture relies on an **external, self-hosted Discord bot** which you must run separately. These functions act as a secure bridge between your website, your database, and your bot.
+This guide provides the complete, step-by-step instructions for deploying and configuring the backend for your website. This architecture uses **Supabase Database Functions** to directly call a **self-hosted Discord bot** via HTTP requests, which is more reliable than the previous webhook system.
 
-This version **DOES NOT USE WEBHOOKS**. Instead, it uses database triggers to call the `discord-proxy` function, which then calls your bot.
+**Please follow these steps exactly.**
 
-## What Are These Functions?
+---
 
--   **`sync-user-profile`**: The most important function. It calls your bot's API to fetch a user's latest Discord data (roles, name, etc.) when they log in.
--   **`get-guild-roles`**: Calls your bot to get a list of all server roles for the Admin Panel.
--   **`check-bot-health`**: Used by the "Health Check" page to see if the website can reach your bot.
--   **`check-function-secrets`**: A diagnostic tool for the Health Check page.
--   **`troubleshoot-user-sync`**: A diagnostic tool to test fetching a specific user's data via the bot.
--   **`discord-proxy`**: Receives notification requests directly from database triggers and securely forwards them to your self-hosted bot.
--   **`test-notification`**: A function for the admin panel that allows testing notification templates.
+## Step 1: Deploy Supabase Edge Functions
 
-## Step 1: Deploying the Functions
+You must deploy all seven functions from the `supabase/functions` directory.
 
-You need to deploy each function using the Supabase Dashboard. Repeat these steps for **all seven** functions listed in the `supabase/functions` directory.
+1.  Go to your Supabase Project -> **Edge Functions**.
+2.  Click **"Create a function"**.
+3.  Enter the function's name (it MUST exactly match the folder name, e.g., `sync-user-profile`).
+4.  Delete all boilerplate code in the editor.
+5.  Copy the entire contents of the corresponding `index.ts` file (e.g., `supabase/functions/sync-user-profile/index.ts`) and paste it into the editor.
+6.  Click **"Deploy"**.
 
-1.  Go to your Supabase Project Dashboard.
-2.  Click on the **Edge Functions** icon in the left sidebar (a lambda λ symbol).
-3.  Click **"Create a function"**.
-4.  Enter the function's name. **The name MUST exactly match the folder name**. (e.g., `sync-user-profile`).
-5.  Click **"Create function"**.
-6.  You will be taken to a code editor. **Delete all the boilerplate code**.
-7.  Open the corresponding `index.ts` file on your computer (e.g., `supabase/functions/sync-user-profile/index.ts`).
-8.  **Copy the entire contents** of the file.
-9.  **Paste the code** into the Supabase editor.
-10. Click **"Deploy"** in the top right corner.
+**Repeat this process for all seven functions:**
+- `sync-user-profile`
+- `get-guild-roles`
+- `discord-proxy` (This is still used for receiving calls from the database)
+- `check-bot-health`
+- `check-function-secrets`
+- `troubleshoot-user-sync`
+- `test-notification`
 
-**Repeat this process for all seven functions.**
+---
 
-## Step 2: Setting Secrets (CRITICAL)
+## Step 2: Set Function Secrets (CRITICAL)
 
-This is the most important step. These secrets allow your Supabase functions to securely communicate with your bot and with each other.
+These secrets allow your functions to securely communicate with your bot.
 
-1.  In your Supabase project, click the **Settings** icon (a gear ⚙️) in the left sidebar.
-2.  Click on **"Edge Functions"** in the settings menu.
-3.  Under the **"Secrets"** section, click **"+ Add a new secret"**.
+1.  Go to Supabase Project -> **Settings** (gear icon) -> **Edge Functions**.
+2.  Under the **"Secrets"** section, add the following secrets:
 
-### Secrets to Add (Total of 3)
+| Secret Name                | Value                                                                       | Where to get it?                                                              |
+| -------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `VITE_DISCORD_BOT_URL`     | The full URL of your bot. **Ex:** `http://123.45.67.89:14355`                 | The public IP/domain of the server where you are running the `discord-bot`.     |
+| `VITE_DISCORD_BOT_API_KEY` | The secret password from your bot's `config.json` file.                     | You create this. It MUST match the `API_SECRET_KEY` in the bot's config.    |
+| `DISCORD_PROXY_SECRET`     | A **new, unique password** for internal security between DB and functions.  | Generate a strong password. This is **NOT** the same as the bot's API key. |
 
-| Secret Name                   | Value                                                                              | Where to get it? |
-| ----------------------------- | ---------------------------------------------------------------------------------- | ---------------- |
-| `VITE_DISCORD_BOT_URL`        | The full URL where your bot is hosted. **Example:** `http://123.45.67.89:14355`       | This is the public IP or domain of the server where you run the Discord Bot. |
-| `VITE_DISCORD_BOT_API_KEY`    | The secret password you created in your bot's `config.json` file.                  | You create this password yourself. It must match what's in the bot's config. |
-| `DISCORD_PROXY_SECRET`        | A new, strong, unique password you create just for this.                           | **Generate a new UUID** or create a strong password. This is NOT the same as the bot's API key. |
+---
 
-**Important:** The `DISCORD_PROXY_SECRET` is used for communication *between your database and your `discord-proxy` function*. It acts as an internal password.
+## Step 3: Run the Database Schema (VERY IMPORTANT)
 
-## Step 3: Configure Settings in the Admin Panel
+This script sets up all your tables and backend functions in the database, including the new notification system.
 
-After deploying the functions and setting the secrets, you must configure the final pieces in the website's Admin Panel.
+1.  Go to Supabase Project -> **SQL Editor**.
+2.  Click **"+ New query"**.
+3.  Copy the ENTIRE content of the file at `src/lib/database_schema.ts`.
+4.  Paste it into the editor and click **"RUN"**.
 
-1. Log into your website with an account that has Super Admin permissions.
-2. Go to the **Admin Panel**.
-3. Go to the **Appearance** tab.
-4. Fill in the following two fields under the "Discord & Game Integration" section:
-    - **Discord Proxy Function URL**:
-        - Go back to your Supabase Dashboard -> Edge Functions.
-        - Click on the `discord-proxy` function.
-        - **Copy the "Invocations URL"** and paste it here.
-    - **Discord Proxy Secret**:
-        - **Paste the exact same secret value** you created for `DISCORD_PROXY_SECRET` in Step 2.
+This script will automatically enable the `http` extension required for the database to send notifications.
 
-**This is a critical step.** The database needs to know the URL of the proxy function and the secret to use when calling it.
+**NOTE:** The old database webhook is no longer needed. If you have a webhook named `discord_notifications` in your database settings, you can safely delete it to avoid confusion.
+
+---
 
 ## Final Check
 
-Once you have:
-1. Deployed all 7 functions.
-2. Set all 3 secrets.
-3. Configured the Proxy URL and Secret in the Admin Panel.
-4. Run the database schema from `src/lib/database_schema.ts`.
-5. Started your self-hosted Discord bot.
-
-...your notification system should be fully operational. You can use the **Health Check** page in the Admin Panel to test each part of the connection.
+After completing all steps, your backend should be fully operational. You can use the **Health Check** page in the Admin Panel to verify all connections. The "Step 0: Database Outbound HTTP" test is particularly important for verifying the new notification system.

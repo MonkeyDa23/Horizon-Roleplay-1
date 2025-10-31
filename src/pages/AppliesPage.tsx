@@ -2,9 +2,11 @@
 
 
 
+
+
 import React, { useState, useEffect } from 'react';
 // FIX: Fix "no exported member" errors from 'react-router-dom' by switching to a namespace import.
-import { Link } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { useLocalization } from '../hooks/useLocalization';
 import { useAuth } from '../hooks/useAuth';
 import { getQuizzes, getSubmissionsByUserId } from '../lib/api';
@@ -96,12 +98,12 @@ const AppliesPage: React.FC = () => {
       }
 
       return (
-        <Link 
+        <ReactRouterDOM.Link 
           to={`/applies/${quiz.id}`}
           className="w-full text-center bg-brand-cyan text-brand-dark font-bold py-3 px-8 rounded-md hover:bg-white hover:shadow-glow-cyan transition-all duration-300 flex items-center justify-center gap-2"
         >
           {t('apply_now')}
-        </Link>
+        </ReactRouterDOM.Link>
       );
   };
 

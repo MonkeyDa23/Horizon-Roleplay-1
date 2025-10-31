@@ -1,11 +1,13 @@
 
 
 
+
+
+
 import React, { useState, useEffect, useCallback } from 'react';
 // FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
 // FIX: Switched to a namespace import for react-router-dom to resolve module resolution errors.
-// FIX: Switched to named imports to fix hook resolution errors.
-import { useParams, useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 // FIX: Updated import paths to point to the 'src' directory
 import { useLocalization } from '../src/hooks/useLocalization';
 import { useAuth } from '../src/hooks/useAuth';
@@ -15,9 +17,9 @@ import type { Quiz, Answer } from '../src/types';
 import { CheckCircle, Clock, Loader2 } from 'lucide-react';
 
 const QuizPage: React.FC = () => {
-  const { quizId } = useParams<{ quizId: string }>();
+  const { quizId } = ReactRouterDOM.useParams<{ quizId: string }>();
   // FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
-  const navigate = useNavigate();
+  const navigate = ReactRouterDOM.useNavigate();
   const { t } = useLocalization();
   const { user } = useAuth();
   
@@ -90,7 +92,9 @@ const QuizPage: React.FC = () => {
     if (!quiz) return;
     
     const currentQuestion = quiz.questions[currentQuestionIndex];
-    const newAnswers = [...answers, { questionId: currentQuestion.id, questionText: t(currentQuestion.textKey), answer: currentAnswer || 'No answer (time out)' }];
+    // FIX: Add missing 'timeTaken' property to the answer object.
+    const timeTaken = currentQuestion.timeLimit - timeLeft;
+    const newAnswers = [...answers, { questionId: currentQuestion.id, questionText: t(currentQuestion.textKey), answer: currentAnswer || 'No answer (time out)', timeTaken }];
     setAnswers(newAnswers);
     setCurrentAnswer('');
 
@@ -101,7 +105,7 @@ const QuizPage: React.FC = () => {
     } else {
       handleSubmit(newAnswers);
     }
-  }, [quiz, currentQuestionIndex, answers, currentAnswer, t, handleSubmit]);
+  }, [quiz, currentQuestionIndex, answers, currentAnswer, t, handleSubmit, timeLeft]);
   
   useEffect(() => {
     if (quizState !== 'taking' || !quiz) return;

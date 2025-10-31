@@ -1,34 +1,16 @@
 // @ts-nocheck
-// Vixel Roleplay Website - Full Database Schema (V36, Webhook Notifications)
-export const schema = `
+// Vixel Roleplay Website - Full Database Schema (V37 - Direct HTTP Notifications)
 /*
-====================================================================================================
- Vixel Roleplay Website - Full Database Schema (V36, Webhook Notifications)
- Author: AI
- Date: 2024/06/22
- 
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
  functions, and data before recreating the entire schema. This is intended for development
  or for a clean installation. DO NOT run this on a production database with live user data
  unless you intend to wipe it completely.
 
- !! WHAT'S NEW (V36) !!
- - REMOVED pg_net: The entire notification system has been re-architected to use Supabase
-   Database Webhooks instead of the 'pg_net' extension. This removes the need for the
-   "Database Egress" setting that was causing issues.
- - SIMPLIFIED SETUP: You no longer need to configure network settings. Instead, you will
-   create a few webhooks in the Supabase dashboard. See the new INSTRUCTIONS.md file.
- - CENTRALIZED LOGIC: All notification logic is now handled inside the 'discord-proxy'
-   Edge Function, making it easier to debug and manage than SQL triggers.
- - NEW RPCs: Added RPC functions for deleting quizzes and products to ensure these actions
-   are properly logged in the audit log.
- 
  INSTRUCTIONS:
  1. Go to your Supabase Project Dashboard -> SQL Editor.
  2. Click "+ New query".
  3. Copy the ENTIRE content of this file, paste it into the editor, and click "RUN".
-====================================================================================================
 */
 
 -- Wrap the entire script in a transaction to ensure it either completes fully or not at all.
@@ -37,6 +19,9 @@ BEGIN;
 -- =================================================================
 -- 1. DESTRUCTIVE RESET: Drop all existing objects
 -- =================================================================
+DROP SCHEMA IF EXISTS private CASCADE;
+DROP TRIGGER IF EXISTS on_audit_log_insert ON public.audit_log;
+
 DROP TABLE IF EXISTS public.role_permissions CASCADE;
 DROP TABLE IF EXISTS public.bans CASCADE;
 DROP TABLE IF EXISTS public.audit_log CASCADE;
@@ -49,6 +34,7 @@ DROP TABLE IF EXISTS public.config CASCADE;
 DROP TABLE IF EXISTS public.translations CASCADE;
 
 -- Drop all custom functions to ensure a clean re-creation.
+DROP FUNCTION IF EXISTS public.handle_audit_log_notification();
 DROP FUNCTION IF EXISTS public.get_config();
 DROP FUNCTION IF EXISTS public.get_all_submissions();
 DROP FUNCTION IF EXISTS public.add_submission(jsonb);
@@ -65,15 +51,9 @@ DROP FUNCTION IF EXISTS public.unban_user(uuid);
 DROP FUNCTION IF EXISTS public.has_permission(uuid, text);
 DROP FUNCTION IF EXISTS public.save_role_permissions(text, text[]);
 DROP FUNCTION IF EXISTS public.get_user_id();
-DROP FUNCTION IF EXISTS public.test_pg_net();
 DROP FUNCTION IF EXISTS public.delete_quiz(uuid);
 DROP FUNCTION IF EXISTS public.delete_product(uuid);
 DROP FUNCTION IF EXISTS public.test_http_request();
-
-
--- Drop private schema for secrets
-DROP SCHEMA IF EXISTS private CASCADE;
-
 
 -- =================================================================
 -- 2. INITIAL SETUP & EXTENSIONS
@@ -81,7 +61,6 @@ DROP SCHEMA IF EXISTS private CASCADE;
 GRANT USAGE, CREATE ON SCHEMA public TO postgres;
 CREATE EXTENSION IF NOT EXISTS http WITH SCHEMA extensions;
 CREATE EXTENSION IF NOT EXISTS pg_graphql WITH SCHEMA extensions;
--- pg_net is NO LONGER REQUIRED. Webhooks are used instead.
 
 -- Create a private schema to store secrets and internal functions.
 CREATE SCHEMA private;
@@ -104,6 +83,8 @@ CREATE TABLE public.config (
     "AUDIT_LOG_CHANNEL_ID_SUBMISSIONS" text,
     "AUDIT_LOG_CHANNEL_ID_BANS" text,
     "AUDIT_LOG_CHANNEL_ID_ADMIN" text,
+    "DISCORD_PROXY_URL" text,
+    "DISCORD_PROXY_SECRET" text,
     CONSTRAINT id_check CHECK (id = 1)
 );
 INSERT INTO public.config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
@@ -175,7 +156,7 @@ CREATE TABLE public.audit_log (
     admin_id uuid REFERENCES auth.users(id),
     admin_username text,
     action text,
-    log_type text -- Used by webhook to route to correct channel
+    log_type text -- Used by trigger to route to correct channel
 );
 
 CREATE TABLE public.translations (
@@ -214,6 +195,34 @@ BEGIN
     JOIN public.role_permissions rp ON rp.role_id = r.role_obj->>'id'
     CROSS JOIN unnest(rp.permissions) AS p(permission) WHERE prof.id = p_user_id;
     RETURN ('_super_admin' = ANY(user_permissions) OR p_permission_key = ANY(user_permissions));
+END;
+$$;
+
+-- Central notification function (INTERNAL)
+CREATE OR REPLACE FUNCTION private.send_notification(p_type text, p_payload jsonb)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions
+AS $$
+DECLARE
+  proxy_url text;
+  proxy_secret text;
+  full_payload jsonb;
+  headers jsonb;
+  response http_response;
+BEGIN
+  SELECT "DISCORD_PROXY_URL", "DISCORD_PROXY_SECRET" INTO proxy_url, proxy_secret FROM public.config WHERE id = 1;
+  IF proxy_url IS NULL OR proxy_secret IS NULL THEN RETURN; END IF;
+  
+  full_payload := jsonb_build_object('type', p_type, 'payload', p_payload);
+  headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer ' || proxy_secret);
+
+  SELECT * INTO response FROM http_post(proxy_url, full_payload::text, 'application/json', headers);
+
+  IF response.status >= 300 THEN
+    RAISE WARNING '[send_notification] Failed with status %: %', response.status, response.content;
+  END IF;
+
+EXCEPTION WHEN OTHERS THEN
+    RAISE WARNING '[send_notification] Error: %', SQLERRM;
 END;
 $$;
 
@@ -263,31 +272,94 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.add_submission(submission_data jsonb) RETURNS public.submissions LANGUAGE plpgsql
+CREATE OR REPLACE FUNCTION public.add_submission(submission_data jsonb) RETURNS public.submissions LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
-DECLARE new_submission public.submissions;
+DECLARE 
+  new_submission public.submissions;
+  profile_record record;
+  notification_payload jsonb;
+  receipt_payload jsonb;
+  receipt_title text;
+  receipt_body text;
+  notification_title text;
+  notification_body text;
 BEGIN
+  SELECT discord_id INTO profile_record FROM public.profiles WHERE id = public.get_user_id();
+
   INSERT INTO public.submissions ("quizId", "quizTitle", user_id, username, answers, "cheatAttempts", user_highest_role)
   VALUES (
     (submission_data->>'quizId')::uuid, submission_data->>'quizTitle', public.get_user_id(), submission_data->>'username',
     submission_data->'answers', submission_data->'cheatAttempts', submission_data->>'user_highest_role'
   ) RETURNING * INTO new_submission;
-  IF jsonb_array_length(submission_data->'cheatAttempts') > 0 THEN
-    PERFORM public.log_action('⚠️ تم تسجيل ' || jsonb_array_length(submission_data->'cheatAttempts') || ' محاولة غش للمستخدم **' || (submission_data->>'username') || '** في تقديم (*' || (submission_data->>'quizTitle') || '*).', 'submission');
-  END IF;
+
+  -- User Receipt DM
+  SELECT en INTO receipt_title FROM translations WHERE key = 'notification_submission_receipt_title';
+  SELECT en INTO receipt_body FROM translations WHERE key = 'notification_submission_receipt_body';
+  receipt_payload := jsonb_build_object(
+      'userId', profile_record.discord_id,
+      'embed', jsonb_build_object(
+          'title', receipt_title,
+          'description', REPLACE(REPLACE(receipt_body, '{username}', new_submission.username), '{quizTitle}', new_submission."quizTitle"),
+          'color', 3092790, -- Blue
+          'timestamp', new_submission."submittedAt"
+      )
+  );
+  PERFORM private.send_notification('submission_receipt', receipt_payload);
+
+  -- Admin Channel Notification
+  SELECT en INTO notification_title FROM translations WHERE key = 'notification_new_submission_title';
+  SELECT en INTO notification_body FROM translations WHERE key = 'notification_new_submission_body';
+  notification_payload := jsonb_build_object(
+      'embed', jsonb_build_object(
+          'title', notification_title,
+          'description', REPLACE(REPLACE(REPLACE(notification_body, '{username}', new_submission.username), '{quizTitle}', new_submission."quizTitle"), '{userHighestRole}', new_submission.user_highest_role),
+          'color', 15105570, -- Orange
+          'timestamp', new_submission."submittedAt"
+      )
+  );
+  PERFORM private.send_notification('new_submission', notification_payload);
+
   RETURN new_submission;
 END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.update_submission_status(p_submission_id uuid, p_new_status text) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
-DECLARE submission_record record; admin_user record;
+DECLARE 
+  submission_record record; 
+  admin_user record;
+  profile_record record;
+  notification_title text;
+  notification_body text;
+  notification_payload jsonb;
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_submissions') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
-  SELECT id, raw_user_meta_data->>'full_name' AS username INTO admin_user FROM auth.users WHERE id = public.get_user_id();
+  
+  SELECT id, COALESCE(raw_user_meta_data->>'global_name', raw_user_meta_data->>'full_name') AS username INTO admin_user FROM auth.users WHERE id = public.get_user_id();
+  
   UPDATE public.submissions SET status = p_new_status, "adminId" = public.get_user_id(), "adminUsername" = admin_user.username, "updatedAt" = now()
   WHERE id = p_submission_id RETURNING * INTO submission_record;
-  PERFORM public.log_action('قام بتغيير حالة تقديم (' || submission_record."quizTitle" || ') للمستخدم ' || submission_record.username || ' إلى ' || p_new_status, 'submission');
+  
+  PERFORM public.log_action('قام بتغيير حالة تقديم (' || submission_record."quizTitle" || ') للمستخدم **' || submission_record.username || '** إلى ' || p_new_status, 'submission');
+  
+  -- Send DM to user if status is accepted or refused
+  IF p_new_status IN ('accepted', 'refused') THEN
+    SELECT discord_id INTO profile_record FROM public.profiles WHERE id = submission_record.user_id;
+    IF FOUND THEN
+      SELECT en INTO notification_title FROM translations WHERE key = 'notification_submission_' || p_new_status || '_title';
+      SELECT en INTO notification_body FROM translations WHERE key = 'notification_submission_' || p_new_status || '_body';
+      notification_payload := jsonb_build_object(
+          'userId', profile_record.discord_id,
+          'embed', jsonb_build_object(
+              'title', notification_title,
+              'description', REPLACE(REPLACE(REPLACE(notification_body, '{username}', submission_record.username), '{quizTitle}', submission_record."quizTitle"), '{adminUsername}', admin_user.username),
+              'color', CASE WHEN p_new_status = 'accepted' THEN 3066993 ELSE 15158332 END, -- Green or Red
+              'timestamp', submission_record."updatedAt"
+          )
+      );
+      PERFORM private.send_notification('submission_result', notification_payload);
+    END IF;
+  END IF;
 END;
 $$;
 
@@ -334,7 +406,8 @@ BEGIN
     "SHOW_HEALTH_CHECK" = coalesce((new_config->>'SHOW_HEALTH_CHECK')::boolean, "SHOW_HEALTH_CHECK"), "SUBMISSIONS_CHANNEL_ID" = coalesce(new_config->>'SUBMISSIONS_CHANNEL_ID', "SUBMISSIONS_CHANNEL_ID"),
     "SUBMISSIONS_MENTION_ROLE_ID" = coalesce(new_config->>'SUBMISSIONS_MENTION_ROLE_ID', "SUBMISSIONS_MENTION_ROLE_ID"),
     "AUDIT_LOG_CHANNEL_ID" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID', "AUDIT_LOG_CHANNEL_ID"), "AUDIT_LOG_CHANNEL_ID_SUBMISSIONS" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID_SUBMISSIONS', "AUDIT_LOG_CHANNEL_ID_SUBMISSIONS"),
-    "AUDIT_LOG_CHANNEL_ID_BANS" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID_BANS', "AUDIT_LOG_CHANNEL_ID_BANS"), "AUDIT_LOG_CHANNEL_ID_ADMIN" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID_ADMIN', "AUDIT_LOG_CHANNEL_ID_ADMIN")
+    "AUDIT_LOG_CHANNEL_ID_BANS" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID_BANS', "AUDIT_LOG_CHANNEL_ID_BANS"), "AUDIT_LOG_CHANNEL_ID_ADMIN" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID_ADMIN', "AUDIT_LOG_CHANNEL_ID_ADMIN"),
+    "DISCORD_PROXY_URL" = coalesce(new_config->>'DISCORD_PROXY_URL', "DISCORD_PROXY_URL"), "DISCORD_PROXY_SECRET" = coalesce(new_config->>'DISCORD_PROXY_SECRET', "DISCORD_PROXY_SECRET")
   WHERE id = 1;
 END;
 $$;
@@ -432,28 +505,66 @@ AS $$
 DECLARE
   response extensions.http_response;
 BEGIN
-  -- Test if the http extension is available and can make a simple request
   SELECT * INTO response FROM extensions.http_get('https://example.com');
-  RETURN jsonb_build_object(
-    'status', response.status
-  );
-EXCEPTION
-  WHEN OTHERS THEN
-    -- If the http request fails for any reason (e.g., egress blocked), return the error
+  RETURN jsonb_build_object('status', response.status);
+EXCEPTION WHEN OTHERS THEN
     RETURN jsonb_build_object('error', SQLERRM);
 END;
 $$;
 
 -- =================================================================
--- 7. NOTIFICATION TRIGGERS (REMOVED - HANDLED BY WEBHOOKS)
--- All notification logic is now centralized in the 'discord-proxy' Edge Function.
+-- 7. NOTIFICATION TRIGGER
 -- =================================================================
+CREATE OR REPLACE FUNCTION public.handle_audit_log_notification()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  channel_id text;
+  payload jsonb;
+BEGIN
+  SELECT CASE 
+    WHEN NEW.log_type = 'submission' THEN "AUDIT_LOG_CHANNEL_ID_SUBMISSIONS"
+    WHEN NEW.log_type = 'ban' THEN "AUDIT_LOG_CHANNEL_ID_BANS"
+    WHEN NEW.log_type = 'admin' THEN "AUDIT_LOG_CHANNEL_ID_ADMIN"
+    ELSE "AUDIT_LOG_CHANNEL_ID"
+  END INTO channel_id FROM public.config WHERE id = 1;
+  
+  IF channel_id IS NOT NULL THEN
+    payload := jsonb_build_object(
+      'channelId', channel_id,
+      'embed', jsonb_build_object(
+        'author', jsonb_build_object('name', NEW.admin_username),
+        'description', NEW.action,
+        'color', 5814783, -- Gray
+        'timestamp', NEW.timestamp
+      )
+    );
+    PERFORM private.send_notification('audit_log', payload);
+  END IF;
+  RETURN NEW;
+END;
+$$;
 
+CREATE TRIGGER on_audit_log_insert
+AFTER INSERT ON public.audit_log
+FOR EACH ROW EXECUTE FUNCTION public.handle_audit_log_notification();
 
 -- =================================================================
 -- 8. INITIAL DATA SEEDING (TRANSLATIONS, INCLUDING NOTIFICATIONS)
 -- =================================================================
 INSERT INTO public.translations (key, en, ar) VALUES
+('notification_submission_receipt_title', 'Application Received!', '!تم استلام تقديمك'),
+('notification_submission_receipt_body', 'Hi {username},\n\nWe have successfully received your application for **{quizTitle}**. You can check its status on the "My Applications" page on our website. We will notify you here once a decision has been made.\n\nThank you for your interest!', 'أهلاً {username},\n\nلقد استلمنا بنجاح طلب تقديمك لوظيفة **{quizTitle}**. يمكنك متابعة حالة طلبك من خلال صفحة "تقديماتي" على موقعنا. سنقوم بإعلامك هنا عند اتخاذ القرار.\n\nشكراً لاهتمامك!'),
+('notification_submission_taken_title', 'Your Application is Under Review', 'طلبك قيد المراجعة'),
+('notification_submission_taken_body', 'Hi {username},\n\nGood news! Your application for **{quizTitle}** has been picked up for review by **{adminUsername}**.\n\nYou will receive another update here once a final decision is made.', 'أهلاً {username},\n\nأخبار جيدة! تم استلام طلب تقديمك لوظيفة **{quizTitle}** للمراجعة من قبل **{adminUsername}**.\n\nستتلقى تحديثاً آخر هنا بمجرد اتخاذ القرار النهائي.'),
+('notification_submission_accepted_title', 'Congratulations! Your Application was Accepted!', '!تهانينا! تم قبول طلبك'),
+('notification_submission_accepted_body', 'Hi {username},\n\nWe are pleased to inform you that your application for **{quizTitle}** has been **ACCEPTED** by **{adminUsername}**!\n\nPlease contact the administration in-game or on Discord for the next steps.', 'أهلاً {username},\n\nيسرنا إعلامك بأن طلب تقديمك لوظيفة **{quizTitle}** قد تم **قبوله** من قبل **{adminUsername}**!\n\nيرجى التواصل مع الإدارة داخل اللعبة أو على ديسكورد لمعرفة الخطوات التالية.'),
+('notification_submission_refused_title', 'Application Status Update', 'تحديث حالة طلب التقديم'),
+('notification_submission_refused_body', 'Hi {username},\n\nAfter careful consideration, we regret to inform you that your application for **{quizTitle}** has been **REFUSED** by **{adminUsername}**.\n\nWe encourage you to re-apply in the future. Thank you for your time.', 'أهلاً {username},\n\nبعد المراجعة الدقيقة، نأسف لإعلامك بأن طلب تقديمك لوظيفة **{quizTitle}** قد تم **رفضه** من قبل **{adminUsername}**.\n\nنشجعك على إعادة التقديم في المستقبل. شكراً لوقتك.'),
+('notification_new_submission_title', 'New Application Submitted', 'تم إرسال تقديم جديد'),
+('notification_new_submission_body', 'A new application has been submitted.\n\n**Applicant:** {username}\n**For:** {quizTitle}\n**Highest Role:** {userHighestRole}', 'تم إرسال طلب تقديم جديد.\n\n**المتقدم:** {username}\n**لوظيفة:** {quizTitle}\n**أعلى رتبة:** {userHighestRole}'),
+('notification_welcome_dm_title', 'Welcome to {communityName}!', '!أهلاً بك في {communityName}'),
+('notification_welcome_dm_body', 'Hi {username},\n\nThanks for connecting your Discord account to our new community hub! You can now access all website features, including applications and the store.\n\nWe look forward to seeing you in-game!', 'أهلاً {username},\n\nشكراً لربط حساب ديسكورد الخاص بك بمركز المجتمع الجديد! يمكنك الآن الوصول إلى جميع ميزات الموقع، بما في ذلك التقديمات والمتجر.\n\nنتطلع لرؤيتك داخل اللعبة!'),
 ('home', 'Home', 'الرئيسية'), ('store', 'Store', 'المتجر'), ('rules', 'Rules', 'القوانين'), ('applies', 'Applies', 'التقديمات'),
 ('about_us', 'About Us', 'من نحن'), ('login_discord', 'Login with Discord', 'تسجيل الدخول'), ('logout', 'Logout', 'تسجيل الخروج'),
 ('welcome', 'Welcome', 'أهلاً'), ('admin_panel', 'Admin Panel', 'لوحة التحكم'), ('my_applications', 'My Applications', 'تقديماتي'),
@@ -511,15 +622,26 @@ INSERT INTO public.translations (key, en, ar) VALUES
 ('ban_reason', 'Reason for ban:', 'سبب الحظر:'), ('ban_expires', 'Ban expires:', 'ينتهي الحظر في:'), ('ban_permanent', 'This ban is permanent.', 'الحظر دائم.'),
 ('community_name', 'Community Name', 'اسم المجتمع'), ('logo_url', 'Logo URL', 'رابط الشعار (URL)'), ('background_image_url', 'Background Image URL', 'رابط صورة الخلفية (URL)'),
 ('background_image_url_desc', 'Leave empty to use the default animated background.', 'اتركه فارغاً لاستخدام الخلفية الافتراضية.'), ('discord_guild_id', 'Discord Guild ID', 'آي دي سيرفر الديسكورد'),
-('discord_guild_id_desc', 'Required for authentication and role sync.', 'مطلوب للمصادقة ومزامنة الرتب.'), ('submissions_webhook_url', 'Submissions Channel ID', 'معرف قناة التقديمات'),
-('submissions_webhook_url_desc', 'The ID of the channel that receives new submission notifications.', 'المعرف الرقمي للقناة التي تستقبل إشعارات التقديمات الجديدة.'),
-('audit_log_webhook_url', 'General Audit Log Channel ID', 'معرف قناة سجل التدقيق العام'), ('audit_log_webhook_url_desc', 'A general/fallback channel for admin action logs.', 'قناة عامة/احتياطية لسجلات إجراءات المشرفين.'),
-('log_channel_submissions', 'Submissions Log Channel ID', 'معرف قناة سجلات التقديمات'), ('log_channel_submissions_desc', 'Channel for logs related to submission status changes (taken, accepted, refused).', 'قناة للسجلات المتعلقة بحالة التقديمات (استلام، قبول، رفض).'),
-('log_channel_bans', 'Bans Log Channel ID', 'معرف قناة سجلات الحظر'), ('log_channel_bans_desc', 'Channel for logs related to user bans and unbans.', 'قناة للسجلات المتعلقة بحظر وفك حظر المستخدمين.'),
-('log_channel_admin', 'Admin Actions Log Channel ID', 'معرف قناة سجلات الإدارة'), ('log_channel_admin_desc', 'Channel for logs related to admin panel changes (e.g., editing quizzes, rules, settings).', 'قناة للسجلات المتعلقة بتغييرات لوحة التحكم (مثل تعديل التقديمات، القوانين، الإعدادات).'),
+('discord_guild_id_desc', 'Required for authentication and role sync.', 'مطلوب للمصادقة ومزامنة الرتب.'), ('submissions_channel_id', 'Submissions Channel ID', 'معرف قناة التقديمات'),
+('submissions_channel_id_desc', 'The ID of the channel that receives new submission notifications.', 'المعرف الرقمي للقناة التي تستقبل إشعارات التقديمات الجديدة.'),
+('submissions_mention_role_id', 'Submissions Mention Role ID', 'معرف رتبة منشن التقديمات'),
+('submissions_mention_role_id_desc', 'The ID of the role to mention when a new submission arrives.', 'المعرف الرقمي للرتبة التي يتم عمل منشن لها عند وجود تقديم جديد.'),
+('audit_log_channel_id', 'General Audit Log Channel ID', 'معرف قناة سجل التدقيق العام'),
+('audit_log_channel_id_desc', 'A general/fallback channel for admin action logs.', 'قناة عامة/احتياطية لسجلات إجراءات المشرفين.'),
+('log_channel_submissions', 'Submissions Log Channel ID', 'معرف قناة سجلات التقديمات'),
+('log_channel_submissions_desc', 'Channel for logs related to submission status changes (taken, accepted, refused).', 'قناة للسجلات المتعلقة بحالة التقديمات (استلام، قبول، رفض).'),
+('log_channel_bans', 'Bans Log Channel ID', 'معرف قناة سجلات الحظر'),
+('log_channel_bans_desc', 'Channel for logs related to user bans and unbans.', 'قناة للسجلات المتعلقة بحظر وفك حظر المستخدمين.'),
+('log_channel_admin', 'Admin Actions Log Channel ID', 'معرف قناة سجلات الإدارة'),
+('log_channel_admin_desc', 'Channel for logs related to admin panel changes (e.g., editing quizzes, rules, settings).', 'قناة للسجلات المتعلقة بتغييرات لوحة التحكم (مثل تعديل التقديمات، القوانين، الإعدادات).'),
+('discord_proxy_url', 'Discord Proxy Function URL', 'رابط دالة البروكسي'),
+('discord_proxy_url_desc', 'The Invocations URL for your discord-proxy edge function.', 'رابط الاستدعاء (Invocations URL) لدالة discord-proxy.'),
+('discord_proxy_secret', 'Discord Proxy Secret', 'الرمز السري لدالة البروكسي'),
+('discord_proxy_secret_desc', 'A secret password to authenticate requests between the database and the proxy function.', 'كلمة سر لمصادقة الطلبات بين قاعدة البيانات ودالة البروكسي.'),
 ('discord_roles', 'Discord Roles', 'رتب الديسكورد'), ('available_permissions', 'Available Permissions', 'الصلاحيات المتاحة'), ('select_role_to_manage', 'Select a role to see its permissions.', 'اختر رتبة لعرض صلاحياتها.'),
 ('admin_permissions_instructions', 'Select a role from the list to view and modify its permissions. The <code>_super_admin</code> permission automatically grants all other permissions.', 'اختر رتبة من القائمة لعرض وتعديل صلاحياتها. صلاحية <code>_super_admin</code> تمنح جميع الصلاحيات الأخرى تلقائياً.'),
-('admin_permissions_bootstrap_instructions_title', 'Locked Out?', 'غير قادر على الدخول؟'), ('admin_permissions_bootstrap_instructions_body', 'To grant initial admin access, go to your Supabase <code>role_permissions</code> table. Insert a new row, put your admin role ID in <code>role_id</code>, and type <code>{\\"_super_admin\\"}</code> into the <code>permissions</code> field, then refresh the site.', 'لمنح صلاحيات المشرف الأولية، اذهب إلى جدول <code>role_permissions</code> في Supabase. أضف صفاً جديداً، ضع آي دي رتبة المشرف في <code>role_id</code>، واكتب <code>{\\"_super_admin\\"}</code> في حقل <code>permissions</code> ثم قم بتحديث الصفحة.'),
+('admin_permissions_bootstrap_instructions_title', 'Locked Out?', 'غير قادر على الدخول؟'),
+('admin_permissions_bootstrap_instructions_body', 'To grant initial admin access, go to your Supabase <code>role_permissions</code> table. Insert a new row, put your admin role ID in <code>role_id</code>, and type <code>{\\"_super_admin\\"}</code> into the <code>permissions</code> field, then refresh the site.', 'لمنح صلاحيات المشرف الأولية، اذهب إلى جدول <code>role_permissions</code> في Supabase. أضف صفاً جديداً، ضع آي دي رتبة المشرف في <code>role_id</code>، واكتب <code>{\\"_super_admin\\"}</code> في حقل <code>permissions</code> ثم قم بتحديث الصفحة.'),
 ('notification_templates', 'Notification Templates', 'قوالب الإشعارات'), ('notifications_desc', 'Edit the content of automated messages sent to users and channels.', 'تعديل محتوى الرسائل الآلية المرسلة للمستخدمين والقنوات.'),
 ('test_notification', 'Test Notification', 'اختبار الإشعار'), ('test', 'Test', 'اختبار'), ('target_id', 'Target ID (User or Channel)', 'معرف الهدف (مستخدم أو قناة)'),
 ('send_test', 'Send Test', 'إرسال اختبار'), ('available_placeholders', 'Available Placeholders', 'المتغيرات المتاحة'), ('notification_group_welcome', 'Welcome Messages', 'رسائل الترحيب'),
@@ -531,8 +653,10 @@ INSERT INTO public.translations (key, en, ar) VALUES
 ('profile_synced_error', 'Failed to update profile. Please try again.', 'فشل تحديث الملف الشخصي. حاول مرة أخرى.'), ('log_timestamp', 'Timestamp', 'الوقت'), ('log_admin', 'Admin', 'المشرف'),
 ('log_action', 'Action', 'الإجراء'), ('no_logs_found', 'No logs to display.', 'لا توجد سجلات لعرضها.'), ('health_check_title', 'System Health Check', 'فحص صحة النظام'),
 ('health_check_desc', 'A diagnostic tool for developers to ensure all system components are correctly connected.', 'أداة تشخيصية للمطورين للتأكد من أن جميع أجزاء النظام متصلة بشكل صحيح.'),
-('health_check_step0', 'Step 0: Database Egress (pg_net)', 'الخطوة 0: الاتصال الخارجي لقاعدة البيانات (pg_net)'), ('health_check_step0_desc', 'This tests if your database can make outbound network requests, which is essential for sending notifications to Discord. This MUST succeed.', 'يختبر هذا ما إذا كانت قاعدة البيانات الخاصة بك تستطيع إجراء اتصالات شبكة خارجية، وهو أمر ضروري لإرسال الإشعارات إلى ديسكورد. يجب أن تنجح هذه الخطوة.'),
-('health_check_run_pgnet_test', 'Run Egress Test', 'تشغيل اختبار الاتصال الخارجي'), ('health_check_step0_5', 'Step 0.5: Supabase Function Secrets', 'الخطوة 0.5: متغيرات Supabase Function Secrets'),
+('health_check_step0', 'Step 0: Database Outbound HTTP', 'الخطوة 0: الاتصال الخارجي لقاعدة البيانات (HTTP)'),
+('health_check_step0_desc', 'This tests if your database can make outbound network requests, which is essential for sending notifications. This MUST succeed.', 'يختبر هذا ما إذا كانت قاعدة البيانات الخاصة بك تستطيع إجراء اتصالات شبكة خارجية، وهو أمر ضروري لإرسال الإشعارات. يجب أن تنجح هذه الخطوة.'),
+('health_check_run_http_test', 'Run Outbound HTTP Test', 'تشغيل اختبار الاتصال الخارجي'),
+('health_check_step0_5', 'Step 0.5: Supabase Function Secrets', 'الخطوة 0.5: متغيرات Supabase Function Secrets'),
 ('health_check_step0_5_desc', 'This checks if you have set the required secrets for your Edge Functions. These are needed to connect to your bot.', 'يتحقق هذا مما إذا كنت قد قمت بتعيين المتغيرات المطلوبة لوظائف Edge Functions الخاصة بك. هذه المتغيرات مطلوبة للاتصال بالبوت الخاص بك.'),
 ('health_check_step1', 'Step 1: OAuth Redirect URI', 'الخطوة 1: رابط الاسترجاع (OAuth Redirect URI)'), ('health_check_step1_desc', 'Ensure this URI is added to your Supabase Authentication > URL Configuration settings.', 'تأكد من أن هذا الرابط مضاف في قسم "URL Configuration" في إعدادات المصادقة في Supabase.'),
 ('health_check_uri_label', 'Your Redirect URI is:', 'رابط الاسترجاع الخاص بك هو:'), ('health_check_env_vars', 'Step 2: Environment Variables (Frontend)', 'الخطوة 2: متغيرات البيئة (Frontend)'),
@@ -562,8 +686,7 @@ INSERT INTO public.translations (key, en, ar) VALUES
   ('q_police_1', 'What is the first procedure when dealing with a suspect?', 'ما هو الإجراء الأول عند التعامل مع شخص مشتبه به؟'),
   ('q_police_2', 'When are you permitted to use lethal force?', 'متى يسمح لك باستخدام القوة المميتة؟'),
   ('quiz_medic_name', 'EMS Department Application', 'تقديم قسم الإسعاف'),
-  ('quiz_medic_desc', 'You are required to be calm and professional at all times.', 'مطلوب منك الهدوء والاحترافية في جميع الأوقات.'),
+  ('quiz_medic_desc', 'You are required to be calm and professional at all times.', 'مطلوب منك الهدوء والاحترافية في جميع الأوضاع.'),
   ('q_medic_1', 'What is your top priority when arriving at an accident scene?', 'ما هي أولويتك القصوى عند الوصول إلى مكان الحادث؟');
 
 COMMIT;
-`;

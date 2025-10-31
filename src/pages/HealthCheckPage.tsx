@@ -7,12 +7,12 @@ import { checkDiscordApiHealth, troubleshootUserSync, checkFunctionSecrets, test
 import SEO from '../components/SEO';
 import { useAuth } from '../hooks/useAuth';
 // FIX: Fix "no exported member" errors from 'react-router-dom' by switching to a namespace import.
-import { useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 
 const HealthCheckPage: React.FC = () => {
   const { t } = useLocalization();
   const { hasPermission } = useAuth();
-  const navigate = useNavigate();
+  const navigate = ReactRouterDOM.useNavigate();
   
   const [httpTestResult, setHttpTestResult] = React.useState<any>(null);
   const [httpTestLoading, setHttpTestLoading] = React.useState(false);

@@ -4,7 +4,7 @@ import { useConfig } from '../hooks/useConfig';
 import Modal from '../components/Modal';
 import Logo from '../components/Logo';
 import { Disc3, Gamepad2 } from 'lucide-react';
-import MtaServerStatus from '../components/MtaServerStatus';
+import DiscordAnnouncements from '../components/DiscordAnnouncements';
 import SEO from '../components/SEO';
 
 const HomePage: React.FC = () => {
@@ -25,17 +25,11 @@ const HomePage: React.FC = () => {
         image={config.BACKGROUND_IMAGE_URL || config.LOGO_URL}
       />
       <div className="relative h-[calc(100vh-68px)] flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0 w-full h-full opacity-5 pointer-events-none">
-          <Logo className="w-full h-full object-contain" />
-        </div>
         <div 
-          className="absolute inset-0 bg-gradient-to-t from-brand-dark via-brand-dark/80 to-transparent"
-        ></div>
-        <div 
-          className="absolute inset-0 bg-gradient-to-r from-brand-dark via-transparent to-brand-dark"
+          className="absolute inset-0 bg-gradient-to-t from-brand-dark via-brand-dark/80 to-transparent z-10"
         ></div>
         
-        <div className="text-center z-10 p-6 animate-slide-up">
+        <div className="text-center z-20 p-6 animate-slide-up">
           <h1 className="text-5xl md:text-7xl font-extrabold text-white" style={{ textShadow: '0 0 20px rgba(0, 242, 234, 0.4)' }}>
             {t('hero_title', { communityName })}
           </h1>
@@ -51,8 +45,8 @@ const HomePage: React.FC = () => {
         </div>
       </div>
 
-      <div className="container mx-auto px-6 py-16">
-        <MtaServerStatus />
+      <div className="container mx-auto px-6 py-16 z-10 relative">
+        <DiscordAnnouncements />
       </div>
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={t('join_modal_title')}>

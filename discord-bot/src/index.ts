@@ -7,9 +7,13 @@
  * to fetch real-time Discord data and send notifications.
  */
 
-// FIX: Separated Express value and type imports to resolve type conflicts.
-import express from 'express';
-import type { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
+// FIX: Corrected express import and type usage to resolve type conflicts.
+// The previous import `import express from 'express'` and using `express.Request` was incorrect.
+// The correct way is to import types like `Request` and `Response` as named imports.
+// FIX: Reverted the previous fix as it caused type conflicts. Using a default import for express and qualified type names (e.g., express.Request) is safer and resolves the errors.
+// FIX: Changed import to bring in Request, Response, and NextFunction types directly. This resolves numerous TypeScript errors about missing properties on req and res objects.
+// FIX: Import Request, Response, and NextFunction types directly from express to resolve type errors.
+import express, { Request, Response, NextFunction } from 'express';
 // FIX: Import 'process' module to provide types for process.exit.
 import process from 'process';
 import cors from 'cors';
@@ -25,15 +29,13 @@ import {
     DiscordAPIError,
     TextChannel,
     REST,
-    Guild,
     GuildMember,
     EmbedBuilder,
-    GuildMemberRoleManager
 } from 'discord.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import type { BotConfig, DiscordRole, NotifyPayload } from './types.js';
+import type { BotConfig, NotifyPayload } from './types.js';
 
 // =============================================
 // LOGGER UTILITY
@@ -49,7 +51,7 @@ const logger = (level: 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'FATAL', message: s
         FATAL: '\x1b[41m\x1b[37m', // White on Red BG
         RESET: '\x1b[0m'
     };
-    console.log(`${colorMap[level]}${logMessage}${colorMap[level] === colorMap.FATAL ? '' : colorMap.RESET}`);
+    console.log(`${colorMap[level]}${logMessage}${colorMap[level] === colorMap.FATAL ? '' : colorMap[level] === colorMap.RESET}`);
     if (data && (level === 'ERROR' || level === 'FATAL' || level === 'DEBUG')) {
         console.error(data);
     }
@@ -123,8 +125,6 @@ const main = async () => {
 
     const handleGuildFetchError = (error: unknown) => {
         logger('FATAL', `Could not fetch guild with ID ${config.DISCORD_GUILD_ID}.`);
-        // FIX: The 'code' property was accessed on 'error' of type 'unknown' without a type guard.
-        // The logic is restructured to first check if 'error' is an instance of DiscordAPIError.
         if (error instanceof DiscordAPIError) {
             if (error.code === 50001) {
                 logger('FATAL', `ADVICE: The bot is missing 'Access' to the guild. It might not be in the server.`);
@@ -140,22 +140,34 @@ const main = async () => {
     }
 
     client.on(Events.InteractionCreate, async interaction => {
-        if (!interaction.isChatInputCommand() || !interaction.inGuild() || interaction.commandName !== 'setstatus') return;
+        if (!interaction.isChatInputCommand() || interaction.commandName !== 'setstatus') return;
+    
+        if (!interaction.inGuild() || !interaction.guild) {
+            return interaction.reply({ content: 'This command can only be used in a server.', ephemeral: true });
+        }
         
         logger('INFO', `Received /setstatus command from user ${interaction.user.tag} (${interaction.user.id})`);
-
+    
         try {
-            const memberRoles = interaction.member.roles;
-            const hasRole = (memberRoles instanceof GuildMemberRoleManager)
-                ? config.PRESENCE_COMMAND_ROLE_IDS.some(id => memberRoles.cache.has(id))
-                : config.PRESENCE_COMMAND_ROLE_IDS.some(id => memberRoles.includes(id));
+            // Force-fetch the member to get the most up-to-date roles, bypassing potential cache issues.
+            const member = await interaction.guild.members.fetch(interaction.user.id);
+            if (!member) {
+                 logger('ERROR', `Could not fetch member for user ${interaction.user.tag}.`);
+                 return interaction.reply({ content: 'An error occurred while checking your permissions.', ephemeral: true });
+            }
+    
+            const hasAdminPerm = member.permissions.has(PermissionFlagsBits.Administrator);
+            const hasRole = config.PRESENCE_COMMAND_ROLE_IDS.some(id => member.roles.cache.has(id));
             
-            const hasPermission = interaction.memberPermissions.has(PermissionFlagsBits.Administrator) || hasRole;
-
-            if (!hasPermission) {
-                logger('WARN', `User ${interaction.user.tag} tried to use /setstatus without permission.`);
+            logger('DEBUG', `Permission check for ${member.user.tag}: Has Admin Permission? ${hasAdminPerm}, Has specific role? ${hasRole}`);
+            logger('DEBUG', `User Roles: [${Array.from(member.roles.cache.keys()).join(', ')}]`);
+            logger('DEBUG', `Required Roles: [${config.PRESENCE_COMMAND_ROLE_IDS.join(', ')}]`);
+    
+            if (!hasAdminPerm && !hasRole) {
+                logger('WARN', `User ${interaction.user.tag} was denied access to /setstatus.`);
                 return interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true });
             }
+            
             const status = interaction.options.getString('status', true) as PresenceStatusData;
             const activityType = ActivityType[interaction.options.getString('activity_type', true) as keyof typeof ActivityType];
             const activityName = interaction.options.getString('activity_name', true);
@@ -164,6 +176,9 @@ const main = async () => {
             interaction.reply({ content: 'Status updated successfully!', ephemeral: true });
         } catch (error) {
             logger('ERROR', 'Error handling /setstatus command:', error);
+            if (!interaction.replied && !interaction.deferred) {
+                await interaction.reply({ content: 'An unexpected error occurred while running the command.', ephemeral: true }).catch(e => logger('ERROR', 'Failed to send error reply for interaction.', e));
+            }
         }
     });
 
@@ -172,8 +187,8 @@ const main = async () => {
     app.use(cors());
     app.use(express.json());
 
-    // FIX: All request and response types updated to use aliased imports to prevent type conflicts.
-    const authenticate = (req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
+    // FIX: Replaced express.Request/Response/NextFunction with imported types.
+    const authenticate = (req: Request, res: Response, next: NextFunction) => {
         if (req.headers.authorization === `Bearer ${config.API_SECRET_KEY}`) {
             logger('DEBUG', `[AUTH] Successful authentication from ${req.ip}. Path: ${req.path}`);
             return next();
@@ -182,14 +197,16 @@ const main = async () => {
         res.status(401).send({ error: 'Authentication failed.' });
     };
 
-    app.get('/health', (req: ExpressRequest, res: ExpressResponse) => {
+    // FIX: Replaced express.Request/Response with imported types.
+    app.get('/health', (req: Request, res: Response) => {
         if (!client.isReady()) return res.status(503).send({ status: 'error', message: 'Discord Client not ready.' });
         const guild = client.guilds.cache.get(config.DISCORD_GUILD_ID);
         if (!guild) return res.status(500).send({ status: 'error', message: 'Guild not found in cache.' });
         res.send({ status: 'ok', details: { guildName: guild.name, memberCount: guild.memberCount } });
     });
     
-    app.get('/api/roles', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
+    // FIX: Replaced express.Request/Response with imported types.
+    app.get('/api/roles', authenticate, async (req: Request, res: Response) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
             const roles = (await guild.roles.fetch()).map(role => ({ id: role.id, name: role.name, color: role.color, position: role.position }));
@@ -201,7 +218,8 @@ const main = async () => {
         }
     });
 
-    app.get('/api/user/:id', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
+    // FIX: Replaced express.Request/Response with imported types.
+    app.get('/api/user/:id', authenticate, async (req: Request, res: Response) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
             const member = await guild.members.fetch(req.params.id);
@@ -229,14 +247,30 @@ const main = async () => {
         }
     });
     
-    app.post('/api/notify', authenticate, async (req: ExpressRequest, res: ExpressResponse) => {
+    // FIX: Replaced express.Request/Response with imported types.
+    app.post('/api/notify', authenticate, async (req: Request, res: Response) => {
         const body: NotifyPayload = req.body;
         logger('INFO', `Received notification request of type: ${body.type}`);
         logger('DEBUG', 'Full notification payload:', body.payload);
         
         try {
-            const embed = new EmbedBuilder(body.payload.embed);
+            const embedData = body.payload.embed;
+            if (!embedData) throw new Error("Notification payload is missing 'embed' object.");
             
+            const embed = new EmbedBuilder();
+            if (embedData.title) embed.setTitle(embedData.title);
+            if (embedData.description) embed.setDescription(embedData.description);
+            if (typeof embedData.color === 'number') embed.setColor(embedData.color);
+            if (embedData.timestamp) embed.setTimestamp(new Date(embedData.timestamp));
+            if (embedData.footer && embedData.footer.text) embed.setFooter(embedData.footer);
+            if (embedData.thumbnail && embedData.thumbnail.url) embed.setThumbnail(embedData.thumbnail.url);
+            if (embedData.author && embedData.author.name) embed.setAuthor(embedData.author);
+            if (embedData.fields && Array.isArray(embedData.fields)) {
+                const validFields = embedData.fields.filter(f => f.name && f.value);
+                if (validFields.length > 0) embed.addFields(validFields);
+            }
+            logger('DEBUG', 'Constructed Embed:', embed.toJSON());
+
             if (body.type === 'submission_result' || body.type === 'submission_receipt') {
                 const user = await client.users.fetch(body.payload.userId);
                 await user.send({ embeds: [embed] });
@@ -258,10 +292,17 @@ const main = async () => {
             let errorMessage = 'Failed to process notification.';
             if (error instanceof DiscordAPIError) {
                 errorMessage = `Discord API Error (${error.code}): ${error.message}`;
+                const channelId = 'payload' in body && 'channelId' in body.payload ? body.payload.channelId : 'N/A';
+                const userId = 'payload' in body && 'userId' in body.payload ? body.payload.userId : 'N/A';
+    
                 if (error.code === 50007) { // Cannot send messages to this user
-                    errorMessage += ' - ADVICE: The bot could not DM the user. They may have DMs disabled or have blocked the bot.';
+                    errorMessage += ` - ADVICE: The bot could not DM the user (${userId}). They may have DMs disabled for non-friends, or they may have blocked the bot.`;
                 } else if (error.code === 50001) { // Missing Access
-                     errorMessage += ' - ADVICE: The bot lacks permissions to view or send messages in the target channel.';
+                     errorMessage += ` - ADVICE: The bot lacks permissions for the target channel (${channelId}). Ensure the bot's role has 'View Channel', 'Send Messages', and 'Embed Links' permissions in that specific channel.`;
+                } else if (error.code === 10003) { // Unknown Channel
+                    errorMessage += ` - ADVICE: The channel ID (${channelId}) is incorrect or the channel was deleted. Check the channel ID in your Admin Panel -> Appearance settings.`;
+                } else if (error.code === 10013) { // Unknown User
+                    errorMessage += ` - ADVICE: The user ID (${userId}) is incorrect or the user does not exist.`;
                 }
             } else if (error instanceof Error) {
                 errorMessage = error.message;

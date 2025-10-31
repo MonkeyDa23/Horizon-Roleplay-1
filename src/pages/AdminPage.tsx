@@ -3,10 +3,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useLocalization } from '../hooks/useLocalization';
 // FIX: Fix "no exported member" errors from 'react-router-dom' by switching to a namespace import.
-import { useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import type { PermissionKey } from '../types';
 import SEO from '../components/SEO';
-import { UserCog, FileText, Server, BookCopy, Store, Languages, Palette, Search, ShieldCheck, ShieldQuestion, Bell } from 'lucide-react';
+import { UserCog, FileText, Server, BookCopy, Store, Languages, Palette, Search, ShieldCheck, ShieldQuestion, Bell, LayoutGrid } from 'lucide-react';
 import { logAdminPageVisit } from '../lib/api'; // Import the new logging function
 
 // Import the new layout and panel components
@@ -22,9 +22,10 @@ import PermissionsPanel from '../components/admin/PermissionsPanel';
 import AuditLogPanel from '../components/admin/AuditLogPanel';
 import AdminDashboard from '../components/admin/AdminDashboard';
 import NotificationsPanel from '../components/admin/NotificationsPanel';
+import WidgetsPanel from '../components/admin/WidgetsPanel'; // New Import
 
 
-export type AdminTab = 'dashboard' | 'submissions' | 'quizzes' | 'rules' | 'store' | 'translations' | 'appearance' | 'lookup' | 'permissions' | 'audit' | 'notifications';
+export type AdminTab = 'dashboard' | 'submissions' | 'quizzes' | 'rules' | 'store' | 'translations' | 'appearance' | 'lookup' | 'permissions' | 'audit' | 'notifications' | 'widgets';
 
 export const TABS: { id: AdminTab; labelKey: string; icon: React.ElementType; permission: PermissionKey }[] = [
     { id: 'dashboard', labelKey: 'dashboard', icon: UserCog, permission: 'admin_panel' },
@@ -35,6 +36,7 @@ export const TABS: { id: AdminTab; labelKey: string; icon: React.ElementType; pe
     { id: 'notifications', labelKey: 'notifications_management', icon: Bell, permission: 'admin_notifications' },
     { id: 'translations', labelKey: 'translations_management', icon: Languages, permission: 'admin_translations' },
     { id: 'appearance', labelKey: 'appearance_settings', icon: Palette, permission: 'admin_appearance' },
+    { id: 'widgets', labelKey: 'widgets_management', icon: LayoutGrid, permission: 'admin_widgets' },
     { id: 'lookup', labelKey: 'user_lookup', icon: Search, permission: 'admin_lookup'},
     { id: 'permissions', labelKey: 'permissions_management', icon: ShieldQuestion, permission: 'admin_permissions' },
     { id: 'audit', labelKey: 'audit_log', icon: ShieldCheck, permission: 'admin_audit_log' },
@@ -43,7 +45,7 @@ export const TABS: { id: AdminTab; labelKey: string; icon: React.ElementType; pe
 const AdminPage: React.FC = () => {
     const { t } = useLocalization();
     const { hasPermission, user, loading } = useAuth();
-    const navigate = useNavigate();
+    const navigate = ReactRouterDOM.useNavigate();
     const hasLoggedVisit = useRef(false);
 
     const accessibleTabs = TABS.filter(tab => hasPermission(tab.permission));
@@ -83,6 +85,7 @@ const AdminPage: React.FC = () => {
             case 'notifications': return <NotificationsPanel />;
             case 'translations': return <TranslationsPanel />;
             case 'appearance': return <AppearancePanel />;
+            case 'widgets': return <WidgetsPanel />;
             case 'lookup': return <UserLookupPanel />;
             case 'permissions': return <PermissionsPanel />;
             case 'audit': return <AuditLogPanel />;

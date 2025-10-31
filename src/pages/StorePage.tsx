@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useLocalization } from '../hooks/useLocalization';
 import { useCart } from '../hooks/useCart';
@@ -8,6 +7,7 @@ import type { Product } from '../types';
 import { ShoppingCart, PlusCircle } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
 import SEO from '../components/SEO';
+import * as ReactRouterDOM from 'react-router-dom';
 
 const StorePage: React.FC = () => {
   const { t } = useLocalization();
@@ -33,7 +33,9 @@ const StorePage: React.FC = () => {
     fetchProducts();
   }, []);
 
-  const handleAddToCart = (product: Product) => {
+  const handleAddToCart = (e: React.MouseEvent, product: Product) => {
+    e.preventDefault(); // Prevent navigation when clicking the add to cart button
+    e.stopPropagation();
     addToCart(product);
     showToast(t('item_added_to_cart', { itemName: t(product.nameKey) }), 'success');
   };
@@ -73,26 +75,32 @@ const StorePage: React.FC = () => {
             [...Array(4)].map((_, i) => <SkeletonCard key={i} />)
           ) : (
             products.map((product) => (
-              <div key={product.id} className="bg-brand-dark-blue border border-brand-light-blue/50 rounded-lg overflow-hidden flex flex-col group transition-all duration-300 hover:shadow-glow-cyan hover:-translate-y-1">
-                <div className="h-48 overflow-hidden">
-                  <img src={product.imageUrl} alt={t(product.nameKey)} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+              <ReactRouterDOM.Link 
+                to={`/store/${product.id}`}
+                key={product.id} 
+                className="block bg-brand-dark-blue border border-brand-light-blue/50 rounded-lg overflow-hidden group transition-all duration-300 hover:shadow-glow-cyan hover:-translate-y-1"
+              >
+                <div className="flex flex-col h-full">
+                    <div className="h-48 overflow-hidden">
+                        <img src={product.imageUrl} alt={t(product.nameKey)} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                    </div>
+                    <div className="p-6 flex flex-col flex-grow">
+                        <h2 className="text-2xl font-bold text-white mb-2">{t(product.nameKey)}</h2>
+                        <p className="text-gray-400 flex-grow mb-4">{t(product.descriptionKey)}</p>
+                        <div className="flex justify-between items-center mt-auto">
+                            <p className="text-2xl font-bold text-brand-cyan">${product.price.toFixed(2)}</p>
+                            <button 
+                                onClick={(e) => handleAddToCart(e, product)}
+                                className="bg-brand-cyan text-brand-dark font-bold py-2 px-4 rounded-md hover:bg-white hover:shadow-glow-cyan transition-all duration-300 flex items-center gap-2 z-10"
+                                aria-label={`${t('add_to_cart')} ${t(product.nameKey)}`}
+                            >
+                                <PlusCircle size={20}/>
+                                <span>{t('add_to_cart')}</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                <div className="p-6 flex flex-col flex-grow">
-                  <h2 className="text-2xl font-bold text-white mb-2">{t(product.nameKey)}</h2>
-                  <p className="text-gray-400 flex-grow mb-4">{t(product.descriptionKey)}</p>
-                  <div className="flex justify-between items-center mt-auto">
-                    <p className="text-2xl font-bold text-brand-cyan">${product.price.toFixed(2)}</p>
-                    <button 
-                      onClick={() => handleAddToCart(product)}
-                      className="bg-brand-cyan text-brand-dark font-bold py-2 px-4 rounded-md hover:bg-white hover:shadow-glow-cyan transition-all duration-300 flex items-center gap-2"
-                      aria-label={`${t('add_to_cart')} ${t(product.nameKey)}`}
-                    >
-                      <PlusCircle size={20}/>
-                      <span>{t('add_to_cart')}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
+              </ReactRouterDOM.Link>
             ))
           )}
         </div>

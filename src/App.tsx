@@ -1,7 +1,7 @@
 // src/App.tsx
 import React from 'react';
 // FIX: Fix "no exported member" errors from 'react-router-dom' by switching to a namespace import.
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { LocalizationProvider } from './contexts/LocalizationContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
@@ -14,11 +14,12 @@ import { TranslationsProvider } from './contexts/TranslationsContext';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import SessionWatcher from './components/SessionWatcher';
-import HexagonBackground from './components/HexagonBackground';
+import CosmicBackground from './components/CosmicBackground';
 import PermissionWarningBanner from './components/PermissionWarningBanner';
 
 import HomePage from './pages/HomePage';
 import StorePage from './pages/StorePage';
+import ProductDetailPage from './pages/ProductDetailPage'; // New import
 import RulesPage from './pages/RulesPage';
 import AppliesPage from './pages/AppliesPage';
 import AboutUsPage from './pages/AboutUsPage';
@@ -36,7 +37,7 @@ import type { PermissionKey } from './types';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode; permission: PermissionKey; }> = ({ children, permission }) => {
   const { user, hasPermission, loading } = useAuth();
-  const location = useLocation();
+  const location = ReactRouterDOM.useLocation();
 
   if (loading) {
     return (
@@ -47,7 +48,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; permission: Permissi
   }
 
   if (!user || !hasPermission(permission)) {
-    return <Navigate to="/" state={{ from: location }} replace />;
+    return <ReactRouterDOM.Navigate to="/" state={{ from: location }} replace />;
   }
 
   return <>{children}</>;
@@ -111,7 +112,7 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <BrowserRouter>
+    <ReactRouterDOM.BrowserRouter>
       <div 
         className="flex flex-col min-h-screen text-white font-sans"
         style={{ 
@@ -121,28 +122,29 @@ const AppContent: React.FC = () => {
           backgroundAttachment: 'fixed',
         }}
       >
-        <HexagonBackground />
+        <CosmicBackground />
         <div className="flex flex-col min-h-screen relative z-10 bg-brand-dark/90 backdrop-blur-sm">
           <Navbar />
           {permissionWarning && <PermissionWarningBanner message={permissionWarning} />}
           <main className="flex-grow">
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/store" element={<StorePage />} />
-              <Route path="/rules" element={<RulesPage />} />
-              <Route path="/applies" element={<AppliesPage />} />
-              <Route path="/applies/:quizId" element={<QuizPage />} />
-              <Route path="/about" element={<AboutUsPage />} />
-              <Route path="/admin" element={
+            <ReactRouterDOM.Routes>
+              <ReactRouterDOM.Route path="/" element={<HomePage />} />
+              <ReactRouterDOM.Route path="/store" element={<StorePage />} />
+              <ReactRouterDOM.Route path="/store/:productId" element={<ProductDetailPage />} />
+              <ReactRouterDOM.Route path="/rules" element={<RulesPage />} />
+              <ReactRouterDOM.Route path="/applies" element={<AppliesPage />} />
+              <ReactRouterDOM.Route path="/applies/:quizId" element={<QuizPage />} />
+              <ReactRouterDOM.Route path="/about" element={<AboutUsPage />} />
+              <ReactRouterDOM.Route path="/admin" element={
                 <ProtectedRoute permission="admin_panel">
                   <AdminPage />
                 </ProtectedRoute>
               } />
-              <Route path="/my-applications" element={user ? <MyApplicationsPage /> : <Navigate to="/" replace />} />
-              <Route path="/profile" element={user ? <ProfilePage /> : <Navigate to="/" replace />} />
+              <ReactRouterDOM.Route path="/my-applications" element={user ? <MyApplicationsPage /> : <ReactRouterDOM.Navigate to="/" replace />} />
+              <ReactRouterDOM.Route path="/profile" element={user ? <ProfilePage /> : <ReactRouterDOM.Navigate to="/" replace />} />
               
               {config.SHOW_HEALTH_CHECK && (
-                <Route 
+                <ReactRouterDOM.Route 
                   path="/health-check" 
                   element={
                      <ProtectedRoute permission="admin_panel">
@@ -152,13 +154,13 @@ const AppContent: React.FC = () => {
                 />
               )}
               {/* Fallback route for any undefined paths */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
+              <ReactRouterDOM.Route path="*" element={<ReactRouterDOM.Navigate to="/" replace />} />
+            </ReactRouterDOM.Routes>
           </main>
           <Footer />
         </div>
       </div>
-    </BrowserRouter>
+    </ReactRouterDOM.BrowserRouter>
   );
 };
 

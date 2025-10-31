@@ -5,6 +5,7 @@
 
 
 
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 // FIX: Updated import paths to point to the 'src' directory
 import { useAuth } from '../src/hooks/useAuth';
@@ -32,8 +33,7 @@ import {
 import type { Quiz, QuizQuestion, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule, Product } from '../src/types';
 // FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
 // FIX: Switched to a namespace import for react-router-dom to resolve module resolution errors.
-// FIX: Switched to named imports to fix hook resolution errors.
-import { useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { UserCog, Plus, Edit, Trash2, Check, X, FileText, Server, Eye, Loader2, ShieldCheck, BookCopy, Store, AlertTriangle } from 'lucide-react';
 import Modal from '../src/components/Modal';
 
@@ -55,7 +55,7 @@ const AdminPage: React.FC = () => {
   const { showToast } = useToast();
   const { config } = useConfig();
   // FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
-  const navigate = useNavigate();
+  const navigate = ReactRouterDOM.useNavigate();
 
   const [activeTab, setActiveTab] = useState<AdminTab>('submissions');
   
