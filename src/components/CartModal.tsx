@@ -1,3 +1,4 @@
+// src/components/CartModal.tsx
 import React, { useState } from 'react';
 import { useLocalization } from '../hooks/useLocalization';
 import { useCart } from '../hooks/useCart';
@@ -111,7 +112,10 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
     
       <Modal isOpen={isCheckoutModalOpen} onClose={closeAllModals} title={t('checkout_via_discord')}>
         <div className="text-center">
-            <p className="text-gray-300 mb-6 leading-relaxed">
+            <div className="mx-auto w-16 h-16 flex items-center justify-center rounded-full bg-brand-light-blue mb-6">
+                <DiscordLogo className="w-8 h-8 text-white"/>
+            </div>
+            <p className="text-gray-300 mb-8 leading-relaxed">
                 {t('checkout_instructions')}
             </p>
             <button

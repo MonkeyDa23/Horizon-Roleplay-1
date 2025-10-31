@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+// src/components/DiscordEmbed.tsx
+import React, { useState } from 'react';
 import Logo from './Logo';
 import { useLocalization } from '../hooks/useLocalization';
 import { Loader2, AlertTriangle } from 'lucide-react';
@@ -6,10 +7,11 @@ import DiscordLogo from './icons/DiscordLogo';
 
 interface DiscordEmbedProps {
   serverName: string;
+  serverId: string;
   inviteUrl: string;
 }
 
-const DiscordEmbed: React.FC<DiscordEmbedProps> = ({ serverName, inviteUrl }) => {
+const DiscordEmbed: React.FC<DiscordEmbedProps> = ({ serverName, serverId, inviteUrl }) => {
   const { t } = useLocalization();
   
   // MOCK DATA until a serverless function is created for stats
@@ -72,7 +74,7 @@ const DiscordEmbed: React.FC<DiscordEmbedProps> = ({ serverName, inviteUrl }) =>
         href={inviteUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="flex items-center justify-center gap-2 w-full text-center bg-[#5865F2] text-white font-bold py-2.5 rounded-md hover:bg-[#4f5bda] transition-all duration-300 shadow-glow-cyan-light mt-2"
+        className="flex items-center justify-center gap-2 w-full text-center bg-[#5865F2] text-white font-bold py-2.5 rounded-md hover:bg-[#4f5bda] transition-all duration-300"
       >
         <DiscordLogo className="w-6 h-5" />
         {t('join_us')}

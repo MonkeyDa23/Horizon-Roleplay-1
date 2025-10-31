@@ -58,8 +58,8 @@ const AdminPage: React.FC = () => {
     }, [user, loading, navigate]);
     
     useEffect(() => {
-        if (!accessibleTabs.find(t => t.id === activeTab)) {
-            setActiveTab(accessibleTabs[0]?.id || 'dashboard');
+        if (accessibleTabs.length > 0 && !accessibleTabs.find(t => t.id === activeTab)) {
+            setActiveTab(accessibleTabs[0].id);
         }
     }, [accessibleTabs, activeTab]);
     

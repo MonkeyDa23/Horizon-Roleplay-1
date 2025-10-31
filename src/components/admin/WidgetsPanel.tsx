@@ -64,7 +64,7 @@ const WidgetsPanel: React.FC = () => {
         if (!editingWidget) return;
 
         const newWidgets = editingWidget.id 
-            ? widgets.map(w => w.id === editingWidget.id ? { ...w, ...editingWidget } : w)
+            ? widgets.map(w => w.id === (editingWidget as DiscordWidget).id ? { ...w, ...editingWidget } : w)
             : [...widgets, { ...editingWidget, id: crypto.randomUUID(), position: widgets.length }];
         
         setWidgets(newWidgets as DiscordWidget[]);
@@ -94,7 +94,7 @@ const WidgetsPanel: React.FC = () => {
             </div>
             
             <div className="space-y-4">
-                {widgets.map((widget, index) => (
+                {widgets.length > 0 ? widgets.map((widget) => (
                     <div key={widget.id} className="bg-brand-dark-blue p-3 rounded-lg border border-brand-light-blue/50 flex items-center gap-4">
                         <GripVertical className="cursor-grab text-gray-500" />
                         <div className="flex-grow">
@@ -106,7 +106,9 @@ const WidgetsPanel: React.FC = () => {
                             <button onClick={() => deleteWidget(widget.id)} className="text-red-500 hover:text-red-400"><Trash2 size={20} /></button>
                         </div>
                     </div>
-                ))}
+                )) : (
+                    <div className="text-center py-10 text-gray-400">No widgets configured yet. Click "Add Widget" to create one.</div>
+                )}
             </div>
 
             {editingWidget && (

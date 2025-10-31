@@ -1,3 +1,4 @@
+// src/pages/AboutUsPage.tsx
 import React, { useState, useEffect } from 'react';
 import { useLocalization } from '../hooks/useLocalization';
 import { useConfig } from '../hooks/useConfig';
@@ -63,12 +64,15 @@ const AboutUsPage: React.FC = () => {
                     <DiscordEmbed 
                         key={widget.id}
                         serverName={widget.server_name}
+                        serverId={widget.server_id}
                         inviteUrl={widget.invite_url}
                     />
                 ))
              ) : (
+                // Fallback to main community discord if no widgets are configured
                 <DiscordEmbed 
                     serverName={config.COMMUNITY_NAME}
+                    serverId={config.DISCORD_GUILD_ID}
                     inviteUrl={config.DISCORD_INVITE_URL}
                 />
              )}

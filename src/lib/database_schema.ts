@@ -1,5 +1,5 @@
 // @ts-nocheck
-// Vixel Roleplay Website - Full Database Schema (V37 - Direct HTTP Notifications)
+// Vixel Roleplay Website - Full Database Schema (V38 - Widgets & Bot Stability)
 /*
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -22,6 +22,7 @@ BEGIN;
 DROP SCHEMA IF EXISTS private CASCADE;
 DROP TRIGGER IF EXISTS on_audit_log_insert ON public.audit_log;
 
+DROP TABLE IF EXISTS public.discord_widgets CASCADE;
 DROP TABLE IF EXISTS public.role_permissions CASCADE;
 DROP TABLE IF EXISTS public.bans CASCADE;
 DROP TABLE IF EXISTS public.audit_log CASCADE;
@@ -38,11 +39,13 @@ DROP FUNCTION IF EXISTS public.handle_audit_log_notification();
 DROP FUNCTION IF EXISTS public.get_config();
 DROP FUNCTION IF EXISTS public.get_all_submissions();
 DROP FUNCTION IF EXISTS public.add_submission(jsonb);
-DROP FUNCTION IF EXISTS public.update_submission_status(uuid, text);
+DROP FUNCTION IF EXISTS public.update_submission_status(uuid, text, text);
 DROP FUNCTION IF EXISTS public.delete_submission(uuid);
 DROP FUNCTION IF EXISTS public.save_quiz_with_translations(jsonb);
 DROP FUNCTION IF EXISTS public.save_product_with_translations(jsonb);
 DROP FUNCTION IF EXISTS public.save_rules(jsonb);
+DROP FUNCTION IF EXISTS public.save_discord_widgets(jsonb);
+DROP FUNCTION IF EXISTS public.get_discord_widgets();
 DROP FUNCTION IF EXISTS public.update_config(jsonb);
 DROP FUNCTION IF EXISTS public.log_action(text, text);
 DROP FUNCTION IF EXISTS public.log_page_visit(text);
@@ -140,7 +143,8 @@ CREATE TABLE public.submissions (
     "adminUsername" text,
     "updatedAt" timestamptz,
     "cheatAttempts" jsonb,
-    user_highest_role text
+    user_highest_role text,
+    reason text
 );
 
 CREATE TABLE public.rules (
@@ -175,6 +179,14 @@ CREATE TABLE public.bans (
     unbanned_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
     unbanned_at timestamptz,
     is_active boolean DEFAULT true
+);
+
+CREATE TABLE public.discord_widgets (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    server_name text NOT NULL,
+    server_id text NOT NULL,
+    invite_url text NOT NULL,
+    position int NOT NULL
 );
 
 
@@ -240,12 +252,14 @@ ALTER TABLE public.rules ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.translations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.discord_widgets ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Allow public read access" ON public.config FOR SELECT USING (true);
 CREATE POLICY "Allow public read access" ON public.products FOR SELECT USING (true);
 CREATE POLICY "Allow public read access" ON public.quizzes FOR SELECT USING (true);
 CREATE POLICY "Allow public read access" ON public.rules FOR SELECT USING (true);
 CREATE POLICY "Allow public read access" ON public.translations FOR SELECT USING (true);
+CREATE POLICY "Allow public read access" ON public.discord_widgets FOR SELECT USING (true);
 CREATE POLICY "Users can read their own profile" ON public.profiles FOR SELECT USING (id = public.get_user_id());
 CREATE POLICY "Users can access their own submissions" ON public.submissions FOR ALL USING (user_id = public.get_user_id());
 CREATE POLICY "Admins can manage config" ON public.config FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_appearance'));
@@ -255,6 +269,7 @@ CREATE POLICY "Admins can manage rules" ON public.rules FOR ALL USING (public.ha
 CREATE POLICY "Admins can manage translations" ON public.translations FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_translations') OR public.has_permission(public.get_user_id(), 'admin_notifications'));
 CREATE POLICY "Admins can manage bans" ON public.bans FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_lookup'));
 CREATE POLICY "Admins can manage role permissions" ON public.role_permissions FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_permissions'));
+CREATE POLICY "Admins can manage discord widgets" ON public.discord_widgets FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_widgets'));
 CREATE POLICY "Admins can read audit log" ON public.audit_log FOR SELECT USING (public.has_permission(public.get_user_id(), 'admin_audit_log'));
 CREATE POLICY "Admins can manage all profiles" ON public.profiles FOR ALL USING (public.has_permission(public.get_user_id(), '_super_admin'));
 CREATE POLICY "Admins can manage submissions" ON public.submissions FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_submissions'));
@@ -323,7 +338,7 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.update_submission_status(p_submission_id uuid, p_new_status text) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+CREATE OR REPLACE FUNCTION public.update_submission_status(p_submission_id uuid, p_new_status text, p_reason text DEFAULT NULL) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE 
   submission_record record; 
@@ -332,12 +347,13 @@ DECLARE
   notification_title text;
   notification_body text;
   notification_payload jsonb;
+  final_body text;
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_submissions') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
   
   SELECT id, COALESCE(raw_user_meta_data->>'global_name', raw_user_meta_data->>'full_name') AS username INTO admin_user FROM auth.users WHERE id = public.get_user_id();
   
-  UPDATE public.submissions SET status = p_new_status, "adminId" = public.get_user_id(), "adminUsername" = admin_user.username, "updatedAt" = now()
+  UPDATE public.submissions SET status = p_new_status, "adminId" = public.get_user_id(), "adminUsername" = admin_user.username, "updatedAt" = now(), reason = p_reason
   WHERE id = p_submission_id RETURNING * INTO submission_record;
   
   PERFORM public.log_action('قام بتغيير حالة تقديم (' || submission_record."quizTitle" || ') للمستخدم **' || submission_record.username || '** إلى ' || p_new_status, 'submission');
@@ -348,11 +364,17 @@ BEGIN
     IF FOUND THEN
       SELECT en INTO notification_title FROM translations WHERE key = 'notification_submission_' || p_new_status || '_title';
       SELECT en INTO notification_body FROM translations WHERE key = 'notification_submission_' || p_new_status || '_body';
+      
+      final_body := REPLACE(REPLACE(REPLACE(notification_body, '{username}', submission_record.username), '{quizTitle}', submission_record."quizTitle"), '{adminUsername}', admin_user.username);
+      IF p_reason IS NOT NULL AND p_reason <> '' THEN
+        final_body := final_body || E'\n\n**Reason:** ' || p_reason;
+      END IF;
+
       notification_payload := jsonb_build_object(
           'userId', profile_record.discord_id,
           'embed', jsonb_build_object(
               'title', notification_title,
-              'description', REPLACE(REPLACE(REPLACE(notification_body, '{username}', submission_record.username), '{quizTitle}', submission_record."quizTitle"), '{adminUsername}', admin_user.username),
+              'description', final_body,
               'color', CASE WHEN p_new_status = 'accepted' THEN 3066993 ELSE 15158332 END, -- Green or Red
               'timestamp', submission_record."updatedAt"
           )
@@ -470,6 +492,25 @@ BEGIN
   DELETE FROM public.rules WHERE true; INSERT INTO public.rules (id, "titleKey", position, rules) SELECT (c->>'id')::uuid, c->>'titleKey', (c->>'position')::int, (SELECT jsonb_agg(jsonb_build_object('id', r->>'id', 'textKey', r->>'textKey')) FROM jsonb_array_elements(c->'rules') AS r) FROM jsonb_array_elements(p_rules_data) AS c;
 END; $$;
 
+CREATE OR REPLACE FUNCTION public.get_discord_widgets() RETURNS SETOF public.discord_widgets LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  RETURN QUERY SELECT * FROM public.discord_widgets ORDER BY position ASC;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.save_discord_widgets(p_widgets_data jsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_widget jsonb;
+BEGIN
+  IF NOT public.has_permission(public.get_user_id(), 'admin_widgets') THEN RAISE EXCEPTION 'Insufficient permissions'; END IF;
+  PERFORM public.log_action('🖼️ قام بتحديث ويدجتات الديسكورد', 'admin');
+  TRUNCATE public.discord_widgets;
+  FOR v_widget IN SELECT * FROM jsonb_array_elements(p_widgets_data) LOOP
+    INSERT INTO public.discord_widgets(server_name, server_id, invite_url, position)
+    VALUES (v_widget->>'server_name', v_widget->>'server_id', v_widget->>'invite_url', (v_widget->>'position')::int);
+  END LOOP;
+END; $$;
+
+
 CREATE OR REPLACE FUNCTION public.ban_user(p_target_user_id uuid, p_reason text, p_duration_hours int) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE v_expires_at timestamptz; target_username text;
 BEGIN
@@ -581,7 +622,6 @@ INSERT INTO public.translations (key, en, ar) VALUES
 ('footer_rights', '© {year} {communityName}. All Rights Reserved.', '© {year} {communityName}. جميع الحقوق محفوظة.'), ('add_to_cart', 'Add to Cart', 'أضف للسلة'),
 ('item_added_to_cart', '{itemName} added to cart!', 'تمت إضافة {itemName} إلى السلة!'), ('your_cart', 'Your Cart', 'سلة التسوق'), ('empty_cart', 'Your cart is empty.', 'سلتك فارغة.'),
 ('subtotal', 'Subtotal', 'المجموع الفرعي'), ('checkout', 'Checkout', 'الدفع'), ('remove', 'Remove', 'إزالة'), ('checkout_via_discord', 'Checkout via Discord', 'الدفع عبر ديسكورد'),
-('checkout_instructions', 'To complete your purchase, please open a ticket in our Discord server and an admin will assist you.', 'لإكمال عملية الشراء، يرجى فتح تذكرة في سيرفر الديسكورد الخاص بنا وسيقوم أحد المسؤولين بمساعدتك.'),
 ('open_ticket', 'Open a Ticket', 'فتح تذكرة'), ('apply_now', 'Apply Now', 'قدم الآن'), ('already_applied', 'Already Applied', 'تم التقديم'), ('application_closed', 'Application Closed', 'التقديم مغلق'),
 ('no_applies_open', 'No applications are open at this time.', 'لا يوجد تقديمات مفتوحة حالياً.'), ('no_rules_yet', 'Rules will be added soon.', 'سيتم إضافة القوانين قريباً.'),
 ('quiz_rules', 'Application Instructions', 'تعليمات التقديم'), ('begin_quiz', 'Begin Quiz', 'ابدأ الاختبار'), ('question', 'Question', 'سؤال'), ('of', 'of', 'من'),
@@ -687,6 +727,8 @@ INSERT INTO public.translations (key, en, ar) VALUES
   ('q_police_2', 'When are you permitted to use lethal force?', 'متى يسمح لك باستخدام القوة المميتة؟'),
   ('quiz_medic_name', 'EMS Department Application', 'تقديم قسم الإسعاف'),
   ('quiz_medic_desc', 'You are required to be calm and professional at all times.', 'مطلوب منك الهدوء والاحترافية في جميع الأوضاع.'),
-  ('q_medic_1', 'What is your top priority when arriving at an accident scene?', 'ما هي أولويتك القصوى عند الوصول إلى مكان الحادث؟');
+  ('q_medic_1', 'What is your top priority when arriving at an accident scene?', 'ما هي أولويتك القصوى عند الوصول إلى مكان الحادث؟'),
+  ('checkout_instructions', 'To complete your purchase, a list of your items will be prepared. Please open a ticket in our Discord server and an admin will assist you with the payment process.', 'لإكمال عملية الشراء، سيتم تجهيز قائمة بمشترياتك. يرجى فتح تذكرة في سيرفر الديسكورد الخاص بنا وسيقوم أحد المسؤولين بمساعدتك في عملية الدفع.'),
+  ('widgets_management', 'Widgets Management', 'إدارة الويدجتس');
 
 COMMIT;
