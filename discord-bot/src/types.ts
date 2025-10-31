@@ -41,7 +41,7 @@ interface DmNotificationPayload {
  * Defines the strict structure for the /api/notify endpoint payload.
  * This uses a discriminated union to ensure type safety based on the `type` property.
  */
-export type NotifyPayload = 
+export type NotifyPayload =
   | { type: 'new_submission'; payload: ChannelNotificationPayload }
   | { type: 'audit_log'; payload: ChannelNotificationPayload }
   | { type: 'submission_result'; payload: DmNotificationPayload }

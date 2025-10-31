@@ -1,10 +1,12 @@
-# Vixel Roleplay - Discord Bot
+# Vixel Roleplay - Discord Bot (v2.0)
 
-This is the backend Discord bot required for the Vixel Roleplay website. It's a lightweight Express.js server that communicates with the Discord API to provide real-time user data and send notifications/logs.
+This is the completely rebuilt backend Discord bot required for the Vixel Roleplay website. It's a lightweight, robust Express.js server that communicates with the Discord API to provide real-time user data and send notifications/logs. This version focuses on stability, detailed logging, and clear error handling.
 
-## ⚠️ Important Prerequisites
+This bot also includes a web-based control panel accessible directly from its URL (e.g., `http://YOUR_BOT_IP:14355`).
 
-Before setting up the bot, you **MUST** do the following two things. They are the #1 cause of login and command issues.
+## ⚠️ CRITICAL PREREQUISITES
+
+Before setting up the bot, you **MUST** do the following. These are the #1 cause of login, permission, and command issues.
 
 ### 1. Enable Server Members Intent
 
@@ -12,7 +14,7 @@ Go to the [Discord Developer Portal](https://discord.com/developers/applications
 
 You **MUST** enable the **SERVER MEMBERS INTENT**.
 
-If this is disabled, the bot cannot see the roles of users who are not cached, and the login/permission system will fail.
+If this is disabled, the bot cannot see the roles of users who are not cached, and the entire login/permission system will fail with a `503 Service Unavailable` error.
 
 ### 2. Invite The Bot Correctly (For Slash Commands)
 
@@ -128,23 +130,12 @@ Ensure that the port the bot is running on (default is **14355**) is open in you
 
 **Problem: Notifications are not sent to Discord channels or DMs.**
 
-The new architecture is more direct: A function in your Supabase database makes an HTTP request to the `discord-proxy` Edge Function, which then calls your bot.
-
 1.  **Check the Health Check Page:**
     *   Go to your website's Admin Panel -> Health Check.
-    *   Run **"Step 0: Database Outbound HTTP"**. This is the most critical test.
-    *   **If it fails:** Your database cannot make external requests. This is rare, but could be due to an outdated Supabase project or network restrictions. The error message will provide clues. Ensure the `http` extension is enabled in your database (the schema script does this automatically).
-    *   **If it succeeds:** The database *can* send requests. The problem is further down the line. Proceed to the next step.
+    *   Run **"Step 3: Bot Connection Test"**.
+    *   **If it fails:** Your Supabase Function can't reach the bot. The error message will tell you why (e.g., bot is offline, firewall blocking the port, `VITE_DISCORD_BOT_URL` is wrong in Supabase secrets).
 
-2.  **Check the `discord-proxy` Function Logs:**
-    *   Go to Supabase -> Edge Functions -> `discord-proxy`.
-    *   Trigger an action that should send a notification (e.g., submit an application).
-    *   Check the logs for an incoming request.
-    *   **If you see `Unauthorized`**: Your `DISCORD_PROXY_SECRET` in the function's Secrets does not match what the database is sending. This is an internal configuration error, likely in the database schema's `private.send_notification` function.
-    *   **If you see "Bot integration secrets are not configured"**: You missed Step 2 of the `supabase/functions/INSTRUCTIONS.md` guide. You need to set `VITE_DISCORD_BOT_URL` and `VITE_DISCORD_BOT_API_KEY` as secrets.
-    *   **If you see "Error from bot API..." or a connection error**: The proxy function can't reach your bot. Check your bot's firewall and the `VITE_DISCORD_BOT_URL` secret. The error message will give you a hint.
-
-3.  **Check Bot Logs:** Use `pm2 logs vixel-bot` on your server.
+2.  **Check Bot Logs:** Use `pm2 logs vixel-bot` on your server.
     *   Do you see an error like "Authentication failed"? Your `API_SECRET_KEY` in `config.json` doesn't match the `VITE_DISCORD_BOT_API_KEY` secret in Supabase.
     *   Do you see a "Discord API Error"? The bot might not have permission to send messages in the target channel or to DM the user. The error message in the log is very specific and will tell you what's wrong (e.g., "Missing Access", "Cannot send messages to this user").
 

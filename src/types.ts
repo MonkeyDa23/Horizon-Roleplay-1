@@ -67,6 +67,7 @@ export interface AuthContextType {
   updateUser: (user: User) => void;
   hasPermission: (key: PermissionKey) => boolean;
   permissionWarning: string | null;
+  syncError: Error | null; // New property
 }
 
 export interface UserLookupResult {

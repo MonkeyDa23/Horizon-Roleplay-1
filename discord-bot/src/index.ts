@@ -1,13 +1,14 @@
 // discord-bot/src/index.ts
 /**
- * Vixel Roleplay - Discord Bot Backend
- * 
+ * Vixel Roleplay - Discord Bot Backend (v2.0)
+ *
  * This bot serves as the crucial link between the website and the Discord API.
  * It provides an authenticated REST API for the website (via Supabase Edge Functions)
  * to fetch real-time Discord data and send notifications.
+ * It also serves a web-based control panel at its root URL.
  */
-// FIX: Resolve Express type conflicts by using explicit types from the 'express' namespace.
-import express from 'express';
+// FIX: Import Request, Response, and NextFunction types from express to resolve type errors.
+import express, { type Request, type Response, type NextFunction } from 'express';
 import process from 'process';
 import cors from 'cors';
 import {
@@ -20,13 +21,15 @@ import {
     PresenceStatusData,
     DiscordAPIError,
     TextChannel,
+    SlashCommandBuilder,
+    EmbedBuilder
 } from 'discord.js';
-import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { REST } from '@discordjs/rest';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import type { BotConfig, NotifyPayload } from './types.js';
+import { CONTROL_PANEL_HTML } from './controlPanel.js';
 
 // =============================================
 // LOGGER UTILITY
@@ -57,11 +60,11 @@ const loadConfig = (): BotConfig => {
     try {
         const __dirname = path.dirname(fileURLToPath(import.meta.url));
         const configPath = path.resolve(__dirname, '..', 'config.json');
-        
+
         if (!fs.existsSync(configPath)) {
             throw new Error(`config.json not found at ${configPath}. Please copy config.example.json to config.json and fill it out.`);
         }
-        
+
         const config: BotConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
 
         if (!config.DISCORD_BOT_TOKEN || !config.DISCORD_GUILD_ID || !config.API_SECRET_KEY) {
@@ -95,7 +98,7 @@ const main = async () => {
             handleGuildFetchError(error);
         }
     });
-    
+
     const registerCommands = async (clientId: string) => {
         const setStatusCommand = new SlashCommandBuilder()
             .setName('setstatus')
@@ -104,13 +107,13 @@ const main = async () => {
             .addStringOption(o => o.setName('status').setDescription("Bot's status.").setRequired(true).addChoices({ name: 'Online', value: 'online' }, { name: 'Idle', value: 'idle' }, { name: 'Do Not Disturb', value: 'dnd' }))
             .addStringOption(o => o.setName('activity_type').setDescription("Bot's activity type.").setRequired(true).addChoices({ name: 'Playing', value: 'Playing' }, { name: 'Watching', value: 'Watching' }, { name: 'Listening to', value: 'Listening' }, { name: 'Competing in', value: 'Competing' }))
             .addStringOption(o => o.setName('activity_name').setDescription("Bot's activity name.").setRequired(true));
-            
+
         logger('INFO', `Attempting to register slash commands for guild ${config.DISCORD_GUILD_ID}...`);
         const rest = new REST().setToken(config.DISCORD_BOT_TOKEN);
         try {
             await rest.put(`/applications/${clientId}/guilds/${config.DISCORD_GUILD_ID}/commands`, { body: [setStatusCommand.toJSON()] });
             logger('INFO', '✅ Slash commands registered/updated successfully.');
-        } catch(error) {
+        } catch (error) {
             logger('ERROR', 'Failed to register slash commands. ADVICE: Ensure the bot was invited with both `bot` and `applications.commands` scopes.', error);
         }
     };
@@ -121,10 +124,10 @@ const main = async () => {
             if (error.code === 50001) {
                 logger('FATAL', `ADVICE: The bot is missing 'Access' to the guild. It might not be in the server.`);
             } else {
-                 logger('FATAL', `ADVICE: Ensure the 'DISCORD_GUILD_ID' in config.json is correct and the bot has been invited to that server.`);
+                logger('FATAL', `ADVICE: Ensure the 'DISCORD_GUILD_ID' in config.json is correct and the bot has been invited to that server.`);
             }
         } else {
-             logger('FATAL', `ADVICE: Ensure the 'DISCORD_GUILD_ID' in config.json is correct and the bot has been invited to that server.`);
+            logger('FATAL', `ADVICE: Ensure the 'DISCORD_GUILD_ID' in config.json is correct and the bot has been invited to that server.`);
         }
         logger('FATAL', `ADVICE: Also, ensure the 'SERVER MEMBERS INTENT' is enabled in the Discord Developer Portal.`);
         process.exit(1);
@@ -132,30 +135,30 @@ const main = async () => {
 
     client.on(Events.InteractionCreate, async interaction => {
         if (!interaction.isChatInputCommand() || interaction.commandName !== 'setstatus') return;
-    
+
         if (!interaction.inGuild() || !interaction.guild) {
             return interaction.reply({ content: 'This command can only be used in a server.', ephemeral: true });
         }
-        
+
         logger('INFO', `Received /setstatus command from user ${interaction.user.tag} (${interaction.user.id})`);
-    
+
         try {
             const member = await interaction.guild.members.fetch(interaction.user.id);
             if (!member) {
-                 logger('ERROR', `Could not fetch member for user ${interaction.user.tag}.`);
-                 return interaction.reply({ content: 'An error occurred while checking your permissions.', ephemeral: true });
+                logger('ERROR', `Could not fetch member for user ${interaction.user.tag}.`);
+                return interaction.reply({ content: 'An error occurred while checking your permissions.', ephemeral: true });
             }
-    
+
             const hasAdminPerm = member.permissions.has(PermissionFlagsBits.Administrator);
             const hasRole = (config.PRESENCE_COMMAND_ROLE_IDS || []).some(id => member.roles.cache.has(id));
-            
+
             logger('DEBUG', `Permission check for ${member.user.tag}: Has Admin Permission? ${hasAdminPerm}, Has specific role? ${hasRole}`);
-    
+
             if (!hasAdminPerm && !hasRole) {
                 logger('WARN', `User ${interaction.user.tag} was denied access to /setstatus.`);
                 return interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true });
             }
-            
+
             const status = interaction.options.getString('status', true) as PresenceStatusData;
             const activityType = ActivityType[interaction.options.getString('activity_type', true) as keyof typeof ActivityType];
             const activityName = interaction.options.getString('activity_name', true);
@@ -175,59 +178,101 @@ const main = async () => {
     app.use(cors());
     app.use(express.json());
 
-    // FIX: Using express.Request, express.Response, and express.NextFunction to avoid type ambiguity.
-    const authenticate = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    // Middleware to authenticate requests to the API
+    // FIX: Use explicit types from express.
+    const authenticate = (req: Request, res: Response, next: NextFunction) => {
         const receivedAuthHeader = req.headers.authorization;
         const expectedAuthHeader = `Bearer ${config.API_SECRET_KEY}`;
 
-        logger('DEBUG', `[AUTH] Received auth header of length: ${receivedAuthHeader?.length || 0}. Path: ${req.path} from ${req.ip}.`);
-        
-        // Use .trim() to prevent issues with trailing whitespace in config files
+        logger('DEBUG', `[AUTH] Request on path: ${req.path} from ${req.ip}.`);
+
         if (receivedAuthHeader && receivedAuthHeader.trim() === expectedAuthHeader.trim()) {
-            logger('DEBUG', `[AUTH] SUCCESS: Authentication successful.`);
             return next();
         }
 
-        let failureReason = '';
-        if (!receivedAuthHeader) {
-            failureReason = 'No Authorization header was received.';
-        } else if (!receivedAuthHeader.startsWith('Bearer ')) {
-            failureReason = 'Authorization header is not in the "Bearer <token>" format.';
-        } else if (receivedAuthHeader.trim() !== expectedAuthHeader.trim()) {
-            failureReason = 'The provided token does not match the expected API key. This could be due to a mismatch or extra whitespace.';
-            logger('DEBUG', `Received token length: ${receivedAuthHeader.length}, Expected token length: ${expectedAuthHeader.length}`);
-        }
-        
-        logger('WARN', `[AUTH] FAILED: Authentication failed. Reason: ${failureReason}`);
-        logger('WARN', `ADVICE: Check that VITE_DISCORD_BOT_API_KEY secret in Supabase EXACTLY matches API_SECRET_KEY in the bot's config.json. Ensure there are no extra spaces or characters.`);
+        logger('WARN', `[AUTH] FAILED: Authentication failed for path ${req.path}.`);
+        logger('WARN', `ADVICE: Check that VITE_DISCORD_BOT_API_KEY secret in Supabase EXACTLY matches API_SECRET_KEY in the bot's config.json.`);
         res.status(401).send({ error: 'Authentication failed.' });
     };
 
-    app.get('/health', (req: express.Request, res: express.Response) => {
+    // ========== PUBLIC & CONTROL PANEL ENDPOINTS ==========
+
+    app.get('/', (req: Request, res: Response) => {
+        res.setHeader('Content-Type', 'text/html');
+        res.send(CONTROL_PANEL_HTML);
+    });
+
+    app.get('/health', (req: Request, res: Response) => {
         if (!client.isReady()) return res.status(503).send({ status: 'error', message: 'Discord Client not ready.' });
         const guild = client.guilds.cache.get(config.DISCORD_GUILD_ID);
         if (!guild) return res.status(500).send({ status: 'error', message: 'Guild not found in cache.' });
         res.status(200).send({ status: 'ok', details: { guildName: guild.name, memberCount: guild.memberCount } });
     });
     
-    app.get('/api/roles', authenticate, async (req: express.Request, res: express.Response) => {
+    // ========== AUTHENTICATED API ENDPOINTS ==========
+    
+    app.get('/api/status', authenticate, async (req: Request, res: Response) => {
+        if (!client.isReady() || !client.user) return res.status(503).json({ error: 'Bot is not ready' });
+        const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
+        res.json({
+            username: client.user.username,
+            avatar: client.user.displayAvatarURL(),
+            guildName: guild.name,
+            memberCount: guild.memberCount,
+        });
+    });
+
+    app.post('/api/set-presence', authenticate, (req: Request, res: Response) => {
+        const { status, activityType, activityName } = req.body;
+        if (!status || !activityType || !activityName) {
+            return res.status(400).json({ error: 'Missing required fields: status, activityType, activityName' });
+        }
+        try {
+            const actType = ActivityType[activityType as keyof typeof ActivityType];
+            client.user?.setPresence({ status: status as PresenceStatusData, activities: [{ name: activityName, type: actType }] });
+            logger('INFO', `Presence updated via control panel.`);
+            res.json({ success: true, message: 'Presence updated.' });
+        } catch (error) {
+            logger('ERROR', 'Failed to set presence via control panel.', error);
+            res.status(500).json({ error: 'Failed to update presence.' });
+        }
+    });
+
+    app.post('/api/send-test-message', authenticate, async (req: Request, res: Response) => {
+        const { channelId, message } = req.body;
+        if (!channelId || !message) return res.status(400).json({ error: 'Missing channelId or message.' });
+        try {
+            const channel = await client.channels.fetch(channelId);
+            if (!channel || !(channel instanceof TextChannel)) {
+                return res.status(404).json({ error: 'Channel not found or is not a text channel.' });
+            }
+            await channel.send(message);
+            logger('INFO', `Sent test message to #${channel.name} via control panel.`);
+            res.json({ success: true, message: `Message sent to #${channel.name}` });
+        } catch (error) {
+             logger('ERROR', 'Failed to send test message via control panel.', error);
+             res.status(500).json({ error: 'Failed to send message.', details: (error as Error).message });
+        }
+    });
+
+    app.get('/api/roles', authenticate, async (req: Request, res: Response) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
             const roles = (await guild.roles.fetch()).map(role => ({ id: role.id, name: role.name, color: role.color, position: role.position }));
             const sortedRoles = roles.sort((a, b) => b.position - a.position);
             res.json(sortedRoles);
         } catch (error) {
-             logger('ERROR', 'Failed to fetch guild roles for /api/roles.', error);
-             res.status(500).json({ error: 'Failed to fetch roles.' });
+            logger('ERROR', 'Failed to fetch guild roles for /api/roles.', error);
+            res.status(500).json({ error: 'Failed to fetch roles.' });
         }
     });
 
-    app.get('/api/user/:id', authenticate, async (req: express.Request, res: express.Response) => {
+    app.get('/api/user/:id', authenticate, async (req: Request, res: Response) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
             const member = await guild.members.fetch(req.params.id);
             if (!member) return res.status(404).json({ error: 'User not found in guild.' });
-            
+
             const roles = member.roles.cache
                 .filter(role => role.name !== '@everyone')
                 .map(role => ({ id: role.id, name: role.name, color: role.color, position: role.position }))
@@ -235,13 +280,13 @@ const main = async () => {
 
             const highestRole = roles[0] || null;
             const avatar = member.user.displayAvatarURL({ extension: 'png', size: 256 });
-            
+
             res.json({ username: member.user.globalName || member.user.username, avatar, roles, highest_role: highestRole });
         } catch (error) {
             if (error instanceof DiscordAPIError && (error.code === 10007 || error.code === 10013)) { // Unknown Member or User
                 return res.status(404).json({ error: 'User not found in guild.' });
             }
-            if (error instanceof DiscordAPIError && String(error.message).includes("Members Intent")) {
+            if (error instanceof DiscordAPIError && String((error as any).message).includes("Members Intent")) {
                 logger('ERROR', "SERVER_MEMBERS_INTENT is likely disabled! Failed to fetch user.", error);
                 return res.status(503).json({ error: "Bot is missing SERVER_MEMBERS_INTENT." });
             }
@@ -249,16 +294,16 @@ const main = async () => {
             res.status(500).json({ error: 'An internal error occurred.' });
         }
     });
-    
-    app.post('/api/notify', authenticate, async (req: express.Request, res: express.Response) => {
+
+    app.post('/api/notify', authenticate, async (req: Request, res: Response) => {
         const body: NotifyPayload = req.body;
         logger('INFO', `Received notification request of type: ${body.type}`);
         logger('DEBUG', 'Full notification payload:', body.payload);
-        
+
         try {
             const embedData = body.payload.embed;
             if (!embedData) throw new Error("Notification payload is missing 'embed' object.");
-            
+
             const embed = new EmbedBuilder();
             if (embedData.title) embed.setTitle(embedData.title);
             if (embedData.description) embed.setDescription(embedData.description);
@@ -282,10 +327,9 @@ const main = async () => {
                 } catch (dmError) {
                     if (dmError instanceof DiscordAPIError && dmError.code === 50007) {
                         logger('WARN', `Could not DM user ${userId}. They likely have DMs disabled or have blocked the bot.`);
-                        // Don't throw an error back to Supabase for this, it's a user setting, not a system failure.
                         return res.status(200).json({ message: 'Could not DM user, but request was processed.' });
                     }
-                    throw dmError; // Re-throw other errors to be caught below
+                    throw dmError;
                 }
             } else { // Channel Notification
                 const channelId = body.payload.channelId;
@@ -303,21 +347,15 @@ const main = async () => {
                 logger('INFO', `✅ Sent embed to channel #${channel.name}.`);
             }
             res.status(200).json({ message: 'Notification sent successfully.' });
-        } catch(error) {
+        } catch (error) {
             let errorMessage = 'Failed to process notification.';
             const channelId = 'channelId' in body.payload ? body.payload.channelId : 'N/A';
             const userId = 'userId' in body.payload ? body.payload.userId : 'N/A';
-    
+
             if (error instanceof DiscordAPIError) {
-                errorMessage = `Discord API Error (${error.code}): ${error.message}`;
-                if (error.code === 50007) {
-                    errorMessage += ` - ADVICE: The bot could not DM the user (${userId}). They may have DMs disabled or have blocked the bot.`;
-                } else if (error.code === 50001) {
-                     errorMessage += ` - ADVICE: The bot lacks permissions for the target channel (${channelId}). Check 'View Channel', 'Send Messages', and 'Embed Links' permissions.`;
-                } else if (error.code === 10003) {
-                    errorMessage += ` - ADVICE: The channel ID (${channelId}) is incorrect or was deleted. Check your Admin Panel settings.`;
-                } else if (error.code === 10013) {
-                    errorMessage += ` - ADVICE: The user ID (${userId}) is incorrect or the user does not exist.`;
+                errorMessage = `Discord API Error (${error.code}): ${(error as any).message}`;
+                if (error.code === 50001) {
+                    errorMessage += ` - ADVICE: The bot lacks permissions for the target channel (${channelId}). Check 'View Channel', 'Send Messages', and 'Embed Links' permissions.`;
                 }
             } else if (error instanceof Error) {
                 errorMessage = error.message;
@@ -332,7 +370,7 @@ const main = async () => {
         app.listen(PORT, '0.0.0.0', () => {
             logger('INFO', `✅ Express server is listening on http://0.0.0.0:${PORT}`);
         });
-    } catch(error) {
+    } catch (error) {
         logger('FATAL', 'Failed to log in to Discord. Is the token in config.json correct?', error);
         process.exit(1);
     }

@@ -6,6 +6,7 @@ import { useToast } from '../hooks/useToast';
 import type { Session } from '@supabase/supabase-js';
 import { Loader2 } from 'lucide-react';
 import BannedPage from '../pages/BannedPage';
+import LoginErrorPage from '../pages/LoginErrorPage'; // New Import
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -14,17 +15,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState<boolean>(true);
   const [bannedInfo, setBannedInfo] = useState<{ reason: string; expires_at: string | null } | null>(null);
   const [permissionWarning, setPermissionWarning] = useState<string | null>(null);
+  const [syncError, setSyncError] = useState<Error | null>(null);
   const { showToast } = useToast();
 
   const handleSession = useCallback(async (session: Session | null) => {
     setBannedInfo(null);
+    setSyncError(null); // Clear previous errors on new session attempt
+
     if (session) {
       try {
-        const { user: fullUserProfile, syncError } = await fetchUserProfile();
+        const { user: fullUserProfile, syncError: permWarning } = await fetchUserProfile();
         
-        if (syncError) {
-            setPermissionWarning(syncError);
-            showToast(`Warning: ${syncError}`, 'warning');
+        if (permWarning) {
+            setPermissionWarning(permWarning);
         } else {
             setPermissionWarning(null);
         }
@@ -39,28 +42,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       } catch (error) {
         console.error("Critical error fetching user profile:", error);
-        
-        // Use a functional update to get the current user state without creating a dependency loop
-        setUser(currentUser => {
-            if (currentUser) { 
-                const errorMessage = `Failed to refresh session: ${(error as Error).message}. Using cached data.`;
-                setPermissionWarning(errorMessage);
-                showToast(errorMessage, 'error');
-                return currentUser; // Keep the existing user
-            } else {
-                setPermissionWarning("A critical error occurred during login. The bot may be offline or misconfigured.");
-                showToast("A critical error occurred during login. The bot may be offline or misconfigured.", 'error');
-                supabase?.auth.signOut();
-                return null; // No user to keep, so stay logged out
-            }
-        });
+        setSyncError(error as Error); // Set the error state to render the error page
+        setUser(null); // Clear any partial user state
       }
     } else {
       setUser(null);
       setPermissionWarning(null);
     }
     setLoading(false);
-  }, [showToast]);
+  }, []);
 
   useEffect(() => {
     if (!supabase) {
@@ -108,6 +98,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     setBannedInfo(null);
     setPermissionWarning(null);
+    setSyncError(null);
     await supabase.auth.signOut();
   }, []);
   
@@ -117,13 +108,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const hasPermission = useCallback((key: PermissionKey): boolean => {
     if (!user || !user.permissions) return false;
-    // Super admin has all permissions implicitly
-    // FIX: Use .includes() for arrays, not .has() which is for Sets. This was a critical bug.
     if (user.permissions.includes('_super_admin')) return true;
     return user.permissions.includes(key);
   }, [user]);
 
-  // Render a full-page loader while the initial session is being processed.
+  const retrySync = useCallback(async () => {
+    if (!supabase) return;
+    setSyncError(null);
+    setLoading(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    await handleSession(session);
+  }, [handleSession]);
+
   if (loading) {
     return (
        <div className="flex flex-col gap-4 justify-center items-center h-screen w-screen bg-brand-dark">
@@ -137,8 +133,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return <BannedPage reason={bannedInfo.reason} expires_at={bannedInfo.expires_at} onLogout={logout} />;
   }
 
+  if (syncError) {
+    return <LoginErrorPage error={syncError} onRetry={retrySync} onLogout={logout} />;
+  }
 
-  const value = { user, login, logout, loading, updateUser, hasPermission, permissionWarning };
+  const value = { user, login, logout, loading, updateUser, hasPermission, permissionWarning, syncError };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
