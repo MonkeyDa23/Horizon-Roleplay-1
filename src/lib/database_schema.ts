@@ -1,5 +1,6 @@
+
 // @ts-nocheck
-// Vixel Roleplay Website - Full Database Schema (V38 - Widgets & Bot Stability)
+// Vixel Roleplay Website - Full Database Schema (V42 - Final Notification Hotfix)
 /*
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -220,22 +221,27 @@ DECLARE
   proxy_secret text;
   full_payload jsonb;
   headers jsonb;
-  response http_response;
+  response extensions.http_response;
 BEGIN
   SELECT "DISCORD_PROXY_URL", "DISCORD_PROXY_SECRET" INTO proxy_url, proxy_secret FROM public.config WHERE id = 1;
-  IF proxy_url IS NULL OR proxy_secret IS NULL THEN RETURN; END IF;
+  
+  IF proxy_url IS NULL OR proxy_url = '' OR proxy_secret IS NULL OR proxy_secret = '' THEN
+    RAISE EXCEPTION 'Bot notification failed: DISCORD_PROXY_URL or DISCORD_PROXY_SECRET is not configured. Please set them in the Admin Panel -> Appearance settings.';
+  END IF;
   
   full_payload := jsonb_build_object('type', p_type, 'payload', p_payload);
   headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer ' || proxy_secret);
 
-  SELECT * INTO response FROM http_post(proxy_url, full_payload::text, 'application/json', headers);
+  -- Use the (text, jsonb, jsonb) function signature which is more robust
+  -- and avoids type ambiguity with the content_type parameter.
+  SELECT * INTO response FROM extensions.http_post(proxy_url, full_payload, headers);
 
   IF response.status >= 300 THEN
-    RAISE WARNING '[send_notification] Failed with status %: %', response.status, response.content;
+    RAISE WARNING '[send_notification] Discord proxy responded with status %: %', response.status, response.content;
   END IF;
 
 EXCEPTION WHEN OTHERS THEN
-    RAISE WARNING '[send_notification] Error: %', SQLERRM;
+    RAISE EXCEPTION 'Notification system error: %', SQLERRM;
 END;
 $$;
 
@@ -339,8 +345,7 @@ BEGIN
 END;
 $$;
 
--- FIX: Explicitly drop old versions before creating the new one to resolve function overload ambiguity.
--- This is the root cause of the RPC error and is critical for the notification system to work.
+-- Explicitly drop old versions before creating the new one to resolve function overload ambiguity.
 DROP FUNCTION IF EXISTS public.update_submission_status(uuid, text);
 DROP FUNCTION IF EXISTS public.update_submission_status(uuid, text, text);
 CREATE OR REPLACE FUNCTION public.update_submission_status(p_submission_id uuid, p_new_status text, p_reason text DEFAULT NULL) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
@@ -686,7 +691,7 @@ INSERT INTO public.translations (key, en, ar) VALUES
 ('discord_roles', 'Discord Roles', 'رتب الديسكورد'), ('available_permissions', 'Available Permissions', 'الصلاحيات المتاحة'), ('select_role_to_manage', 'Select a role to see its permissions.', 'اختر رتبة لعرض صلاحياتها.'),
 ('admin_permissions_instructions', 'Select a role from the list to view and modify its permissions. The <code>_super_admin</code> permission automatically grants all other permissions.', 'اختر رتبة من القائمة لعرض وتعديل صلاحياتها. صلاحية <code>_super_admin</code> تمنح جميع الصلاحيات الأخرى تلقائياً.'),
 ('admin_permissions_bootstrap_instructions_title', 'Locked Out?', 'غير قادر على الدخول؟'),
-('admin_permissions_bootstrap_instructions_body', 'To grant initial admin access, go to your Supabase <code>role_permissions</code> table. Insert a new row, put your admin role ID in <code>role_id</code>, and type <code>{\\"_super_admin\\"}</code> into the <code>permissions</code> field, then refresh the site.', 'لمنح صلاحيات المشرف الأولية، اذهب إلى جدول <code>role_permissions</code> في Supabase. أضف صفاً جديداً، ضع آي دي رتبة المشرف في <code>role_id</code>، واكتب <code>{\\"_super_admin\\"}</code> في حقل <code>permissions</code> ثم قم بتحديث الصفحة.'),
+('admin_permissions_bootstrap_instructions_body', 'You are right, that''s way too complicated. A direct SQL command is much easier.<br/><br/>1. Go to your Supabase project''s <strong>SQL Editor</strong>.<br/>2. Copy and paste the command below.<br/>3. Replace <code>''YOUR_ADMIN_ROLE_ID_HERE''</code> with your actual Discord Admin Role ID.<br/>4. Click <strong>RUN</strong>, then refresh this page.<br/><br/><pre class="bg-brand-dark text-white p-3 rounded-md text-sm whitespace-pre-wrap"><code>INSERT INTO public.role_permissions (role_id, permissions) <br/>VALUES (''YOUR_ADMIN_ROLE_ID_HERE'', ''{"_super_admin"}'');</code></pre>', 'معك حق، هذه الطريقة معقدة جداً. استخدام أمر SQL مباشر أسهل بكثير.<br/><br/>١. اذهب إلى <strong>محرر SQL</strong> في مشروعك على Supabase.<br/>٢. انسخ والصق الأمر الموجود في الأسفل.<br/>٣. استبدل <code>''YOUR_ADMIN_ROLE_ID_HERE''</code> بآي دي رتبة المشرف الحقيقية في ديسكورد.<br/>٤. اضغط على <strong>RUN</strong>، ثم قم بتحديث هذه الصفحة.<br/><br/><pre class="bg-brand-dark text-white p-3 rounded-md text-sm whitespace-pre-wrap text-left" dir="ltr"><code>INSERT INTO public.role_permissions (role_id, permissions) <br/>VALUES (''YOUR_ADMIN_ROLE_ID_HERE'', ''{"_super_admin"}'');</code></pre>'),
 ('notification_templates', 'Notification Templates', 'قوالب الإشعارات'), ('notifications_desc', 'Edit the content of automated messages sent to users and channels.', 'تعديل محتوى الرسائل الآلية المرسلة للمستخدمين والقنوات.'),
 ('test_notification', 'Test Notification', 'اختبار الإشعار'), ('test', 'Test', 'اختبار'), ('target_id', 'Target ID (User or Channel)', 'معرف الهدف (مستخدم أو قناة)'),
 ('send_test', 'Send Test', 'إرسال اختبار'), ('available_placeholders', 'Available Placeholders', 'المتغيرات المتاحة'), ('notification_group_welcome', 'Welcome Messages', 'رسائل الترحيب'),
@@ -716,24 +721,28 @@ INSERT INTO public.translations (key, en, ar) VALUES
 ('health_check_result_404', '<li class="mb-2"><strong>Error (404 Not Found):</strong> This means the bot connected to Discord correctly, but couldn''t find a user with that ID in your server. Check the ID or ensure the user is a member.</li>', '<li class="mb-2"><strong>Error (404 Not Found):</strong> هذا يعني أن البوت متصل بديسكورد بشكل صحيح، لكنه لم يتمكن من العثور على المستخدم بهذا المعرف في السيرفر الخاص بك. تحقق من المعرف أو تأكد من أن المستخدم عضو في السيرفر.</li>'),
 ('health_check_result_503', '<li class="mb-2"><strong>Error (503 Service Unavailable):</strong> The most common cause is that the <strong>Server Members Intent</strong> is not enabled in the Discord Developer Portal. Go to your bot''s settings and turn it on.</li>', '<li class="mb-2"><strong>Error (503 Service Unavailable):</strong> السبب الأكثر شيوعاً هو أن <strong>Server Members Intent</strong> غير مفعل في بوابة مطوري ديسكورد. اذهب إلى إعدادات البوت الخاص بك وقم بتفعيله.</li>'),
 ('health_check_result_other', '<li><strong>Other Errors:</strong> Usually indicates a problem with the bot''s configuration or it being offline. Check the bot''s logs for more details.</li></ul>', '<li><strong>أخطاء أخرى:</strong> عادة ما تشير إلى مشكلة في تكوين البوت أو أنه غير متصل بالإنترنت. تحقق من سجلات البوت لمزيد من التفاصيل.</li></ul>'),
-  ('health_check_banner_link', 'Click here to run system diagnostics.', 'اضغط هنا لتشغيل فحص النظام التشخيصي.'),
-  ('session_expired_not_in_guild', 'Your session has expired or you are no longer in the guild. You have been logged out.', 'انتهت صلاحية جلستك أو لم تعد عضواً في السيرفر. تم تسجيل خروجك.'),
-  ('product_vip_bronze_name', 'Bronze VIP Membership', 'عضوية VIP برونزية'),
-  ('product_vip_bronze_desc', 'Exclusive in-server perks for one month.', 'مميزات حصرية داخل السيرفر لمدة شهر.'),
-  ('product_vip_silver_name', 'Silver VIP Membership', 'عضوية VIP فضية'),
-  ('product_vip_silver_desc', 'Better perks with special vehicle access.', 'مميزات أفضل مع وصول خاص للمركبات.'),
-  ('product_cash_1_name', '100k Cash Pack', 'حزمة نقدية 100 ألف'),
-  ('product_cash_1_desc', 'An in-game cash boost to get you started.', 'دفعة نقدية داخل اللعبة لتبدأ بقوة.'),
-  ('product_custom_plate_name', 'Custom License Plate', 'لوحة سيارة مخصصة'),
-  ('product_custom_plate_desc', 'A unique license plate for your favorite vehicle.', 'لوحة فريدة لسيارتك المفضلة.'),
-  ('quiz_police_name', 'Police Department Application', 'تقديم قسم الشرطة'),
-  ('quiz_police_desc', 'Read the rules carefully. Any attempt to cheat will result in immediate rejection.', 'اقرأ القوانين جيداً. أي محاولة غش ستؤدي للرفض الفوري.'),
-  ('q_police_1', 'What is the first procedure when dealing with a suspect?', 'ما هو الإجراء الأول عند التعامل مع شخص مشتبه به؟'),
-  ('q_police_2', 'When are you permitted to use lethal force?', 'متى يسمح لك باستخدام القوة المميتة؟'),
-  ('quiz_medic_name', 'EMS Department Application', 'تقديم قسم الإسعاف'),
-  ('quiz_medic_desc', 'You are required to be calm and professional at all times.', 'مطلوب منك الهدوء والاحترافية في جميع الأوضاع.'),
-  ('q_medic_1', 'What is your top priority when arriving at an accident scene?', 'ما هي أولويتك القصوى عند الوصول إلى مكان الحادث؟'),
-  ('checkout_instructions', 'To complete your purchase, a list of your items will be prepared. Please open a ticket in our Discord server and an admin will assist you with the payment process.', 'لإكمال عملية الشراء، سيتم تجهيز قائمة بمشترياتك. يرجى فتح تذكرة في سيرفر الديسكورد الخاص بنا وسيقوم أحد المسؤولين بمساعدتك في عملية الدفع.'),
-  ('widgets_management', 'Widgets Management', 'إدارة الويدجتس');
+('health_check_banner_link', 'Click here to run system diagnostics.', 'اضغط هنا لتشغيل فحص النظام التشخيصي.'),
+('session_expired_not_in_guild', 'Your session has expired or you are no longer in the guild. You have been logged out.', 'انتهت صلاحية جلستك أو لم تعد عضواً في السيرفر. تم تسجيل خروجك.'),
+('product_vip_bronze_name', 'Bronze VIP Membership', 'عضوية VIP برونزية'),
+('product_vip_bronze_desc', 'Exclusive in-server perks for one month.', 'مميزات حصرية داخل السيرفر لمدة شهر.'),
+('product_vip_silver_name', 'Silver VIP Membership', 'عضوية VIP فضية'),
+('product_vip_silver_desc', 'Better perks with special vehicle access.', 'مميزات أفضل مع وصول خاص للمركبات.'),
+('product_cash_1_name', '100k Cash Pack', 'حزمة نقدية 100 ألف'),
+('product_cash_1_desc', 'An in-game cash boost to get you started.', 'دفعة نقدية داخل اللعبة لتبدأ بقوة.'),
+('product_custom_plate_name', 'Custom License Plate', 'لوحة سيارة مخصصة'),
+('product_custom_plate_desc', 'A unique license plate for your favorite vehicle.', 'لوحة فريدة لسيارتك المفضلة.'),
+('quiz_police_name', 'Police Department Application', 'تقديم قسم الشرطة'),
+('quiz_police_desc', 'Read the rules carefully. Any attempt to cheat will result in immediate rejection.', 'اقرأ القوانين جيداً. أي محاولة غش ستؤدي للرفض الفوري.'),
+('q_police_1', 'What is the first procedure when dealing with a suspect?', 'ما هو الإجراء الأول عند التعامل مع شخص مشتبه به؟'),
+('q_police_2', 'When are you permitted to use lethal force?', 'متى يسمح لك باستخدام القوة المميتة؟'),
+('quiz_medic_name', 'EMS Department Application', 'تقديم قسم الإسعاف'),
+('quiz_medic_desc', 'You are required to be calm and professional at all times.', 'مطلوب منك الهدوء والاحترافية في جميع الأوقات.'),
+('q_medic_1', 'What is your top priority when arriving at an accident scene?', 'ما هي أولويتك القصوى عند الوصول إلى مكان الحادث؟'),
+('widgets_management', 'Widgets Management', 'إدارة الويدجتات'),
+('checkout_instructions', 'To complete your purchase, please open a ticket in our Discord server and an admin will assist you.', 'لإكمال عملية الشراء، يرجى فتح تذكرة في سيرفر الديسكورد الخاص بنا وسيقوم أحد المسؤولين بمساعدتك.')
+ON CONFLICT (key) DO NOTHING;
 
+-- =================================================================
+-- 9. COMMIT TRANSACTION
+-- =================================================================
 COMMIT;

@@ -16,10 +16,12 @@ const PERMISSIONS = {
   admin_rules: 'Allow user to edit the server rules.',
   admin_store: 'Allow user to manage items in the store.',
   admin_translations: 'Allow user to edit all website text and translations.',
+  admin_notifications: 'Allow user to manage automated Discord notifications and messages.',
   admin_appearance: 'Allow user to change site-wide settings like name, logo, and theme.',
   admin_audit_log: 'Allow user to view the log of all admin actions.',
   admin_permissions: 'Allow user to change permissions for other Discord roles.',
   admin_lookup: 'Allow user to look up user profiles by Discord ID.',
+  admin_widgets: 'Allow user to create, edit, and delete Discord widgets on the "About Us" page.',
 } as const;
 
 

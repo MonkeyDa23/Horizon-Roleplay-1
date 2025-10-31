@@ -6,8 +6,7 @@
  * It provides an authenticated REST API for the website (via Supabase Edge Functions)
  * to fetch real-time Discord data and send notifications.
  */
-// FIX: Changed to a default express import and used namespaced types (express.Request, express.Response) 
-// to resolve type conflicts and errors with request/response properties.
+// FIX: Resolve Express type conflicts by using explicit types from the 'express' namespace.
 import express from 'express';
 import process from 'process';
 import cors from 'cors';
@@ -176,7 +175,7 @@ const main = async () => {
     app.use(cors());
     app.use(express.json());
 
-    // FIX: Use namespaced express types to avoid conflicts.
+    // FIX: Using express.Request, express.Response, and express.NextFunction to avoid type ambiguity.
     const authenticate = (req: express.Request, res: express.Response, next: express.NextFunction) => {
         const receivedAuthHeader = req.headers.authorization;
         const expectedAuthHeader = `Bearer ${config.API_SECRET_KEY}`;
@@ -204,15 +203,13 @@ const main = async () => {
         res.status(401).send({ error: 'Authentication failed.' });
     };
 
-    // FIX: Use namespaced express types to avoid conflicts.
     app.get('/health', (req: express.Request, res: express.Response) => {
         if (!client.isReady()) return res.status(503).send({ status: 'error', message: 'Discord Client not ready.' });
         const guild = client.guilds.cache.get(config.DISCORD_GUILD_ID);
         if (!guild) return res.status(500).send({ status: 'error', message: 'Guild not found in cache.' });
-        res.send({ status: 'ok', details: { guildName: guild.name, memberCount: guild.memberCount } });
+        res.status(200).send({ status: 'ok', details: { guildName: guild.name, memberCount: guild.memberCount } });
     });
     
-    // FIX: Use namespaced express types to avoid conflicts.
     app.get('/api/roles', authenticate, async (req: express.Request, res: express.Response) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
@@ -225,7 +222,6 @@ const main = async () => {
         }
     });
 
-    // FIX: Use namespaced express types to avoid conflicts.
     app.get('/api/user/:id', authenticate, async (req: express.Request, res: express.Response) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
@@ -254,7 +250,6 @@ const main = async () => {
         }
     });
     
-    // FIX: Use namespaced express types to avoid conflicts.
     app.post('/api/notify', authenticate, async (req: express.Request, res: express.Response) => {
         const body: NotifyPayload = req.body;
         logger('INFO', `Received notification request of type: ${body.type}`);
