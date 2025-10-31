@@ -339,6 +339,10 @@ BEGIN
 END;
 $$;
 
+-- FIX: Explicitly drop old versions before creating the new one to resolve function overload ambiguity.
+-- This is the root cause of the RPC error and is critical for the notification system to work.
+DROP FUNCTION IF EXISTS public.update_submission_status(uuid, text);
+DROP FUNCTION IF EXISTS public.update_submission_status(uuid, text, text);
 CREATE OR REPLACE FUNCTION public.update_submission_status(p_submission_id uuid, p_new_status text, p_reason text DEFAULT NULL) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE 

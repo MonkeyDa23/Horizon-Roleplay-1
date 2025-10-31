@@ -6,9 +6,9 @@
  * It provides an authenticated REST API for the website (via Supabase Edge Functions)
  * to fetch real-time Discord data and send notifications.
  */
-// FIX: Changed express import to default and used namespaced types to resolve type errors and avoid global conflicts.
-// FIX: Explicitly import Request, Response, and NextFunction types from express to resolve type errors.
-import express, { type Request, type Response, type NextFunction } from 'express';
+// FIX: Changed to a default express import and used namespaced types (express.Request, express.Response) 
+// to resolve type conflicts and errors with request/response properties.
+import express from 'express';
 import process from 'process';
 import cors from 'cors';
 import {
@@ -176,8 +176,8 @@ const main = async () => {
     app.use(cors());
     app.use(express.json());
 
-    // FIX: Replaced express.Request, express.Response, and express.NextFunction with imported types.
-    const authenticate = (req: Request, res: Response, next: NextFunction) => {
+    // FIX: Use namespaced express types to avoid conflicts.
+    const authenticate = (req: express.Request, res: express.Response, next: express.NextFunction) => {
         const receivedAuthHeader = req.headers.authorization;
         const expectedAuthHeader = `Bearer ${config.API_SECRET_KEY}`;
 
@@ -204,16 +204,16 @@ const main = async () => {
         res.status(401).send({ error: 'Authentication failed.' });
     };
 
-    // FIX: Replaced express.Request and express.Response with imported types.
-    app.get('/health', (req: Request, res: Response) => {
+    // FIX: Use namespaced express types to avoid conflicts.
+    app.get('/health', (req: express.Request, res: express.Response) => {
         if (!client.isReady()) return res.status(503).send({ status: 'error', message: 'Discord Client not ready.' });
         const guild = client.guilds.cache.get(config.DISCORD_GUILD_ID);
         if (!guild) return res.status(500).send({ status: 'error', message: 'Guild not found in cache.' });
         res.send({ status: 'ok', details: { guildName: guild.name, memberCount: guild.memberCount } });
     });
     
-    // FIX: Replaced express.Request and express.Response with imported types.
-    app.get('/api/roles', authenticate, async (req: Request, res: Response) => {
+    // FIX: Use namespaced express types to avoid conflicts.
+    app.get('/api/roles', authenticate, async (req: express.Request, res: express.Response) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
             const roles = (await guild.roles.fetch()).map(role => ({ id: role.id, name: role.name, color: role.color, position: role.position }));
@@ -225,8 +225,8 @@ const main = async () => {
         }
     });
 
-    // FIX: Replaced express.Request and express.Response with imported types.
-    app.get('/api/user/:id', authenticate, async (req: Request, res: Response) => {
+    // FIX: Use namespaced express types to avoid conflicts.
+    app.get('/api/user/:id', authenticate, async (req: express.Request, res: express.Response) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
             const member = await guild.members.fetch(req.params.id);
@@ -254,8 +254,8 @@ const main = async () => {
         }
     });
     
-    // FIX: Replaced express.Request and express.Response with imported types.
-    app.post('/api/notify', authenticate, async (req: Request, res: Response) => {
+    // FIX: Use namespaced express types to avoid conflicts.
+    app.post('/api/notify', authenticate, async (req: express.Request, res: express.Response) => {
         const body: NotifyPayload = req.body;
         logger('INFO', `Received notification request of type: ${body.type}`);
         logger('DEBUG', 'Full notification payload:', body.payload);
