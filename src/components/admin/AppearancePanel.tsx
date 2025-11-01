@@ -77,11 +77,11 @@ const AppearancePanel: React.FC = () => {
                 </div>
 
                 <div>
-                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">Discord & Bot Integration</h3>
+                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">Discord & Notification Integration</h3>
                     <div className="space-y-6">
                         <InputField labelKey="discord_guild_id" descKey="discord_guild_id_desc" value={settings.DISCORD_GUILD_ID || ''} onChange={val => handleChange('DISCORD_GUILD_ID', val)} />
-                        <InputField labelKey="discord_bot_url" descKey="discord_bot_url_desc" value={settings.DISCORD_BOT_URL || ''} onChange={val => handleChange('DISCORD_BOT_URL', val)} />
-                        <InputField labelKey="discord_bot_api_key" descKey="discord_bot_api_key_desc" value={settings.DISCORD_BOT_API_KEY || ''} onChange={val => handleChange('DISCORD_BOT_API_KEY', val)} isPassword />
+                        <InputField labelKey="supabase_project_url" descKey="supabase_project_url_desc" value={settings.SUPABASE_PROJECT_URL || ''} onChange={val => handleChange('SUPABASE_PROJECT_URL', val)} placeholder="e.g., https://xyz.supabase.co" />
+                        <InputField labelKey="discord_proxy_secret" descKey="discord_proxy_secret_desc" value={settings.DISCORD_PROXY_SECRET || ''} onChange={val => handleChange('DISCORD_PROXY_SECRET', val)} isPassword />
                     </div>
                 </div>
                 

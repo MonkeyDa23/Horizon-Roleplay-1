@@ -11,7 +11,7 @@ interface ConfigContextType {
   refreshConfig: () => Promise<void>;
 }
 
-// FIX: Added missing properties to the default config to match the AppConfig type.
+// FIX: Aligned defaultConfig with the AppConfig type definition by removing invalid properties and adding missing ones.
 const defaultConfig: AppConfig = {
     COMMUNITY_NAME: 'Vixel Roleplay',
     LOGO_URL: 'https://l.top4top.io/p_356271n1v1.png',
@@ -21,14 +21,13 @@ const defaultConfig: AppConfig = {
     BACKGROUND_IMAGE_URL: '',
     SHOW_HEALTH_CHECK: false,
     SUBMISSIONS_CHANNEL_ID: null,
-    // FIX: Added missing properties to the defaultConfig to match the AppConfig type.
     SUBMISSIONS_MENTION_ROLE_ID: null,
-    DISCORD_BOT_URL: null,
-    DISCORD_BOT_API_KEY: null,
     AUDIT_LOG_CHANNEL_ID: null,
     AUDIT_LOG_CHANNEL_ID_SUBMISSIONS: null,
     AUDIT_LOG_CHANNEL_ID_BANS: null,
     AUDIT_LOG_CHANNEL_ID_ADMIN: null,
+    SUPABASE_PROJECT_URL: null,
+    DISCORD_PROXY_SECRET: null,
 };
 
 export const ConfigContext = createContext<ConfigContextType>({

@@ -1,7 +1,7 @@
 // @ts-nocheck
 /*
 -- @ts-nocheck
--- Vixel Roleplay Website - Full Database Schema (V46 - Fault-Tolerant Notifications)
+-- Vixel Roleplay Website - Full Database Schema (V47 - Robust Proxy Notifications)
 
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -37,6 +37,7 @@ DROP TABLE IF EXISTS public.config CASCADE;
 DROP TABLE IF EXISTS public.translations CASCADE;
 
 -- Drop all custom functions to ensure a clean re-creation.
+DROP FUNCTION IF EXISTS private.send_notification(text, jsonb);
 DROP FUNCTION IF EXISTS public.handle_audit_log_notification();
 DROP FUNCTION IF EXISTS public.get_config();
 DROP FUNCTION IF EXISTS public.get_all_submissions();
@@ -76,6 +77,8 @@ CREATE SCHEMA private;
 -- =================================================================
 CREATE TABLE public.config (
     id smallint PRIMARY KEY DEFAULT 1,
+    "SUPABASE_PROJECT_URL" text,
+    "DISCORD_PROXY_SECRET" text,
     "COMMUNITY_NAME" text NOT NULL DEFAULT 'Vixel Roleplay',
     "LOGO_URL" text,
     "DISCORD_GUILD_ID" text,
@@ -89,8 +92,6 @@ CREATE TABLE public.config (
     "AUDIT_LOG_CHANNEL_ID_SUBMISSIONS" text,
     "AUDIT_LOG_CHANNEL_ID_BANS" text,
     "AUDIT_LOG_CHANNEL_ID_ADMIN" text,
-    "DISCORD_BOT_URL" text,
-    "DISCORD_BOT_API_KEY" text,
     CONSTRAINT id_check CHECK (id = 1)
 );
 INSERT INTO public.config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
@@ -213,51 +214,50 @@ BEGIN
 END;
 $$;
 
--- Central notification function (INTERNAL) - REFACTORED FOR FAULT TOLERANCE
+-- This function is the single, reliable point for all outbound notifications.
+-- It securely calls the `discord-proxy` Edge Function, which then communicates with the bot.
+-- This architecture provides better reliability, security, and debugging than direct DB-to-Bot calls.
+-- IMPORTANT: This function will now throw an exception on failure, providing immediate feedback on the website.
 CREATE OR REPLACE FUNCTION private.send_notification(p_type text, p_payload jsonb)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions
 AS $$
 DECLARE
-  bot_url text;
-  bot_api_key text;
+  project_url text;
+  proxy_secret text;
+  proxy_url text;
   response extensions.http_response;
   request extensions.http_request;
-  endpoint_url text;
 BEGIN
-  -- Read bot connection details directly from the public config table
-  SELECT "DISCORD_BOT_URL", "DISCORD_BOT_API_KEY" INTO bot_url, bot_api_key FROM public.config WHERE id = 1;
+  -- Get the required connection details from the public config table.
+  -- These MUST be set in the Admin Panel -> Appearance.
+  SELECT "SUPABASE_PROJECT_URL", "DISCORD_PROXY_SECRET" INTO project_url, proxy_secret FROM public.config WHERE id = 1;
   
-  -- Silently exit if not configured. No need to throw a hard error for a non-critical system.
-  IF bot_url IS NULL OR bot_url = '' OR bot_api_key IS NULL OR bot_api_key = '' THEN
-    RAISE WARNING '[send_notification] Skipped: Bot URL or API Key is not configured.';
-    RETURN;
+  IF project_url IS NULL OR project_url = '' OR proxy_secret IS NULL OR proxy_secret = '' THEN
+    RAISE EXCEPTION 'Notification system not configured. Please set SUPABASE_PROJECT_URL and DISCORD_PROXY_SECRET in the Admin Panel -> Appearance settings.';
   END IF;
   
-  endpoint_url := bot_url || '/api/notify';
+  proxy_url := project_url || '/functions/v1/discord-proxy';
 
+  -- Create the HTTP request object that will be sent to our Edge Function.
   request := ROW(
     'POST',
-    endpoint_url,
+    proxy_url,
     ARRAY[
       extensions.http_header('Content-Type', 'application/json'),
-      extensions.http_header('Authorization', 'Bearer ' || bot_api_key)
+      -- The proxy function is protected by this secret key.
+      extensions.http_header('Authorization', 'Bearer ' || proxy_secret)
     ],
     'application/json',
     jsonb_build_object('type', p_type, 'payload', p_payload)::text
   )::extensions.http_request;
   
-  -- A nested block to gracefully handle HTTP errors like timeouts without crashing the parent function.
-  BEGIN
-    response := extensions.http(request);
-
-    IF response.status >= 300 THEN
-      RAISE WARNING '[send_notification] Bot responded with status %: %', response.status, response.content;
-    END IF;
-  EXCEPTION WHEN OTHERS THEN
-    -- This is the key change: Catch the error and raise a WARNING instead of an EXCEPTION.
-    -- This prevents the parent transaction (e.g., log_page_visit) from rolling back.
-    RAISE WARNING '[send_notification] Failed to send notification. Error: %', SQLERRM;
-  END;
+  -- Execute the request. This will now throw an error on failure (e.g., network error, 4xx/5xx response),
+  -- which is desired behavior for debugging. The frontend will catch this and display an error toast.
+  response := extensions.http(request);
+  
+  IF response.status >= 300 THEN
+    RAISE EXCEPTION 'Notification proxy function responded with an error. Status: %, Body: %', response.status, response.content;
+  END IF;
 
 END;
 $$;
@@ -449,14 +449,15 @@ BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_appearance') THEN RAISE EXCEPTION 'Insufficient permissions'; END IF;
   PERFORM public.log_action('⚙️ قام بتحديث إعدادات المظهر والاتصال', 'admin');
   UPDATE public.config SET
+    "SUPABASE_PROJECT_URL" = coalesce(new_config->>'SUPABASE_PROJECT_URL', "SUPABASE_PROJECT_URL"),
+    "DISCORD_PROXY_SECRET" = coalesce(new_config->>'DISCORD_PROXY_SECRET', "DISCORD_PROXY_SECRET"),
     "COMMUNITY_NAME" = coalesce(new_config->>'COMMUNITY_NAME', "COMMUNITY_NAME"), "LOGO_URL" = coalesce(new_config->>'LOGO_URL', "LOGO_URL"),
     "DISCORD_GUILD_ID" = coalesce(new_config->>'DISCORD_GUILD_ID', "DISCORD_GUILD_ID"), "DISCORD_INVITE_URL" = coalesce(new_config->>'DISCORD_INVITE_URL', "DISCORD_INVITE_URL"),
     "MTA_SERVER_URL" = coalesce(new_config->>'MTA_SERVER_URL', "MTA_SERVER_URL"), "BACKGROUND_IMAGE_URL" = coalesce(new_config->>'BACKGROUND_IMAGE_URL', "BACKGROUND_IMAGE_URL"),
     "SHOW_HEALTH_CHECK" = coalesce((new_config->>'SHOW_HEALTH_CHECK')::boolean, "SHOW_HEALTH_CHECK"), "SUBMISSIONS_CHANNEL_ID" = coalesce(new_config->>'SUBMISSIONS_CHANNEL_ID', "SUBMISSIONS_CHANNEL_ID"),
     "SUBMISSIONS_MENTION_ROLE_ID" = coalesce(new_config->>'SUBMISSIONS_MENTION_ROLE_ID', "SUBMISSIONS_MENTION_ROLE_ID"),
     "AUDIT_LOG_CHANNEL_ID" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID', "AUDIT_LOG_CHANNEL_ID"), "AUDIT_LOG_CHANNEL_ID_SUBMISSIONS" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID_SUBMISSIONS', "AUDIT_LOG_CHANNEL_ID_SUBMISSIONS"),
-    "AUDIT_LOG_CHANNEL_ID_BANS" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID_BANS', "AUDIT_LOG_CHANNEL_ID_BANS"), "AUDIT_LOG_CHANNEL_ID_ADMIN" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID_ADMIN', "AUDIT_LOG_CHANNEL_ID_ADMIN"),
-    "DISCORD_BOT_URL" = coalesce(new_config->>'DISCORD_BOT_URL', "DISCORD_BOT_URL"), "DISCORD_BOT_API_KEY" = coalesce(new_config->>'DISCORD_BOT_API_KEY', "DISCORD_BOT_API_KEY")
+    "AUDIT_LOG_CHANNEL_ID_BANS" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID_BANS', "AUDIT_LOG_CHANNEL_ID_BANS"), "AUDIT_LOG_CHANNEL_ID_ADMIN" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID_ADMIN', "AUDIT_LOG_CHANNEL_ID_ADMIN")
   WHERE id = 1;
 END;
 $$;
@@ -678,6 +679,11 @@ INSERT INTO public.translations (key, en, ar) VALUES
 ('quiz_handler_roles_desc', 'Enter Role IDs allowed to handle these submissions (comma-separated).', 'ضع هنا آي دي الرتب المسموح لها باستلام هذا النوع من التقديمات (افصل بينها بفاصلة).'),
 ('config_updated_success', 'Settings updated successfully!', 'تم تحديث الإعدادات بنجاح!'), ('rules_updated_success', 'Rules updated successfully!', 'تم تحديث القوانين بنجاح!'),
 ('permissions_saved_success', 'Permissions saved successfully!', 'تم حفظ الصلاحيات بنجاح!'), ('permissions_load_error', 'Failed to load permissions', 'فشل تحميل الصلاحيات'),
+('notification_check_failed_title', 'Bot Connection Error', 'خطأ في الاتصال بالبوت' ),
+('notification_check_failed_body', 'The system could not connect to your Discord bot. This means that while the submission status will be updated on the website, the user **will not receive a notification** on Discord. This is usually due to the bot being offline or a configuration error.', 'لم يتمكن النظام من الاتصال ببوت الديسكورد الخاص بك. هذا يعني أنه بينما سيتم تحديث حالة التقديم على الموقع، فإن المستخدم **لن يتلقى إشعاراً** على ديسكورد. يحدث هذا عادةً بسبب أن البوت غير متصل بالإنترنت أو بسبب خطأ في الإعدادات.' ),
+('proceed_anyway', 'Proceed Anyway', 'المتابعة على أي حال' ),
+('cancel', 'Cancel', 'إلغاء' ),
+('go_to_health_check', 'Troubleshoot Connection', 'استكشاف أخطاء الاتصال وإصلاحها' ),
 ('text_en', 'Text (English)', 'النص بالإنجليزي'), ('text_ar', 'Text (Arabic)', 'النص بالعربي'), ('title_en', 'Title (English)', 'العنوان بالإنجليزي'),
 ('title_ar', 'Title (Arabic)', 'العنوان بالعربي'), ('description_en', 'Description (English)', 'الوصف بالإنجليزي'), ('description_ar', 'Description (Arabic)', 'الوصف بالعربي'),
 ('name_en', 'Name (English)', 'الاسم بالإنجليزي'), ('name_ar', 'Name (Arabic)', 'الاسم بالعربي'), ('price', 'Price', 'السعر'), ('image_url', 'Image URL', 'رابط الصورة'),
@@ -689,7 +695,12 @@ INSERT INTO public.translations (key, en, ar) VALUES
 ('ban_reason', 'Reason for ban:', 'سبب الحظر:'), ('ban_expires', 'Ban expires:', 'ينتهي الحظر في:'), ('ban_permanent', 'This ban is permanent.', 'الحظر دائم.'),
 ('community_name', 'Community Name', 'اسم المجتمع'), ('logo_url', 'Logo URL', 'رابط الشعار (URL)'), ('background_image_url', 'Background Image URL', 'رابط صورة الخلفية (URL)'),
 ('background_image_url_desc', 'Leave empty to use the default animated background.', 'اتركه فارغاً لاستخدام الخلفية الافتراضية.'), ('discord_guild_id', 'Discord Guild ID', 'آي دي سيرفر الديسكورد'),
-('discord_guild_id_desc', 'Required for authentication and role sync.', 'مطلوب للمصادقة ومزامنة الرتب.'), ('submissions_channel_id', 'Submissions Channel ID', 'معرف قناة التقديمات'),
+('discord_guild_id_desc', 'Required for authentication and role sync.', 'مطلوب للمصادقة ومزامنة الرتب.'),
+('supabase_project_url', 'Supabase Project URL', 'رابط مشروع Supabase'),
+('supabase_project_url_desc', 'Required for the new reliable notification system. Find it in your Supabase Dashboard > Project Settings > API > Project URL.', 'مطلوب لنظام الإشعارات الجديد الموثوق. يمكنك العثور عليه في لوحة تحكم Supabase > إعدادات المشروع > API > Project URL.'),
+('discord_proxy_secret', 'Discord Proxy Secret', 'كلمة سر وكيل ديسكورد'),
+('discord_proxy_secret_desc', 'Create a strong, random password. This password will be used to secure the connection between the database and the notification proxy function.', 'أنشئ كلمة مرور قوية وعشوائية. سيتم استخدام كلمة المرور هذه لتأمين الاتصال بين قاعدة البيانات ووظيفة وكيل الإشعارات.'),
+('submissions_channel_id', 'Submissions Channel ID', 'معرف قناة التقديمات'),
 ('submissions_channel_id_desc', 'The ID of the channel that receives new submission notifications.', 'المعرف الرقمي للقناة التي تستقبل إشعارات التقديمات الجديدة.'),
 ('submissions_mention_role_id', 'Submissions Mention Role ID', 'معرف رتبة منشن التقديمات'),
 ('submissions_mention_role_id_desc', 'The ID of the role to mention when a new submission arrives.', 'المعرف الرقمي للرتبة التي يتم عمل منشن لها عند وجود تقديم جديد.'),
@@ -701,10 +712,6 @@ INSERT INTO public.translations (key, en, ar) VALUES
 ('log_channel_bans_desc', 'Channel for logs related to user bans and unbans.', 'قناة للسجلات المتعلقة بحظر وفك حظر المستخدمين.'),
 ('log_channel_admin', 'Admin Actions Log Channel ID', 'معرف قناة سجلات الإدارة'),
 ('log_channel_admin_desc', 'Channel for logs related to admin panel changes (e.g., editing quizzes, rules, settings).', 'قناة للسجلات المتعلقة بتغييرات لوحة التحكم (مثل تعديل التقديمات، القوانين، الإعدادات).'),
-('discord_bot_url', 'Discord Bot URL', 'رابط بوت الديسكورد'),
-('discord_bot_url_desc', 'The full URL where your self-hosted bot is running (e.g., http://123.45.67.89:14355).', 'الرابط الكامل الذي يعمل عليه البوت الخاص بك (مثال: http://123.45.67.89:14355).'),
-('discord_bot_api_key', 'Discord Bot API Key', 'مفتاح API لبوت الديسكورد'),
-('discord_bot_api_key_desc', 'The secret password you set in your bot''s config.json to authenticate requests.', 'كلمة المرور السرية التي قمت بتعيينها في ملف config.json الخاص بالبوت لمصادقة الطلبات.'),
 ('discord_roles', 'Discord Roles', 'رتب الديسكورد'), ('available_permissions', 'Available Permissions', 'الصلاحيات المتاحة'), ('select_role_to_manage', 'Select a role to see its permissions.', 'اختر رتبة لعرض صلاحياتها.'),
 ('admin_permissions_instructions', 'Select a role from the list to view and modify its permissions. The <code>_super_admin</code> permission automatically grants all other permissions.', 'اختر رتبة من القائمة لعرض وتعديل صلاحياتها. صلاحية <code>_super_admin</code> تمنح جميع الصلاحيات الأخرى تلقائياً.'),
 ('admin_permissions_bootstrap_instructions_title', 'Locked Out?', 'غير قادر على الدخول؟'),
@@ -758,9 +765,4 @@ INSERT INTO public.translations (key, en, ar) VALUES
 ('widgets_management', 'Widgets Management', 'إدارة الويدجتات'),
 ('checkout_instructions', 'To complete your purchase, please open a ticket in our Discord server and an admin will assist you.', 'لإكمال عملية الشراء، يرجى فتح تذكرة في سيرفر الديسكورد الخاص بنا وسيقوم أحد المسؤولين بمساعدتك.')
 ON CONFLICT (key) DO NOTHING;
-
--- =================================================================
--- 9. COMMIT TRANSACTION
--- =================================================================
-COMMIT;
-*/
+```

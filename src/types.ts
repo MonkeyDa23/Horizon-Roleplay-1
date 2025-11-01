@@ -189,6 +189,8 @@ export interface DiscordWidget {
 }
 
 export interface AppConfig {
+    SUPABASE_PROJECT_URL: string | null;
+    DISCORD_PROXY_SECRET: string | null;
     COMMUNITY_NAME: string;
     LOGO_URL: string;
     DISCORD_GUILD_ID: string;
@@ -202,8 +204,6 @@ export interface AppConfig {
     AUDIT_LOG_CHANNEL_ID_SUBMISSIONS: string | null;
     AUDIT_LOG_CHANNEL_ID_BANS: string | null;
     AUDIT_LOG_CHANNEL_ID_ADMIN: string | null;
-    DISCORD_BOT_URL: string | null;
-    DISCORD_BOT_API_KEY: string | null;
 }
 
 // =============================================
