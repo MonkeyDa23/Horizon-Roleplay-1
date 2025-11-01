@@ -93,9 +93,14 @@ serve(async (req) => {
         proxyPayload.channelId = targetId;
         proxyPayload.content = `This is a test message for the \`${type}\` notification.`
     }
-
-    // 6. Invoke the discord-proxy function
+    
+    // 6. Invoke the discord-proxy function by getting its secret
+    // @ts-ignore
+    const proxySecret = Deno.env.get('DISCORD_PROXY_SECRET');
+    if (!proxySecret) throw new Error("DISCORD_PROXY_SECRET is not configured.");
+    
     const { data, error } = await supabaseAdmin.functions.invoke('discord-proxy', {
+      headers: { 'Authorization': `Bearer ${proxySecret}` },
       body: JSON.stringify({ type: proxyType, payload: proxyPayload })
     });
     if (error) throw new Error(`Failed to invoke discord-proxy: ${error.message}`);

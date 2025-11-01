@@ -1,4 +1,4 @@
-# Supabase & Bot Setup Guide (V9 - Robust Proxy Architecture)
+# Supabase & Bot Setup Guide (V10 - Enhanced Notifications)
 
 This guide provides the complete, simplified instructions for deploying and configuring the backend for your website. This architecture uses a **Supabase Database Function** to call a secure **Supabase Edge Function (`discord-proxy`)**, which then reliably communicates with your **self-hosted Discord bot**.
 
@@ -30,15 +30,17 @@ You must deploy the required functions from the `supabase/functions` directory.
 
 ## Step 2: Set Function Secrets
 
-These secrets allow your Edge Functions to securely communicate with your bot.
+These secrets allow your Edge Functions to securely communicate with your bot and with each other.
 
 1.  Go to Supabase Project -> **Settings** (gear icon) -> **Edge Functions**.
-2.  Under the **"Secrets"** section, add the following two secrets. These are used by `sync-user-profile`, `discord-proxy`, and other functions to talk to your bot.
+2.  Under the **"Secrets"** section, add the following three secrets.
 
 | Secret Name                | Value                                                                       | Where to get it?                                                              |
 | -------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | `VITE_DISCORD_BOT_URL`     | The full URL of your bot. **Ex:** `http://123.45.67.89:14355`                 | The public IP/domain of the server where you are running the `discord-bot`.     |
 | `VITE_DISCORD_BOT_API_KEY` | The secret password from your bot's `config.json` file.                     | You create this. It MUST match the `API_SECRET_KEY` in the bot's config.    |
+| `DISCORD_PROXY_SECRET`     | The secret password you will also put in the website admin panel.           | **YOU CREATE THIS.** It MUST match what you put in Admin Panel -> Appearance. |
+
 
 ---
 
@@ -62,7 +64,7 @@ The database needs to know how to contact its own `discord-proxy` function. You 
 1.  Log into your website with your admin account.
 2.  Navigate to the **Admin Panel**.
 3.  Go to the **Appearance** tab.
-4.  Scroll down to the **"Discord & Notification Integration"** section.
+4.  Scroll down to the **"Discord & DM Integration"** section.
 5.  Fill in the following two fields:
 
     -   **Supabase Project URL**:
@@ -71,7 +73,7 @@ The database needs to know how to contact its own `discord-proxy` function. You 
 
     -   **Discord Proxy Secret**:
         -   **What it is:** This is a password YOU create. It acts as a secret handshake between your database and your `discord-proxy` function.
-        -   **Action:** Create a strong, random password (e.g., from a password generator) and paste it here.
+        -   **Action:** Create a strong, random password and paste it here. **THIS MUST EXACTLY MATCH the `DISCORD_PROXY_SECRET` you created in the Edge Function secrets in Step 2.**
 
 6.  Click **"Save Settings"**.
 

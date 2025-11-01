@@ -12,9 +12,9 @@ export interface Translations {
 }
 
 export interface LocalizationContextType {
+  t: (key: string, replacements?: Record<string, string | number>) => string;
   language: Language;
   setLanguage: (lang: Language) => void;
-  t: (key: string, replacements?: Record<string, string | number>) => string;
   dir: 'rtl' | 'ltr';
 }
 
@@ -121,6 +121,11 @@ export interface QuizQuestion {
   timeLimit: number; // in seconds
 }
 
+export interface QuizRound {
+    titleKey: string;
+    questions: QuizQuestion[];
+}
+
 export interface Answer {
   questionId: string;
   questionText: string;
@@ -156,12 +161,14 @@ export interface Quiz {
   id: string;
   titleKey: string;
   descriptionKey: string;
-  questions: QuizQuestion[];
+  rounds: QuizRound[]; // Replaces 'questions'
   isOpen: boolean;
   allowedTakeRoles?: string[];
   logoUrl?: string;
   bannerUrl?: string;
   lastOpenedAt?: string; // To track "application seasons"
+  parent_quiz_id?: string | null;
+  info_page_content_key?: string | null; 
 }
 
 

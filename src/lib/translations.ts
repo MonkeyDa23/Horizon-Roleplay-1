@@ -232,10 +232,16 @@ export const translations: Translations = {
   target_id: { ar: 'معرف الهدف (مستخدم أو قناة)', en: 'Target ID (User or Channel)'},
   send_test: { ar: 'إرسال اختبار', en: 'Send Test'},
   available_placeholders: { ar: 'المتغيرات المتاحة', en: 'Available Placeholders'},
+  notification_submission_receipt_title: { en: 'Application Received', ar: 'تم استلام طلبك'},
+  notification_submission_receipt_body: { en: 'Hello {username}, we have successfully received your application for **{quizTitle}**. It is now pending review by our administration team. We will notify you again once its status is updated.', ar: 'مرحباً {username}، لقد استلمنا بنجاح طلب تقديمك لوظيفة **{quizTitle}**. طلبك الآن قيد الانتظار لمراجعته من قبل فريق الإدارة. سنقوم بإعلامك مرة أخرى عند تحديث حالته.'},
+  notification_submission_taken_title: { en: 'Application Under Review', ar: 'طلبك قيد المراجعة'},
+  notification_submission_taken_body: { en: 'Good news, {username}! Your application for **{quizTitle}** has been picked up for review by **{adminUsername}**. You will receive another notification once a final decision has been made.', ar: 'أخبار جيدة، {username}! طلب تقديمك لوظيفة **{quizTitle}** قد تم استلامه للمراجعة من قبل **{adminUsername}**. ستتلقى إشعارًا آخر بمجرد اتخاذ قرار نهائي.'},
+  notification_submission_accepted_title: { en: 'Application Accepted!', ar: 'تم قبول طلبك!'},
+  notification_submission_accepted_body: { en: 'Congratulations, {username}! We are pleased to inform you that your application for **{quizTitle}** has been accepted by **{adminUsername}**. Please follow up with the administration on Discord for your next steps.', ar: 'تهانينا، {username}! يسعدنا إخبارك بأن طلب تقديمك لوظيفة **{quizTitle}** قد تم قبوله من قبل **{adminUsername}**. يرجى المتابعة مع الإدارة على ديسكورد لمعرفة خطواتك التالية.'},
+  notification_submission_refused_title: { en: 'Application Update', ar: 'تحديث بخصوص طلبك'},
+  notification_submission_refused_body: { en: 'Hello {username}, after careful consideration, your application for **{quizTitle}** has been refused by **{adminUsername}**.', ar: 'مرحباً {username}، بعد مراجعة دقيقة، تم رفض طلب تقديمك لوظيفة **{quizTitle}** من قبل **{adminUsername}**.'},
   
-  notification_group_welcome: { ar: 'رسائل الترحيب', en: 'Welcome Messages'},
-  notification_group_submission_user: { ar: 'رسائل التقديمات (للمستخدم)', en: 'Submission Messages (to User)'},
-  notification_group_submission_admin: { ar: 'إشعارات التقديمات (للإدارة)', en: 'Submission Notifications (to Admin)'},
+  notification_group_submission_user: { ar: 'رسائل التقديمات (للمستخدم)', en: 'Submission DMs (to User)'},
   
   // Submission Statuses
   status_pending: { ar: 'قيد الانتظار', en: 'Pending' },

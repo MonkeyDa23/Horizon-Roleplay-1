@@ -1,9 +1,4 @@
 
-
-
-
-
-
 import React, { useState, useEffect, useCallback } from 'react';
 // FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
 // FIX: Switched to a namespace import for react-router-dom to resolve module resolution errors.
@@ -46,9 +41,10 @@ const QuizPage: React.FC = () => {
         setIsLoading(true);
         try {
           const fetchedQuiz = await getQuizById(quizId);
+          // FIX: Updated to use `rounds` instead of `questions`
           if (fetchedQuiz && fetchedQuiz.isOpen) {
               setQuiz(fetchedQuiz);
-              setTimeLeft(fetchedQuiz.questions[0].timeLimit);
+              setTimeLeft(fetchedQuiz.rounds[0].questions[0].timeLimit);
               setQuizState('rules');
           } else {
               navigate('/applies');
@@ -91,17 +87,20 @@ const QuizPage: React.FC = () => {
   const handleNextQuestion = useCallback(() => {
     if (!quiz) return;
     
-    const currentQuestion = quiz.questions[currentQuestionIndex];
+    // FIX: Updated to use `rounds` instead of `questions`
+    const currentQuestion = quiz.rounds[0].questions[currentQuestionIndex];
     // FIX: Add missing 'timeTaken' property to the answer object.
     const timeTaken = currentQuestion.timeLimit - timeLeft;
     const newAnswers = [...answers, { questionId: currentQuestion.id, questionText: t(currentQuestion.textKey), answer: currentAnswer || 'No answer (time out)', timeTaken }];
     setAnswers(newAnswers);
     setCurrentAnswer('');
 
-    if (currentQuestionIndex < quiz.questions.length - 1) {
+    // FIX: Updated to use `rounds` instead of `questions`
+    if (currentQuestionIndex < quiz.rounds[0].questions.length - 1) {
       const nextQuestionIndex = currentQuestionIndex + 1;
       setCurrentQuestionIndex(nextQuestionIndex);
-      setTimeLeft(quiz.questions[nextQuestionIndex].timeLimit);
+      // FIX: Updated to use `rounds` instead of `questions`
+      setTimeLeft(quiz.rounds[0].questions[nextQuestionIndex].timeLimit);
     } else {
       handleSubmit(newAnswers);
     }
@@ -186,15 +185,18 @@ const QuizPage: React.FC = () => {
     );
   }
 
-  const currentQuestion = quiz.questions[currentQuestionIndex];
-  const progress = ((currentQuestionIndex + 1) / quiz.questions.length) * 100;
+  // FIX: Updated to use `rounds` instead of `questions`
+  const currentQuestion = quiz.rounds[0].questions[currentQuestionIndex];
+  // FIX: Updated to use `rounds` instead of `questions`
+  const progress = ((currentQuestionIndex + 1) / quiz.rounds[0].questions.length) * 100;
   
   return (
     <div className="container mx-auto px-6 py-16">
       <div className="max-w-3xl mx-auto bg-brand-dark-blue border border-brand-light-blue/50 rounded-lg p-8">
         <div className="mb-6">
           <div className="flex justify-between items-center mb-2 text-gray-300">
-            <span>{t('question')} {currentQuestionIndex + 1} {t('of')} {quiz.questions.length}</span>
+            {/* FIX: Updated to use `rounds` instead of `questions` */}
+            <span>{t('question')} {currentQuestionIndex + 1} {t('of')} {quiz.rounds[0].questions.length}</span>
             <span className="flex items-center gap-2"><Clock size={16} /> {timeLeft} {t('seconds')}</span>
           </div>
           <div className="w-full bg-brand-light-blue rounded-full h-2.5">
@@ -213,13 +215,15 @@ const QuizPage: React.FC = () => {
         />
         
         <button 
+          // FIX: Updated to use `rounds` instead of `questions`
           onClick={handleNextQuestion}
-          disabled={isSubmitting && currentQuestionIndex === quiz.questions.length - 1}
+          disabled={isSubmitting && currentQuestionIndex === quiz.rounds[0].questions.length - 1}
           className="mt-8 w-full bg-brand-cyan text-brand-dark font-bold py-4 rounded-lg shadow-glow-cyan hover:bg-white transition-all text-lg flex justify-center items-center disabled:opacity-70 disabled:cursor-not-allowed"
         >
-          {isSubmitting && currentQuestionIndex === quiz.questions.length - 1 ? (
+          {/* FIX: Updated to use `rounds` instead of `questions` */}
+          {isSubmitting && currentQuestionIndex === quiz.rounds[0].questions.length - 1 ? (
             <Loader2 size={28} className="animate-spin" />
-          ) : currentQuestionIndex < quiz.questions.length - 1 ? (
+          ) : currentQuestionIndex < quiz.rounds[0].questions.length - 1 ? (
             t('next_question')
           ) : (
             t('submit_application')

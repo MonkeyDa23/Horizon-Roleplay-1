@@ -2,7 +2,7 @@
 import { supabase } from './supabaseClient';
 import type { 
   AppConfig, Product, Quiz, QuizSubmission, RuleCategory, Translations, 
-  User, PermissionKey, DiscordRole, UserLookupResult,
+  User, DiscordRole, UserLookupResult,
   MtaServerStatus, AuditLogEntry, MtaLogEntry, DiscordAnnouncement, RolePermission, DiscordWidget
 } from '../types';
 
@@ -165,7 +165,7 @@ export const getSubmissionsByUserId = async (userId: string): Promise<QuizSubmis
     return handleResponse(response);
 };
 
-export const addSubmission = async (submission: Omit<QuizSubmission, 'id' | 'status'>): Promise<QuizSubmission> => {
+export const addSubmission = async (submission: Omit<QuizSubmission, 'id' | 'status'>): Promise<{ submission_id: string; next_quiz_id: string | null; }> => {
   if (!supabase) throw new Error("Supabase not configured");
   return handleResponse(await supabase.rpc('add_submission', { submission_data: submission }));
 };

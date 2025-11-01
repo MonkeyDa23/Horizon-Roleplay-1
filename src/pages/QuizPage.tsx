@@ -1,12 +1,5 @@
-
-
-
-
-
-
-
-
-import React, { useState, useEffect, useCallback } from 'react';
+// src/pages/QuizPage.tsx
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 // FIX: Fix "no exported member" errors from 'react-router-dom' by switching to a namespace import.
 import * as ReactRouterDOM from 'react-router-dom';
 import { useLocalization } from '../hooks/useLocalization';
@@ -14,48 +7,9 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { getQuizById, addSubmission } from '../lib/api';
 import type { Quiz, Answer, CheatAttempt } from '../types';
-import { CheckCircle, Loader2, ListChecks } from 'lucide-react';
+import { CheckCircle, Loader2, ListChecks, ChevronsRight } from 'lucide-react';
 import { useConfig } from '../hooks/useConfig';
 import SEO from '../components/SEO';
-
-const CircularTimer: React.FC<{ timeLeft: number; timeLimit: number }> = ({ timeLeft, timeLimit }) => {
-    const radius = 30;
-    const circumference = 2 * Math.PI * radius;
-    const progress = (timeLeft / timeLimit) * circumference;
-    const strokeColor = timeLeft < 10 ? '#ef4444' : '#00f2ea';
-
-    return (
-        <div className="relative w-20 h-20">
-            <svg className="w-full h-full" viewBox="0 0 70 70">
-                <circle
-                    className="text-brand-light-blue"
-                    strokeWidth="5"
-                    stroke="currentColor"
-                    fill="transparent"
-                    r={radius}
-                    cx="35"
-                    cy="35"
-                />
-                <circle
-                    strokeWidth="5"
-                    strokeDasharray={circumference}
-                    strokeDashoffset={circumference - progress}
-                    strokeLinecap="round"
-                    stroke={strokeColor}
-                    fill="transparent"
-                    r={radius}
-                    cx="35"
-                    cy="35"
-                    style={{ transform: 'rotate(-90deg)', transformOrigin: 'center', transition: 'stroke-dashoffset 0.5s linear, stroke 0.5s linear' }}
-                />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-2xl font-bold" style={{ color: strokeColor, transition: 'color 0.5s linear' }}>{timeLeft}</span>
-            </div>
-        </div>
-    );
-};
-
 
 const QuizPage: React.FC = () => {
   const { quizId } = ReactRouterDOM.useParams<{ quizId: string }>();
@@ -69,14 +23,16 @@ const QuizPage: React.FC = () => {
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [currentAnswer, setCurrentAnswer] = useState('');
   const [timeLeft, setTimeLeft] = useState(0);
-  const [quizState, setQuizState] = useState<'rules' | 'taking' | 'submitted'>('rules');
-  const [showQuestion, setShowQuestion] = useState(true);
+  const [quizState, setQuizState] = useState<'rules' | 'taking' | 'submitted' | 'interstitial'>('rules');
   const [cheatLog, setCheatLog] = useState<CheatAttempt[]>([]);
   const [finalCheatLog, setFinalCheatLog] = useState<CheatAttempt[]>([]);
+  
+  // State for multi-round logic
+  const [currentRoundIndex, setCurrentRoundIndex] = useState(0);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
   useEffect(() => {
     if (!user) { navigate('/applies'); return; }
@@ -86,9 +42,9 @@ const QuizPage: React.FC = () => {
         setIsLoading(true);
         try {
           const fetchedQuiz = await getQuizById(quizId);
-          if (fetchedQuiz && fetchedQuiz.isOpen && Array.isArray(fetchedQuiz.questions) && fetchedQuiz.questions.length > 0) {
+          if (fetchedQuiz && fetchedQuiz.isOpen && Array.isArray(fetchedQuiz.rounds) && fetchedQuiz.rounds.length > 0) {
               setQuiz(fetchedQuiz);
-              setTimeLeft(fetchedQuiz.questions[0].timeLimit);
+              setTimeLeft(fetchedQuiz.rounds[0].questions[0].timeLimit);
               setQuizState('rules');
           } else {
               navigate('/applies');
@@ -117,48 +73,61 @@ const QuizPage: React.FC = () => {
         user_highest_role: user.highestRole?.name ?? t('member')
     };
     try {
-      await addSubmission(submission);
-      setQuizState('submitted');
+      const result = await addSubmission(submission);
+      if (result.next_quiz_id) {
+          navigate(`/applies/next-round/${quiz.id}`);
+      } else {
+          setQuizState('submitted');
+      }
     } catch (error) {
       console.error("Failed to submit application:", error);
       alert("An error occurred while submitting your application. Please try again.");
       setIsSubmitting(false);
     }
-  }, [quiz, user, t, isSubmitting, cheatLog]);
+  }, [quiz, user, t, isSubmitting, cheatLog, navigate]);
 
-  const handleNextQuestion = useCallback(() => {
+  const handleNext = useCallback(() => {
     if (!quiz) return;
     
-    setShowQuestion(false);
+    const currentQuestion = quiz.rounds[currentRoundIndex].questions[currentQuestionIndex];
+    const newAnswers = [...answers, { questionId: currentQuestion.id, questionText: t(currentQuestion.textKey), answer: currentAnswer || 'No answer (time out)', timeTaken: currentQuestion.timeLimit - timeLeft }];
+    setAnswers(newAnswers);
+    setCurrentAnswer('');
 
-    setTimeout(() => {
-        const currentQuestion = quiz.questions[currentQuestionIndex];
-        // FIX: Add missing 'timeTaken' property to the answer object.
-        const timeTaken = currentQuestion.timeLimit - timeLeft;
-        const newAnswers = [...answers, { questionId: currentQuestion.id, questionText: t(currentQuestion.textKey), answer: currentAnswer || 'No answer (time out)', timeTaken }];
-        setAnswers(newAnswers);
-        setCurrentAnswer('');
+    const isLastQuestionInRound = currentQuestionIndex === quiz.rounds[currentRoundIndex].questions.length - 1;
+    const isLastRound = currentRoundIndex === quiz.rounds.length - 1;
 
-        if (currentQuestionIndex < quiz.questions.length - 1) {
-            const nextQuestionIndex = currentQuestionIndex + 1;
-            setCurrentQuestionIndex(nextQuestionIndex);
-            setTimeLeft(quiz.questions[nextQuestionIndex].timeLimit);
-            setShowQuestion(true);
-        } else {
-            handleSubmit(newAnswers);
-        }
-    }, 500);
-  }, [quiz, currentQuestionIndex, answers, currentAnswer, t, handleSubmit, timeLeft]);
+    if (isLastQuestionInRound && isLastRound) {
+      handleSubmit(newAnswers);
+    } else if (isLastQuestionInRound) {
+      // End of round, show interstitial
+      setQuizState('interstitial');
+    } else {
+      // Next question in same round
+      const nextQuestionIndex = currentQuestionIndex + 1;
+      setCurrentQuestionIndex(nextQuestionIndex);
+      setTimeLeft(quiz.rounds[currentRoundIndex].questions[nextQuestionIndex].timeLimit);
+    }
+  }, [quiz, currentRoundIndex, currentQuestionIndex, answers, currentAnswer, t, handleSubmit, timeLeft]);
   
+  const startNextRound = () => {
+      if (!quiz) return;
+      const nextRoundIndex = currentRoundIndex + 1;
+      setCurrentRoundIndex(nextRoundIndex);
+      setCurrentQuestionIndex(0);
+      setTimeLeft(quiz.rounds[nextRoundIndex].questions[0].timeLimit);
+      setQuizState('taking');
+  };
+
   useEffect(() => {
     if (quizState !== 'taking' || !quiz) return;
     if (timeLeft <= 0) {
-      handleNextQuestion();
+      handleNext();
       return;
     }
     const timerId = setInterval(() => setTimeLeft(prevTime => prevTime - 1), 1000);
     return () => clearInterval(timerId);
-  }, [timeLeft, quizState, quiz, handleNextQuestion]);
+  }, [timeLeft, quizState, quiz, handleNext]);
   
   useEffect(() => {
     if (quizState !== 'taking') return;
@@ -169,10 +138,11 @@ const QuizPage: React.FC = () => {
         
         setAnswers([]);
         setCurrentAnswer('');
+        setCurrentRoundIndex(0);
         setCurrentQuestionIndex(0);
         setQuizState('rules');
         if (quiz) {
-            setTimeLeft(quiz.questions[0].timeLimit);
+            setTimeLeft(quiz.rounds[0].questions[0].timeLimit);
         }
     };
 
@@ -191,145 +161,70 @@ const QuizPage: React.FC = () => {
   
   const pageTitle = quiz ? t(quiz.titleKey) : t('applies');
 
-  if (isLoading) {
-    return ( <div className="container mx-auto px-6 py-16 flex justify-center items-center h-96"> <Loader2 size={48} className="text-brand-cyan animate-spin" /> </div> );
-  }
+  const { totalQuestions, answeredQuestions } = useMemo(() => {
+    if (!quiz) return { totalQuestions: 0, answeredQuestions: 0 };
+    const total = quiz.rounds.reduce((sum, round) => sum + round.questions.length, 0);
+    return { totalQuestions: total, answeredQuestions: answers.length };
+  }, [quiz, answers]);
 
+  const progress = totalQuestions > 0 ? ((answeredQuestions + 1) / totalQuestions) * 100 : 0;
+
+  if (isLoading) return <div className="page-container flex justify-center"><Loader2 size={48} className="text-brand-cyan animate-spin" /></div>;
   if (!quiz) return null;
   
-  if (quizState === 'submitted') {
-    return (
-      <>
-        <SEO 
-          title={`${communityName} - ${t('application_submitted')}`}
-          description="Application submitted successfully."
-          noIndex={true}
-        />
-        <div className="container mx-auto px-6 py-16 text-center animate-slide-up">
-          <CheckCircle className="mx-auto text-green-400" size={80} />
-          <h1 className="text-4xl font-bold mt-6 mb-4">{t('application_submitted')}</h1>
-          <p className="text-lg text-gray-300 max-w-2xl mx-auto">{t('application_submitted_desc')}</p>
-          
-          <div className="max-w-md mx-auto bg-brand-dark-blue border border-brand-light-blue/50 rounded-lg p-6 text-left mt-10">
-              <h3 className="text-xl font-bold text-brand-cyan mb-4 flex items-center gap-3"><ListChecks /> {t('cheat_attempts_report')}</h3>
-              {finalCheatLog.length > 0 ? (
-                  <>
-                      <p className="text-gray-300 mb-4">{t('cheat_attempts_count', { count: finalCheatLog.length })}</p>
-                      <ul className="space-y-2 text-sm max-h-40 overflow-y-auto">
-                          {finalCheatLog.map((attempt, index) => (
-                              <li key={index} className="bg-brand-dark p-2 rounded-md">
-                                  <span className="font-semibold text-red-400">{attempt.method}</span>
-                                  <span className="text-gray-400 text-xs ml-2">({new Date(attempt.timestamp).toLocaleString()})</span>
-                              </li>
-                          ))}
-                      </ul>
-                  </>
-              ) : (
-                  <p className="text-green-300">{t('no_cheat_attempts')}</p>
-              )}
-          </div>
+  if (quizState === 'submitted') return <SubmittedView finalCheatLog={finalCheatLog} />;
+  if (quizState === 'rules') return <RulesView quiz={quiz} onStart={() => setQuizState('taking')} />;
+  if (quizState === 'interstitial') return <InterstitialView quiz={quiz} currentRoundIndex={currentRoundIndex} onContinue={startNextRound} />;
 
-          <button onClick={() => navigate('/my-applications')} className="mt-10 px-8 py-3 bg-brand-cyan text-brand-dark font-bold rounded-lg hover:bg-white transition-colors">
-              {t('view_my_applications')}
-          </button>
-        </div>
-      </>
-    )
-  }
-
-  if (quizState === 'rules') {
-    return (
-      <>
-        <SEO 
-          title={`${communityName} - ${pageTitle}`}
-          description={`Application form for ${pageTitle}. Please read the instructions carefully before starting.`}
-          noIndex={true}
-        />
-        <div className="container mx-auto px-6 py-16">
-          <div className="max-w-3xl mx-auto bg-brand-dark-blue border border-brand-light-blue/50 rounded-lg animate-slide-up overflow-hidden">
-            {quiz.bannerUrl && (
-              <div className="relative h-48 bg-cover bg-center" style={{ backgroundImage: `url(${quiz.bannerUrl})` }}>
-                <div className="absolute inset-0 bg-black/60 flex items-center justify-center p-4">
-                  {quiz.logoUrl && (
-                    <img src={quiz.logoUrl} alt="Quiz Logo" className="max-h-24 object-contain" />
-                  )}
-                </div>
-              </div>
-            )}
-            <div className="p-8 text-center">
-                <h1 className="text-3xl font-bold text-brand-cyan mb-4">{t('quiz_rules')}</h1>
-                <h2 className="text-2xl font-semibold mb-6">{t(quiz.titleKey)}</h2>
-                <p className="text-gray-300 mb-8 whitespace-pre-line">{t(quiz.descriptionKey)}</p>
-                <button onClick={() => setQuizState('taking')} className="px-10 py-4 bg-brand-cyan text-brand-dark font-bold text-lg rounded-lg shadow-glow-cyan hover:bg-white hover:scale-105 transform transition-all">
-                  {t('begin_quiz')}
-                </button>
-            </div>
-          </div>
-        </div>
-      </>
-    );
-  }
-
-  const currentQuestion = quiz.questions[currentQuestionIndex];
-  const progress = ((currentQuestionIndex + 1) / quiz.questions.length) * 100;
+  const currentRound = quiz.rounds[currentRoundIndex];
+  const currentQuestion = currentRound.questions[currentQuestionIndex];
+  const isLastQuestionOverall = (currentRoundIndex === quiz.rounds.length - 1) && (currentQuestionIndex === currentRound.questions.length - 1);
   
   return (
     <>
-      <SEO 
-        title={`${communityName} - ${pageTitle}`}
-        description={`Application form for ${pageTitle}. Please read the instructions carefully before starting.`}
-        noIndex={true}
-      />
+      <SEO title={`${communityName} - ${pageTitle}`} noIndex={true} description={`Application form for ${pageTitle}.`} />
       <div className="container mx-auto px-6 py-16">
-        <div className="max-w-3xl mx-auto bg-brand-dark-blue border border-brand-light-blue/50 rounded-lg p-8">
+        <div className="max-w-3xl mx-auto bg-brand-dark-blue border border-brand-light-blue/50 rounded-lg p-8 animate-fade-in-up">
           <div className="mb-6">
             <div className="flex justify-between items-center mb-2 text-gray-300">
-              <span>{t('question')} {currentQuestionIndex + 1} {t('of')} {quiz.questions.length}</span>
-              <CircularTimer timeLeft={timeLeft} timeLimit={currentQuestion.timeLimit} />
+              <span className="font-bold text-lg text-brand-cyan">{`Round ${currentRoundIndex + 1}: ${t(currentRound.titleKey)}`}</span>
+              <span className="flex items-center gap-2"><ListChecks size={16} /> {answeredQuestions + 1} / {totalQuestions}</span>
             </div>
             <div className="w-full bg-brand-light-blue rounded-full h-2.5">
               <div className="bg-brand-cyan h-2.5 rounded-full" style={{ width: `${progress}%`, transition: 'width 0.5s ease-in-out' }}></div>
             </div>
           </div>
+
+          <div className="text-center my-4 font-bold text-2xl" style={{ color: timeLeft < 10 ? '#ef4444' : '#00f2ea', transition: 'color 0.5s linear' }}>{timeLeft}s</div>
           
-          <div className="min-h-[280px]">
-            {showQuestion && (
-              <div className="animate-question-fade-in">
-                <h2 className="text-2xl md:text-3xl font-semibold mb-6 text-white">{t(currentQuestion.textKey)}</h2>
-                <textarea
-                  value={currentAnswer}
-                  onChange={(e) => setCurrentAnswer(e.target.value)}
-                  className="w-full bg-brand-light-blue text-white p-4 rounded-md border border-gray-600 focus:ring-2 focus:ring-brand-cyan focus:border-brand-cyan transition-colors"
-                  rows={6}
-                  placeholder="Type your answer here..."
-                />
-              </div>
-            )}
-          </div>
+          <h2 className="text-2xl md:text-3xl font-semibold mb-6 text-white text-center">{t(currentQuestion.textKey)}</h2>
+          <textarea value={currentAnswer} onChange={(e) => setCurrentAnswer(e.target.value)} className="w-full bg-brand-light-blue text-white p-4 rounded-md border border-gray-600 focus:ring-2 focus:ring-brand-cyan focus:border-brand-cyan transition-colors" rows={6} placeholder="Type your answer here..." />
           
-          <button 
-            onClick={handleNextQuestion}
-            disabled={!showQuestion || (isSubmitting && currentQuestionIndex === quiz.questions.length - 1)}
-            className="mt-8 w-full bg-brand-cyan text-brand-dark font-bold py-4 rounded-lg shadow-glow-cyan hover:bg-white transition-all text-lg flex justify-center items-center disabled:opacity-70 disabled:cursor-not-allowed"
-          >
-            {isSubmitting && currentQuestionIndex === quiz.questions.length - 1 ? (
-              <Loader2 size={28} className="animate-spin" />
-            ) : currentQuestionIndex < quiz.questions.length - 1 ? (
-              t('next_question')
-            ) : (
-              t('submit_application')
-            )}
+          <button onClick={handleNext} disabled={isSubmitting && isLastQuestionOverall} className="mt-8 w-full bg-brand-cyan text-brand-dark font-bold py-4 rounded-lg shadow-glow-cyan hover:bg-white transition-all text-lg flex justify-center items-center disabled:opacity-70 disabled:cursor-not-allowed">
+            {isSubmitting && isLastQuestionOverall ? <Loader2 size={28} className="animate-spin" /> : isLastQuestionOverall ? t('submit_application') : t('next_question')}
           </button>
         </div>
-        <style>{`
-          @keyframes slide-up { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-          .animate-slide-up { animation: slide-up 0.8s ease-out forwards; }
-          @keyframes question-fade-in { from { opacity: 0; } to { opacity: 1; } }
-          .animate-question-fade-in { animation: question-fade-in 0.5s ease-out forwards; }
-        `}</style>
       </div>
     </>
   );
+};
+
+// Helper Components for each state
+const RulesView: React.FC<{ quiz: Quiz; onStart: () => void; }> = ({ quiz, onStart }) => {
+    const { t } = useLocalization();
+    return <div className="page-container"><div className="max-w-3xl mx-auto bg-brand-dark-blue border border-brand-light-blue/50 rounded-lg animate-fade-in-up overflow-hidden">{quiz.bannerUrl && <div className="h-48 bg-cover bg-center" style={{backgroundImage: `url(${quiz.bannerUrl})`}}><div className="inset-0 bg-black/60 flex items-center justify-center p-4">{quiz.logoUrl && <img src={quiz.logoUrl} alt="Quiz Logo" className="max-h-24 object-contain" />}</div></div>}<div className="p-8 text-center"><h1 className="text-3xl font-bold text-brand-cyan mb-4">{t('quiz_rules')}</h1><h2 className="text-2xl font-semibold mb-6">{t(quiz.titleKey)}</h2><p className="text-gray-300 mb-8 whitespace-pre-line">{t(quiz.descriptionKey)}</p><button onClick={onStart} className="px-10 py-4 bg-brand-cyan text-brand-dark font-bold text-lg rounded-lg shadow-glow-cyan hover:bg-white hover:scale-105 transform transition-all">{t('begin_quiz')}</button></div></div></div>;
+};
+
+const InterstitialView: React.FC<{ quiz: Quiz; currentRoundIndex: number; onContinue: () => void; }> = ({ quiz, currentRoundIndex, onContinue }) => {
+    const { t } = useLocalization();
+    const nextRound = quiz.rounds[currentRoundIndex + 1];
+    return <div className="page-container flex items-center justify-center"><div className="max-w-xl mx-auto bg-brand-dark-blue border border-brand-light-blue/50 rounded-lg p-8 text-center animate-fade-in-up"><h2 className="text-2xl font-bold text-gray-300">Round {currentRoundIndex + 1} Complete!</h2><p className="text-lg text-gray-400 mt-2 mb-6">Next up:</p><h1 className="text-3xl font-bold text-brand-cyan mb-8">{t(nextRound.titleKey)}</h1><button onClick={onContinue} className="px-8 py-3 bg-brand-cyan text-brand-dark font-bold rounded-lg hover:bg-white transition-colors flex items-center gap-2 mx-auto">Continue <ChevronsRight /></button></div></div>;
+};
+
+const SubmittedView: React.FC<{ finalCheatLog: CheatAttempt[] }> = ({ finalCheatLog }) => {
+    const { t } = useLocalization();
+    const navigate = ReactRouterDOM.useNavigate();
+    return <div className="page-container text-center animate-fade-in-up"><CheckCircle className="mx-auto text-green-400" size={80} /><h1 className="text-4xl font-bold mt-6 mb-4">{t('application_submitted')}</h1><p className="text-lg text-gray-300 max-w-2xl mx-auto">{t('application_submitted_desc')}</p><div className="max-w-md mx-auto bg-brand-dark-blue border border-brand-light-blue/50 rounded-lg p-6 text-left mt-10"><h3 className="text-xl font-bold text-brand-cyan mb-4 flex items-center gap-3"><ListChecks /> {t('cheat_attempts_report')}</h3>{finalCheatLog.length > 0 ? <><p className="text-gray-300 mb-4">{t('cheat_attempts_count', { count: finalCheatLog.length })}</p><ul className="space-y-2 text-sm max-h-40 overflow-y-auto">{finalCheatLog.map((attempt, index) => <li key={index} className="bg-brand-dark p-2 rounded-md"><span className="font-semibold text-red-400">{attempt.method}</span><span className="text-gray-400 text-xs ml-2">({new Date(attempt.timestamp).toLocaleString()})</span></li>)}</ul></> : <p className="text-green-300">{t('no_cheat_attempts')}</p>}</div><button onClick={() => navigate('/my-applications')} className="mt-10 px-8 py-3 bg-brand-cyan text-brand-dark font-bold rounded-lg hover:bg-white transition-colors">{t('view_my_applications')}</button></div>;
 };
 
 export default QuizPage;

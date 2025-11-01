@@ -8,28 +8,14 @@ import { Loader2, Bell, HelpCircle } from 'lucide-react';
 import Modal from '../Modal';
 
 const notificationTemplates = {
-    welcome: {
-        title: 'Welcome Messages',
-        description: 'Sent as a DM to a user upon their first successful login to the website.',
-        messages: [
-            { type: 'welcome_dm', title: 'Welcome DM', placeholders: ['{username}'] }
-        ]
-    },
     submissionUser: {
-        title: 'Submission Messages (to User)',
+        title: 'Submission DMs (to User)',
         description: 'Sent as a DM to the user when their application status changes.',
         messages: [
             { type: 'submission_receipt', title: 'Submission Received', placeholders: ['{username}', '{quizTitle}'] },
             { type: 'submission_taken', title: 'Submission Under Review', placeholders: ['{username}', '{quizTitle}', '{adminUsername}'] },
             { type: 'submission_accepted', title: 'Submission Accepted', placeholders: ['{username}', '{quizTitle}', '{adminUsername}'] },
             { type: 'submission_refused', title: 'Submission Refused', placeholders: ['{username}', '{quizTitle}', '{adminUsername}'] }
-        ]
-    },
-    submissionAdmin: {
-        title: 'Submission Notifications (to Admin)',
-        description: 'Sent to a specified admin channel when a new application is submitted.',
-        messages: [
-            { type: 'new_submission', title: 'New Submission Channel Post', placeholders: ['{username}', '{quizTitle}', '{userHighestRole}', '{mentionRole}'] }
         ]
     },
 };
@@ -101,7 +87,7 @@ const NotificationsPanel: React.FC = () => {
     const MessageEditor: React.FC<{ type: string; title: string; placeholders: string[] }> = ({ type, title, placeholders }) => {
         const titleKey = `notification_${type}_title`;
         const bodyKey = `notification_${type}_body`;
-        const isUserTarget = type.endsWith('_dm') || type === 'submission_receipt' || type.startsWith('submission_');
+        const isUserTarget = true; // All notifications in this panel are DMs now
 
         return (
             <div className="bg-brand-dark p-4 rounded-lg border border-gray-700">
