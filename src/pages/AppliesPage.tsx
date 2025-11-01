@@ -100,7 +100,8 @@ const AppliesPage: React.FC = () => {
   };
 
   const getTotalQuestions = (quiz: Quiz) => {
-    return (quiz.rounds || []).reduce((acc, round) => acc + (round.questions || []).length, 0);
+    // FIX: Reverted from 'rounds' to 'questions' to align with the actual Quiz type definition.
+    return (quiz.questions || []).length;
   };
 
   return (

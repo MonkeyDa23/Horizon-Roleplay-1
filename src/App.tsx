@@ -28,7 +28,6 @@ import MyApplicationsPage from './pages/MyApplicationsPage';
 import ProfilePage from './pages/ProfilePage';
 import HealthCheckPage from './pages/HealthCheckPage';
 import AdminPage from './pages/AdminPage';
-import NextRoundPage from './pages/NextRoundPage'; // New import for multi-round system
 
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { env } from './env';
@@ -134,7 +133,6 @@ const AppContent: React.FC = () => {
               <ReactRouterDOM.Route path="/rules" element={<RulesPage />} />
               <ReactRouterDOM.Route path="/applies" element={<AppliesPage />} />
               <ReactRouterDOM.Route path="/applies/:quizId" element={<QuizPage />} />
-              <ReactRouterDOM.Route path="/applies/next-round/:quizId" element={<NextRoundPage />} /> {/* New Route */}
               <ReactRouterDOM.Route path="/about" element={<AboutUsPage />} />
               <ReactRouterDOM.Route path="/admin" element={
                 <ProtectedRoute permission="admin_panel">

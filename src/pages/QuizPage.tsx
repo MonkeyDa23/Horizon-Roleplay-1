@@ -7,7 +7,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
 import { getQuizById, addSubmission } from '../lib/api';
 import type { Quiz, Answer, CheatAttempt } from '../types';
-import { CheckCircle, Loader2, ListChecks, ChevronsRight } from 'lucide-react';
+import { CheckCircle, Loader2, ListChecks } from 'lucide-react';
 import { useConfig } from '../hooks/useConfig';
 import SEO from '../components/SEO';
 
@@ -26,12 +26,9 @@ const QuizPage: React.FC = () => {
   const [answers, setAnswers] = useState<Answer[]>([]);
   const [currentAnswer, setCurrentAnswer] = useState('');
   const [timeLeft, setTimeLeft] = useState(0);
-  const [quizState, setQuizState] = useState<'rules' | 'taking' | 'submitted' | 'interstitial'>('rules');
+  const [quizState, setQuizState] = useState<'rules' | 'taking' | 'submitted'>('rules');
   const [cheatLog, setCheatLog] = useState<CheatAttempt[]>([]);
   const [finalCheatLog, setFinalCheatLog] = useState<CheatAttempt[]>([]);
-  
-  // State for multi-round logic
-  const [currentRoundIndex, setCurrentRoundIndex] = useState(0);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
   useEffect(() => {
@@ -42,9 +39,9 @@ const QuizPage: React.FC = () => {
         setIsLoading(true);
         try {
           const fetchedQuiz = await getQuizById(quizId);
-          if (fetchedQuiz && fetchedQuiz.isOpen && Array.isArray(fetchedQuiz.rounds) && fetchedQuiz.rounds.length > 0) {
+          if (fetchedQuiz && fetchedQuiz.isOpen && Array.isArray(fetchedQuiz.questions) && fetchedQuiz.questions.length > 0) {
               setQuiz(fetchedQuiz);
-              setTimeLeft(fetchedQuiz.rounds[0].questions[0].timeLimit);
+              setTimeLeft(fetchedQuiz.questions[0].timeLimit);
               setQuizState('rules');
           } else {
               navigate('/applies');
@@ -73,12 +70,8 @@ const QuizPage: React.FC = () => {
         user_highest_role: user.highestRole?.name ?? t('member')
     };
     try {
-      const result = await addSubmission(submission);
-      if (result.next_quiz_id) {
-          navigate(`/applies/next-round/${quiz.id}`);
-      } else {
-          setQuizState('submitted');
-      }
+      await addSubmission(submission);
+      setQuizState('submitted');
     } catch (error) {
       console.error("Failed to submit application:", error);
       alert("An error occurred while submitting your application. Please try again.");
@@ -89,35 +82,22 @@ const QuizPage: React.FC = () => {
   const handleNext = useCallback(() => {
     if (!quiz) return;
     
-    const currentQuestion = quiz.rounds[currentRoundIndex].questions[currentQuestionIndex];
+    const currentQuestion = quiz.questions[currentQuestionIndex];
     const newAnswers = [...answers, { questionId: currentQuestion.id, questionText: t(currentQuestion.textKey), answer: currentAnswer || 'No answer (time out)', timeTaken: currentQuestion.timeLimit - timeLeft }];
     setAnswers(newAnswers);
     setCurrentAnswer('');
 
-    const isLastQuestionInRound = currentQuestionIndex === quiz.rounds[currentRoundIndex].questions.length - 1;
-    const isLastRound = currentRoundIndex === quiz.rounds.length - 1;
+    const isLastQuestion = currentQuestionIndex === quiz.questions.length - 1;
 
-    if (isLastQuestionInRound && isLastRound) {
+    if (isLastQuestion) {
       handleSubmit(newAnswers);
-    } else if (isLastQuestionInRound) {
-      // End of round, show interstitial
-      setQuizState('interstitial');
     } else {
-      // Next question in same round
       const nextQuestionIndex = currentQuestionIndex + 1;
       setCurrentQuestionIndex(nextQuestionIndex);
-      setTimeLeft(quiz.rounds[currentRoundIndex].questions[nextQuestionIndex].timeLimit);
+      setTimeLeft(quiz.questions[nextQuestionIndex].timeLimit);
     }
-  }, [quiz, currentRoundIndex, currentQuestionIndex, answers, currentAnswer, t, handleSubmit, timeLeft]);
+  }, [quiz, currentQuestionIndex, answers, currentAnswer, t, handleSubmit, timeLeft]);
   
-  const startNextRound = () => {
-      if (!quiz) return;
-      const nextRoundIndex = currentRoundIndex + 1;
-      setCurrentRoundIndex(nextRoundIndex);
-      setCurrentQuestionIndex(0);
-      setTimeLeft(quiz.rounds[nextRoundIndex].questions[0].timeLimit);
-      setQuizState('taking');
-  };
 
   useEffect(() => {
     if (quizState !== 'taking' || !quiz) return;
@@ -138,11 +118,10 @@ const QuizPage: React.FC = () => {
         
         setAnswers([]);
         setCurrentAnswer('');
-        setCurrentRoundIndex(0);
         setCurrentQuestionIndex(0);
         setQuizState('rules');
         if (quiz) {
-            setTimeLeft(quiz.rounds[0].questions[0].timeLimit);
+            setTimeLeft(quiz.questions[0].timeLimit);
         }
     };
 
@@ -161,24 +140,17 @@ const QuizPage: React.FC = () => {
   
   const pageTitle = quiz ? t(quiz.titleKey) : t('applies');
 
-  const { totalQuestions, answeredQuestions } = useMemo(() => {
-    if (!quiz) return { totalQuestions: 0, answeredQuestions: 0 };
-    const total = quiz.rounds.reduce((sum, round) => sum + round.questions.length, 0);
-    return { totalQuestions: total, answeredQuestions: answers.length };
-  }, [quiz, answers]);
-
-  const progress = totalQuestions > 0 ? ((answeredQuestions + 1) / totalQuestions) * 100 : 0;
+  const totalQuestions = quiz?.questions?.length || 0;
+  const progress = totalQuestions > 0 ? ((currentQuestionIndex + 1) / totalQuestions) * 100 : 0;
 
   if (isLoading) return <div className="page-container flex justify-center"><Loader2 size={48} className="text-brand-cyan animate-spin" /></div>;
   if (!quiz) return null;
   
   if (quizState === 'submitted') return <SubmittedView finalCheatLog={finalCheatLog} />;
   if (quizState === 'rules') return <RulesView quiz={quiz} onStart={() => setQuizState('taking')} />;
-  if (quizState === 'interstitial') return <InterstitialView quiz={quiz} currentRoundIndex={currentRoundIndex} onContinue={startNextRound} />;
 
-  const currentRound = quiz.rounds[currentRoundIndex];
-  const currentQuestion = currentRound.questions[currentQuestionIndex];
-  const isLastQuestionOverall = (currentRoundIndex === quiz.rounds.length - 1) && (currentQuestionIndex === currentRound.questions.length - 1);
+  const currentQuestion = quiz.questions[currentQuestionIndex];
+  const isLastQuestion = currentQuestionIndex === quiz.questions.length - 1;
   
   return (
     <>
@@ -187,8 +159,8 @@ const QuizPage: React.FC = () => {
         <div className="max-w-3xl mx-auto bg-brand-dark-blue border border-brand-light-blue/50 rounded-lg p-8 animate-fade-in-up">
           <div className="mb-6">
             <div className="flex justify-between items-center mb-2 text-gray-300">
-              <span className="font-bold text-lg text-brand-cyan">{`Round ${currentRoundIndex + 1}: ${t(currentRound.titleKey)}`}</span>
-              <span className="flex items-center gap-2"><ListChecks size={16} /> {answeredQuestions + 1} / {totalQuestions}</span>
+              <span className="font-bold text-lg text-brand-cyan">{t(quiz.titleKey)}</span>
+              <span className="flex items-center gap-2"><ListChecks size={16} /> {currentQuestionIndex + 1} / {totalQuestions}</span>
             </div>
             <div className="w-full bg-brand-light-blue rounded-full h-2.5">
               <div className="bg-brand-cyan h-2.5 rounded-full" style={{ width: `${progress}%`, transition: 'width 0.5s ease-in-out' }}></div>
@@ -200,8 +172,8 @@ const QuizPage: React.FC = () => {
           <h2 className="text-2xl md:text-3xl font-semibold mb-6 text-white text-center">{t(currentQuestion.textKey)}</h2>
           <textarea value={currentAnswer} onChange={(e) => setCurrentAnswer(e.target.value)} className="w-full bg-brand-light-blue text-white p-4 rounded-md border border-gray-600 focus:ring-2 focus:ring-brand-cyan focus:border-brand-cyan transition-colors" rows={6} placeholder="Type your answer here..." />
           
-          <button onClick={handleNext} disabled={isSubmitting && isLastQuestionOverall} className="mt-8 w-full bg-brand-cyan text-brand-dark font-bold py-4 rounded-lg shadow-glow-cyan hover:bg-white transition-all text-lg flex justify-center items-center disabled:opacity-70 disabled:cursor-not-allowed">
-            {isSubmitting && isLastQuestionOverall ? <Loader2 size={28} className="animate-spin" /> : isLastQuestionOverall ? t('submit_application') : t('next_question')}
+          <button onClick={handleNext} disabled={isSubmitting && isLastQuestion} className="mt-8 w-full bg-brand-cyan text-brand-dark font-bold py-4 rounded-lg shadow-glow-cyan hover:bg-white transition-all text-lg flex justify-center items-center disabled:opacity-70 disabled:cursor-not-allowed">
+            {isSubmitting && isLastQuestion ? <Loader2 size={28} className="animate-spin" /> : isLastQuestion ? t('submit_application') : t('next_question')}
           </button>
         </div>
       </div>
@@ -213,12 +185,6 @@ const QuizPage: React.FC = () => {
 const RulesView: React.FC<{ quiz: Quiz; onStart: () => void; }> = ({ quiz, onStart }) => {
     const { t } = useLocalization();
     return <div className="page-container"><div className="max-w-3xl mx-auto bg-brand-dark-blue border border-brand-light-blue/50 rounded-lg animate-fade-in-up overflow-hidden">{quiz.bannerUrl && <div className="h-48 bg-cover bg-center" style={{backgroundImage: `url(${quiz.bannerUrl})`}}><div className="inset-0 bg-black/60 flex items-center justify-center p-4">{quiz.logoUrl && <img src={quiz.logoUrl} alt="Quiz Logo" className="max-h-24 object-contain" />}</div></div>}<div className="p-8 text-center"><h1 className="text-3xl font-bold text-brand-cyan mb-4">{t('quiz_rules')}</h1><h2 className="text-2xl font-semibold mb-6">{t(quiz.titleKey)}</h2><p className="text-gray-300 mb-8 whitespace-pre-line">{t(quiz.descriptionKey)}</p><button onClick={onStart} className="px-10 py-4 bg-brand-cyan text-brand-dark font-bold text-lg rounded-lg shadow-glow-cyan hover:bg-white hover:scale-105 transform transition-all">{t('begin_quiz')}</button></div></div></div>;
-};
-
-const InterstitialView: React.FC<{ quiz: Quiz; currentRoundIndex: number; onContinue: () => void; }> = ({ quiz, currentRoundIndex, onContinue }) => {
-    const { t } = useLocalization();
-    const nextRound = quiz.rounds[currentRoundIndex + 1];
-    return <div className="page-container flex items-center justify-center"><div className="max-w-xl mx-auto bg-brand-dark-blue border border-brand-light-blue/50 rounded-lg p-8 text-center animate-fade-in-up"><h2 className="text-2xl font-bold text-gray-300">Round {currentRoundIndex + 1} Complete!</h2><p className="text-lg text-gray-400 mt-2 mb-6">Next up:</p><h1 className="text-3xl font-bold text-brand-cyan mb-8">{t(nextRound.titleKey)}</h1><button onClick={onContinue} className="px-8 py-3 bg-brand-cyan text-brand-dark font-bold rounded-lg hover:bg-white transition-colors flex items-center gap-2 mx-auto">Continue <ChevronsRight /></button></div></div>;
 };
 
 const SubmittedView: React.FC<{ finalCheatLog: CheatAttempt[] }> = ({ finalCheatLog }) => {

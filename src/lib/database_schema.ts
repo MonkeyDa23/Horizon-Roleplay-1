@@ -1,7 +1,8 @@
+
 // FIX: Wrapped the entire SQL script in an exported template literal to make this a valid TypeScript module.
 export const databaseSchema = `
 /*
--- Vixel Roleplay Website - Full Database Schema (V52 - Integrated Rounds & DM Notifications)
+-- Vixel Roleplay Website - Full Database Schema (V53 - Reverted Rounds)
 
 /*
  !! WARNING !!
@@ -125,15 +126,13 @@ CREATE TABLE public.quizzes (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     "titleKey" text NOT NULL,
     "descriptionKey" text,
-    rounds jsonb, -- Changed from 'questions'
+    questions jsonb,
     "isOpen" boolean DEFAULT false,
     created_at timestamptz DEFAULT now(),
     "allowedTakeRoles" text[],
     "logoUrl" text,
     "bannerUrl" text,
-    "lastOpenedAt" timestamptz,
-    parent_quiz_id uuid REFERENCES public.quizzes(id) ON DELETE SET NULL, 
-    info_page_content_key text
+    "lastOpenedAt" timestamptz
 );
 
 CREATE TABLE public.submissions (
@@ -302,12 +301,6 @@ DECLARE
   webhook_payload jsonb;
   webhook_fields jsonb[] := '{}';
   cheat_report_field jsonb;
-  next_quiz_id uuid;
-  quiz_record record;
-  round_data jsonb;
-  question_data jsonb;
-  answer_data jsonb;
-  round_answers_text text;
 BEGIN
   INSERT INTO public.submissions ("quizId", "quizTitle", user_id, username, answers, "cheatAttempts", user_highest_role)
   VALUES (
@@ -353,25 +346,12 @@ BEGIN
       );
       webhook_fields := array_append(webhook_fields, cheat_report_field);
     END IF;
-
-    -- NEW: Group answers by round
-    SELECT * INTO quiz_record FROM public.quizzes WHERE id = new_submission."quizId";
-    IF FOUND THEN
-      FOR round_data IN SELECT * FROM jsonb_array_elements(quiz_record.rounds) LOOP
-        round_answers_text := '';
-        FOR question_data IN SELECT * FROM jsonb_array_elements(round_data->'questions') LOOP
-          SELECT ans->>'answer' INTO answer_data FROM jsonb_array_elements(new_submission.answers) ans WHERE ans->>'questionId' = question_data->>'id';
-          IF FOUND THEN
-            round_answers_text := round_answers_text || E'**Q: ' || (SELECT en FROM translations WHERE key = question_data->>'textKey') || '**\\n```' || answer_data || '```\\n';
-          END IF;
-        END LOOP;
-        
-        webhook_fields := array_append(webhook_fields, jsonb_build_object(
-          'name', 'Round: ' || (SELECT en FROM translations WHERE key = round_data->>'titleKey'),
-          'value', round_answers_text
-        ));
-      END LOOP;
-    END IF;
+    
+    -- Reverted: Simple answers field
+    webhook_fields := array_append(webhook_fields, jsonb_build_object(
+        'name', 'Answers',
+        'value', (SELECT string_agg('**Q: ' || (ans->>'questionText') || '**\n```' || (ans->>'answer') || '```', E'\n\n') FROM jsonb_array_elements(new_submission.answers) AS ans)
+    ));
 
     webhook_payload := jsonb_build_object(
         'channelId', (SELECT "SUBMISSIONS_WEBHOOK_URL" FROM public.config WHERE id = 1),
@@ -386,11 +366,8 @@ BEGIN
   EXCEPTION WHEN OTHERS THEN
       RAISE WARNING 'Failed to send new submission webhook for submission %: %', new_submission.id, SQLERRM;
   END;
-  
-  -- Check for next round (applies to the old system, but kept for compatibility just in case)
-  SELECT id INTO next_quiz_id FROM quizzes WHERE parent_quiz_id = new_submission."quizId";
 
-  RETURN jsonb_build_object('submission_id', new_submission.id, 'next_quiz_id', next_quiz_id);
+  RETURN jsonb_build_object('submission_id', new_submission.id);
 END;
 $$;
 
@@ -507,7 +484,6 @@ $$;
 CREATE OR REPLACE FUNCTION public.save_quiz_with_translations(p_quiz_data jsonb) RETURNS public.quizzes LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE 
   result public.quizzes; 
-  v_round jsonb;
   v_question jsonb; 
   action_text text; 
   is_new boolean;
@@ -521,46 +497,29 @@ BEGIN
   
   INSERT INTO public.translations (key, en, ar) VALUES 
     (p_quiz_data->>'titleKey', p_quiz_data->>'titleEn', p_quiz_data->>'titleAr'), 
-    (p_quiz_data->>'descriptionKey', p_quiz_data->>'descriptionEn', p_quiz_data->>'descriptionAr'),
-    (p_quiz_data->>'infoPageContentKey', p_quiz_data->>'infoPageContentEn', p_quiz_data->>'infoPageContentAr')
+    (p_quiz_data->>'descriptionKey', p_quiz_data->>'descriptionEn', p_quiz_data->>'descriptionAr')
   ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar;
   
-  IF jsonb_typeof(p_quiz_data->'rounds') = 'array' THEN 
-    FOR v_round IN SELECT * FROM jsonb_array_elements(p_quiz_data->'rounds') LOOP
-      INSERT INTO public.translations (key, en, ar) VALUES (v_round->>'titleKey', v_round->>'titleEn', v_round->>'titleAr') ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar;
-      IF jsonb_typeof(v_round->'questions') = 'array' THEN 
-        FOR v_question IN SELECT * FROM jsonb_array_elements(v_round->'questions') LOOP 
-          INSERT INTO public.translations (key, en, ar) VALUES (v_question->>'textKey', v_question->>'textEn', v_question->>'textAr') 
-          ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar; 
-        END LOOP; 
-      END IF;
+  IF jsonb_typeof(p_quiz_data->'questions') = 'array' THEN
+    FOR v_question IN SELECT * FROM jsonb_array_elements(p_quiz_data->'questions') LOOP
+      INSERT INTO public.translations (key, en, ar) VALUES (v_question->>'textKey', v_question->>'textEn', v_question->>'textAr')
+      ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar;
     END LOOP;
   END IF;
   
-  INSERT INTO public.quizzes (id, "titleKey", "descriptionKey", rounds, "isOpen", "allowedTakeRoles", "logoUrl", "bannerUrl", "lastOpenedAt", parent_quiz_id, info_page_content_key)
+  INSERT INTO public.quizzes (id, "titleKey", "descriptionKey", questions, "isOpen", "allowedTakeRoles", "logoUrl", "bannerUrl", "lastOpenedAt")
   VALUES (
     (p_quiz_data->>'id')::uuid, p_quiz_data->>'titleKey', p_quiz_data->>'descriptionKey', 
-    (SELECT jsonb_agg(
-      jsonb_build_object(
-        'titleKey', r->>'titleKey',
-        'questions', (
-          SELECT jsonb_agg(jsonb_build_object('id', q->>'id', 'textKey', q->>'textKey', 'timeLimit', q->'timeLimit'))
-          FROM jsonb_array_elements(r->'questions') q
-        )
-      )
-    ) FROM jsonb_array_elements(p_quiz_data->'rounds') r), 
+    (SELECT jsonb_agg(jsonb_build_object('id', q->>'id', 'textKey', q->>'textKey', 'timeLimit', q->'timeLimit')) FROM jsonb_array_elements(p_quiz_data->'questions') q),
     (p_quiz_data->>'isOpen')::boolean, 
     (SELECT array_agg(elem) FROM jsonb_array_elements_text(p_quiz_data->'allowedTakeRoles') AS elem), 
-    p_quiz_data->>'logoUrl', p_quiz_data->>'bannerUrl', 
-    CASE WHEN (p_quiz_data->>'isOpen')::boolean AND is_new THEN now() ELSE NULL END,
-    (p_quiz_data->>'parentQuizId')::uuid,
-    p_quiz_data->>'infoPageContentKey'
+    p_quiz_data->>'logoUrl', p_quiz_data->>'bannerUrl',
+    CASE WHEN (p_quiz_data->>'isOpen')::boolean AND is_new THEN now() ELSE NULL END
   )
   ON CONFLICT (id) DO UPDATE SET 
-    "titleKey" = excluded."titleKey", "descriptionKey" = excluded."descriptionKey", rounds = excluded.rounds, "isOpen" = excluded."isOpen", 
+    "titleKey" = excluded."titleKey", "descriptionKey" = excluded."descriptionKey", questions = excluded.questions, "isOpen" = excluded."isOpen", 
     "allowedTakeRoles" = excluded."allowedTakeRoles", "logoUrl" = excluded."logoUrl", "bannerUrl" = excluded."bannerUrl", 
-    "lastOpenedAt" = CASE WHEN excluded."isOpen" AND NOT quizzes."isOpen" THEN now() ELSE quizzes."lastOpenedAt" END,
-    parent_quiz_id = excluded.parent_quiz_id, info_page_content_key = excluded.info_page_content_key
+    "lastOpenedAt" = CASE WHEN excluded."isOpen" AND NOT quizzes."isOpen" THEN now() ELSE quizzes."lastOpenedAt" END
   RETURNING * INTO result;
   RETURN result;
 END; $$;

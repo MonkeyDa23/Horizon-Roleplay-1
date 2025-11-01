@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 // FIX: Updated import paths to point to the 'src' directory
 import { useAuth } from '../src/hooks/useAuth';
@@ -171,7 +172,8 @@ const AdminPage: React.FC = () => {
   }
 
   // FIX: Replaced 'questions' with 'rounds' to align with the updated 'Quiz' type.
-  const handleCreateNewQuiz = () => setEditingQuiz({ id: '', titleKey: '', descriptionKey: '', isOpen: false, rounds: [{titleKey: `round_new_${Date.now()}`, questions: [{ id: `q_${Date.now()}`, textKey: '', timeLimit: 60 }]}], allowedTakeRoles: [] });
+  // FIX: Reverted 'rounds' back to 'questions' to align with the actual Quiz type definition and database schema. This resolves the TypeScript error.
+  const handleCreateNewQuiz = () => setEditingQuiz({ id: '', titleKey: '', descriptionKey: '', isOpen: false, questions: [{ id: `q_${Date.now()}`, textKey: '', timeLimit: 60 }], allowedTakeRoles: [] });
   const handleEditQuiz = (quiz: Quiz) => setEditingQuiz(JSON.parse(JSON.stringify(quiz)));
   const handleSaveQuiz = async () => {
     if (editingQuiz && user) {
