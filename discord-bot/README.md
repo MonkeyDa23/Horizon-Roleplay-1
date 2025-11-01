@@ -85,7 +85,7 @@ You need to host this bot on a server, such as a VPS or a dedicated machine.
 
 #### For Development / Testing:
 
-You can run the bot directly from your terminal. It will stop when you close the terminal.
+You can run the bot directly from your terminal. **This is only for testing** as the bot will stop when you close the terminal window.
 
 ```bash
 npm start
@@ -93,34 +93,37 @@ npm start
 
 #### For Production (Recommended):
 
-It's highly recommended to use a process manager like **PM2** to keep the bot running 24/7, even if your terminal closes or the server reboots.
+To keep the bot running 24/7 even after you close your terminal, you should use a terminal multiplexer like `screen`. It comes pre-installed on most Linux systems and is very simple to use.
 
--   Install PM2 globally (you only need to do this once):
+-   **Start a new `screen` session:**
+    Give the session a name so you can easily find it later.
     ```bash
-    npm install pm2 -g
+    screen -S vixel-bot
     ```
--   Start the bot with PM2:
+    You are now inside a new virtual terminal session.
+
+-   **Run the bot:**
+    Inside the `screen` session, navigate to your bot's directory and start it.
     ```bash
-    pm2 start npm --name "vixel-bot" -- start
+    cd /path/to/your/discord-bot
+    npm start
     ```
--   **To see the bot's logs (VERY IMPORTANT FOR DEBUGGING):**
+    You will see the bot's logs as it starts up.
+
+-   **Detach from the session (Leave it running in the background):**
+    To leave the bot running, "detach" from the `screen` session by pressing the key combination **`Ctrl+A`**, then pressing **`D`**. You will be returned to your main terminal, and the bot will continue running.
+
+-   **How to check on the bot later (Re-attach):**
+    To see the bot's logs or to stop it, you need to re-attach to the session.
     ```bash
-    pm2 logs vixel-bot
+    screen -r vixel-bot
     ```
--   To stop the bot:
-    ```bash
-    pm2 stop vixel-bot
-    ```
--   To restart the bot:
-     ```bash
-    pm2 restart vixel-bot
-    ```
--   To make PM2 automatically restart the bot on server reboot:
-    ```bash
-    pm2 startup
-    # (Follow the instructions it gives you)
-    pm2 save
-    ```
+    You will be back inside the session where the bot is running.
+
+-   **How to stop the bot:**
+    1.  Re-attach to the session using `screen -r vixel-bot`.
+    2.  Press **`Ctrl+C`** to stop the Node.js process.
+    3.  Type `exit` and press Enter to close the `screen` session completely.
 
 ## Firewall
 
@@ -135,7 +138,7 @@ Ensure that the port the bot is running on (default is **14355**) is open in you
     *   Run **"Step 3: Bot Connection Test"**.
     *   **If it fails:** Your Supabase Function can't reach the bot. The error message will tell you why (e.g., bot is offline, firewall blocking the port, `VITE_DISCORD_BOT_URL` is wrong in Supabase secrets).
 
-2.  **Check Bot Logs:** Use `pm2 logs vixel-bot` on your server.
+2.  **Check Bot Logs:** Use `screen -r vixel-bot` on your server to see the logs.
     *   Do you see an error like "Authentication failed"? Your `API_SECRET_KEY` in `config.json` doesn't match the `VITE_DISCORD_BOT_API_KEY` secret in Supabase.
     *   Do you see a "Discord API Error"? The bot might not have permission to send messages in the target channel or to DM the user. The error message in the log is very specific and will tell you what's wrong (e.g., "Missing Access", "Cannot send messages to this user").
 

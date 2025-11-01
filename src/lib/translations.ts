@@ -205,10 +205,11 @@ export const translations: Translations = {
   log_channel_bans_desc: { ar: 'قناة للسجلات المتعلقة بحظر وفك حظر المستخدمين.', en: 'Channel for logs related to user bans and unbans.'},
   log_channel_admin: { ar: 'معرف قناة سجلات الإدارة', en: 'Admin Actions Log Channel ID'},
   log_channel_admin_desc: { ar: 'قناة للسجلات المتعلقة بتغييرات لوحة التحكم (مثل تعديل التقديمات، القوانين، الإعدادات).', en: 'Channel for logs related to admin panel changes (e.g., editing quizzes, rules, settings).'},
-  discord_proxy_url: { ar: 'رابط دالة البروكسي', en: 'Discord Proxy Function URL'},
-  discord_proxy_url_desc: { ar: 'رابط الاستدعاء (Invocations URL) لدالة discord-proxy.', en: 'The Invocations URL for your discord-proxy edge function.'},
-  discord_proxy_secret: { ar: 'الرمز السري لدالة البروكسي', en: 'Discord Proxy Secret'},
-  discord_proxy_secret_desc: { ar: 'كلمة سر لمصادقة الطلبات بين قاعدة البيانات ودالة البروكسي.', en: 'A secret password to authenticate requests between the database and the proxy function.'},
+  discord_bot_url: { ar: 'رابط بوت الديسكورد', en: 'Discord Bot URL'},
+  discord_bot_url_desc: { ar: 'الرابط الكامل الذي يعمل عليه البوت الخاص بك (مثال: http://123.45.67.89:14355).', en: 'The full URL where your self-hosted bot is running (e.g., http://123.45.67.89:14355).'},
+  discord_bot_api_key: { ar: 'مفتاح API لبوت الديسكورد', en: 'Discord Bot API Key'},
+  // FIX: Escaped single quote in the translation string.
+  discord_bot_api_key_desc: { ar: 'كلمة المرور السرية التي قمت بتعيينها في ملف config.json الخاص بالبوت لمصادقة الطلبات.', en: 'The secret password you set in your bot\'s config.json to authenticate requests.'},
 
   // Admin Page - Permissions
   discord_roles: { ar: 'رتب الديسكورد', en: 'Discord Roles' },
@@ -283,7 +284,7 @@ export const translations: Translations = {
   health_check_run_sync_test: { ar: 'تشغيل اختبار المزامنة', en: 'Run Sync Test'},
   health_check_sync_test_result: { ar: 'نتيجة المزامنة', en: 'Sync Result'},
   health_check_result_interpretation: { ar: 'تفسير النتائج', en: 'Interpreting the Results'},
-  health_check_result_success: { ar: '<ul><li class="mb-2"><strong>Success (200 OK):</strong> ممتاز! تم العثور على المستخدم في السيرفر وتم جلب بياناته بنجاح. هذا يؤكد أن كل شيء يعمل.</li>', en: '<ul><li class="mb-2"><strong>Success (200 OK):</strong> Excellent! The user was found in the guild and their data was fetched successfully. This confirms everything is working.</li>'},
+  health_check_result_success: { ar: '<ul><li class="mb-2"><strong>Success (200 OK):</strong> Excellent! The user was found in the guild and their data was fetched successfully. This confirms everything is working.</li>', en: '<ul><li class="mb-2"><strong>Success (200 OK):</strong> Excellent! The user was found in the guild and their data was fetched successfully. This confirms everything is working.</li>'},
   // FIX: Escaped apostrophes and fixed incorrect Arabic translations that were copy-pasted.
   health_check_result_404: { ar: '<li class="mb-2"><strong>Error (404 Not Found):</strong> هذا يعني أن البوت متصل بديسكورد بشكل صحيح، لكنه لم يتمكن من العثور على المستخدم بهذا المعرف في السيرفر الخاص بك. تحقق من المعرف أو تأكد من أن المستخدم عضو في السيرفر.</li>', en: '<li class="mb-2"><strong>Error (404 Not Found):</strong> This means the bot connected to Discord correctly, but couldn\'t find a user with that ID in your server. Check the ID or ensure the user is a member.</li>'},
   health_check_result_503: { ar: '<li class="mb-2"><strong>Error (503 Service Unavailable):</strong> السبب الأكثر شيوعاً هو أن <strong>Server Members Intent</strong> غير مفعل في بوابة مطوري ديسكورد. اذهب إلى إعدادات البوت الخاص بك وقم بتفعيله.</li>', en: '<li class="mb-2"><strong>Error (503 Service Unavailable):</strong> The most common cause is that the <strong>Server Members Intent</strong> is not enabled in the Discord Developer Portal. Go to your bot\'s settings and turn it on.</li>'},

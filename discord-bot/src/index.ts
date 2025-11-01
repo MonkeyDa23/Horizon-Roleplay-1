@@ -7,8 +7,9 @@
  * to fetch real-time Discord data and send notifications.
  * It also serves a web-based control panel at its root URL.
  */
-// FIX: Import Request, Response, and NextFunction types from express to resolve type errors.
-import express, { type Request, type Response, type NextFunction } from 'express';
+// FIX: The combined default and named import for express was causing type conflicts.
+// Switched to a namespace import to ensure types are resolved correctly.
+import * as express from 'express';
 import process from 'process';
 import cors from 'cors';
 import {
@@ -178,31 +179,54 @@ const main = async () => {
     app.use(cors());
     app.use(express.json());
 
-    // Middleware to authenticate requests to the API
-    // FIX: Use explicit types from express.
-    const authenticate = (req: Request, res: Response, next: NextFunction) => {
+    // FIX: Replaced custom type annotations with `express.Request`, `express.Response`, and `express.NextFunction` to resolve type errors.
+    const authenticate = (req: express.Request, res: express.Response, next: express.NextFunction) => {
         const receivedAuthHeader = req.headers.authorization;
-        const expectedAuthHeader = `Bearer ${config.API_SECRET_KEY}`;
-
+    
         logger('DEBUG', `[AUTH] Request on path: ${req.path} from ${req.ip}.`);
+    
+        if (receivedAuthHeader && receivedAuthHeader.startsWith('Bearer ')) {
+            // Remove "Bearer " prefix to get the raw key
+            const receivedKey = receivedAuthHeader.substring(7);
+            
+            // Direct string comparison. Do not decode.
+            if (receivedKey.trim() === config.API_SECRET_KEY.trim()) {
+                logger('DEBUG', `[AUTH] SUCCESS: Authentication successful for path ${req.path}.`);
+                return next(); // Success
+            }
+        }
+    
+        logger('WARN', `[AUTH] FAILED: Authentication failed for path ${req.path}.`);
 
-        if (receivedAuthHeader && receivedAuthHeader.trim() === expectedAuthHeader.trim()) {
-            return next();
+        // Detailed logging for debugging mismatches
+        const maskKey = (key: string): string => {
+            if (!key) return '(empty)';
+            if (key.length <= 8) return '****';
+            return `${key.substring(0, 4)}...${key.substring(key.length - 4)}`;
         }
 
-        logger('WARN', `[AUTH] FAILED: Authentication failed for path ${req.path}.`);
+        let receivedKeyForLog = '(not provided)';
+        if (receivedAuthHeader && receivedAuthHeader.startsWith('Bearer ')) {
+            receivedKeyForLog = receivedAuthHeader.substring(7).trim();
+        }
+        
+        logger('WARN', `[AUTH] Received Key (masked): ${maskKey(receivedKeyForLog)}`);
+        logger('WARN', `[AUTH] Expected Key (masked): ${maskKey(config.API_SECRET_KEY.trim())}`);
         logger('WARN', `ADVICE: Check that VITE_DISCORD_BOT_API_KEY secret in Supabase EXACTLY matches API_SECRET_KEY in the bot's config.json.`);
+        
         res.status(401).send({ error: 'Authentication failed.' });
     };
 
     // ========== PUBLIC & CONTROL PANEL ENDPOINTS ==========
 
-    app.get('/', (req: Request, res: Response) => {
+    // FIX: Replaced custom type annotations with `express.Request` and `express.Response` to resolve type errors.
+    app.get('/', (req: express.Request, res: express.Response) => {
         res.setHeader('Content-Type', 'text/html');
         res.send(CONTROL_PANEL_HTML);
     });
 
-    app.get('/health', (req: Request, res: Response) => {
+    // FIX: Replaced custom type annotations with `express.Request` and `express.Response` to resolve type errors.
+    app.get('/health', (req: express.Request, res: express.Response) => {
         if (!client.isReady()) return res.status(503).send({ status: 'error', message: 'Discord Client not ready.' });
         const guild = client.guilds.cache.get(config.DISCORD_GUILD_ID);
         if (!guild) return res.status(500).send({ status: 'error', message: 'Guild not found in cache.' });
@@ -211,7 +235,8 @@ const main = async () => {
     
     // ========== AUTHENTICATED API ENDPOINTS ==========
     
-    app.get('/api/status', authenticate, async (req: Request, res: Response) => {
+    // FIX: Replaced custom type annotations with `express.Request` and `express.Response` to resolve type errors.
+    app.get('/api/status', authenticate, async (req: express.Request, res: express.Response) => {
         if (!client.isReady() || !client.user) return res.status(503).json({ error: 'Bot is not ready' });
         const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
         res.json({
@@ -222,7 +247,8 @@ const main = async () => {
         });
     });
 
-    app.post('/api/set-presence', authenticate, (req: Request, res: Response) => {
+    // FIX: Replaced custom type annotations with `express.Request` and `express.Response` to resolve type errors.
+    app.post('/api/set-presence', authenticate, (req: express.Request, res: express.Response) => {
         const { status, activityType, activityName } = req.body;
         if (!status || !activityType || !activityName) {
             return res.status(400).json({ error: 'Missing required fields: status, activityType, activityName' });
@@ -238,7 +264,8 @@ const main = async () => {
         }
     });
 
-    app.post('/api/send-test-message', authenticate, async (req: Request, res: Response) => {
+    // FIX: Replaced custom type annotations with `express.Request` and `express.Response` to resolve type errors.
+    app.post('/api/send-test-message', authenticate, async (req: express.Request, res: express.Response) => {
         const { channelId, message } = req.body;
         if (!channelId || !message) return res.status(400).json({ error: 'Missing channelId or message.' });
         try {
@@ -255,7 +282,28 @@ const main = async () => {
         }
     });
 
-    app.get('/api/roles', authenticate, async (req: Request, res: Response) => {
+    // FIX: Replaced custom type annotations with `express.Request` and `express.Response` to resolve type errors.
+    app.post('/api/send-dm', authenticate, async (req: express.Request, res: express.Response) => {
+        const { userId, message } = req.body;
+        if (!userId || !message) {
+            return res.status(400).json({ error: 'Missing userId or message.' });
+        }
+        try {
+            const user = await client.users.fetch(userId);
+            await user.send(message);
+            logger('INFO', `Sent DM to ${user.tag} via control panel.`);
+            res.json({ success: true, message: `DM sent to ${user.tag}` });
+        } catch (error) {
+             logger('ERROR', 'Failed to send DM via control panel.', error);
+             if (error instanceof DiscordAPIError && error.code === 50007) { // Cannot send messages to this user
+                return res.status(403).json({ error: 'Failed to send DM.', details: 'Cannot send messages to this user. They may have DMs disabled or have blocked the bot.' });
+             }
+             res.status(500).json({ error: 'Failed to send DM.', details: (error as Error).message });
+        }
+    });
+
+    // FIX: Replaced custom type annotations with `express.Request` and `express.Response` to resolve type errors.
+    app.get('/api/roles', authenticate, async (req: express.Request, res: express.Response) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
             const roles = (await guild.roles.fetch()).map(role => ({ id: role.id, name: role.name, color: role.color, position: role.position }));
@@ -267,7 +315,8 @@ const main = async () => {
         }
     });
 
-    app.get('/api/user/:id', authenticate, async (req: Request, res: Response) => {
+    // FIX: Replaced custom type annotations with `express.Request` and `express.Response` to resolve type errors.
+    app.get('/api/user/:id', authenticate, async (req: express.Request, res: express.Response) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
             const member = await guild.members.fetch(req.params.id);
@@ -295,7 +344,8 @@ const main = async () => {
         }
     });
 
-    app.post('/api/notify', authenticate, async (req: Request, res: Response) => {
+    // FIX: Replaced custom type annotations with `express.Request` and `express.Response` to resolve type errors.
+    app.post('/api/notify', authenticate, async (req: express.Request, res: express.Response) => {
         const body: NotifyPayload = req.body;
         logger('INFO', `Received notification request of type: ${body.type}`);
         logger('DEBUG', 'Full notification payload:', body.payload);

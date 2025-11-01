@@ -45,12 +45,12 @@ const AppearancePanel: React.FC = () => {
         );
     }
     
-    const InputField = ({ labelKey, descKey, value, onChange, placeholder }: { labelKey: string, descKey?: string, value: string | null, onChange: (val: string) => void, placeholder?: string }) => (
+    const InputField = ({ labelKey, descKey, value, onChange, placeholder, isPassword }: { labelKey: string, descKey?: string, value: string | null, onChange: (val: string) => void, placeholder?: string, isPassword?: boolean }) => (
         <div>
             <label className="block text-lg font-semibold text-white mb-1">{t(labelKey)}</label>
             {descKey && <p className="text-sm text-gray-400 mb-2">{t(descKey)}</p>}
             <input 
-                type="text"
+                type={isPassword ? "password" : "text"}
                 value={value || ''}
                 onChange={(e) => onChange(e.target.value)}
                 placeholder={placeholder}
@@ -77,11 +77,11 @@ const AppearancePanel: React.FC = () => {
                 </div>
 
                 <div>
-                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">Discord & Game Integration</h3>
+                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">Discord & Bot Integration</h3>
                     <div className="space-y-6">
                         <InputField labelKey="discord_guild_id" descKey="discord_guild_id_desc" value={settings.DISCORD_GUILD_ID || ''} onChange={val => handleChange('DISCORD_GUILD_ID', val)} />
-                        <InputField labelKey="discord_proxy_url" descKey="discord_proxy_url_desc" value={settings.DISCORD_PROXY_URL || ''} onChange={val => handleChange('DISCORD_PROXY_URL', val)} />
-                        <InputField labelKey="discord_proxy_secret" descKey="discord_proxy_secret_desc" value={settings.DISCORD_PROXY_SECRET || ''} onChange={val => handleChange('DISCORD_PROXY_SECRET', val)} />
+                        <InputField labelKey="discord_bot_url" descKey="discord_bot_url_desc" value={settings.DISCORD_BOT_URL || ''} onChange={val => handleChange('DISCORD_BOT_URL', val)} />
+                        <InputField labelKey="discord_bot_api_key" descKey="discord_bot_api_key_desc" value={settings.DISCORD_BOT_API_KEY || ''} onChange={val => handleChange('DISCORD_BOT_API_KEY', val)} isPassword />
                     </div>
                 </div>
                 

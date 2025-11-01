@@ -1,6 +1,5 @@
-
 // @ts-nocheck
-// Vixel Roleplay Website - Full Database Schema (V42 - Final Notification Hotfix)
+// Vixel Roleplay Website - Full Database Schema (V45 - Direct Bot Notification Architecture)
 /*
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -88,8 +87,8 @@ CREATE TABLE public.config (
     "AUDIT_LOG_CHANNEL_ID_SUBMISSIONS" text,
     "AUDIT_LOG_CHANNEL_ID_BANS" text,
     "AUDIT_LOG_CHANNEL_ID_ADMIN" text,
-    "DISCORD_PROXY_URL" text,
-    "DISCORD_PROXY_SECRET" text,
+    "DISCORD_BOT_URL" text,
+    "DISCORD_BOT_API_KEY" text,
     CONSTRAINT id_check CHECK (id = 1)
 );
 INSERT INTO public.config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
@@ -212,32 +211,48 @@ BEGIN
 END;
 $$;
 
--- Central notification function (INTERNAL)
+-- Central notification function (INTERNAL) - REFACTORED FOR DIRECT BOT CONNECTION
 CREATE OR REPLACE FUNCTION private.send_notification(p_type text, p_payload jsonb)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions
 AS $$
 DECLARE
-  proxy_url text;
-  proxy_secret text;
+  bot_url text;
+  bot_api_key text;
   full_payload jsonb;
-  headers jsonb;
   response extensions.http_response;
+  request extensions.http_request;
+  endpoint_url text;
 BEGIN
-  SELECT "DISCORD_PROXY_URL", "DISCORD_PROXY_SECRET" INTO proxy_url, proxy_secret FROM public.config WHERE id = 1;
+  -- Read bot connection details directly from the public config table
+  SELECT "DISCORD_BOT_URL", "DISCORD_BOT_API_KEY" INTO bot_url, bot_api_key FROM public.config WHERE id = 1;
   
-  IF proxy_url IS NULL OR proxy_url = '' OR proxy_secret IS NULL OR proxy_secret = '' THEN
-    RAISE EXCEPTION 'Bot notification failed: DISCORD_PROXY_URL or DISCORD_PROXY_SECRET is not configured. Please set them in the Admin Panel -> Appearance settings.';
+  IF bot_url IS NULL OR bot_url = '' OR bot_api_key IS NULL OR bot_api_key = '' THEN
+    RAISE EXCEPTION 'Bot notification failed: DISCORD_BOT_URL or DISCORD_BOT_API_KEY is not configured in the Admin Panel -> Appearance settings.';
   END IF;
   
+  -- Construct the full payload for the bot
   full_payload := jsonb_build_object('type', p_type, 'payload', p_payload);
-  headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer ' || proxy_secret);
+  
+  -- The bot expects notifications at the /api/notify endpoint
+  endpoint_url := bot_url || '/api/notify';
 
-  -- Use the (text, jsonb, jsonb) function signature which is more robust
-  -- and avoids type ambiguity with the content_type parameter.
-  SELECT * INTO response FROM extensions.http_post(proxy_url, full_payload, headers);
+  -- Construct the http_request object
+  request := ROW(
+    'POST',
+    endpoint_url,
+    ARRAY[
+      extensions.http_header('Content-Type', 'application/json'),
+      extensions.http_header('Authorization', 'Bearer ' || bot_api_key)
+    ],
+    'application/json',
+    full_payload::text
+  )::extensions.http_request;
+  
+  -- Execute the request
+  response := extensions.http(request);
 
   IF response.status >= 300 THEN
-    RAISE WARNING '[send_notification] Discord proxy responded with status %: %', response.status, response.content;
+    RAISE WARNING '[send_notification] Discord bot responded with status %: %', response.status, response.content;
   END IF;
 
 EXCEPTION WHEN OTHERS THEN
@@ -439,7 +454,7 @@ BEGIN
     "SUBMISSIONS_MENTION_ROLE_ID" = coalesce(new_config->>'SUBMISSIONS_MENTION_ROLE_ID', "SUBMISSIONS_MENTION_ROLE_ID"),
     "AUDIT_LOG_CHANNEL_ID" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID', "AUDIT_LOG_CHANNEL_ID"), "AUDIT_LOG_CHANNEL_ID_SUBMISSIONS" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID_SUBMISSIONS', "AUDIT_LOG_CHANNEL_ID_SUBMISSIONS"),
     "AUDIT_LOG_CHANNEL_ID_BANS" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID_BANS', "AUDIT_LOG_CHANNEL_ID_BANS"), "AUDIT_LOG_CHANNEL_ID_ADMIN" = coalesce(new_config->>'AUDIT_LOG_CHANNEL_ID_ADMIN', "AUDIT_LOG_CHANNEL_ID_ADMIN"),
-    "DISCORD_PROXY_URL" = coalesce(new_config->>'DISCORD_PROXY_URL', "DISCORD_PROXY_URL"), "DISCORD_PROXY_SECRET" = coalesce(new_config->>'DISCORD_PROXY_SECRET', "DISCORD_PROXY_SECRET")
+    "DISCORD_BOT_URL" = coalesce(new_config->>'DISCORD_BOT_URL', "DISCORD_BOT_URL"), "DISCORD_BOT_API_KEY" = coalesce(new_config->>'DISCORD_BOT_API_KEY', "DISCORD_BOT_API_KEY")
   WHERE id = 1;
 END;
 $$;
@@ -656,7 +671,7 @@ INSERT INTO public.translations (key, en, ar) VALUES
 ('taken_by', 'Taken by', 'مستلم بواسطة'), ('accept', 'Accept', 'قبول'), ('refuse', 'Refuse', 'رفض'), ('submission_details', 'Submission Details', 'تفاصيل الطلب'), ('close', 'Close', 'إغلاق'),
 ('no_pending_submissions', 'There are no pending submissions.', 'لا توجد طلبات تقديم معلقة حالياً.'), ('admin_revoked', 'Your admin permissions have been revoked.', 'تم سحب صلاحيات المشرف منك.'),
 ('admin_granted', 'You have been granted admin permissions.', 'تم منحك صلاحيات المشرف.'), ('admin_permissions_error', 'Admin permission error or session expired. You have been logged out.', 'خطأ في صلاحيات المشرف أو انتهت صلاحية الجلسة. تم تسجيل خروجك.'),
-('admin_session_error_warning', 'Could not verify admin session with the server. Please try again later.', 'لا يمكن التحقق من جلسة المشرف مع الخادم. يرجى المحاولة مرة أخرى لاحقاً.'),
+('admin_session_error_warning', 'Could not verify admin session with the server. Please try again later.', 'لا يمكن التحقق من جلسة المشرف مع الخادم. يرى المحاولة مرة أخرى لاحقاً.'),
 ('verifying_admin_permissions', 'Verifying admin permissions...', 'جاري التحقق من صلاحيات المشرف...'), ('quiz_handler_roles', 'Application Handler Roles', 'رتب معالجة التقديم'),
 ('quiz_handler_roles_desc', 'Enter Role IDs allowed to handle these submissions (comma-separated).', 'ضع هنا آي دي الرتب المسموح لها باستلام هذا النوع من التقديمات (افصل بينها بفاصلة).'),
 ('config_updated_success', 'Settings updated successfully!', 'تم تحديث الإعدادات بنجاح!'), ('rules_updated_success', 'Rules updated successfully!', 'تم تحديث القوانين بنجاح!'),
@@ -684,10 +699,10 @@ INSERT INTO public.translations (key, en, ar) VALUES
 ('log_channel_bans_desc', 'Channel for logs related to user bans and unbans.', 'قناة للسجلات المتعلقة بحظر وفك حظر المستخدمين.'),
 ('log_channel_admin', 'Admin Actions Log Channel ID', 'معرف قناة سجلات الإدارة'),
 ('log_channel_admin_desc', 'Channel for logs related to admin panel changes (e.g., editing quizzes, rules, settings).', 'قناة للسجلات المتعلقة بتغييرات لوحة التحكم (مثل تعديل التقديمات، القوانين، الإعدادات).'),
-('discord_proxy_url', 'Discord Proxy Function URL', 'رابط دالة البروكسي'),
-('discord_proxy_url_desc', 'The Invocations URL for your discord-proxy edge function.', 'رابط الاستدعاء (Invocations URL) لدالة discord-proxy.'),
-('discord_proxy_secret', 'Discord Proxy Secret', 'الرمز السري لدالة البروكسي'),
-('discord_proxy_secret_desc', 'A secret password to authenticate requests between the database and the proxy function.', 'كلمة سر لمصادقة الطلبات بين قاعدة البيانات ودالة البروكسي.'),
+('discord_bot_url', 'Discord Bot URL', 'رابط بوت الديسكورد'),
+('discord_bot_url_desc', 'The full URL where your self-hosted bot is running (e.g., http://123.45.67.89:14355).', 'الرابط الكامل الذي يعمل عليه البوت الخاص بك (مثال: http://123.45.67.89:14355).'),
+('discord_bot_api_key', 'Discord Bot API Key', 'مفتاح API لبوت الديسكورد'),
+('discord_bot_api_key_desc', 'The secret password you set in your bot''s config.json to authenticate requests.', 'كلمة المرور السرية التي قمت بتعيينها في ملف config.json الخاص بالبوت لمصادقة الطلبات.'),
 ('discord_roles', 'Discord Roles', 'رتب الديسكورد'), ('available_permissions', 'Available Permissions', 'الصلاحيات المتاحة'), ('select_role_to_manage', 'Select a role to see its permissions.', 'اختر رتبة لعرض صلاحياتها.'),
 ('admin_permissions_instructions', 'Select a role from the list to view and modify its permissions. The <code>_super_admin</code> permission automatically grants all other permissions.', 'اختر رتبة من القائمة لعرض وتعديل صلاحياتها. صلاحية <code>_super_admin</code> تمنح جميع الصلاحيات الأخرى تلقائياً.'),
 ('admin_permissions_bootstrap_instructions_title', 'Locked Out?', 'غير قادر على الدخول؟'),

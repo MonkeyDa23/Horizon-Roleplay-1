@@ -142,16 +142,24 @@ export const CONTROL_PANEL_HTML = `
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
+        .error-text {
+            color: var(--red);
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-top: 0.5rem;
+        }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
     <div class="auth-overlay" id="auth-overlay">
         <div class="card auth-modal">
-            <h2>Control Panel Access</h2>
+            <h2><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display: inline-block; vertical-align: -6px; margin-right: 8px;"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg> Control Panel Access</h2>
+            <p class="form-group" style="color: var(--text-dark); font-size: 0.9rem;">Enter the <code>API_SECRET_KEY</code> from your bot's <code>config.json</code> file.</p>
             <div class="form-group">
-                <label for="apiKey">API Secret Key</label>
-                <input type="password" id="apiKey" placeholder="Enter the bot's API_SECRET_KEY">
+                <label for="password">Password</label>
+                <input type="password" id="password" placeholder="Enter control panel password">
+                <p id="auth-error" class="error-text hidden"></p>
             </div>
             <button class="btn" id="unlockBtn">Unlock</button>
         </div>
@@ -216,6 +224,19 @@ export const CONTROL_PANEL_HTML = `
             </div>
             <button class="btn" id="sendMessageBtn">Send Message</button>
         </div>
+
+        <div class="card">
+            <h2>Send Test Direct Message</h2>
+            <div class="form-group">
+                <label for="userId">User ID</label>
+                <input type="text" id="userId" placeholder="Enter the target user ID">
+            </div>
+            <div class="form-group">
+                <label for="dmContent">Message Content</label>
+                <textarea id="dmContent" placeholder="Your test DM here..."></textarea>
+            </div>
+            <button class="btn" id="sendDmBtn">Send DM</button>
+        </div>
     </div>
     
     <div id="toast" class="toast"></div>
@@ -225,7 +246,8 @@ export const CONTROL_PANEL_HTML = `
             const authOverlay = document.getElementById('auth-overlay');
             const mainContent = document.getElementById('main-content');
             const unlockBtn = document.getElementById('unlockBtn');
-            const apiKeyInput = document.getElementById('apiKey');
+            const passwordInput = document.getElementById('password');
+            const authError = document.getElementById('auth-error');
 
             const statusDot = document.getElementById('status-dot');
             const statusText = document.getElementById('status-text');
@@ -235,6 +257,7 @@ export const CONTROL_PANEL_HTML = `
             
             const updatePresenceBtn = document.getElementById('updatePresenceBtn');
             const sendMessageBtn = document.getElementById('sendMessageBtn');
+            const sendDmBtn = document.getElementById('sendDmBtn');
 
             const toast = document.getElementById('toast');
 
@@ -245,15 +268,15 @@ export const CONTROL_PANEL_HTML = `
                 toast.className = 'toast show ' + type;
                 setTimeout(() => {
                     toast.className = 'toast';
-                }, 3000);
+                }, 4000);
             }
 
-            // FIX: Renamed 'response' to 'fetchResponse' and expanded error handling to avoid potential linter/parser issues.
             async function apiFetch(endpoint, options = {}) {
+                if (!API_KEY) throw new Error("API Key not set.");
                 const reqOptions = { ...options };
                 reqOptions.headers = {
                     'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + API_KEY,
+                    'Authorization': 'Bearer ' + encodeURIComponent(API_KEY),
                     ...(reqOptions.headers || {})
                 };
 
@@ -266,7 +289,7 @@ export const CONTROL_PANEL_HTML = `
                     } catch (e) {
                         errorData = { error: 'An unknown error occurred' };
                     }
-                    throw new Error(errorData.error || `Request failed with status ${fetchResponse.status}`);
+                    throw new Error(errorData.error || \`Request failed with status \${fetchResponse.status}\`);
                 }
                 return fetchResponse.json();
             }
@@ -289,29 +312,56 @@ export const CONTROL_PANEL_HTML = `
                 }
             }
 
-            function unlockPanel() {
-                const key = apiKeyInput.value;
+            async function unlockPanel() {
+                const key = passwordInput.value.trim();
                 if (!key) {
-                    showToast('API Key is required.', 'error');
+                    showToast('Password is required.', 'error');
                     return;
                 }
-                sessionStorage.setItem('vixel-bot-apikey', key);
-                API_KEY = key;
-                authOverlay.classList.add('hidden');
-                mainContent.classList.remove('hidden');
-                checkStatus();
+
+                unlockBtn.disabled = true;
+                unlockBtn.innerHTML = '<div class="spinner"></div> Authenticating...';
+                authError.classList.add('hidden');
+
+                try {
+                    const response = await fetch('/api/status', {
+                        headers: { 'Authorization': 'Bearer ' + encodeURIComponent(key) }
+                    });
+
+                    if (response.ok) {
+                        sessionStorage.setItem('vixel-bot-apikey', key);
+                        API_KEY = key;
+                        authOverlay.classList.add('hidden');
+                        mainContent.classList.remove('hidden');
+                        checkStatus();
+                    } else if (response.status === 401) {
+                        authError.textContent = 'Authentication failed. Please ensure the password exactly matches the API_SECRET_KEY in your config.json file.';
+                        authError.classList.remove('hidden');
+                        passwordInput.select();
+                    } else {
+                        const errorData = await response.json().catch(() => ({}));
+                        showToast(\`Error: \${errorData.error || response.statusText}\`, 'error');
+                    }
+                } catch (error) {
+                    if (error instanceof TypeError && error.message.includes('non ISO-8859-1')) {
+                         showToast('Invalid characters in password. Please use only standard letters, numbers, and symbols.', 'error');
+                    } else {
+                        showToast('Could not connect to the bot server: ' + error.message, 'error');
+                    }
+                } finally {
+                    unlockBtn.disabled = false;
+                    unlockBtn.innerHTML = 'Unlock';
+                }
             }
             
             unlockBtn.addEventListener('click', unlockPanel);
-            apiKeyInput.addEventListener('keypress', (e) => {
+            passwordInput.addEventListener('keypress', (e) => {
                 if(e.key === 'Enter') unlockPanel();
             });
 
             if (sessionStorage.getItem('vixel-bot-apikey')) {
-                API_KEY = sessionStorage.getItem('vixel-bot-apikey');
-                authOverlay.classList.add('hidden');
-                mainContent.classList.remove('hidden');
-                checkStatus();
+                passwordInput.value = sessionStorage.getItem('vixel-bot-apikey');
+                unlockPanel();
             }
 
             updatePresenceBtn.addEventListener('click', async () => {
@@ -355,8 +405,30 @@ export const CONTROL_PANEL_HTML = `
                     sendMessageBtn.innerHTML = btnOriginalText;
                 }
             });
+
+            sendDmBtn.addEventListener('click', async () => {
+                const btnOriginalText = sendDmBtn.innerHTML;
+                sendDmBtn.disabled = true;
+                sendDmBtn.innerHTML = '<div class="spinner"></div> Sending...';
+                try {
+                    const payload = {
+                        userId: document.getElementById('userId').value,
+                        message: document.getElementById('dmContent').value,
+                    };
+                    if(!payload.userId || !payload.message) {
+                        throw new Error('User ID and message are required.');
+                    }
+                    const result = await apiFetch('/api/send-dm', { method: 'POST', body: JSON.stringify(payload) });
+                    showToast(result.message, 'success');
+                } catch (error) {
+                    showToast('Error sending DM: ' + error.message, 'error');
+                } finally {
+                    sendDmBtn.disabled = false;
+                    sendDmBtn.innerHTML = btnOriginalText;
+                }
+            });
         });
     </script>
 </body>
 </html>
-`;
+`

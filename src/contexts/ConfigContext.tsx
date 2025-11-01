@@ -23,8 +23,8 @@ const defaultConfig: AppConfig = {
     SUBMISSIONS_CHANNEL_ID: null,
     // FIX: Added missing properties to the defaultConfig to match the AppConfig type.
     SUBMISSIONS_MENTION_ROLE_ID: null,
-    DISCORD_PROXY_URL: null,
-    DISCORD_PROXY_SECRET: null,
+    DISCORD_BOT_URL: null,
+    DISCORD_BOT_API_KEY: null,
     AUDIT_LOG_CHANNEL_ID: null,
     AUDIT_LOG_CHANNEL_ID_SUBMISSIONS: null,
     AUDIT_LOG_CHANNEL_ID_BANS: null,

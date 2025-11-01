@@ -202,8 +202,8 @@ export interface AppConfig {
     AUDIT_LOG_CHANNEL_ID_SUBMISSIONS: string | null;
     AUDIT_LOG_CHANNEL_ID_BANS: string | null;
     AUDIT_LOG_CHANNEL_ID_ADMIN: string | null;
-    DISCORD_PROXY_URL: string | null;
-    DISCORD_PROXY_SECRET: string | null;
+    DISCORD_BOT_URL: string | null;
+    DISCORD_BOT_API_KEY: string | null;
 }
 
 // =============================================
