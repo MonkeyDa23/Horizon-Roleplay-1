@@ -149,6 +149,11 @@ export const translations: Translations = {
   rules_updated_success: { ar: 'تم تحديث القوانين بنجاح!', en: 'Rules updated successfully!' },
   permissions_saved_success: { ar: 'تم حفظ الصلاحيات بنجاح!', en: 'Permissions saved successfully!'},
   permissions_load_error: { ar: 'فشل تحميل الصلاحيات', en: 'Failed to load permissions' },
+  notification_check_failed_title: { en: 'Bot Connection Error', ar: 'خطأ في الاتصال بالبوت' },
+  notification_check_failed_body: { en: 'The system could not connect to your Discord bot. This means that while the submission status will be updated on the website, the user **will not receive a notification** on Discord. This is usually due to the bot being offline or a configuration error.', ar: 'لم يتمكن النظام من الاتصال ببوت الديسكورد الخاص بك. هذا يعني أنه بينما سيتم تحديث حالة التقديم على الموقع، فإن المستخدم **لن يتلقى إشعاراً** على ديسكورد. يحدث هذا عادةً بسبب أن البوت غير متصل بالإنترنت أو بسبب خطأ في الإعدادات.' },
+  proceed_anyway: { en: 'Proceed Anyway', ar: 'المتابعة على أي حال' },
+  cancel: { en: 'Cancel', ar: 'إلغاء' },
+  go_to_health_check: { en: 'Troubleshoot Connection', ar: 'استكشاف أخطاء الاتصال وإصلاحها' },
   
   // Admin Page - Bilingual Inputs & Forms
   text_en: { ar: 'النص بالإنجليزي', en: 'Text (English)' },
@@ -295,6 +300,8 @@ export const translations: Translations = {
   health_check_arch_notify_desc: { ar: 'عندما تقوم بإجراء (مثل تقديم طلب)، يتم حفظ البيانات في قاعدة البيانات. يقوم "تريجر" في قاعدة البيانات تلقائياً بإرسال طلب HTTP آمن إلى البوت، الذي يقوم بعد ذلك بإرسال الإشعار إلى ديسكورد.', en: 'When you perform an action (like a submission), data is saved to the database. A database "trigger" automatically sends a secure HTTP request to the bot, which then sends the notification to Discord.'},
   health_check_banner_link: { ar: 'اضغط هنا لتشغيل فحص النظام التشخيصي.', en: 'Click here to run system diagnostics.'},
   session_expired_not_in_guild: { ar: 'انتهت صلاحية جلستك أو لم تعد عضواً في السيرفر. تم تسجيل خروجك.', en: 'Your session has expired or you are no longer in the guild. You have been logged out.'},
+  admin_health_check_promo: { ar: 'هل تواجه مشاكل مثل عدم وصول الإشعارات؟ أداة فحص النظام يمكنها مساعدتك في تشخيص وحل المشاكل الشائعة.', en: 'Having issues like notifications not sending? The System Health Check tool can help you diagnose and solve common problems.' },
+  admin_health_check_promo_link: { ar: 'اذهب إلى صفحة فحص النظام الآن.', en: 'Go to the Health Check page now.' },
   product_vip_bronze_name: { ar: 'عضوية VIP برونزية', en: 'Bronze VIP Membership' },
   product_vip_bronze_desc: { ar: 'مميزات حصرية داخل السيرفر لمدة شهر.', en: 'Exclusive in-server perks for one month.' },
   product_vip_silver_name: { ar: 'عضوية VIP فضية', en: 'Silver VIP Membership' },
@@ -310,4 +317,5 @@ export const translations: Translations = {
   quiz_medic_name: { ar: 'تقديم قسم الإسعاف', en: 'EMS Department Application' },
   quiz_medic_desc: { ar: 'مطلوب منك الهدوء والاحترافية في جميع الأوقات.', en: 'You are required to be calm and professional at all times.' },
   q_medic_1: { ar: 'ما هي أولويتك القصوى عند الوصول إلى مكان الحادث؟', en: 'What is your top priority when arriving at an accident scene?' },
+  widgets_management: { en: 'Widgets Management', ar: 'إدارة الويدجتات' },
 };

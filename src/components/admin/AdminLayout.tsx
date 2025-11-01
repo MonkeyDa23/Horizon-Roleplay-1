@@ -1,6 +1,9 @@
 // src/components/admin/AdminLayout.tsx
 import React from 'react';
+import * as ReactRouterDOM from 'react-router-dom';
+import { AlertTriangle } from 'lucide-react';
 import { useLocalization } from '../../hooks/useLocalization';
+import { useConfig } from '../../hooks/useConfig';
 import type { AdminTab } from '../../pages/AdminPage';
 import type { PermissionKey } from '../../types';
 
@@ -15,9 +18,23 @@ interface AdminLayoutProps {
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children, tabs, activeTab, setActiveTab, pageTitle, pageIcon: PageIcon }) => {
     const { t } = useLocalization();
+    const { config } = useConfig();
 
     return (
         <div className="container mx-auto px-6 py-12">
+            {config.SHOW_HEALTH_CHECK && (
+                <div className="bg-yellow-500/20 border-2 border-yellow-500/50 text-yellow-200 p-4 rounded-lg mb-8 animate-fade-in-up">
+                  <div className="flex items-center gap-4">
+                    <AlertTriangle className="h-10 w-10 flex-shrink-0" />
+                    <div className="text-sm font-semibold">
+                      <p>{t('admin_health_check_promo')}</p>
+                      <ReactRouterDOM.Link to="/health-check" className="underline hover:text-white font-bold text-base">
+                        {t('admin_health_check_promo_link')}
+                      </ReactRouterDOM.Link>
+                    </div>
+                  </div>
+                </div>
+            )}
             <div className="md:flex md:gap-8">
                 {/* Sidebar Navigation */}
                 <aside className="w-full md:w-64 flex-shrink-0 mb-8 md:mb-0">

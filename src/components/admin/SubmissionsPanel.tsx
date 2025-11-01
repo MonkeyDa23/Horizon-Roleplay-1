@@ -3,10 +3,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalization } from '../../hooks/useLocalization';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../../hooks/useToast';
-import { getSubmissions, updateSubmissionStatus, getQuizzes, deleteSubmission } from '../../lib/api';
+import { getSubmissions, updateSubmissionStatus, getQuizzes, deleteSubmission, checkDiscordApiHealth } from '../../lib/api';
 import type { QuizSubmission, SubmissionStatus, Quiz } from '../../types';
 import Modal from '../Modal';
-import { Eye, Loader2, Check, X, ListChecks, Trash2 } from 'lucide-react';
+import { Eye, Loader2, Check, X, ListChecks, Trash2, AlertTriangle } from 'lucide-react';
+import * as ReactRouterDOM from 'react-router-dom';
+
 
 const Panel: React.FC<{ children: React.ReactNode; isLoading: boolean, loadingText: string }> = ({ children, isLoading, loadingText }) => {
     if (isLoading) {
@@ -20,6 +22,8 @@ const Panel: React.FC<{ children: React.ReactNode; isLoading: boolean, loadingTe
     return <div className="animate-fade-in-up">{children}</div>;
 }
 
+type DecisionStatus = 'accepted' | 'refused';
+
 const SubmissionsPanel: React.FC = () => {
     const { t } = useLocalization();
     const { user, hasPermission } = useAuth();
@@ -28,6 +32,9 @@ const SubmissionsPanel: React.FC = () => {
     const [quizzes, setQuizzes] = useState<Quiz[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [viewingSubmission, setViewingSubmission] = useState<QuizSubmission | null>(null);
+    const [decisionReason, setDecisionReason] = useState('');
+    const [notificationWarning, setNotificationWarning] = useState<{ submissionId: string; status: DecisionStatus; reason?: string } | null>(null);
+
 
     const fetchData = useCallback(async () => {
         setIsLoading(true);
@@ -46,15 +53,32 @@ const SubmissionsPanel: React.FC = () => {
         fetchData();
     }, [fetchData]);
 
-    const handleUpdateStatus = async (id: string, status: 'taken' | 'accepted' | 'refused') => {
+    const proceedWithUpdate = async (id: string, status: DecisionStatus | 'taken', reason?: string) => {
         try {
-            await updateSubmissionStatus(id, status);
+            await updateSubmissionStatus(id, status, reason);
             fetchData();
             if (viewingSubmission) setViewingSubmission(null);
+            if (notificationWarning) setNotificationWarning(null);
             showToast('Submission updated!', 'success');
         } catch (e) {
             showToast((e as Error).message, 'error');
         }
+    };
+
+    const handleDecision = async (submissionId: string, status: DecisionStatus) => {
+        try {
+            await checkDiscordApiHealth();
+            // If health check passes, proceed directly
+            await proceedWithUpdate(submissionId, status, decisionReason);
+        } catch (error) {
+            // If health check fails, show the warning modal
+            setNotificationWarning({ submissionId, status, reason: decisionReason });
+        }
+    };
+    
+    const handleTakeOrder = async (id: string) => {
+        // No notification is sent when taking an order, so no health check needed.
+        await proceedWithUpdate(id, 'taken');
     };
 
     const handleDelete = async (submission: QuizSubmission) => {
@@ -68,6 +92,13 @@ const SubmissionsPanel: React.FC = () => {
             }
         }
     };
+    
+    useEffect(() => {
+        // Clear reason when modal is closed
+        if (!viewingSubmission) {
+            setDecisionReason('');
+        }
+    }, [viewingSubmission]);
 
     const renderStatusBadge = (status: SubmissionStatus) => {
         const statusMap = {
@@ -91,7 +122,7 @@ const SubmissionsPanel: React.FC = () => {
 
         return (
             <button 
-                onClick={() => handleUpdateStatus(submission.id, 'taken')} 
+                onClick={() => handleTakeOrder(submission.id)} 
                 disabled={!canTakeOrder}
                 title={!canTakeOrder ? t('take_order_forbidden') : t('take_order')}
                 className="bg-brand-cyan/20 text-brand-cyan font-bold py-1 px-3 rounded-md text-sm transition-colors enabled:hover:bg-brand-cyan/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:text-gray-400 disabled:bg-gray-500/20"
@@ -167,13 +198,46 @@ const SubmissionsPanel: React.FC = () => {
                         </div>
                     )}
                     {(hasPermission('_super_admin') || (viewingSubmission.status === 'taken' && viewingSubmission.adminId === user.id)) && (
-                        <div className="flex justify-end gap-4 pt-6 border-t border-brand-light-blue">
-                            <button onClick={() => handleUpdateStatus(viewingSubmission.id, 'refused')} className="flex items-center gap-2 bg-red-600 text-white font-bold py-2 px-5 rounded-md hover:bg-red-500 transition-colors"><X size={20}/> {t('refuse')}</button>
-                            <button onClick={() => handleUpdateStatus(viewingSubmission.id, 'accepted')} className="flex items-center gap-2 bg-green-600 text-white font-bold py-2 px-5 rounded-md hover:bg-green-500 transition-colors"><Check size={20}/> {t('accept')}</button>
+                        <div className="pt-6 border-t border-brand-light-blue">
+                             <div>
+                                <label className="block mb-1 font-semibold text-gray-300">{t('reason')} (Optional)</label>
+                                <textarea 
+                                    value={decisionReason}
+                                    onChange={(e) => setDecisionReason(e.target.value)}
+                                    placeholder="Provide a reason for acceptance or refusal..."
+                                    className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan"
+                                    rows={3}
+                                />
+                            </div>
+                            <div className="flex justify-end gap-4 mt-4">
+                                <button onClick={() => handleDecision(viewingSubmission.id, 'refused')} className="flex items-center gap-2 bg-red-600 text-white font-bold py-2 px-5 rounded-md hover:bg-red-500 transition-colors"><X size={20}/> {t('refuse')}</button>
+                                <button onClick={() => handleDecision(viewingSubmission.id, 'accepted')} className="flex items-center gap-2 bg-green-600 text-white font-bold py-2 px-5 rounded-md hover:bg-green-500 transition-colors"><Check size={20}/> {t('accept')}</button>
+                            </div>
                         </div>
                     )}
                 </div>
             </Modal>}
+
+            {notificationWarning && (
+                <Modal isOpen={!!notificationWarning} onClose={() => setNotificationWarning(null)} title={t('notification_check_failed_title')}>
+                     <div className="text-center">
+                        <AlertTriangle className="mx-auto text-yellow-400" size={48} />
+                        <p className="text-gray-300 mt-4 mb-6">{t('notification_check_failed_body')}</p>
+                        <ReactRouterDOM.Link to="/health-check" className="text-brand-cyan underline hover:text-white mb-6 block">{t('go_to_health_check')}</ReactRouterDOM.Link>
+
+                        <div className="flex justify-center gap-4">
+                            <button onClick={() => setNotificationWarning(null)} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">{t('cancel')}</button>
+                            <button 
+                                onClick={() => proceedWithUpdate(notificationWarning.submissionId, notificationWarning.status, notificationWarning.reason)}
+                                className="bg-yellow-600 text-white font-bold py-2 px-6 rounded-md hover:bg-yellow-500"
+                            >
+                                {t('proceed_anyway')}
+                            </button>
+                        </div>
+                    </div>
+                </Modal>
+            )}
+
         </Panel>
     );
 };
