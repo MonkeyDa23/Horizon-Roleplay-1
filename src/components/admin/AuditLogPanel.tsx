@@ -40,7 +40,7 @@ const AuditLogPanel: React.FC = () => {
     }, [fetchLogs]);
 
     return (
-        <Panel isLoading={isLoading} loadingText="Loading audit logs...">
+        <Panel isLoading={isLoading} loadingText={t('loading_audit_logs')}>
             <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left min-w-[600px]">

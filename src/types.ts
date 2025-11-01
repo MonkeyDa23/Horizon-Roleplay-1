@@ -164,6 +164,20 @@ export interface Quiz {
   lastOpenedAt?: string;
 }
 
+// FIX: Added shared types for the quiz editor to resolve type mismatches between files.
+export interface EditingQuestion extends QuizQuestion {
+  textEn: string;
+  textAr: string;
+}
+
+export type EditingQuizData = Omit<Quiz, 'questions'> & {
+    titleEn: string;
+    titleAr: string;
+    descriptionEn: string;
+    descriptionAr: string;
+    questions: EditingQuestion[];
+};
+
 
 // =============================================
 // RULES & CONFIG
@@ -188,7 +202,7 @@ export interface DiscordWidget {
     position: number;
 }
 
-// FIX: Updated AppConfig to use webhook URLs instead of channel IDs, matching the database schema and component usage.
+// FIX: Removed deprecated webhook URL properties to align with the new notification system.
 export interface AppConfig {
     SUPABASE_PROJECT_URL: string | null;
     DISCORD_PROXY_SECRET: string | null;
@@ -199,11 +213,6 @@ export interface AppConfig {
     MTA_SERVER_URL: string;
     BACKGROUND_IMAGE_URL: string;
     SHOW_HEALTH_CHECK: boolean;
-    SUBMISSIONS_WEBHOOK_URL: string | null;
-    AUDIT_LOG_WEBHOOK_URL: string | null;
-    AUDIT_LOG_SUBMISSIONS_WEBHOOK_URL: string | null;
-    AUDIT_LOG_BANS_WEBHOOK_URL: string | null;
-    AUDIT_LOG_ADMIN_WEBHOOK_URL: string | null;
 }
 
 // =============================================

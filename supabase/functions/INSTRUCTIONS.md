@@ -64,7 +64,7 @@ The database needs to know how to contact its own `discord-proxy` function. You 
 1.  Log into your website with your admin account.
 2.  Navigate to the **Admin Panel**.
 3.  Go to the **Appearance** tab.
-4.  Scroll down to the **"Discord & DM Integration"** section.
+4.  Scroll down to the **"Advanced Integration Settings"** section.
 5.  Fill in the following two fields:
 
     -   **Supabase Project URL**:

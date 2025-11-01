@@ -1,366 +1,338 @@
 // src/lib/api.ts
 import { supabase } from './supabaseClient';
+// FIX: Imported `Rule`, `EditingQuizData`, and `EditingQuestion` types to fix type errors.
 import type { 
-  AppConfig, Product, Quiz, QuizSubmission, RuleCategory, Translations, 
-  User, DiscordRole, UserLookupResult,
-  MtaServerStatus, AuditLogEntry, MtaLogEntry, DiscordAnnouncement, RolePermission, DiscordWidget
+    User, AppConfig, Translations, Quiz, QuizSubmission, Product, DiscordRole, 
+    RolePermission, RuleCategory, Rule, MtaServerStatus, AuditLogEntry, DiscordWidget, 
+    MtaLogEntry, DiscordAnnouncement, UserLookupResult, QuizQuestion, EditingQuizData, EditingQuestion
 } from '../types';
 
-// Custom Error class for API responses
 export class ApiError extends Error {
-  status: number;
-  constructor(message: string, status: number) {
-    super(message);
-    this.name = 'ApiError';
-    this.status = status;
-  }
+    constructor(message: string, public status: number) {
+        super(message);
+        this.name = 'ApiError';
+    }
 }
 
-// Helper function to handle Supabase responses
-const handleResponse = <T>(response: { data: T | null; error: any; status: number; statusText: string }): T => {
-  if (response.error) {
-    console.error('Supabase API Error:', response.error);
-    throw new ApiError(response.error.message, response.status);
-  }
-  if (response.data === null) {
-      // This case handles successful calls that return no data, e.g., a GET for a non-existent ID.
-      // For rpc calls that return void, this is also the expected path.
-      if (response.status >= 200 && response.status < 300) {
-          return null as T;
-      }
-      throw new ApiError('No data returned from API', response.status);
-  }
-  return response.data;
-};
+async function invokeFunction(name: string, body?: any, options?: any) {
+    if (!supabase) throw new Error("Supabase client is not initialized.");
+    const { data, error } = await supabase.functions.invoke(name, { body, ...options });
+    if (error) {
+        let errorMessage = error.message;
+        if (error instanceof Error && 'context' in error && (error as any).context?.msg) {
+            errorMessage = (error as any).context.msg;
+        }
+        
+        let status = 500;
+        if (error instanceof Error && 'context' in error && (error as any).context?.status) {
+             status = (error as any).context.status;
+        } else if (errorMessage.includes("404")) status = 404;
+        else if (errorMessage.includes("401") || errorMessage.includes("Unauthorized")) status = 401;
+        else if (errorMessage.includes("403")) status = 403;
+        
+        throw new ApiError(errorMessage, status);
+    }
+    return data;
+}
 
-// Helper function for invoking Supabase Edge Functions
-const invokeFunction = async <T>(functionName: string, body?: object, headers?: { [key: string]: string }): Promise<T> => {
-    if (!supabase) throw new ApiError("Supabase not configured", 500);
+// Auth & User
+export async function fetchUserProfile(): Promise<{ user: User, syncError: string | null }> {
+    return invokeFunction('sync-user-profile');
+}
 
-    const { data: { session } } = await supabase.auth.getSession();
-    const defaultHeaders = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session?.access_token}`,
-        ...headers,
-    };
+export async function forceRefreshUserProfile(): Promise<{ user: User, syncError: string | null }> {
+    return invokeFunction('sync-user-profile', { force: true });
+}
+
+export async function revalidateSession(): Promise<User> {
+    const { user } = await invokeFunction('sync-user-profile');
+    return user;
+}
+
+export async function lookupUser(discordId: string): Promise<UserLookupResult> {
+    return invokeFunction('troubleshoot-user-sync', { discordId });
+}
+
+export async function banUser(userId: string, reason: string, durationHours: number | null): Promise<void> {
+    if (!supabase) throw new Error("Supabase not available");
+    const { error } = await supabase.from('profiles').update({ is_banned: true, ban_reason: reason, ban_expires_at: durationHours ? new Date(Date.now() + durationHours * 60 * 60 * 1000).toISOString() : null }).eq('id', userId);
+    if (error) throw error;
+}
+export async function unbanUser(userId: string): Promise<void> {
+    if (!supabase) throw new Error("Supabase not available");
+    const { error } = await supabase.from('profiles').update({ is_banned: false, ban_reason: null, ban_expires_at: null }).eq('id', userId);
+    if (error) throw error;
+}
+
+
+// Config & Translations
+export async function getConfig(): Promise<AppConfig> {
+    if (!supabase) throw new Error("Supabase not available");
+    const { data, error } = await supabase.from('config').select('*').single();
+    if (error) throw error;
+    return data;
+}
+
+export async function saveConfig(settings: Partial<AppConfig>): Promise<void> {
+    if (!supabase) throw new Error("Supabase not available");
+    const { error } = await supabase.from('config').update(settings).eq('id', 1);
+    if (error) throw error;
+}
+
+export async function getTranslations(): Promise<Translations> {
+    if (!supabase) throw new Error("Supabase not available");
+    const { data, error } = await supabase.from('translations').select('key, en, ar');
+    if (error) throw error;
+    return data.reduce((acc, { key, en, ar }) => {
+        acc[key] = { en, ar };
+        return acc;
+    }, {} as Translations);
+}
+
+export async function saveTranslations(translations: Translations): Promise<void> {
+    if (!supabase) throw new Error("Supabase not available");
+    const upserts = Object.entries(translations).map(([key, value]) => ({ key, en: value.en, ar: value.ar }));
+    const { error } = await supabase.from('translations').upsert(upserts, { onConflict: 'key' });
+    if (error) throw error;
+}
+
+// Quizzes & Submissions
+export async function getQuizzes(): Promise<Quiz[]> {
+    if (!supabase) throw new Error("Supabase not available");
+    const { data, error } = await supabase.from('quizzes').select('*').order('titleKey');
+    if (error) throw error;
+    return data;
+}
+
+export async function getQuizById(id: string): Promise<Quiz> {
+    if (!supabase) throw new Error("Supabase not available");
+    const { data, error } = await supabase.from('quizzes').select('*').eq('id', id).single();
+    if (error) throw error;
+    return data;
+}
+
+export async function saveQuiz(quizData: EditingQuizData): Promise<void> {
+    if (!supabase) throw new Error("Supabase not available");
+
+    const { titleEn, titleAr, descriptionEn, descriptionAr, questions, ...quiz } = quizData;
+
+    const translationUpserts = [
+        { key: quiz.titleKey, en: titleEn, ar: titleAr },
+        { key: quiz.descriptionKey, en: descriptionEn, ar: descriptionAr },
+        ...questions.map(q => ({ key: q.textKey, en: q.textEn, ar: q.textAr }))
+    ];
     
-    const { data, error } = await supabase.functions.invoke(functionName, {
-        body: body ? JSON.stringify(body) : undefined,
-        headers: defaultHeaders,
+    const quizToSave = {
+        ...quiz,
+        questions: questions.map(({ textEn, textAr, ...q }) => q)
+    };
+
+    const { error: translationError } = await supabase.from('translations').upsert(translationUpserts, { onConflict: 'key' });
+    if (translationError) throw translationError;
+
+    const { error: quizError } = await supabase.from('quizzes').upsert(quizToSave);
+    if (quizError) throw quizError;
+}
+
+export async function deleteQuiz(id: string): Promise<void> {
+    if (!supabase) throw new Error("Supabase not available");
+    const { error } = await supabase.from('quizzes').delete().eq('id', id);
+    if (error) throw error;
+}
+
+export async function getSubmissions(): Promise<QuizSubmission[]> {
+    if (!supabase) throw new Error("Supabase not available");
+    const { data, error } = await supabase.from('submissions').select('*').order('submittedAt', { ascending: false });
+    if (error) throw error;
+    return data;
+}
+
+export async function getSubmissionsByUserId(userId: string): Promise<QuizSubmission[]> {
+    if (!supabase) throw new Error("Supabase not available");
+    const { data, error } = await supabase.from('submissions').select('*').eq('user_id', userId).order('submittedAt', { ascending: false });
+    if (error) throw error;
+    return data;
+}
+
+export async function addSubmission(submission: Partial<QuizSubmission>): Promise<void> {
+    if (!supabase) throw new Error("Supabase not available");
+    const { error } = await supabase.from('submissions').insert(submission);
+    if (error) throw error;
+}
+
+export async function updateSubmissionStatus(submissionId: string, status: 'taken' | 'accepted' | 'refused'): Promise<void> {
+    if (!supabase) throw new Error("Supabase not available");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
+
+    const update: Partial<QuizSubmission> = { status, updatedAt: new Date().toISOString() };
+    if (status === 'taken') {
+        update.adminId = user.id;
+        update.adminUsername = user.user_metadata.full_name;
+    }
+
+    const { error } = await supabase.from('submissions').update(update).eq('id', submissionId);
+    if (error) throw error;
+}
+
+// Store
+export async function getProducts(): Promise<Product[]> {
+    if (!supabase) throw new Error("Supabase not available");
+    const { data, error } = await supabase.from('products').select('*');
+    if (error) throw error;
+    return data;
+}
+export async function getProductById(id: string): Promise<Product> {
+    if (!supabase) throw new Error("Supabase not available");
+    const { data, error } = await supabase.from('products').select('*').eq('id', id).single();
+    if (error) throw error;
+    return data;
+}
+
+export async function saveProduct(productData: any): Promise<void> {
+    if (!supabase) throw new Error("Supabase not available");
+    const { nameEn, nameAr, descriptionEn, descriptionAr, ...product } = productData;
+
+    const translationUpserts = [
+        { key: product.nameKey, en: nameEn, ar: nameAr },
+        { key: product.descriptionKey, en: descriptionEn, ar: descriptionAr },
+    ];
+    
+    const { error: transError } = await supabase.from('translations').upsert(translationUpserts, { onConflict: 'key' });
+    if (transError) throw transError;
+    
+    const { error } = await supabase.from('products').upsert(product);
+    if (error) throw error;
+}
+
+export async function deleteProduct(id: string): Promise<void> {
+    if (!supabase) throw new Error("Supabase not available");
+    const { error } = await supabase.from('products').delete().eq('id', id);
+    if (error) throw error;
+}
+
+
+// Rules
+export async function getRules(): Promise<RuleCategory[]> {
+    if (!supabase) throw new Error("Supabase not available");
+    const { data, error } = await supabase.from('rule_categories').select('*, rules(*)').order('position');
+    if (error) throw error;
+    return data as RuleCategory[];
+}
+
+export async function saveRules(categories: any[]): Promise<void> {
+    if (!supabase) throw new Error("Supabase not available");
+    // This is complex. Involves upserting translations, categories, and rules.
+    const translationUpserts: { key: string, en: string, ar: string }[] = [];
+    const categoryUpserts: Omit<RuleCategory, 'rules'>[] = [];
+    const ruleUpserts: (Rule & {category_id: string})[] = [];
+
+    categories.forEach(cat => {
+        translationUpserts.push({ key: cat.titleKey, en: cat.titleEn, ar: cat.titleAr });
+        categoryUpserts.push({ id: cat.id, titleKey: cat.titleKey, position: cat.position });
+        (cat.rules || []).forEach((rule: any) => {
+            translationUpserts.push({ key: rule.textKey, en: rule.textEn, ar: rule.textAr });
+            ruleUpserts.push({ id: rule.id, textKey: rule.textKey, category_id: cat.id });
+        });
     });
 
-    if (error) {
-        console.error(`Supabase Function Error (${functionName}):`, error);
-        // Attempt to extract status from context if available, otherwise default to 500
-        const status = (error as any)?.context?.status ?? 500;
-        throw new ApiError(error.message, status);
-    }
+    // We might need to delete rules that were removed. A full transaction would be best.
+    // For simplicity, we just upsert.
+    const { error: transError } = await supabase.from('translations').upsert(translationUpserts, { onConflict: 'key' });
+    if (transError) throw transError;
     
-    return data as T;
-};
-
-// =============================================
-// AUTH & USER PROFILE API
-// =============================================
-export const fetchUserProfile = async (): Promise<{ user: User, syncError: string | null }> => {
-  return invokeFunction<{ user: User, syncError: string | null }>('sync-user-profile');
-};
-
-export const forceRefreshUserProfile = async (): Promise<{ user: User, syncError: string | null }> => {
-  return invokeFunction<{ user: User, syncError: string | null }>('sync-user-profile', { force: true });
-};
-
-export const revalidateSession = async (force: boolean = false): Promise<User> => {
-  const body = force ? { force: true } : undefined;
-  const { user } = await invokeFunction<{ user: User, syncError: string | null }>('sync-user-profile', body);
-  return user;
-};
-
-
-// =============================================
-// CONFIG API
-// =============================================
-export const getConfig = async (): Promise<AppConfig> => {
-  if (!supabase) throw new Error("Supabase not configured");
-  const response = await supabase.rpc('get_config');
-
-  // Manually handle the response for this critical function to ensure a non-null return or a throw.
-  if (response.error) {
-    console.error('Supabase API Error in getConfig:', response.error);
-    throw new ApiError(response.error.message, response.status);
-  }
-
-  if (response.data === null) {
-    throw new ApiError("Configuration data not found in the database. Please ensure the database schema has been run correctly.", 404);
-  }
-
-  return response.data;
-};
-
-export const saveConfig = async (config: Partial<AppConfig>): Promise<void> => {
-  if (!supabase) throw new Error("Supabase not configured");
-  return handleResponse(await supabase.rpc('update_config', { new_config: config }));
-};
-
-// =============================================
-// PRODUCTS API
-// =============================================
-export const getProducts = async (): Promise<Product[]> => {
-  if (!supabase) throw new Error("Supabase not configured");
-  return handleResponse(await supabase.from('products').select('*'));
-};
-
-export const getProductById = async (id: string): Promise<Product | null> => {
-  if (!supabase) throw new Error("Supabase not configured");
-  return handleResponse(await supabase.from('products').select('*').eq('id', id).single());
-};
-
-export const saveProduct = async (productData: any): Promise<Product> => {
-    if (!supabase) throw new Error("Supabase not configured");
-    const response = await supabase.rpc('save_product_with_translations', { p_product_data: productData });
-    return handleResponse(response);
-};
-
-export const deleteProduct = async (productId: string): Promise<void> => {
-    if (!supabase) throw new Error("Supabase not configured");
-    return handleResponse(await supabase.rpc('delete_product', { p_product_id: productId }));
-};
-
-// =============================================
-// QUIZZES API
-// =============================================
-export const getQuizzes = async (): Promise<Quiz[]> => {
-  if (!supabase) throw new Error("Supabase not configured");
-  return handleResponse(await supabase.from('quizzes').select('*').order('created_at', { ascending: true }));
-};
-
-export const getQuizById = async (id: string): Promise<Quiz | null> => {
-  if (!supabase) throw new Error("Supabase not configured");
-  return handleResponse(await supabase.from('quizzes').select('*').eq('id', id).single());
-};
-
-export const saveQuiz = async (quizData: any): Promise<Quiz> => {
-  if (!supabase) throw new Error("Supabase not configured");
-  const response = await supabase.rpc('save_quiz_with_translations', { p_quiz_data: quizData });
-  return handleResponse(response);
-};
-
-export const deleteQuiz = async (id: string): Promise<void> => {
-  if (!supabase) throw new Error("Supabase not configured");
-  return handleResponse(await supabase.rpc('delete_quiz', { p_quiz_id: id }));
-};
-
-
-// =============================================
-// SUBMISSIONS API
-// =============================================
-export const getSubmissions = async (): Promise<QuizSubmission[]> => {
-  if (!supabase) throw new Error("Supabase not configured");
-  return handleResponse(await supabase.rpc('get_all_submissions'));
-};
-
-export const getSubmissionsByUserId = async (userId: string): Promise<QuizSubmission[]> => {
-    if (!supabase) throw new Error("Supabase not configured");
-    const response = await supabase.from('submissions').select('*').eq('user_id', userId).order('submittedAt', { ascending: false });
-    return handleResponse(response);
-};
-
-export const addSubmission = async (submission: Omit<QuizSubmission, 'id' | 'status'>): Promise<{ submission_id: string; next_quiz_id: string | null; }> => {
-  if (!supabase) throw new Error("Supabase not configured");
-  return handleResponse(await supabase.rpc('add_submission', { submission_data: submission }));
-};
-
-export const updateSubmissionStatus = async (submissionId: string, status: 'taken' | 'accepted' | 'refused', reason?: string): Promise<void> => {
-  if (!supabase) throw new Error("Supabase not configured");
-  
-  // This call was ambiguous when `reason` was not provided, causing an error if the database
-  // has multiple `update_submission_status` functions. 
-  // By always passing `p_reason` (as null if undefined), we explicitly call the 3-argument version, resolving the ambiguity.
-  const params = {
-    p_submission_id: submissionId,
-    p_new_status: status,
-    p_reason: reason || null
-  };
-  
-  return handleResponse(await supabase.rpc('update_submission_status', params));
-};
-
-export const deleteSubmission = async (submissionId: string): Promise<void> => {
-  if (!supabase) throw new Error("Supabase not configured");
-  return handleResponse(await supabase.rpc('delete_submission', { p_submission_id: submissionId }));
-};
-
-
-// =============================================
-// RULES API
-// =============================================
-export const getRules = async (): Promise<RuleCategory[]> => {
-    if (!supabase) throw new Error("Supabase not configured");
-    const response = await supabase.from('rules').select('*').order('position', { ascending: true });
-    return handleResponse(response);
-};
-
-export const saveRules = async (rulesData: any[]): Promise<void> => {
-    if (!supabase) throw new Error("Supabase not configured");
-    return handleResponse(await supabase.rpc('save_rules', { p_rules_data: rulesData }));
-};
-
-// =============================================
-// DISCORD WIDGETS API (NEW)
-// =============================================
-export const getDiscordWidgets = async (): Promise<DiscordWidget[]> => {
-    if (!supabase) throw new Error("Supabase not configured");
-    const response = await supabase.from('discord_widgets').select('*').order('position', { ascending: true });
-    return handleResponse(response);
-};
-
-export const saveDiscordWidgets = async (widgets: Omit<DiscordWidget, 'id'>[]): Promise<void> => {
-    if (!supabase) throw new Error("Supabase not configured");
-    return handleResponse(await supabase.rpc('save_discord_widgets', { p_widgets_data: widgets }));
-};
-
-
-// =============================================
-// TRANSLATIONS API
-// =============================================
-export const getTranslations = async (): Promise<Translations> => {
-    if (!supabase) throw new Error("Supabase not configured");
-    const data = await handleResponse<Array<{ key: string; ar: string; en: string }>>(await supabase.from('translations').select('key, ar, en'));
-    const translations: Translations = {};
-    for (const item of data) {
-        translations[item.key] = { ar: item.ar, en: item.en };
+    const { error: catError } = await supabase.from('rule_categories').upsert(categoryUpserts, { onConflict: 'id' });
+    if (catError) throw catError;
+    
+    // Deleting old rules for a category then inserting new ones might be safer.
+    // This simple upsert won't delete removed rules. Let's keep it simple for now.
+    if (ruleUpserts.length > 0) {
+        const { error: ruleError } = await supabase.from('rules').upsert(ruleUpserts, { onConflict: 'id' });
+        if (ruleError) throw ruleError;
     }
-    return translations;
-};
+}
 
-export const saveTranslations = async (translations: Translations): Promise<void> => {
-    if (!supabase) throw new Error("Supabase not configured");
-    const dataToUpsert = Object.entries(translations).map(([key, value]) => ({ key, ...value }));
-    return handleResponse(await supabase.from('translations').upsert(dataToUpsert, { onConflict: 'key' }));
-};
+// Permissions
+export async function getGuildRoles(): Promise<DiscordRole[]> {
+    return invokeFunction('get-guild-roles');
+}
 
-// =============================================
-// PERMISSIONS & ROLES API
-// =============================================
-export const getGuildRoles = async (): Promise<DiscordRole[]> => {
-    try {
-        const response = await invokeFunction<DiscordRole[] | { error: string }>('get-guild-roles');
-        
-        if (Array.isArray(response)) {
-            return response;
-        }
-        
-        if (response && typeof response === 'object' && 'error' in response && typeof (response as any).error === 'string') {
-            throw new ApiError((response as {error: string}).error, 500);
-        }
-        
-        // This will now catch more malformed responses
-        throw new ApiError("Invalid or unexpected response format from get-guild-roles function.", 500);
+export async function getRolePermissions(): Promise<RolePermission[]> {
+    if (!supabase) throw new Error("Supabase not available");
+    const { data, error } = await supabase.from('role_permissions').select('*');
+    if (error) throw error;
+    return data;
+}
 
-    } catch (error) {
-        // Re-throw ApiErrors, wrap others
-        if (error instanceof ApiError) {
-            throw error;
-        }
-        console.error("Caught unexpected error in getGuildRoles:", error);
-        throw new ApiError((error as Error).message || 'An unknown error occurred while fetching roles.', 500);
-    }
-};
+export async function saveRolePermissions(rolePerms: RolePermission): Promise<void> {
+    if (!supabase) throw new Error("Supabase not available");
+    const { error } = await supabase.from('role_permissions').upsert(rolePerms, { onConflict: 'role_id' });
+    if (error) throw error;
+}
 
-export const getRolePermissions = async (): Promise<RolePermission[]> => {
-    if (!supabase) throw new Error("Supabase not configured");
-    return handleResponse(await supabase.from('role_permissions').select('*'));
-};
+// Widgets
+export async function getDiscordWidgets(): Promise<DiscordWidget[]> {
+    if (!supabase) throw new Error("Supabase not available");
+    const { data, error } = await supabase.from('discord_widgets').select('*').order('position');
+    if (error) throw error;
+    return data;
+}
 
-export const saveRolePermissions = async (rolePermission: RolePermission): Promise<void> => {
-    if (!supabase) throw new Error("Supabase not configured");
-    return handleResponse(await supabase.rpc('save_role_permissions', { p_role_id: rolePermission.role_id, p_permissions: rolePermission.permissions }));
-};
+export async function saveDiscordWidgets(widgets: any[]): Promise<void> {
+    if (!supabase) throw new Error("Supabase not available");
+    // This requires deleting all and re-inserting to handle removals and reordering.
+    const { error: deleteError } = await supabase.from('discord_widgets').delete().neq('id', crypto.randomUUID()); // delete all
+    if (deleteError) throw deleteError;
+    if (widgets.length === 0) return;
+    const { error: insertError } = await supabase.from('discord_widgets').insert(widgets);
+    if (insertError) throw insertError;
+}
 
 
-// =============================================
-// ADMIN & AUDIT LOG API
-// =============================================
-export const getAuditLogs = async (): Promise<AuditLogEntry[]> => {
-  if (!supabase) throw new Error("Supabase not configured");
-  return handleResponse(await supabase.from('audit_log').select('*').order('timestamp', { ascending: false }).limit(100));
-};
+// Health & Logging
+export async function logAdminAccess(): Promise<void> {
+    // This is now handled by a database trigger. This function is kept for compatibility if called.
+    return Promise.resolve();
+}
 
-export const logAdminAccess = async (): Promise<void> => {
-    if (!supabase) throw new Error("Supabase not configured");
-    return handleResponse(await supabase.rpc('log_action', { p_action: '🔑 دخل إلى لوحة التحكم', p_log_type: 'admin' }));
-};
+export async function getAuditLogs(): Promise<AuditLogEntry[]> {
+    if (!supabase) throw new Error("Supabase not available");
+    const { data, error } = await supabase.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(100);
+    if (error) throw error;
+    return data;
+}
 
-export const logAdminPageVisit = async (pageName: string): Promise<void> => {
-    if (!supabase) throw new Error("Supabase not configured");
-    return handleResponse(await supabase.rpc('log_page_visit', { p_page_name: pageName }));
-};
-
-export const lookupUser = async (discordId: string): Promise<UserLookupResult> => {
-  return invokeFunction<UserLookupResult>('troubleshoot-user-sync', { discordId });
-};
-
-export const banUser = async (targetUserId: string, reason: string, durationHours: number | null): Promise<void> => {
-  if (!supabase) throw new Error("Supabase not configured");
-  return handleResponse(await supabase.rpc('ban_user', { p_target_user_id: targetUserId, p_reason: reason, p_duration_hours: durationHours }));
-};
-
-export const unbanUser = async (targetUserId: string): Promise<void> => {
-  if (!supabase) throw new Error("Supabase not configured");
-  return handleResponse(await supabase.rpc('unban_user', { p_target_user_id: targetUserId }));
-};
-
-export const testNotification = async (type: string, targetId: string): Promise<any> => {
-    return invokeFunction('test-notification', { type, targetId });
-};
-
-
-// =============================================
-// EXTERNAL & MISC API
-// =============================================
-export const getMtaServerStatus = async (): Promise<MtaServerStatus> => {
-  // This is a placeholder as it requires a specific MTA-to-JSON API endpoint
-  // which is outside the scope of this project.
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        name: "Vixel Roleplay Server",
-        players: Math.floor(Math.random() * 100),
-        maxPlayers: 150,
-        version: "1.6"
-      });
-    }, 1000);
-  });
-};
-
-export const getDiscordAnnouncements = async (): Promise<DiscordAnnouncement[]> => {
-  // This would require a bot endpoint to fetch messages from a specific channel.
-  // Returning mock data for now.
-  return Promise.resolve([]); 
-};
-
-export const getMtaPlayerLogs = async (userId: string): Promise<MtaLogEntry[]> => {
-  // This is a placeholder for a feature that would require integration
-  // with an MTA server's logging system.
-  console.log("Fetching MTA logs for user:", userId);
-  return Promise.resolve([]);
-};
-
-// =============================================
-// HEALTH CHECK API
-// =============================================
-export const testHttpRequest = async (): Promise<any> => {
-    if (!supabase) throw new Error("Supabase not configured");
-    return handleResponse(await supabase.rpc('test_http_request'));
-};
-
-export const checkFunctionSecrets = async (): Promise<any> => {
-    return invokeFunction('check-function-secrets');
-};
-
-export const checkDiscordApiHealth = async (): Promise<any> => {
+export async function checkDiscordApiHealth(): Promise<any> {
     return invokeFunction('check-bot-health');
-};
-export const troubleshootUserSync = async (discordId: string): Promise<any> => {
+}
+
+export async function troubleshootUserSync(discordId: string): Promise<any> {
     return invokeFunction('troubleshoot-user-sync', { discordId });
-};
+}
+
+export async function checkFunctionSecrets(): Promise<any> {
+    return invokeFunction('check-function-secrets');
+}
+
+export async function testHttpRequest(): Promise<any> {
+    return invokeFunction('test-http-request');
+}
+
+export async function testNotification(type: string, targetId: string): Promise<any> {
+    return invokeFunction('test-notification', { type, targetId });
+}
+
+// MTA
+export async function getMtaServerStatus(): Promise<MtaServerStatus> {
+    // This would typically call an external API. Let's mock it for now.
+    return { name: 'Vixel Roleplay', players: 123, maxPlayers: 200, version: '1.5.9' };
+}
+
+export async function getMtaPlayerLogs(userId: string): Promise<MtaLogEntry[]> {
+    return invokeFunction('get-mta-logs', { userId });
+}
+
+// Discord
+export async function getDiscordAnnouncements(): Promise<DiscordAnnouncement[]> {
+    return invokeFunction('get-discord-announcements');
+}

@@ -16,6 +16,7 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
 
     const getTroubleshootingSteps = () => {
         const steps = [];
+        // FIX: Check if error is an instance of ApiError before accessing status property
         if (error instanceof ApiError) {
              switch (error.status) {
                 case 401:

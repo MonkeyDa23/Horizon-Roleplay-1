@@ -13,7 +13,6 @@ const notificationTemplates = {
         description: 'Sent as a DM to the user when their application status changes.',
         messages: [
             { type: 'submission_receipt', title: 'Submission Received', placeholders: ['{username}', '{quizTitle}'] },
-            { type: 'submission_taken', title: 'Submission Under Review', placeholders: ['{username}', '{quizTitle}', '{adminUsername}'] },
             { type: 'submission_accepted', title: 'Submission Accepted', placeholders: ['{username}', '{quizTitle}', '{adminUsername}'] },
             { type: 'submission_refused', title: 'Submission Refused', placeholders: ['{username}', '{quizTitle}', '{adminUsername}'] }
         ]
@@ -152,7 +151,7 @@ const NotificationsPanel: React.FC = () => {
                             <input type="text" value={testTargetId} onChange={e => setTestTargetId(e.target.value)} placeholder={testModal.isUser ? "Enter User ID" : "Enter Channel ID"} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                         </div>
                         <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4">
-                            <button onClick={() => setTestModal(null)} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button>
+                            <button onClick={() => setTestModal(null)} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">{t('cancel')}</button>
                             <button onClick={handleSendTest} disabled={isTesting || !testTargetId} className="bg-blue-600 text-white font-bold py-2 px-6 rounded-md hover:bg-blue-500 disabled:opacity-50 min-w-[8rem] flex justify-center">
                                 {isTesting ? <Loader2 className="animate-spin" /> : t('send_test')}
                             </button>

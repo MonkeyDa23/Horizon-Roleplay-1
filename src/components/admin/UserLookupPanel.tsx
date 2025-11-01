@@ -112,7 +112,7 @@ const UserLookupPanel: React.FC = () => {
                             </div>
                             {searchResult.is_banned && (
                                 <div className="mt-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
-                                    <h4 className="font-bold text-red-300">{t('banned_indefinitely')}</h4>
+                                    <h4 className="font-bold text-red-300">{t('banned_status')}</h4>
                                     <p><strong>{t('reason')}:</strong> {searchResult.ban_reason}</p>
                                     {searchResult.ban_expires_at && <p><strong>{t('ban_expires')}:</strong> {new Date(searchResult.ban_expires_at).toLocaleString()}</p>}
                                 </div>

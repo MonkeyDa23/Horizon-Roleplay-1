@@ -37,7 +37,7 @@ const TranslationsPanel: React.FC = () => {
         try {
             await saveTranslations(editableTranslations);
             setAllTranslations(JSON.parse(JSON.stringify(editableTranslations)));
-            showToast(t('save_translations'), 'success');
+            showToast(t('translations_saved_success'), 'success');
         } catch (error) {
             showToast((error as Error).message, 'error');
         } finally {
@@ -75,7 +75,7 @@ const TranslationsPanel: React.FC = () => {
                     <Search className="absolute top-1/2 -translate-y-1/2 left-3 text-gray-400" size={20} />
                     <input 
                         type="text"
-                        placeholder="Search by key or text..."
+                        placeholder={t('translations_search_placeholder')}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full bg-brand-light-blue p-2 pl-10 rounded-md border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan"
@@ -91,7 +91,7 @@ const TranslationsPanel: React.FC = () => {
                     <table className="w-full text-left min-w-[800px] relative">
                         <thead className="sticky top-0 border-b border-brand-light-blue/50 text-gray-300 bg-brand-dark-blue z-10">
                             <tr>
-                                <th className="p-4 w-1/4">Key</th>
+                                <th className="p-4 w-1/4">{t('key')}</th>
                                 <th className="p-4 w-2/5">English</th>
                                 <th className="p-4 w-2/5">العربية</th>
                             </tr>

@@ -3,18 +3,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalization } from '../../hooks/useLocalization';
 import { useToast } from '../../hooks/useToast';
 import { getQuizzes, saveQuiz, deleteQuiz } from '../../lib/api';
-import type { Quiz, QuizQuestion } from '../../types';
+import type { Quiz, QuizQuestion, EditingQuizData, EditingQuestion } from '../../types';
 import { useTranslations } from '../../hooks/useTranslations';
 import Modal from '../Modal';
 import { Loader2, Plus, Edit, Trash2 } from 'lucide-react';
-
-// Extended types for the editor state
-interface EditingQuestion extends QuizQuestion { textEn: string; textAr: string; }
-interface EditingQuizData extends Omit<Quiz, 'questions'> {
-    titleEn: string; titleAr: string;
-    descriptionEn: string; descriptionAr: string;
-    questions: EditingQuestion[];
-}
 
 const Panel: React.FC<{ children: React.ReactNode; isLoading: boolean, loadingText: string }> = ({ children, isLoading, loadingText }) => {
     if (isLoading) return <div className="flex flex-col gap-4 justify-center items-center py-20 min-h-[300px]"><Loader2 size={40} className="text-brand-cyan animate-spin" /><p className="text-gray-400">{loadingText}</p></div>;
@@ -56,7 +48,7 @@ const QuizzesPanel: React.FC = () => {
             titleKey: quiz.titleKey, titleEn: translations[quiz.titleKey]?.en || '', titleAr: translations[quiz.titleKey]?.ar || '',
             descriptionKey: quiz.descriptionKey, descriptionEn: translations[quiz.descriptionKey]?.en || '', descriptionAr: translations[quiz.descriptionKey]?.ar || '',
             isOpen: quiz.isOpen, allowedTakeRoles: quiz.allowedTakeRoles || [],
-            logoUrl: quiz.logoUrl, bannerUrl: quiz.bannerUrl,
+            logoUrl: quiz.logoUrl || '', bannerUrl: quiz.bannerUrl || '',
             questions: (quiz.questions || []).map(q => ({
                 ...q, textEn: translations[q.textKey]?.en || '', textAr: translations[q.textKey]?.ar || ''
             }))
@@ -106,7 +98,7 @@ const QuizzesPanel: React.FC = () => {
     });
     
     return (
-        <Panel isLoading={isLoading} loadingText="Loading quizzes...">
+        <Panel isLoading={isLoading} loadingText={t('loading_quizzes')}>
             <div className="flex justify-end mb-6"><button onClick={handleCreateNew} className="bg-brand-cyan text-brand-dark font-bold py-2 px-4 rounded-md hover:bg-white transition-all flex items-center gap-2"><Plus size={20} /> {t('create_new_quiz')}</button></div>
             <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50 overflow-hidden"><div className="overflow-x-auto">
                 <table className="w-full text-left min-w-[600px]"><thead className="border-b border-brand-light-blue/50 text-gray-300 bg-brand-light-blue/30"><tr><th className="p-4">{t('quiz_title')}</th><th className="p-4">{t('status')}</th><th className="p-4">{t('questions')}</th><th className="p-4 text-right">{t('actions')}</th></tr></thead>
@@ -127,7 +119,12 @@ const QuizzesPanel: React.FC = () => {
                     </div>
                      <div><label className="block mb-1 font-semibold text-gray-300">{t('description_en')}</label><textarea value={editingQuiz.descriptionEn} onChange={(e) => updateQuizField('descriptionEn', e.target.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 h-24" /></div>
                      <div><label className="block mb-1 font-semibold text-gray-300">{t('description_ar')}</label><textarea dir="rtl" value={editingQuiz.descriptionAr} onChange={(e) => updateQuizField('descriptionAr', e.target.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 h-24" /></div>
-                    
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div><label className="block mb-1 font-semibold text-gray-300">{t('logo_image_url')}</label><input type="text" value={editingQuiz.logoUrl || ''} onChange={(e) => updateQuizField('logoUrl', e.target.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
+                        <div><label className="block mb-1 font-semibold text-gray-300">{t('banner_image_url')}</label><input type="text" value={editingQuiz.bannerUrl || ''} onChange={(e) => updateQuizField('bannerUrl', e.target.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
+                    </div>
+                    <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_handler_roles')}</label><input type="text" placeholder="e.g. 123,456" value={(editingQuiz.allowedTakeRoles || []).join(',')} onChange={(e) => updateQuizField('allowedTakeRoles', e.target.value.split(',').map(s=>s.trim()).filter(Boolean))} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /><p className="text-xs text-gray-400 mt-1">{t('quiz_handler_roles_desc')}</p></div>
+             
                     {/* Questions Editor */}
                     <div className="pt-4 border-t border-brand-light-blue/50">
                         <h3 className="text-xl font-bold mb-3">{t('quiz_questions')}</h3>
@@ -137,16 +134,25 @@ const QuizzesPanel: React.FC = () => {
                                     <div className="flex justify-between items-center"><label className="font-semibold text-gray-300">Question {qIdx + 1}</label><button onClick={() => deleteQuestion(qIdx)} className="text-red-500 hover:text-red-400"><Trash2 size={18} /></button></div>
                                     <input type="text" placeholder={t('text_en')} value={q.textEn} onChange={(e) => updateQuestionField(qIdx, 'textEn', e.target.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
                                     <input type="text" dir="rtl" placeholder={t('text_ar')} value={q.textAr} onChange={(e) => updateQuestionField(qIdx, 'textAr', e.target.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
-                                    <div><label className="block text-sm font-semibold text-gray-400">{t('time_limit_seconds')}</label><input type="number" value={q.timeLimit} onChange={(e) => updateQuestionField(qIdx, 'timeLimit', parseInt(e.target.value) || 0)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/></div>
+                                    <div><label className="block text-sm font-semibold text-gray-400">{t('time_limit_seconds')}</label><input type="number" min="10" value={q.timeLimit} onChange={(e) => updateQuestionField(qIdx, 'timeLimit', parseInt(e.target.value) || 60)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/></div>
                                 </div>
                             ))}
                         </div>
                         <button onClick={addQuestion} className="mt-3 text-sm text-brand-cyan hover:text-white font-semibold flex items-center gap-1"><Plus size={16} /> {t('add_question')}</button>
                     </div>
-
-                    <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4">
+                    
+                    <div className="flex justify-between items-center gap-4 pt-4 border-t border-brand-light-blue/50 mt-4">
+                        <div className="flex items-center gap-4">
+                        <label className="font-semibold text-gray-300">{t('status')}:</label>
+                        <button onClick={() => updateQuizField('isOpen', !editingQuiz.isOpen)}
+                            className={`px-4 py-1 rounded-full font-bold ${editingQuiz.isOpen ? 'bg-green-500/30 text-green-300' : 'bg-red-500/30 text-red-300'}`}>
+                            {editingQuiz.isOpen ? t('open') : t('closed')}
+                        </button>
+                        </div>
+                        <div className="flex gap-4">
                         <button onClick={() => setEditingQuiz(null)} disabled={isSaving} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button>
-                        <button onClick={handleSave} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white min-w-[8rem] flex justify-center">{isSaving ? <Loader2 className="animate-spin" /> : t('save_quiz')}</button>
+                        <button onClick={handleSave} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white min-w-[8rem] flex justify-center">{isSaving ? <Loader2 className="animate-spin"/> : t('save_quiz')}</button>
+                        </div>
                     </div>
                 </div>
             </Modal>}

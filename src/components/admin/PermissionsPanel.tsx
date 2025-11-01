@@ -90,7 +90,7 @@ const PermissionsPanel: React.FC = () => {
     const permissionKeys = Object.keys(PERMISSIONS) as PermissionKey[];
 
     return (
-        <Panel isLoading={isLoading} loadingText="Loading roles & permissions...">
+        <Panel isLoading={isLoading} loadingText={t('loading_roles_permissions')}>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-1 bg-brand-dark-blue p-4 rounded-lg border border-brand-light-blue/50">
                 <h3 className="text-xl font-bold mb-4 px-2">{t('discord_roles')}</h3>
