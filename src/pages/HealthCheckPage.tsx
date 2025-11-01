@@ -1,6 +1,6 @@
 // src/pages/HealthCheckPage.tsx
 import React from 'react';
-import { Loader2, CheckCircle, XCircle, AlertTriangle, HelpCircle } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, AlertTriangle, HelpCircle, Share2, User, Server, Database, Bot, Webhook, ChevronRight } from 'lucide-react';
 import { useLocalization } from '../hooks/useLocalization';
 import { env } from '../env';
 import { checkDiscordApiHealth, troubleshootUserSync, checkFunctionSecrets, testHttpRequest } from '../lib/api';
@@ -226,6 +226,43 @@ const HealthCheckPage: React.FC = () => {
                       </button>
                   </div>
               </div>
+
+              {/* Architecture Overview */}
+              <div className="bg-brand-dark-blue p-6 rounded-lg border-2 border-brand-light-blue shadow-lg">
+                  <h2 className="text-2xl font-bold text-brand-cyan mb-3 flex items-center gap-3"><Share2 size={24}/> {t('health_check_arch_title')}</h2>
+                  <p className="text-gray-300 mb-6">{t('health_check_arch_desc')}</p>
+                  
+                  <div className="space-y-8">
+                      {/* Flow 1: User Sync / Data Fetch */}
+                      <div>
+                          <h3 className="text-xl font-semibold text-white mb-3">{t('health_check_arch_sync_title')}</h3>
+                          <div className="flex items-center justify-center gap-1 md:gap-2 flex-wrap p-4 bg-brand-dark rounded-lg">
+                              <div className="flex flex-col items-center text-center p-2"><User size={28} className="text-brand-cyan"/><span className="text-xs mt-1">Website</span></div>
+                              <ChevronRight className="text-gray-500 flex-shrink-0" />
+                              <div className="flex flex-col items-center text-center p-2"><Server size={28} className="text-brand-cyan"/><span className="text-xs mt-1">Supabase<br/>Function</span></div>
+                              <ChevronRight className="text-gray-500 flex-shrink-0" />
+                              <div className="flex flex-col items-center text-center p-2"><Bot size={28} className="text-brand-cyan"/><span className="text-xs mt-1">Discord Bot</span></div>
+                          </div>
+                          <p className="text-gray-400 mt-3 text-sm">{t('health_check_arch_sync_desc')}</p>
+                      </div>
+
+                      {/* Flow 2: Notifications */}
+                      <div>
+                          <h3 className="text-xl font-semibold text-white mb-3">{t('health_check_arch_notify_title')}</h3>
+                          <div className="flex items-center justify-center gap-1 md:gap-2 flex-wrap p-4 bg-brand-dark rounded-lg">
+                              <div className="flex flex-col items-center text-center p-2"><User size={28} className="text-brand-cyan"/><span className="text-xs mt-1">Website</span></div>
+                              <ChevronRight className="text-gray-500 flex-shrink-0" />
+                              <div className="flex flex-col items-center text-center p-2"><Database size={28} className="text-brand-cyan"/><span className="text-xs mt-1">Supabase<br/>Database</span></div>
+                              <ChevronRight className="text-gray-500 flex-shrink-0" />
+                              <div className="flex flex-col items-center text-center p-2"><Webhook size={28} className="text-brand-cyan"/><span className="text-xs mt-1">DB Trigger &<br/>HTTP Request</span></div>
+                              <ChevronRight className="text-gray-500 flex-shrink-0" />
+                              <div className="flex flex-col items-center text-center p-2"><Bot size={28} className="text-brand-cyan"/><span className="text-xs mt-1">Discord Bot</span></div>
+                          </div>
+                          <p className="text-gray-400 mt-3 text-sm">{t('health_check_arch_notify_desc')}</p>
+                      </div>
+                  </div>
+              </div>
+
           </div>
         </div>
       </div>
