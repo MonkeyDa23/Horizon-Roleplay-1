@@ -28,7 +28,6 @@ import MyApplicationsPage from './pages/MyApplicationsPage';
 import ProfilePage from './pages/ProfilePage';
 import HealthCheckPage from './pages/HealthCheckPage';
 import AdminPage from './pages/AdminPage';
-import BannedPage from './pages/BannedPage'; 
 
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { env } from './env';
@@ -56,7 +55,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; permission: Permissi
 
 const AppContent: React.FC = () => {
   const { config, configLoading, configError } = useConfig();
-  const { user, permissionWarning } = useAuth();
+  const { permissionWarning } = useAuth();
       
   if (configLoading) {
     return (
@@ -140,8 +139,16 @@ const AppContent: React.FC = () => {
                   <AdminPage />
                 </ProtectedRoute>
               } />
-              <ReactRouterDOM.Route path="/my-applications" element={user ? <MyApplicationsPage /> : <ReactRouterDOM.Navigate to="/" replace />} />
-              <ReactRouterDOM.Route path="/profile" element={user ? <ProfilePage /> : <ReactRouterDOM.Navigate to="/" replace />} />
+              <ReactRouterDOM.Route path="/my-applications" element={
+                <ProtectedRoute permission="page_applies">
+                  <MyApplicationsPage />
+                </ProtectedRoute>
+              }/>
+              <ReactRouterDOM.Route path="/profile" element={
+                 <ProtectedRoute permission="page_applies">
+                  <ProfilePage />
+                </ProtectedRoute>
+              } />
               
               {config.SHOW_HEALTH_CHECK && (
                 <ReactRouterDOM.Route 
