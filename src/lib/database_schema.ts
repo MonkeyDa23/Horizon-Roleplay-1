@@ -1,6 +1,8 @@
 // @ts-nocheck
-// Vixel Roleplay Website - Full Database Schema (V45 - Direct Bot Notification Architecture)
 /*
+-- @ts-nocheck
+-- Vixel Roleplay Website - Full Database Schema (V46 - Fault-Tolerant Notifications)
+
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
  functions, and data before recreating the entire schema. This is intended for development
@@ -11,7 +13,7 @@
  1. Go to your Supabase Project Dashboard -> SQL Editor.
  2. Click "+ New query".
  3. Copy the ENTIRE content of this file, paste it into the editor, and click "RUN".
-*/
+
 
 -- Wrap the entire script in a transaction to ensure it either completes fully or not at all.
 BEGIN;
@@ -211,14 +213,13 @@ BEGIN
 END;
 $$;
 
--- Central notification function (INTERNAL) - REFACTORED FOR DIRECT BOT CONNECTION
+-- Central notification function (INTERNAL) - REFACTORED FOR FAULT TOLERANCE
 CREATE OR REPLACE FUNCTION private.send_notification(p_type text, p_payload jsonb)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions
 AS $$
 DECLARE
   bot_url text;
   bot_api_key text;
-  full_payload jsonb;
   response extensions.http_response;
   request extensions.http_request;
   endpoint_url text;
@@ -226,17 +227,14 @@ BEGIN
   -- Read bot connection details directly from the public config table
   SELECT "DISCORD_BOT_URL", "DISCORD_BOT_API_KEY" INTO bot_url, bot_api_key FROM public.config WHERE id = 1;
   
+  -- Silently exit if not configured. No need to throw a hard error for a non-critical system.
   IF bot_url IS NULL OR bot_url = '' OR bot_api_key IS NULL OR bot_api_key = '' THEN
-    RAISE EXCEPTION 'Bot notification failed: DISCORD_BOT_URL or DISCORD_BOT_API_KEY is not configured in the Admin Panel -> Appearance settings.';
+    RAISE WARNING '[send_notification] Skipped: Bot URL or API Key is not configured.';
+    RETURN;
   END IF;
   
-  -- Construct the full payload for the bot
-  full_payload := jsonb_build_object('type', p_type, 'payload', p_payload);
-  
-  -- The bot expects notifications at the /api/notify endpoint
   endpoint_url := bot_url || '/api/notify';
 
-  -- Construct the http_request object
   request := ROW(
     'POST',
     endpoint_url,
@@ -245,18 +243,22 @@ BEGIN
       extensions.http_header('Authorization', 'Bearer ' || bot_api_key)
     ],
     'application/json',
-    full_payload::text
+    jsonb_build_object('type', p_type, 'payload', p_payload)::text
   )::extensions.http_request;
   
-  -- Execute the request
-  response := extensions.http(request);
+  -- A nested block to gracefully handle HTTP errors like timeouts without crashing the parent function.
+  BEGIN
+    response := extensions.http(request);
 
-  IF response.status >= 300 THEN
-    RAISE WARNING '[send_notification] Discord bot responded with status %: %', response.status, response.content;
-  END IF;
+    IF response.status >= 300 THEN
+      RAISE WARNING '[send_notification] Bot responded with status %: %', response.status, response.content;
+    END IF;
+  EXCEPTION WHEN OTHERS THEN
+    -- This is the key change: Catch the error and raise a WARNING instead of an EXCEPTION.
+    -- This prevents the parent transaction (e.g., log_page_visit) from rolling back.
+    RAISE WARNING '[send_notification] Failed to send notification. Error: %', SQLERRM;
+  END;
 
-EXCEPTION WHEN OTHERS THEN
-    RAISE EXCEPTION 'Notification system error: %', SQLERRM;
 END;
 $$;
 
@@ -761,3 +763,4 @@ ON CONFLICT (key) DO NOTHING;
 -- 9. COMMIT TRANSACTION
 -- =================================================================
 COMMIT;
+*/

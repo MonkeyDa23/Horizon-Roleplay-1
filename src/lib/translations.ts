@@ -208,7 +208,6 @@ export const translations: Translations = {
   discord_bot_url: { ar: 'رابط بوت الديسكورد', en: 'Discord Bot URL'},
   discord_bot_url_desc: { ar: 'الرابط الكامل الذي يعمل عليه البوت الخاص بك (مثال: http://123.45.67.89:14355).', en: 'The full URL where your self-hosted bot is running (e.g., http://123.45.67.89:14355).'},
   discord_bot_api_key: { ar: 'مفتاح API لبوت الديسكورد', en: 'Discord Bot API Key'},
-  // FIX: Escaped single quote in the translation string.
   discord_bot_api_key_desc: { ar: 'كلمة المرور السرية التي قمت بتعيينها في ملف config.json الخاص بالبوت لمصادقة الطلبات.', en: 'The secret password you set in your bot\'s config.json to authenticate requests.'},
 
   // Admin Page - Permissions
@@ -219,7 +218,7 @@ export const translations: Translations = {
   admin_permissions_bootstrap_instructions_title: { ar: 'غير قادر على الدخول؟', en: 'Locked Out?' },
   admin_permissions_bootstrap_instructions_body: { 
     ar: `معك حق، هذه الطريقة معقدة جداً. استخدام أمر SQL مباشر أسهل بكثير.<br/><br/>١. اذهب إلى <strong>محرر SQL</strong> في مشروعك على Supabase.<br/>٢. انسخ والصق الأمر الموجود في الأسفل.<br/>٣. استبدل <code>'YOUR_ADMIN_ROLE_ID_HERE'</code> بآي دي رتبة المشرف الحقيقية في ديسكورد.<br/>٤. اضغط على <strong>RUN</strong>، ثم قم بتحديث هذه الصفحة.<br/><br/><pre class="bg-brand-dark text-white p-3 rounded-md text-sm whitespace-pre-wrap text-left" dir="ltr"><code>INSERT INTO public.role_permissions (role_id, permissions) <br/>VALUES ('YOUR_ADMIN_ROLE_ID_HERE', '{"_super_admin"}');</code></pre>`,
-    en: `You are right, that's way too complicated. A direct SQL command is much easier.<br/><br/>1. Go to your Supabase project's <strong>SQL Editor</strong>.<br/>2. Copy and paste the command below.<br/>3. Replace <code>'YOUR_ADMIN_ROLE_ID_HERE'</code> with your actual Discord Admin Role ID.<br/>4. Click <strong>RUN</strong>, then refresh this page.<br/><br/><pre class="bg-brand-dark text-white p-3 rounded-md text-sm whitespace-pre-wrap"><code>INSERT INTO public.role_permissions (role_id, permissions) <br/>VALUES ('YOUR_ADMIN_ROLE_ID_HERE', '{"_super_admin"}');</code></pre>`
+    en: `You are right, that\'s way too complicated. A direct SQL command is much easier.<br/><br/>1. Go to your Supabase project\'s <strong>SQL Editor</strong>.<br/>2. Copy and paste the command below.<br/>3. Replace <code>'YOUR_ADMIN_ROLE_ID_HERE'</code> with your actual Discord Admin Role ID.<br/>4. Click <strong>RUN</strong>, then refresh this page.<br/><br/><pre class="bg-brand-dark text-white p-3 rounded-md text-sm whitespace-pre-wrap"><code>INSERT INTO public.role_permissions (role_id, permissions) <br/>VALUES ('YOUR_ADMIN_ROLE_ID_HERE', '{"_super_admin"}');</code></pre>`
   },
 
   // Admin Page - Notifications Panel
@@ -285,7 +284,6 @@ export const translations: Translations = {
   health_check_sync_test_result: { ar: 'نتيجة المزامنة', en: 'Sync Result'},
   health_check_result_interpretation: { ar: 'تفسير النتائج', en: 'Interpreting the Results'},
   health_check_result_success: { ar: '<ul><li class="mb-2"><strong>Success (200 OK):</strong> Excellent! The user was found in the guild and their data was fetched successfully. This confirms everything is working.</li>', en: '<ul><li class="mb-2"><strong>Success (200 OK):</strong> Excellent! The user was found in the guild and their data was fetched successfully. This confirms everything is working.</li>'},
-  // FIX: Escaped apostrophes and fixed incorrect Arabic translations that were copy-pasted.
   health_check_result_404: { ar: '<li class="mb-2"><strong>Error (404 Not Found):</strong> هذا يعني أن البوت متصل بديسكورد بشكل صحيح، لكنه لم يتمكن من العثور على المستخدم بهذا المعرف في السيرفر الخاص بك. تحقق من المعرف أو تأكد من أن المستخدم عضو في السيرفر.</li>', en: '<li class="mb-2"><strong>Error (404 Not Found):</strong> This means the bot connected to Discord correctly, but couldn\'t find a user with that ID in your server. Check the ID or ensure the user is a member.</li>'},
   health_check_result_503: { ar: '<li class="mb-2"><strong>Error (503 Service Unavailable):</strong> السبب الأكثر شيوعاً هو أن <strong>Server Members Intent</strong> غير مفعل في بوابة مطوري ديسكورد. اذهب إلى إعدادات البوت الخاص بك وقم بتفعيله.</li>', en: '<li class="mb-2"><strong>Error (503 Service Unavailable):</strong> The most common cause is that the <strong>Server Members Intent</strong> is not enabled in the Discord Developer Portal. Go to your bot\'s settings and turn it on.</li>'},
   health_check_result_other: { ar: '<li><strong>أخطاء أخرى:</strong> عادة ما تشير إلى مشكلة في تكوين البوت أو أنه غير متصل بالإنترنت. تحقق من سجلات البوت لمزيد من التفاصيل.</li></ul>', en: '<li><strong>Other Errors:</strong> Usually indicates a problem with the bot\'s configuration or it being offline. Check the bot\'s logs for more details.</li></ul>'},
