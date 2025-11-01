@@ -11,7 +11,6 @@ interface ConfigContextType {
   refreshConfig: () => Promise<void>;
 }
 
-// FIX: Aligned defaultConfig with the AppConfig type definition by removing invalid properties and adding missing ones.
 const defaultConfig: AppConfig = {
     COMMUNITY_NAME: 'Vixel Roleplay',
     LOGO_URL: 'https://l.top4top.io/p_356271n1v1.png',
@@ -20,12 +19,11 @@ const defaultConfig: AppConfig = {
     MTA_SERVER_URL: 'mtasa://134.255.216.22:22041',
     BACKGROUND_IMAGE_URL: '',
     SHOW_HEALTH_CHECK: false,
-    SUBMISSIONS_CHANNEL_ID: null,
-    SUBMISSIONS_MENTION_ROLE_ID: null,
-    AUDIT_LOG_CHANNEL_ID: null,
-    AUDIT_LOG_CHANNEL_ID_SUBMISSIONS: null,
-    AUDIT_LOG_CHANNEL_ID_BANS: null,
-    AUDIT_LOG_CHANNEL_ID_ADMIN: null,
+    SUBMISSIONS_WEBHOOK_URL: null,
+    AUDIT_LOG_WEBHOOK_URL: null,
+    AUDIT_LOG_SUBMISSIONS_WEBHOOK_URL: null,
+    AUDIT_LOG_BANS_WEBHOOK_URL: null,
+    AUDIT_LOG_ADMIN_WEBHOOK_URL: null,
     SUPABASE_PROJECT_URL: null,
     DISCORD_PROXY_SECRET: null,
 };

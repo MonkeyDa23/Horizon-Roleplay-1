@@ -77,7 +77,7 @@ const AppearancePanel: React.FC = () => {
                 </div>
 
                 <div>
-                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">Discord & Notification Integration</h3>
+                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">Discord & DM Integration</h3>
                     <div className="space-y-6">
                         <InputField labelKey="discord_guild_id" descKey="discord_guild_id_desc" value={settings.DISCORD_GUILD_ID || ''} onChange={val => handleChange('DISCORD_GUILD_ID', val)} />
                         <InputField labelKey="supabase_project_url" descKey="supabase_project_url_desc" value={settings.SUPABASE_PROJECT_URL || ''} onChange={val => handleChange('SUPABASE_PROJECT_URL', val)} placeholder="e.g., https://xyz.supabase.co" />
@@ -86,14 +86,14 @@ const AppearancePanel: React.FC = () => {
                 </div>
                 
                  <div>
-                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">Notification Channels</h3>
+                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">Notification Webhooks</h3>
+                     <p className="text-sm text-gray-400 mb-6 -mt-4">These webhooks are used for sending messages to Discord channels. To get a webhook URL, go to your Discord channel settings {'>'} Integrations {'>'} Webhooks {'>'} New Webhook.</p>
                     <div className="space-y-6">
-                        <InputField labelKey="submissions_channel_id" descKey="submissions_channel_id_desc" value={settings.SUBMISSIONS_CHANNEL_ID} onChange={val => handleChange('SUBMISSIONS_CHANNEL_ID', val)} />
-                        <InputField labelKey="submissions_mention_role_id" descKey="submissions_mention_role_id_desc" value={settings.SUBMISSIONS_MENTION_ROLE_ID} onChange={val => handleChange('SUBMISSIONS_MENTION_ROLE_ID', val)} />
-                        <InputField labelKey="audit_log_channel_id" descKey="audit_log_channel_id_desc" value={settings.AUDIT_LOG_CHANNEL_ID} onChange={val => handleChange('AUDIT_LOG_CHANNEL_ID', val)} />
-                        <InputField labelKey="log_channel_submissions" descKey="log_channel_submissions_desc" value={settings.AUDIT_LOG_CHANNEL_ID_SUBMISSIONS} onChange={val => handleChange('AUDIT_LOG_CHANNEL_ID_SUBMISSIONS', val)} />
-                        <InputField labelKey="log_channel_bans" descKey="log_channel_bans_desc" value={settings.AUDIT_LOG_CHANNEL_ID_BANS} onChange={val => handleChange('AUDIT_LOG_CHANNEL_ID_BANS', val)} />
-                        <InputField labelKey="log_channel_admin" descKey="log_channel_admin_desc" value={settings.AUDIT_LOG_CHANNEL_ID_ADMIN} onChange={val => handleChange('AUDIT_LOG_CHANNEL_ID_ADMIN', val)} />
+                        <InputField labelKey="submissions_webhook_url" descKey="submissions_webhook_url_desc" value={settings.SUBMISSIONS_WEBHOOK_URL} onChange={val => handleChange('SUBMISSIONS_WEBHOOK_URL', val)} />
+                        <InputField labelKey="audit_log_webhook_url" descKey="audit_log_webhook_url_desc" value={settings.AUDIT_LOG_WEBHOOK_URL} onChange={val => handleChange('AUDIT_LOG_WEBHOOK_URL', val)} />
+                        <InputField labelKey="log_webhook_submissions" descKey="log_webhook_submissions_desc" value={settings.AUDIT_LOG_SUBMISSIONS_WEBHOOK_URL} onChange={val => handleChange('AUDIT_LOG_SUBMISSIONS_WEBHOOK_URL', val)} />
+                        <InputField labelKey="log_webhook_bans" descKey="log_webhook_bans_desc" value={settings.AUDIT_LOG_BANS_WEBHOOK_URL} onChange={val => handleChange('AUDIT_LOG_BANS_WEBHOOK_URL', val)} />
+                        <InputField labelKey="log_webhook_admin" descKey="log_webhook_admin_desc" value={settings.AUDIT_LOG_ADMIN_WEBHOOK_URL} onChange={val => handleChange('AUDIT_LOG_ADMIN_WEBHOOK_URL', val)} />
                     </div>
                 </div>
 

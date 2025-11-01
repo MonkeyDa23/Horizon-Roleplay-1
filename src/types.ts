@@ -188,6 +188,7 @@ export interface DiscordWidget {
     position: number;
 }
 
+// FIX: Updated AppConfig to use webhook URLs instead of channel IDs, matching the database schema and component usage.
 export interface AppConfig {
     SUPABASE_PROJECT_URL: string | null;
     DISCORD_PROXY_SECRET: string | null;
@@ -198,12 +199,11 @@ export interface AppConfig {
     MTA_SERVER_URL: string;
     BACKGROUND_IMAGE_URL: string;
     SHOW_HEALTH_CHECK: boolean;
-    SUBMISSIONS_CHANNEL_ID: string | null;
-    SUBMISSIONS_MENTION_ROLE_ID: string | null;
-    AUDIT_LOG_CHANNEL_ID: string | null;
-    AUDIT_LOG_CHANNEL_ID_SUBMISSIONS: string | null;
-    AUDIT_LOG_CHANNEL_ID_BANS: string | null;
-    AUDIT_LOG_CHANNEL_ID_ADMIN: string | null;
+    SUBMISSIONS_WEBHOOK_URL: string | null;
+    AUDIT_LOG_WEBHOOK_URL: string | null;
+    AUDIT_LOG_SUBMISSIONS_WEBHOOK_URL: string | null;
+    AUDIT_LOG_BANS_WEBHOOK_URL: string | null;
+    AUDIT_LOG_ADMIN_WEBHOOK_URL: string | null;
 }
 
 // =============================================
