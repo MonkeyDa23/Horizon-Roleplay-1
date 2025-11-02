@@ -45,15 +45,14 @@ const AppearancePanel: React.FC = () => {
         );
     }
     
-    const InputField = ({ labelKey, descKey, value, onChange, placeholder, isPassword }: { labelKey: string, descKey?: string, value: string | null, onChange: (val: string) => void, placeholder?: string, isPassword?: boolean }) => (
+    const InputField = ({ labelKey, descKey, value, onChange }: { labelKey: string, descKey?: string, value: string | null, onChange: (val: string) => void }) => (
         <div>
             <label className="block text-lg font-semibold text-white mb-1">{t(labelKey)}</label>
             {descKey && <p className="text-sm text-gray-400 mb-2">{t(descKey)}</p>}
             <input 
-                type={isPassword ? "password" : "text"}
+                type="text"
                 value={value || ''}
                 onChange={(e) => onChange(e.target.value)}
-                placeholder={placeholder}
                 className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan"
             />
         </div>
@@ -84,15 +83,6 @@ const AppearancePanel: React.FC = () => {
                         <InputField labelKey="mta_server_url" descKey="mta_server_url_desc" value={settings.MTA_SERVER_URL || ''} onChange={val => handleChange('MTA_SERVER_URL', val)} />
                     </div>
                 </div>
-
-                 <div>
-                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">{t('advanced_integration_settings')}</h3>
-                    <div className="space-y-6">
-                         <InputField labelKey="supabase_project_url" descKey="supabase_project_url_desc" value={settings.SUPABASE_PROJECT_URL || ''} onChange={val => handleChange('SUPABASE_PROJECT_URL', val)} placeholder="e.g., https://xyz.supabase.co" />
-                        <InputField labelKey="discord_proxy_secret" descKey="discord_proxy_secret_desc" value={settings.DISCORD_PROXY_SECRET || ''} onChange={val => handleChange('DISCORD_PROXY_SECRET', val)} isPassword />
-                    </div>
-                </div>
-
             </div>
         </div>
     );

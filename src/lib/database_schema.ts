@@ -1,36 +1,18 @@
 // src/lib/database_schema.ts
-export const DATABASE_SCHEMA = `-- Vixel Roleplay Community Hub - Database Schema
--- Version: 2.3.0 (Admin Panel & Notification Refactor)
+export const DATABASE_SCHEMA = `
+-- Vixel Roleplay Community Hub - Database Schema
+-- Version: 4.0.0 (Webhook Notification System)
 -- This script is idempotent and can be run multiple times.
 
 -- 1. EXTENSIONS & SCHEMA SETUP
 -- =============================================
--- Enable necessary extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA "extensions";
-CREATE EXTENSION IF NOT EXISTS "http" WITH SCHEMA "extensions";
-CREATE EXTENSION IF NOT EXISTS "pg_net" WITH SCHEMA "extensions";
-
--- Grant usage for webhooks and functions to make outbound requests.
--- This section is corrected to work with various Supabase project configurations
--- by granting permissions to standard roles instead of the newer 'supabase_functions' role
--- which may not exist in all projects, causing the migration to fail.
--- Granting to 'postgres', 'authenticated', and 'service_role' ensures that migrations,
--- authenticated users, and server-side functions can use the necessary extensions.
-
--- Grant usage on schemas.
-GRANT USAGE ON SCHEMA "extensions" TO "postgres", "authenticated", "service_role";
--- The pg_net extension's functions reside in the 'net' schema, which also needs permissions.
-GRANT USAGE ON SCHEMA "net" TO "postgres", "authenticated", "service_role";
-
--- Grant execute permissions on functions within those schemas.
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA "extensions" TO "postgres", "authenticated", "service_role";
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA "net" TO "postgres", "authenticated", "service_role";
-
+CREATE EXTENSION IF NOT EXISTS "http" WITH SCHEMA "public"; -- Required for webhooks
 
 -- 2. TABLES
 -- =============================================
 
--- Profiles table to store user-specific data, linked to auth.users
+-- Profiles table
 CREATE TABLE IF NOT EXISTS "public"."profiles" (
     "id" "uuid" NOT NULL PRIMARY KEY REFERENCES "auth"."users"("id") ON DELETE CASCADE,
     "discord_id" "text" UNIQUE,
@@ -41,9 +23,8 @@ CREATE TABLE IF NOT EXISTS "public"."profiles" (
     "ban_reason" "text",
     "ban_expires_at" timestamptz
 );
-COMMENT ON TABLE "public"."profiles" IS 'Stores user profile data synced from Discord. The "roles" column contains an array of role objects.';
 
--- Singleton configuration table
+-- Config table (MODIFIED for Webhooks)
 CREATE TABLE IF NOT EXISTS "public"."config" (
     "id" smallint PRIMARY KEY DEFAULT 1,
     "COMMUNITY_NAME" "text" NOT NULL DEFAULT 'Vixel Roleplay',
@@ -52,22 +33,15 @@ CREATE TABLE IF NOT EXISTS "public"."config" (
     "DISCORD_GUILD_ID" "text",
     "DISCORD_INVITE_URL" "text" DEFAULT 'https://discord.gg/your-invite',
     "MTA_SERVER_URL" "text" DEFAULT 'mtasa://your.server.ip:port',
-    "SHOW_HEALTH_CHECK" boolean NOT NULL DEFAULT true,
-    "SUPABASE_PROJECT_URL" "text",
-    "DISCORD_PROXY_SECRET" "text",
-    CONSTRAINT "config_singleton" CHECK ("id" = 1)
+    "SHOW_HEALTH_CHECK" boolean NOT NULL DEFAULT true
 );
-COMMENT ON TABLE "public"."config" IS 'Site-wide configuration settings.';
--- Seed config table if it's empty
+-- Idempotent ALTER statements to switch from channel IDs to webhooks
+ALTER TABLE "public"."config" DROP COLUMN IF EXISTS "SUBMISSION_NOTIFICATION_CHANNEL_ID";
+ALTER TABLE "public"."config" DROP COLUMN IF EXISTS "AUDIT_LOG_NOTIFICATION_CHANNEL_ID";
+ALTER TABLE "public"."config" ADD COLUMN IF NOT EXISTS "SUBMISSION_WEBHOOK_URL" "text";
+ALTER TABLE "public"."config" ADD COLUMN IF NOT EXISTS "AUDIT_LOG_WEBHOOK_URL" "text";
+-- Ensure the default config row exists
 INSERT INTO "public"."config" (id) SELECT 1 WHERE NOT EXISTS (SELECT 1 FROM "public"."config" WHERE id=1);
-
--- Remove deprecated webhook URL columns
-ALTER TABLE "public"."config"
-DROP COLUMN IF EXISTS "SUBMISSIONS_WEBHOOK_URL",
-DROP COLUMN IF EXISTS "AUDIT_LOG_WEBHOOK_URL",
-DROP COLUMN IF EXISTS "AUDIT_LOG_SUBMISSIONS_WEBHOOK_URL",
-DROP COLUMN IF EXISTS "AUDIT_LOG_BANS_WEBHOOK_URL",
-DROP COLUMN IF EXISTS "AUDIT_LOG_ADMIN_WEBHOOK_URL";
 
 
 -- Translations table
@@ -76,7 +50,6 @@ CREATE TABLE IF NOT EXISTS "public"."translations" (
     "en" "text" NOT NULL,
     "ar" "text" NOT NULL
 );
-COMMENT ON TABLE "public"."translations" IS 'Stores key-value pairs for multilingual support.';
 
 -- Products for the store
 CREATE TABLE IF NOT EXISTS "public"."products" (
@@ -86,7 +59,6 @@ CREATE TABLE IF NOT EXISTS "public"."products" (
     "price" "numeric" NOT NULL DEFAULT 0,
     "imageUrl" "text"
 );
-COMMENT ON TABLE "public"."products" IS 'Store items available for purchase.';
 
 -- Quizzes (application forms)
 CREATE TABLE IF NOT EXISTS "public"."quizzes" (
@@ -100,7 +72,6 @@ CREATE TABLE IF NOT EXISTS "public"."quizzes" (
     "bannerUrl" "text",
     "lastOpenedAt" timestamptz
 );
-COMMENT ON TABLE "public"."quizzes" IS 'Application forms and their questions.';
 
 -- Submissions for quizzes
 CREATE TABLE IF NOT EXISTS "public"."submissions" (
@@ -119,7 +90,6 @@ CREATE TABLE IF NOT EXISTS "public"."submissions" (
     "user_highest_role" "text",
     "reason" "text"
 );
-COMMENT ON TABLE "public"."submissions" IS 'User-submitted applications.';
 
 -- Rule categories
 CREATE TABLE IF NOT EXISTS "public"."rule_categories" (
@@ -127,7 +97,6 @@ CREATE TABLE IF NOT EXISTS "public"."rule_categories" (
     "titleKey" "text" NOT NULL,
     "position" integer NOT NULL DEFAULT 0
 );
-COMMENT ON TABLE "public"."rule_categories" IS 'Categories for organizing server rules.';
 
 -- Individual rules
 CREATE TABLE IF NOT EXISTS "public"."rules" (
@@ -135,14 +104,12 @@ CREATE TABLE IF NOT EXISTS "public"."rules" (
     "category_id" "uuid" NOT NULL REFERENCES "public"."rule_categories"("id") ON DELETE CASCADE,
     "textKey" "text" NOT NULL
 );
-COMMENT ON TABLE "public"."rules" IS 'Individual server rules, grouped by category.';
 
 -- Role permissions mapping
 CREATE TABLE IF NOT EXISTS "public"."role_permissions" (
     "role_id" "text" PRIMARY KEY,
     "permissions" "text"[] NOT NULL DEFAULT '{}'
 );
-COMMENT ON TABLE "public"."role_permissions" IS 'Maps Discord role IDs to website permission keys.';
 
 -- Audit logs for admin actions
 CREATE TABLE IF NOT EXISTS "public"."audit_logs" (
@@ -152,7 +119,6 @@ CREATE TABLE IF NOT EXISTS "public"."audit_logs" (
     "admin_username" "text" NOT NULL,
     "action" "text" NOT NULL
 );
-COMMENT ON TABLE "public"."audit_logs" IS 'Logs actions performed by administrators.';
 
 -- Discord widgets for the "About Us" page
 CREATE TABLE IF NOT EXISTS "public"."discord_widgets" (
@@ -162,19 +128,100 @@ CREATE TABLE IF NOT EXISTS "public"."discord_widgets" (
     "invite_url" "text" NOT NULL,
     "position" integer NOT NULL DEFAULT 0
 );
-COMMENT ON TABLE "public"."discord_widgets" IS 'Discord server widgets for the About Us page.';
 
 
--- 3. FUNCTIONS
+-- 3. FUNCTIONS (Webhook System)
 -- =============================================
 
--- [CORRECTED] Get a user's permissions based on their roles
--- This function correctly extracts role IDs from the JSONB roles array in the profiles table.
-CREATE OR REPLACE FUNCTION "public"."get_user_permissions"("p_user_id" "uuid")
-RETURNS "text"[]
-LANGUAGE "sql"
+-- NEW: Function to send a payload to a webhook
+CREATE OR REPLACE FUNCTION public.send_webhook(webhook_url text, payload jsonb)
+RETURNS void
+LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
+BEGIN
+    IF webhook_url IS NOT NULL AND webhook_url <> '' THEN
+        PERFORM public.http_post(
+            webhook_url,
+            payload,
+            'application/json'::text,
+            '{}'::jsonb
+        );
+    END IF;
+END;
+$$;
+
+
+-- NEW: Trigger function for new submissions
+CREATE OR REPLACE FUNCTION public.handle_new_submission_webhook()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    config_row record;
+    payload jsonb;
+BEGIN
+    SELECT "SUBMISSION_WEBHOOK_URL", "COMMUNITY_NAME", "LOGO_URL" INTO config_row FROM public.config WHERE id = 1;
+    
+    payload := jsonb_build_object(
+        'embeds', jsonb_build_array(
+            jsonb_build_object(
+                'title', '📝 New Application Received!',
+                'color', 62194, -- #00f2ea
+                'fields', jsonb_build_array(
+                    jsonb_build_object('name', 'Applicant', 'value', NEW.username, 'inline', true),
+                    jsonb_build_object('name', 'Application Type', 'value', NEW.quizTitle, 'inline', true),
+                    jsonb_build_object('name', 'Highest Role', 'value', COALESCE(NEW.user_highest_role, 'Member'), 'inline', true)
+                ),
+                'footer', jsonb_build_object('text', config_row.COMMUNITY_NAME, 'icon_url', config_row.LOGO_URL),
+                'timestamp', to_char(NEW.submittedAt, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+            )
+        )
+    );
+    
+    PERFORM public.send_webhook(config_row.SUBMISSION_WEBHOOK_URL, payload);
+    RETURN NEW;
+END;
+$$;
+
+-- NEW: Trigger function for new audit logs
+CREATE OR REPLACE FUNCTION public.handle_new_audit_log_webhook()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    config_row record;
+    payload jsonb;
+BEGIN
+    SELECT "AUDIT_LOG_WEBHOOK_URL", "COMMUNITY_NAME", "LOGO_URL" INTO config_row FROM public.config WHERE id = 1;
+
+    payload := jsonb_build_object(
+        'embeds', jsonb_build_array(
+            jsonb_build_object(
+                'title', '🛡️ Admin Action Logged',
+                'color', 15105570, -- #e67e22
+                'fields', jsonb_build_array(
+                    jsonb_build_object('name', 'Admin', 'value', NEW.admin_username, 'inline', true),
+                    jsonb_build_object('name', 'Action', 'value', NEW.action, 'inline', false)
+                ),
+                'footer', jsonb_build_object('text', config_row.COMMUNITY_NAME, 'icon_url', config_row.LOGO_URL),
+                'timestamp', to_char(NEW.timestamp, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+            )
+        )
+    );
+
+    PERFORM public.send_webhook(config_row.AUDIT_LOG_WEBHOOK_URL, payload);
+    RETURN NEW;
+END;
+$$;
+
+
+-- 4. OTHER FUNCTIONS & TRIGGERS
+-- =============================================
+
+-- Get a user's permissions based on their roles
+CREATE OR REPLACE FUNCTION "public"."get_user_permissions"("p_user_id" "uuid")
+RETURNS "text"[] LANGUAGE "sql" SECURITY DEFINER AS $$
     SELECT COALESCE(array_agg(DISTINCT "p"), '{}'::"text"[])
     FROM (
         SELECT "unnest"("permissions") AS "p"
@@ -187,107 +234,20 @@ AS $$
         )
     ) AS "user_perms";
 $$;
-COMMENT ON FUNCTION "public"."get_user_permissions"(uuid) IS 'Aggregates all permission keys for a user based on their roles stored in the profiles table.';
 
 -- Check if a user has a specific permission
 CREATE OR REPLACE FUNCTION "public"."has_permission"("p_user_id" "uuid", "p_permission_key" "text")
-RETURNS boolean
-LANGUAGE "plpgsql"
-SECURITY DEFINER
-AS $$
-DECLARE
-    "user_permissions" "text"[];
+RETURNS boolean LANGUAGE "plpgsql" SECURITY DEFINER AS $$
+DECLARE "user_permissions" "text"[];
 BEGIN
-    -- This function MUST be SECURITY DEFINER to be able to call get_user_permissions,
-    -- which needs to read the profiles and role_permissions tables for any user.
     SELECT "public"."get_user_permissions"("p_user_id") INTO "user_permissions";
-    RETURN "_super_admin" = ANY("user_permissions") OR "p_permission_key" = ANY("user_permissions");
+    RETURN '_super_admin' = ANY("user_permissions") OR "p_permission_key" = ANY("user_permissions");
 END;
 $$;
-COMMENT ON FUNCTION "public"."has_permission"(uuid, text) IS 'Checks if a user has a specific permission, with _super_admin granting all permissions.';
-
--- Function to send a notification payload to the discord-proxy edge function
-CREATE OR REPLACE FUNCTION "public"."notify_discord_proxy"("payload" "jsonb")
-RETURNS "void"
-LANGUAGE "plpgsql"
-AS $$
-DECLARE
-    "project_url" "text";
-    "proxy_secret" "text";
-    "proxy_url" "text";
-BEGIN
-    SELECT "SUPABASE_PROJECT_URL", "DISCORD_PROXY_SECRET"
-    INTO "project_url", "proxy_secret"
-    FROM "public"."config" WHERE "id" = 1;
-
-    IF "project_url" IS NULL OR "proxy_secret" IS NULL THEN
-        RAISE WARNING '[notify_discord_proxy] Discord proxy URL or secret not configured in the config table. Notification skipped.';
-        RETURN;
-    END IF;
-
-    "proxy_url" := "project_url" || '/functions/v1/discord-proxy';
-
-    PERFORM "net"."http_post"(
-        "url" := "proxy_url",
-        "headers" := "jsonb_build_object"(
-            'Content-Type', 'application/json',
-            'Authorization', 'Bearer ' || "proxy_secret"
-        ),
-        "body" := "payload",
-        "timeout_milliseconds" := 5000
-    );
-END;
-$$;
-COMMENT ON FUNCTION "public"."notify_discord_proxy"(jsonb) IS 'Makes an authenticated POST request to the discord-proxy edge function to send notifications.';
-
--- Trigger function to handle submission notifications
-CREATE OR REPLACE FUNCTION "public"."handle_submission_notification"()
-RETURNS "trigger"
-LANGUAGE "plpgsql"
-SECURITY DEFINER
-AS $$
-BEGIN
-    IF TG_OP = 'INSERT' THEN
-        -- Notify admins of new submission
-        PERFORM "public"."notify_discord_proxy"("jsonb_build_object"('type', 'new_submission', 'payload', jsonb_build_object('quizTitle', NEW."quizTitle", 'username', NEW."username", 'userHighestRole', NEW."user_highest_role")));
-        -- Send receipt DM to user
-        PERFORM "public"."notify_discord_proxy"("jsonb_build_object"('type', 'submission_receipt', 'payload', jsonb_build_object('userId', NEW."user_id", 'quizTitle', NEW."quizTitle", 'username', NEW."username")));
-    ELSIF TG_OP = 'UPDATE' AND OLD."status" <> NEW."status" THEN
-        -- Notify user of status change
-        PERFORM "public"."notify_discord_proxy"("jsonb_build_object"('type', 'submission_result', 'payload', jsonb_build_object('userId', NEW."user_id", 'quizTitle', NEW."quizTitle", 'username', NEW."username", 'status', NEW."status", 'adminUsername', NEW."adminUsername")));
-    END IF;
-    RETURN NEW;
-END;
-$$;
-COMMENT ON FUNCTION "public"."handle_submission_notification"() IS 'Constructs and sends notification payloads when a submission is created or its status changes.';
-
--- Function for health check to test http extension
-CREATE OR REPLACE FUNCTION "public"."test_http_request"()
-RETURNS "jsonb"
-LANGUAGE "plpgsql"
-AS $$
-DECLARE
-  "response" "extensions"."http_response";
-BEGIN
-  SELECT *
-  INTO "response"
-  FROM "extensions"."http_get"('http://worldtimeapi.org/api/ip');
-
-  RETURN "jsonb_build_object"('status', "response"."status", 'data', "response"."content"::"jsonb");
-EXCEPTION
-  WHEN OTHERS THEN
-    RETURN "jsonb_build_object"('status', 500, 'error', SQLERRM);
-END;
-$$;
-COMMENT ON FUNCTION "public"."test_http_request"() IS 'A simple function for the Health Check page to verify that the http extension is enabled and working.';
-
 
 -- Trigger function to log various admin actions
 CREATE OR REPLACE FUNCTION "public"."log_admin_actions"()
-RETURNS "trigger"
-LANGUAGE "plpgsql"
-SECURITY DEFINER
-AS $$
+RETURNS "trigger" LANGUAGE "plpgsql" SECURITY DEFINER AS $$
 DECLARE
     "user_id" "uuid" := "auth"."uid"();
     "user_name" "text" := COALESCE((SELECT "raw_user_meta_data" ->> 'global_name' FROM "auth"."users" WHERE "id" = "user_id"), 'Unknown Admin');
@@ -319,35 +279,40 @@ BEGIN
     RETURN COALESCE(NEW, OLD);
 END;
 $$;
-COMMENT ON FUNCTION "public"."log_admin_actions"() IS 'A generic trigger function that logs various changes made by admins to the audit_logs table.';
 
 
--- 4. TRIGGERS
+-- 5. TRIGGERS (Complete Refresh)
 -- =============================================
 
--- Drop existing triggers to prevent duplicates and ensure the latest logic is applied
+-- Drop ALL old notification-related triggers to ensure a clean slate
 DROP TRIGGER IF EXISTS "on_submission_change_notify" ON "public"."submissions";
+DROP TRIGGER IF EXISTS "trigger_new_submission_webhook" ON "public"."submissions";
+DROP TRIGGER IF EXISTS "trigger_new_audit_log_webhook" ON "public"."audit_logs";
+
+-- NEW: Trigger for new submissions (webhook notification)
+CREATE TRIGGER trigger_new_submission_webhook
+AFTER INSERT ON public.submissions
+FOR EACH ROW EXECUTE FUNCTION public.handle_new_submission_webhook();
+
+-- NEW: Trigger for new audit logs (webhook notification)
+CREATE TRIGGER trigger_new_audit_log_webhook
+AFTER INSERT ON public.audit_logs
+FOR EACH ROW EXECUTE FUNCTION public.handle_new_audit_log_webhook();
+
+-- Admin action logging triggers (these CREATE the logs, the triggers above SEND them)
 DROP TRIGGER IF EXISTS "log_quizzes_changes" ON "public"."quizzes";
 DROP TRIGGER IF EXISTS "log_products_changes" ON "public"."products";
 DROP TRIGGER IF EXISTS "log_submissions_status_changes" ON "public"."submissions";
 DROP TRIGGER IF EXISTS "log_profile_ban_changes" ON "public"."profiles";
 
--- Create trigger for submission notifications
-CREATE TRIGGER "on_submission_change_notify"
-AFTER INSERT OR UPDATE OF "status" ON "public"."submissions"
-FOR EACH ROW
-EXECUTE FUNCTION "public"."handle_submission_notification"();
-
--- Create triggers for audit logging
 CREATE TRIGGER "log_quizzes_changes" AFTER INSERT OR UPDATE OR DELETE ON "public"."quizzes" FOR EACH ROW EXECUTE FUNCTION "public"."log_admin_actions"();
 CREATE TRIGGER "log_products_changes" AFTER INSERT OR UPDATE OR DELETE ON "public"."products" FOR EACH ROW EXECUTE FUNCTION "public"."log_admin_actions"();
 CREATE TRIGGER "log_submissions_status_changes" AFTER UPDATE OF "status" ON "public"."submissions" FOR EACH ROW EXECUTE FUNCTION "public"."log_admin_actions"();
 CREATE TRIGGER "log_profile_ban_changes" AFTER UPDATE OF "is_banned" ON "public"."profiles" FOR EACH ROW EXECUTE FUNCTION "public"."log_admin_actions"();
 
 
--- 5. ROW LEVEL SECURITY (RLS)
+-- 6. ROW LEVEL SECURITY (RLS)
 -- =============================================
--- Enable RLS on all tables
 ALTER TABLE "public"."profiles" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."config" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."translations" ENABLE ROW LEVEL SECURITY;
@@ -360,7 +325,6 @@ ALTER TABLE "public"."role_permissions" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."audit_logs" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."discord_widgets" ENABLE ROW LEVEL SECURITY;
 
--- Clear old policies to ensure a clean slate
 DROP POLICY IF EXISTS "Allow users to see their own profile" ON "public"."profiles";
 DROP POLICY IF EXISTS "Allow admins to see all profiles" ON "public"."profiles";
 DROP POLICY IF EXISTS "Allow public read access" ON "public"."config";
@@ -383,12 +347,9 @@ DROP POLICY IF EXISTS "Allow admins to manage rules" ON "public"."rules";
 DROP POLICY IF EXISTS "Allow admins to manage rule categories" ON "public"."rule_categories";
 DROP POLICY IF EXISTS "Allow admins to manage widgets" ON "public"."discord_widgets";
 
-
--- Create policies for profiles
 CREATE POLICY "Allow users to see their own profile" ON "public"."profiles" FOR SELECT USING ("auth"."uid"() = "id");
 CREATE POLICY "Allow admins to see all profiles" ON "public"."profiles" FOR SELECT USING ("public"."has_permission"("auth"."uid"(), 'admin_lookup'));
 
--- Create policies for public read tables
 CREATE POLICY "Allow public read access" ON "public"."config" FOR SELECT USING (true);
 CREATE POLICY "Allow public read access" ON "public"."translations" FOR SELECT USING (true);
 CREATE POLICY "Allow public read access" ON "public"."products" FOR SELECT USING (true);
@@ -397,12 +358,10 @@ CREATE POLICY "Allow public read access" ON "public"."rule_categories" FOR SELEC
 CREATE POLICY "Allow public read access" ON "public"."rules" FOR SELECT USING (true);
 CREATE POLICY "Allow public read access" ON "public"."discord_widgets" FOR SELECT USING (true);
 
--- Create policies for submissions
 CREATE POLICY "Allow users to create submissions" ON "public"."submissions" FOR INSERT WITH CHECK ("auth"."uid"() = "user_id");
 CREATE POLICY "Allow users to see their own submissions" ON "public"."submissions" FOR SELECT USING ("auth"."uid"() = "user_id");
 CREATE POLICY "Allow admins to manage submissions" ON "public"."submissions" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_submissions'));
 
--- Create policies for admin-only tables
 CREATE POLICY "Allow admins full access" ON "public"."role_permissions" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_permissions'));
 CREATE POLICY "Allow admins full access" ON "public"."audit_logs" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_audit_log'));
 CREATE POLICY "Allow admins to manage config" ON "public"."config" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_appearance'));

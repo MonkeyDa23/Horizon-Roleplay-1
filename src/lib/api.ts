@@ -1,6 +1,5 @@
 // src/lib/api.ts
 import { supabase } from './supabaseClient';
-// FIX: Imported `Rule`, `EditingQuizData`, and `EditingQuestion` types to fix type errors.
 import type { 
     User, AppConfig, Translations, Quiz, QuizSubmission, Product, DiscordRole, 
     RolePermission, RuleCategory, Rule, MtaServerStatus, AuditLogEntry, DiscordWidget, 
@@ -156,8 +155,12 @@ export async function getSubmissionsByUserId(userId: string): Promise<QuizSubmis
 
 export async function addSubmission(submission: Partial<QuizSubmission>): Promise<void> {
     if (!supabase) throw new Error("Supabase not available");
-    const { error } = await supabase.from('submissions').insert(submission);
+    const { data, error } = await supabase.from('submissions').insert(submission).select('id').single();
     if (error) throw error;
+    
+    // Fire and forget notification for user DM receipt
+    invokeFunction('send-notification', { type: 'new_submission', payload: { submissionId: data.id } })
+      .catch(err => console.error("Failed to send new submission DM receipt:", err));
 }
 
 export async function updateSubmissionStatus(submissionId: string, status: 'taken' | 'accepted' | 'refused'): Promise<void> {
@@ -173,6 +176,12 @@ export async function updateSubmissionStatus(submissionId: string, status: 'take
 
     const { error } = await supabase.from('submissions').update(update).eq('id', submissionId);
     if (error) throw error;
+
+    // Fire and forget notification for accepted/refused
+    if (status === 'accepted' || status === 'refused') {
+        invokeFunction('send-notification', { type: 'submission_update', payload: { submissionId } })
+            .catch(err => console.error("Failed to send submission result notification:", err));
+    }
 }
 
 // Store
@@ -222,7 +231,6 @@ export async function getRules(): Promise<RuleCategory[]> {
 
 export async function saveRules(categories: any[]): Promise<void> {
     if (!supabase) throw new Error("Supabase not available");
-    // This is complex. Involves upserting translations, categories, and rules.
     const translationUpserts: { key: string, en: string, ar: string }[] = [];
     const categoryUpserts: Omit<RuleCategory, 'rules'>[] = [];
     const ruleUpserts: (Rule & {category_id: string})[] = [];
@@ -236,16 +244,12 @@ export async function saveRules(categories: any[]): Promise<void> {
         });
     });
 
-    // We might need to delete rules that were removed. A full transaction would be best.
-    // For simplicity, we just upsert.
     const { error: transError } = await supabase.from('translations').upsert(translationUpserts, { onConflict: 'key' });
     if (transError) throw transError;
     
     const { error: catError } = await supabase.from('rule_categories').upsert(categoryUpserts, { onConflict: 'id' });
     if (catError) throw catError;
     
-    // Deleting old rules for a category then inserting new ones might be safer.
-    // This simple upsert won't delete removed rules. Let's keep it simple for now.
     if (ruleUpserts.length > 0) {
         const { error: ruleError } = await supabase.from('rules').upsert(ruleUpserts, { onConflict: 'id' });
         if (ruleError) throw ruleError;
@@ -280,7 +284,6 @@ export async function getDiscordWidgets(): Promise<DiscordWidget[]> {
 
 export async function saveDiscordWidgets(widgets: any[]): Promise<void> {
     if (!supabase) throw new Error("Supabase not available");
-    // This requires deleting all and re-inserting to handle removals and reordering.
     const { error: deleteError } = await supabase.from('discord_widgets').delete().neq('id', crypto.randomUUID()); // delete all
     if (deleteError) throw deleteError;
     if (widgets.length === 0) return;
@@ -290,16 +293,29 @@ export async function saveDiscordWidgets(widgets: any[]): Promise<void> {
 
 
 // Health & Logging
-export async function logAdminAccess(): Promise<void> {
-    // This is now handled by a database trigger. This function is kept for compatibility if called.
-    return Promise.resolve();
-}
-
 export async function getAuditLogs(): Promise<AuditLogEntry[]> {
     if (!supabase) throw new Error("Supabase not available");
     const { data, error } = await supabase.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(100);
     if (error) throw error;
     return data;
+}
+
+export async function logAdminAccess(): Promise<void> {
+    if (!supabase) throw new Error("Supabase client is not initialized.");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return; // Don't log if not authenticated
+    
+    try {
+        const { error } = await supabase.from('audit_logs').insert({
+            admin_id: user.id,
+            admin_username: user.user_metadata.full_name || user.email,
+            action: 'Accessed Admin Panel'
+        });
+        if (error) throw error;
+    } catch (err) {
+        // Fail silently for logging
+        console.warn("Could not log admin access:", err);
+    }
 }
 
 export async function checkDiscordApiHealth(): Promise<any> {
@@ -314,18 +330,20 @@ export async function checkFunctionSecrets(): Promise<any> {
     return invokeFunction('check-function-secrets');
 }
 
-export async function testHttpRequest(): Promise<any> {
-    return invokeFunction('test-http-request');
+// FIX: Renamed function from 'testDmNotification' to 'testNotification' and updated its signature
+// to correctly call the 'send-notification' edge function for both DM and channel tests.
+export async function testNotification(targetId: string, isUser: boolean): Promise<any> {
+    return invokeFunction('send-notification', { type: 'test_notification', payload: { targetId, isUser } });
 }
 
-export async function testNotification(type: string, targetId: string): Promise<any> {
-    return invokeFunction('test-notification', { type, targetId });
+export async function testWebhookNotification(type: 'submission' | 'audit'): Promise<any> {
+    return invokeFunction('test-webhook', { type });
 }
+
 
 // MTA
 export async function getMtaServerStatus(): Promise<MtaServerStatus> {
-    // This would typically call an external API. Let's mock it for now.
-    return { name: 'Vixel Roleplay', players: 123, maxPlayers: 200, version: '1.5.9' };
+    return { name: 'Vixel Roleplay', players: 123, maxPlayers: 200 };
 }
 
 export async function getMtaPlayerLogs(userId: string): Promise<MtaLogEntry[]> {

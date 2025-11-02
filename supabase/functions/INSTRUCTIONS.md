@@ -1,6 +1,6 @@
-# Supabase & Bot Setup Guide (V10 - Enhanced Notifications)
+# Supabase & Bot Setup Guide (V11 - Direct Notifications)
 
-This guide provides the complete, simplified instructions for deploying and configuring the backend for your website. This architecture uses a **Supabase Database Function** to call a secure **Supabase Edge Function (`discord-proxy`)**, which then reliably communicates with your **self-hosted Discord bot**.
+This guide provides the complete, simplified instructions for deploying and configuring the backend for your website. This architecture uses a **client-driven** approach where your website calls a secure **Supabase Edge Function (`send-notification`)**, which then communicates with your **self-hosted Discord bot**.
 
 This is the most robust and easy-to-debug setup. **Please follow these steps exactly.**
 
@@ -23,62 +23,51 @@ You must deploy the required functions from the `supabase/functions` directory.
 - `check-bot-health`
 - `check-function-secrets`
 - `troubleshoot-user-sync`
-- `test-notification`
-- `discord-proxy` (This one is critical for notifications)
+- `send-notification` (The new, unified notification handler)
 
 ---
 
 ## Step 2: Set Function Secrets
 
-These secrets allow your Edge Functions to securely communicate with your bot and with each other.
+These secrets allow your Edge Functions to securely communicate with your bot.
 
 1.  Go to Supabase Project -> **Settings** (gear icon) -> **Edge Functions**.
-2.  Under the **"Secrets"** section, add the following three secrets.
+2.  Under the **"Secrets"** section, add the following two secrets.
 
 | Secret Name                | Value                                                                       | Where to get it?                                                              |
 | -------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
 | `VITE_DISCORD_BOT_URL`     | The full URL of your bot. **Ex:** `http://123.45.67.89:14355`                 | The public IP/domain of the server where you are running the `discord-bot`.     |
 | `VITE_DISCORD_BOT_API_KEY` | The secret password from your bot's `config.json` file.                     | You create this. It MUST match the `API_SECRET_KEY` in the bot's config.    |
-| `DISCORD_PROXY_SECRET`     | The secret password you will also put in the website admin panel.           | **YOU CREATE THIS.** It MUST match what you put in Admin Panel -> Appearance. |
-
 
 ---
 
 ## Step 3: Run the Database Schema (VERY IMPORTANT)
 
-This script sets up all your tables and backend functions in the database, including the new robust notification system.
+This script sets up all your tables and backend helper functions in the database.
 
 1.  Go to Supabase Project -> **SQL Editor**.
 2.  Click **"+ New query"**.
 3.  Copy the ENTIRE content of the file at `src/lib/database_schema.ts`.
 4.  Paste it into the editor and click **"RUN"**.
 
-This script will automatically enable the `http` extension required for the database to send notifications via the proxy.
+This script is now much simpler as it no longer contains the complex webhook triggers.
 
 ---
 
-## Step 4: Configure Notification System in Admin Panel (CRITICAL)
+## Step 4: Configure Notification Channels in Admin Panel
 
-The database needs to know how to contact its own `discord-proxy` function. You will set this from the website's admin panel.
+You need to tell the website which Discord channels to send notifications to.
 
 1.  Log into your website with your admin account.
 2.  Navigate to the **Admin Panel**.
-3.  Go to the **Appearance** tab.
-4.  Scroll down to the **"Advanced Integration Settings"** section.
-5.  Fill in the following two fields:
-
-    -   **Supabase Project URL**:
-        -   **Where to find it:** Go to your Supabase Dashboard -> Project Settings -> API. Copy the **Project URL**.
-        -   **Example:** `https://yourprojectid.supabase.co`
-
-    -   **Discord Proxy Secret**:
-        -   **What it is:** This is a password YOU create. It acts as a secret handshake between your database and your `discord-proxy` function.
-        -   **Action:** Create a strong, random password and paste it here. **THIS MUST EXACTLY MATCH the `DISCORD_PROXY_SECRET` you created in the Edge Function secrets in Step 2.**
-
-6.  Click **"Save Settings"**.
+3.  Go to the **Notifications** tab.
+4.  Fill in the **Channel IDs** for:
+    -   **Submission Channel**: Where new application notifications will be sent.
+    -   **Audit Log Channel**: Where admin action logs will be sent.
+5.  Click **"Save Settings"**.
 
 ---
 
 ## Final Check
 
-After completing all steps, your backend should be fully operational. You can use the **Health Check** page in the Admin Panel to verify all connections. If notifications still fail, any error will now appear instantly on the website, telling you exactly what went wrong.
+After completing all steps, your backend should be fully operational. You can use the **Health Check** page in the Admin Panel to verify all connections and send test notifications to ensure everything is working correctly.

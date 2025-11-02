@@ -37,7 +37,7 @@ export type PermissionKey =
   | 'admin_permissions'
   | 'admin_lookup'
   | 'admin_notifications'
-  | 'admin_widgets'; // New permission for Discord widgets
+  | 'admin_widgets';
 
 export interface DiscordRole {
   id: string;
@@ -164,7 +164,6 @@ export interface Quiz {
   lastOpenedAt?: string;
 }
 
-// FIX: Added shared types for the quiz editor to resolve type mismatches between files.
 export interface EditingQuestion extends QuizQuestion {
   textEn: string;
   textAr: string;
@@ -202,10 +201,7 @@ export interface DiscordWidget {
     position: number;
 }
 
-// FIX: Removed deprecated webhook URL properties to align with the new notification system.
 export interface AppConfig {
-    SUPABASE_PROJECT_URL: string | null;
-    DISCORD_PROXY_SECRET: string | null;
     COMMUNITY_NAME: string;
     LOGO_URL: string;
     DISCORD_GUILD_ID: string;
@@ -213,6 +209,8 @@ export interface AppConfig {
     MTA_SERVER_URL: string;
     BACKGROUND_IMAGE_URL: string;
     SHOW_HEALTH_CHECK: boolean;
+    SUBMISSION_WEBHOOK_URL: string | null;
+    AUDIT_LOG_WEBHOOK_URL: string | null;
 }
 
 // =============================================
@@ -230,7 +228,6 @@ export interface MtaServerStatus {
     name: string;
     players: number;
     maxPlayers: number;
-    version: string;
 }
 
 export interface MtaLogEntry {

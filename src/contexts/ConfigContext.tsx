@@ -11,6 +11,7 @@ interface ConfigContextType {
   refreshConfig: () => Promise<void>;
 }
 
+// FIX: Replaced outdated *_CHANNEL_ID properties with *_WEBHOOK_URL to match the AppConfig type.
 const defaultConfig: AppConfig = {
     COMMUNITY_NAME: 'Vixel Roleplay',
     LOGO_URL: 'https://l.top4top.io/p_356271n1v1.png',
@@ -19,8 +20,8 @@ const defaultConfig: AppConfig = {
     MTA_SERVER_URL: 'mtasa://134.255.216.22:22041',
     BACKGROUND_IMAGE_URL: '',
     SHOW_HEALTH_CHECK: false,
-    SUPABASE_PROJECT_URL: null,
-    DISCORD_PROXY_SECRET: null,
+    SUBMISSION_WEBHOOK_URL: null,
+    AUDIT_LOG_WEBHOOK_URL: null,
 };
 
 export const ConfigContext = createContext<ConfigContextType>({
