@@ -98,9 +98,10 @@ export async function saveTranslations(translations: Translations): Promise<void
 // Quizzes & Submissions
 export async function getQuizzes(): Promise<Quiz[]> {
     if (!supabase) throw new Error("Supabase not available");
-    const { data, error } = await supabase.from('quizzes').select('*').order('titleKey');
+    const { data, error } = await supabase.from('quizzes').select('*');
     if (error) throw error;
-    return data;
+    // Sort client-side to avoid potential DB query issues with ordering
+    return (data || []).sort((a, b) => a.titleKey.localeCompare(b.titleKey));
 }
 
 export async function getQuizById(id: string): Promise<Quiz> {
@@ -224,9 +225,10 @@ export async function deleteProduct(id: string): Promise<void> {
 // Rules
 export async function getRules(): Promise<RuleCategory[]> {
     if (!supabase) throw new Error("Supabase not available");
-    const { data, error } = await supabase.from('rule_categories').select('*, rules(*)').order('position');
+    const { data, error } = await supabase.from('rule_categories').select('*, rules(*)');
     if (error) throw error;
-    return data as RuleCategory[];
+    // Sort client-side to avoid potential DB query issues with ordering
+    return (data || []).sort((a, b) => a.position - b.position);
 }
 
 export async function saveRules(categories: any[]): Promise<void> {
@@ -330,14 +332,13 @@ export async function checkFunctionSecrets(): Promise<any> {
     return invokeFunction('check-function-secrets');
 }
 
-// FIX: Renamed function from 'testDmNotification' to 'testNotification' and updated its signature
-// to correctly call the 'send-notification' edge function for both DM and channel tests.
 export async function testNotification(targetId: string, isUser: boolean): Promise<any> {
     return invokeFunction('send-notification', { type: 'test_notification', payload: { targetId, isUser } });
 }
 
 export async function testWebhookNotification(type: 'submission' | 'audit'): Promise<any> {
-    return invokeFunction('test-webhook', { type });
+    const functionType = type === 'submission' ? 'test_webhook_submission' : 'test_webhook_audit';
+    return invokeFunction('send-notification', { type: functionType, payload: {} });
 }
 
 

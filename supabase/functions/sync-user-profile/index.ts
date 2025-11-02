@@ -29,6 +29,7 @@ const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -88,7 +89,7 @@ serve(async (req) => {
       .select('discord_id, roles, highest_role, last_synced_at, is_banned, ban_reason, ban_expires_at')
       .eq('id', authUser.id)
       .maybeSingle();
-    if (dbError) throw new Error(\`DB Error fetching profile: \${dbError.message}\`);
+    if (dbError) throw new Error(`DB Error fetching profile: ${dbError.message}`);
 
     // =================================================================
     // 3. ATTEMPT TO SYNC WITH DISCORD BOT
@@ -108,14 +109,14 @@ serve(async (req) => {
         const BOT_API_KEY = Deno.env.get('VITE_DISCORD_BOT_API_KEY');
         if (!BOT_URL || !BOT_API_KEY) throw new Error("Bot integration secrets are not configured.");
 
-        const endpoint = new URL(\`/api/user/\${discordUserId}\`, BOT_URL);
+        const endpoint = new URL(`/api/user/${discordUserId}`, BOT_URL);
         const botResponse = await fetch(endpoint, {
-          headers: { 'Authorization': \`Bearer \${BOT_API_KEY}\` }
+          headers: { 'Authorization': `Bearer ${BOT_API_KEY}` }
         });
 
         if (!botResponse.ok) {
           const errBody = await botResponse.json().catch(() => ({}));
-          throw new Error(\`Bot API error (\${botResponse.status}): \${errBody.error || 'Unknown error'}\`);
+          throw new Error(`Bot API error (${botResponse.status}): ${errBody.error || 'Unknown error'}`);
         }
         
         syncedMemberData = await botResponse.json();
@@ -137,8 +138,8 @@ serve(async (req) => {
             friendlyMessage = "Sync failed because the bot returned no roles. This is almost always caused by the 'Server Members Intent' being disabled in the Discord Developer Portal. Please enable it and restart the bot.";
         }
 
-        syncError = \`Could not sync with Discord: \${friendlyMessage}. Using last known data.\`;
-        console.warn(\`[SYNC-FAIL] User \${authUser.id}: \${e.message}\`); // Log original error for debugging
+        syncError = `Could not sync with Discord: ${friendlyMessage}. Using last known data.`;
+        console.warn(`[SYNC-FAIL] User ${authUser.id}: ${e.message}`); // Log original error for debugging
       }
     }
     
@@ -164,8 +165,8 @@ serve(async (req) => {
             .single();
         
         if (upsertError) {
-            console.error(\`[DB-FAIL] Profile update failed for \${authUser.id}:\`, upsertError);
-            syncError = (syncError ? syncError + ' ' : '') + \`Database update failed after sync: \${upsertError.message}. Using cached data.\`;
+            console.error(`[DB-FAIL] Profile update failed for ${authUser.id}:`, upsertError);
+            syncError = (syncError ? syncError + ' ' : '') + `Database update failed after sync: ${upsertError.message}. Using cached data.`;
         } else {
             finalProfileDataSource = updatedProfile;
             userRoles = syncedMemberData.roles;
@@ -182,7 +183,7 @@ serve(async (req) => {
         .from('role_permissions')
         .select('role_id, permissions')
         .in('role_id', userRoleIds);
-    if (permsError) throw new Error(\`Could not fetch role permissions: \${permsError.message}\`);
+    if (permsError) throw new Error(`Could not fetch role permissions: ${permsError.message}`);
 
     const permissionSet = new Set<string>();
     for (const rp of rolePermissions || []) {
@@ -212,7 +213,7 @@ serve(async (req) => {
     return createResponse({ user: finalUser, syncError });
 
   } catch (error) {
-    console.error(\`[CRITICAL] sync-user-profile for \${authUser?.id || 'unknown user'}: \${error.message}\`);
-    return createResponse({ error: \`An unexpected error occurred: \${error.message}\` }, 500);
+    console.error(`[CRITICAL] sync-user-profile for ${authUser?.id || 'unknown user'}: ${error.message}`);
+    return createResponse({ error: `An unexpected error occurred: ${error.message}` }, 500);
   }
 })

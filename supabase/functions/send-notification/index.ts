@@ -5,6 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -29,10 +30,8 @@ serve(async (req) => {
   }
 
   const supabaseAdmin = createClient(
-    // FIX: Add @ts-ignore to suppress Deno namespace errors in certain TypeScript environments.
     // @ts-ignore
     Deno.env.get('SUPABASE_URL') ?? '',
-    // FIX: Add @ts-ignore to suppress Deno namespace errors in certain TypeScript environments.
     // @ts-ignore
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
   );
@@ -40,10 +39,8 @@ serve(async (req) => {
   try {
     // 1. Authenticate user
     const supabaseClient = createClient(
-      // FIX: Add @ts-ignore to suppress Deno namespace errors in certain TypeScript environments.
       // @ts-ignore
       Deno.env.get('SUPABASE_URL') ?? '',
-      // FIX: Add @ts-ignore to suppress Deno namespace errors in certain TypeScript environments.
       // @ts-ignore
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
@@ -66,21 +63,6 @@ serve(async (req) => {
         const { data: sub, error } = await supabaseAdmin.from('submissions').select('*').eq('id', payload.submissionId).single();
         if (error || !sub) throw new Error(`Submission not found: ${payload.submissionId}`);
         
-        // --- Notification to Admin Channel ---
-        const adminEmbed = {
-          title: '📝 New Application Received!',
-          color: COLORS.CYAN,
-          fields: [
-            { name: 'Applicant', value: sub.username, inline: true },
-            { name: 'Application Type', value: sub.quizTitle, inline: true },
-            { name: 'Highest Role', value: sub.user_highest_role || 'Member', inline: true },
-          ],
-          footer,
-          timestamp
-        };
-        botPayload = { type: 'channel', payload: { channelId: config.SUBMISSION_NOTIFICATION_CHANNEL_ID, embed: adminEmbed } };
-        await forwardToBot(botPayload);
-
         // --- Receipt DM to User ---
         const userEmbed = {
           title: '✅ Your Application has been Submitted!',
@@ -137,6 +119,37 @@ serve(async (req) => {
           }
           break;
       }
+      case 'test_webhook_submission':
+      case 'test_webhook_audit': {
+        const webhookType = type === 'test_webhook_submission' ? 'submission' : 'audit';
+        const webhookUrl = webhookType === 'submission' 
+            ? config.SUBMISSION_WEBHOOK_URL 
+            : config.AUDIT_LOG_WEBHOOK_URL;
+        
+        if (!webhookUrl) {
+            throw new Error(`The webhook URL for '${webhookType}' is not configured.`);
+        }
+
+        const testEmbed = {
+            title: `📢 Test Webhook Notification (${webhookType})`,
+            description: `This is a test message from the website, sent by **${user.user_metadata.full_name}**. If you see this, the webhook is configured correctly!`,
+            color: COLORS.ORANGE,
+            footer,
+            timestamp
+        };
+        const testPayload = { embeds: [testEmbed] };
+        
+        const webhookResponse = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(testPayload)
+        });
+        
+        if (!webhookResponse.ok) {
+            throw new Error(`Discord returned an error (${webhookResponse.status}). Check if the webhook URL is correct.`);
+        }
+        return createResponse({ message: 'Test webhook sent successfully.' });
+      }
       default:
         throw new Error(`Unknown notification type: ${type}`);
     }
@@ -151,10 +164,8 @@ serve(async (req) => {
 });
 
 async function forwardToBot(body: any) {
-  // FIX: Add @ts-ignore to suppress Deno namespace errors in certain TypeScript environments.
   // @ts-ignore
   const botUrl = Deno.env.get('VITE_DISCORD_BOT_URL');
-  // FIX: Add @ts-ignore to suppress Deno namespace errors in certain TypeScript environments.
   // @ts-ignore
   const apiKey = Deno.env.get('VITE_DISCORD_BOT_API_KEY');
   if (!botUrl || !apiKey) {
