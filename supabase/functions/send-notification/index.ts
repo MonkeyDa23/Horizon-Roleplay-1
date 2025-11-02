@@ -29,14 +29,22 @@ serve(async (req) => {
   }
 
   const supabaseAdmin = createClient(
+    // FIX: Add @ts-ignore to suppress Deno namespace errors in certain TypeScript environments.
+    // @ts-ignore
     Deno.env.get('SUPABASE_URL') ?? '',
+    // FIX: Add @ts-ignore to suppress Deno namespace errors in certain TypeScript environments.
+    // @ts-ignore
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
   );
 
   try {
     // 1. Authenticate user
     const supabaseClient = createClient(
+      // FIX: Add @ts-ignore to suppress Deno namespace errors in certain TypeScript environments.
+      // @ts-ignore
       Deno.env.get('SUPABASE_URL') ?? '',
+      // FIX: Add @ts-ignore to suppress Deno namespace errors in certain TypeScript environments.
+      // @ts-ignore
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
     );
@@ -143,7 +151,11 @@ serve(async (req) => {
 });
 
 async function forwardToBot(body: any) {
+  // FIX: Add @ts-ignore to suppress Deno namespace errors in certain TypeScript environments.
+  // @ts-ignore
   const botUrl = Deno.env.get('VITE_DISCORD_BOT_URL');
+  // FIX: Add @ts-ignore to suppress Deno namespace errors in certain TypeScript environments.
+  // @ts-ignore
   const apiKey = Deno.env.get('VITE_DISCORD_BOT_API_KEY');
   if (!botUrl || !apiKey) {
     throw new Error("Bot integration secrets are not configured in this function's environment.");

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocalization } from '../../hooks/useLocalization';
 import { useToast } from '../../hooks/useToast';
 import { useConfig } from '../../hooks/useConfig';
-import { saveConfig, testDmNotification, testWebhookNotification } from '../../lib/api';
+import { saveConfig, testNotification, testWebhookNotification } from '../../lib/api';
 import { Loader2, HelpCircle } from 'lucide-react';
 import Modal from '../Modal';
 
@@ -46,7 +46,7 @@ const NotificationsPanel: React.FC = () => {
         if (!testTargetId) return;
         setIsTesting(true);
         try {
-            await testDmNotification(testTargetId);
+            await testNotification(testTargetId, true);
             showToast('Test DM sent!', 'success');
             setDmTestModalOpen(false);
             setTestTargetId('');
