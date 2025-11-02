@@ -220,31 +220,45 @@ const main = async () => {
         }
     });
 
-    app.post('/api/notify', authenticate, async (req, res) => {
-        const { type, payload } = req.body;
-        logger('INFO', `Received notification request of type: ${type}`);
+    app.post('/api/dm', authenticate, async (req, res) => {
+        const { userId, embed } = req.body;
+        logger('INFO', `Received DM request for user: ${userId}`);
         try {
-            const embed = new EmbedBuilder(payload.embed);
-            if (type === 'channel') {
-                const channel = await client.channels.fetch(payload.channelId) as TextChannel;
-                if (!channel) throw new Error(`Channel ${payload.channelId} not found.`);
-                await channel.send({ content: payload.content, embeds: [embed] });
-                logger('INFO', `✅ Sent embed to channel #${channel.name}.`);
-            } else if (type === 'dm') {
-                const user = await client.users.fetch(payload.userId);
-                await user.send({ embeds: [embed] });
-                logger('INFO', `✅ Sent DM to user ${user.tag}.`);
-            } else {
-                throw new Error(`Unknown notification type: ${type}`);
-            }
-            res.status(200).json({ message: 'Notification sent successfully.' });
+            if (!userId || !embed) throw new Error("Missing 'userId' or 'embed'.");
+            const user = await client.users.fetch(userId);
+            const finalEmbed = new EmbedBuilder(embed);
+            await user.send({ embeds: [finalEmbed] });
+            logger('INFO', `✅ Sent DM to user ${user.tag}.`);
+            res.status(200).json({ message: 'DM sent successfully.' });
         } catch (error) {
             let errorMessage = (error instanceof Error) ? error.message : "An unknown error occurred.";
-            logger('ERROR', `Failed to process notification. Error: ${errorMessage}`, error);
-            if (error instanceof DiscordAPIError && error.code === 50007) errorMessage = "Cannot send DMs to this user.";
-            res.status(500).json({ error: 'Failed to send notification.', details: errorMessage });
+            logger('ERROR', `Failed to process DM. Error: ${errorMessage}`, error);
+            if (error instanceof DiscordAPIError && error.code === 50007) errorMessage = "Cannot send DMs to this user (they may have DMs disabled or have blocked the bot).";
+            res.status(500).json({ error: 'Failed to send DM.', details: errorMessage });
         }
     });
+
+    app.post('/api/send-test-message', authenticate, async(req, res) => {
+        const { channelId, message } = req.body;
+        try {
+            const channel = await client.channels.fetch(channelId) as TextChannel;
+            await channel.send(message);
+            res.json({ message: 'Message sent successfully' });
+        } catch(error) {
+            res.status(500).json({ error: (error as Error).message });
+        }
+    });
+
+    app.post('/api/send-dm', authenticate, async(req, res) => {
+        const { userId, message } = req.body;
+        try {
+            const user = await client.users.fetch(userId);
+            await user.send(message);
+            res.json({ message: 'DM sent successfully' });
+        } catch(error) {
+            res.status(500).json({ error: (error as Error).message });
+        }
+    })
 
     try {
         await client.login(config.DISCORD_BOT_TOKEN);

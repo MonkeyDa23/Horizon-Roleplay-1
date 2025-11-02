@@ -63,6 +63,27 @@ export async function unbanUser(userId: string): Promise<void> {
     if (error) throw error;
 }
 
+// FIX: Added missing logAdminAccess function to fix import error in old AdminPage.
+export async function logAdminAccess(): Promise<void> {
+    if (!supabase) return; // Fail silently if supabase not configured
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return; // Fail silently if no user
+
+        const { error } = await supabase.from('audit_logs').insert({
+            admin_id: user.id,
+            admin_username: user.user_metadata?.full_name || user.email || 'Unknown Admin',
+            action: 'Accessed Admin Panel'
+        });
+        
+        if (error) {
+            console.error("Failed to log admin access:", error);
+        }
+    } catch (e) {
+        console.error("Exception while logging admin access:", e);
+    }
+}
+
 
 // Config & Translations
 export async function getConfig(): Promise<AppConfig> {
@@ -100,7 +121,6 @@ export async function getQuizzes(): Promise<Quiz[]> {
     if (!supabase) throw new Error("Supabase not available");
     const { data, error } = await supabase.from('quizzes').select('*');
     if (error) throw error;
-    // Sort client-side to avoid potential DB query issues with ordering
     return (data || []).sort((a, b) => a.titleKey.localeCompare(b.titleKey));
 }
 
@@ -113,23 +133,16 @@ export async function getQuizById(id: string): Promise<Quiz> {
 
 export async function saveQuiz(quizData: EditingQuizData): Promise<void> {
     if (!supabase) throw new Error("Supabase not available");
-
     const { titleEn, titleAr, descriptionEn, descriptionAr, questions, ...quiz } = quizData;
-
     const translationUpserts = [
         { key: quiz.titleKey, en: titleEn, ar: titleAr },
         { key: quiz.descriptionKey, en: descriptionEn, ar: descriptionAr },
         ...questions.map(q => ({ key: q.textKey, en: q.textEn, ar: q.textAr }))
     ];
-    
-    const quizToSave = {
-        ...quiz,
-        questions: questions.map(({ textEn, textAr, ...q }) => q)
-    };
+    const quizToSave = { ...quiz, questions: questions.map(({ textEn, textAr, ...q }) => q) };
 
     const { error: translationError } = await supabase.from('translations').upsert(translationUpserts, { onConflict: 'key' });
     if (translationError) throw translationError;
-
     const { error: quizError } = await supabase.from('quizzes').upsert(quizToSave);
     if (quizError) throw quizError;
 }
@@ -160,7 +173,7 @@ export async function addSubmission(submission: Partial<QuizSubmission>): Promis
     if (error) throw error;
     
     // Fire and forget notification for user DM receipt
-    invokeFunction('send-notification', { type: 'new_submission', payload: { submissionId: data.id } })
+    invokeFunction('send-dm', { type: 'submission_receipt', payload: { submissionId: data.id } })
       .catch(err => console.error("Failed to send new submission DM receipt:", err));
 }
 
@@ -178,10 +191,10 @@ export async function updateSubmissionStatus(submissionId: string, status: 'take
     const { error } = await supabase.from('submissions').update(update).eq('id', submissionId);
     if (error) throw error;
 
-    // Fire and forget notification for accepted/refused
     if (status === 'accepted' || status === 'refused') {
-        invokeFunction('send-notification', { type: 'submission_update', payload: { submissionId } })
-            .catch(err => console.error("Failed to send submission result notification:", err));
+        const type = status === 'accepted' ? 'submission_accepted' : 'submission_refused';
+        invokeFunction('send-dm', { type, payload: { submissionId } })
+            .catch(err => console.error("Failed to send submission result DM:", err));
     }
 }
 
@@ -202,15 +215,12 @@ export async function getProductById(id: string): Promise<Product> {
 export async function saveProduct(productData: any): Promise<void> {
     if (!supabase) throw new Error("Supabase not available");
     const { nameEn, nameAr, descriptionEn, descriptionAr, ...product } = productData;
-
     const translationUpserts = [
         { key: product.nameKey, en: nameEn, ar: nameAr },
         { key: product.descriptionKey, en: descriptionEn, ar: descriptionAr },
     ];
-    
     const { error: transError } = await supabase.from('translations').upsert(translationUpserts, { onConflict: 'key' });
     if (transError) throw transError;
-    
     const { error } = await supabase.from('products').upsert(product);
     if (error) throw error;
 }
@@ -225,10 +235,9 @@ export async function deleteProduct(id: string): Promise<void> {
 // Rules
 export async function getRules(): Promise<RuleCategory[]> {
     if (!supabase) throw new Error("Supabase not available");
-    const { data, error } = await supabase.from('rule_categories').select('*, rules(*)');
+    const { data, error } = await supabase.from('rule_categories').select('*, rules(*)').order('position');
     if (error) throw error;
-    // Sort client-side to avoid potential DB query issues with ordering
-    return (data || []).sort((a, b) => a.position - b.position);
+    return data || [];
 }
 
 export async function saveRules(categories: any[]): Promise<void> {
@@ -252,6 +261,9 @@ export async function saveRules(categories: any[]): Promise<void> {
     const { error: catError } = await supabase.from('rule_categories').upsert(categoryUpserts, { onConflict: 'id' });
     if (catError) throw catError;
     
+    // Simple approach: delete all rules and re-insert. More robust for complex changes.
+    const allCategoryIds = categories.map(c => c.id);
+    await supabase.from('rules').delete().in('category_id', allCategoryIds);
     if (ruleUpserts.length > 0) {
         const { error: ruleError } = await supabase.from('rules').upsert(ruleUpserts, { onConflict: 'id' });
         if (ruleError) throw ruleError;
@@ -286,8 +298,7 @@ export async function getDiscordWidgets(): Promise<DiscordWidget[]> {
 
 export async function saveDiscordWidgets(widgets: any[]): Promise<void> {
     if (!supabase) throw new Error("Supabase not available");
-    const { error: deleteError } = await supabase.from('discord_widgets').delete().neq('id', crypto.randomUUID()); // delete all
-    if (deleteError) throw deleteError;
+    await supabase.from('discord_widgets').delete().neq('id', crypto.randomUUID()); // delete all
     if (widgets.length === 0) return;
     const { error: insertError } = await supabase.from('discord_widgets').insert(widgets);
     if (insertError) throw insertError;
@@ -302,24 +313,6 @@ export async function getAuditLogs(): Promise<AuditLogEntry[]> {
     return data;
 }
 
-export async function logAdminAccess(): Promise<void> {
-    if (!supabase) throw new Error("Supabase client is not initialized.");
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return; // Don't log if not authenticated
-    
-    try {
-        const { error } = await supabase.from('audit_logs').insert({
-            admin_id: user.id,
-            admin_username: user.user_metadata.full_name || user.email,
-            action: 'Accessed Admin Panel'
-        });
-        if (error) throw error;
-    } catch (err) {
-        // Fail silently for logging
-        console.warn("Could not log admin access:", err);
-    }
-}
-
 export async function checkDiscordApiHealth(): Promise<any> {
     return invokeFunction('check-bot-health');
 }
@@ -332,15 +325,18 @@ export async function checkFunctionSecrets(): Promise<any> {
     return invokeFunction('check-function-secrets');
 }
 
+// FIX: Added missing testNotification function.
 export async function testNotification(targetId: string, isUser: boolean): Promise<any> {
-    return invokeFunction('send-notification', { type: 'test_notification', payload: { targetId, isUser } });
+    return invokeFunction('test-notification', { targetId, isUser });
 }
 
-export async function testWebhookNotification(type: 'submission' | 'audit'): Promise<any> {
-    const functionType = type === 'submission' ? 'test_webhook_submission' : 'test_webhook_audit';
-    return invokeFunction('send-notification', { type: functionType, payload: {} });
+export async function testDm(userId: string): Promise<any> {
+    return invokeFunction('send-dm', { type: 'test_dm', payload: { targetId: userId } });
 }
 
+export async function testChannelWebhook(type: 'submission' | 'audit'): Promise<any> {
+    return invokeFunction('test-webhook', { type });
+}
 
 // MTA
 export async function getMtaServerStatus(): Promise<MtaServerStatus> {

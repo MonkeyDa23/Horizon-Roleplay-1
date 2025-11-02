@@ -1,7 +1,6 @@
-// src/lib/database_schema.ts
 export const DATABASE_SCHEMA = `
 -- Vixel Roleplay Community Hub - Database Schema
--- Version: 4.0.0 (Webhook Notification System)
+-- Version: 5.0.0 (Pure Webhook & Simplified Bot Architecture)
 -- This script is idempotent and can be run multiple times.
 
 -- 1. EXTENSIONS & SCHEMA SETUP
@@ -24,7 +23,7 @@ CREATE TABLE IF NOT EXISTS "public"."profiles" (
     "ban_expires_at" timestamptz
 );
 
--- Config table (MODIFIED for Webhooks)
+-- Config table (Webhook URLs are now the primary notification method)
 CREATE TABLE IF NOT EXISTS "public"."config" (
     "id" smallint PRIMARY KEY DEFAULT 1,
     "COMMUNITY_NAME" "text" NOT NULL DEFAULT 'Vixel Roleplay',
@@ -33,13 +32,10 @@ CREATE TABLE IF NOT EXISTS "public"."config" (
     "DISCORD_GUILD_ID" "text",
     "DISCORD_INVITE_URL" "text" DEFAULT 'https://discord.gg/your-invite',
     "MTA_SERVER_URL" "text" DEFAULT 'mtasa://your.server.ip:port',
-    "SHOW_HEALTH_CHECK" boolean NOT NULL DEFAULT true
+    "SHOW_HEALTH_CHECK" boolean NOT NULL DEFAULT true,
+    "SUBMISSION_WEBHOOK_URL" "text",
+    "AUDIT_LOG_WEBHOOK_URL" "text"
 );
--- Idempotent ALTER statements to switch from channel IDs to webhooks
-ALTER TABLE "public"."config" DROP COLUMN IF EXISTS "SUBMISSION_NOTIFICATION_CHANNEL_ID";
-ALTER TABLE "public"."config" DROP COLUMN IF EXISTS "AUDIT_LOG_NOTIFICATION_CHANNEL_ID";
-ALTER TABLE "public"."config" ADD COLUMN IF NOT EXISTS "SUBMISSION_WEBHOOK_URL" "text";
-ALTER TABLE "public"."config" ADD COLUMN IF NOT EXISTS "AUDIT_LOG_WEBHOOK_URL" "text";
 -- Ensure the default config row exists
 INSERT INTO "public"."config" (id) SELECT 1 WHERE NOT EXISTS (SELECT 1 FROM "public"."config" WHERE id=1);
 
@@ -130,10 +126,10 @@ CREATE TABLE IF NOT EXISTS "public"."discord_widgets" (
 );
 
 
--- 3. FUNCTIONS (Webhook System)
+-- 3. WEBHOOK FUNCTIONS (NEW SYSTEM)
 -- =============================================
 
--- NEW: Function to send a payload to a webhook
+-- Generic function to send a payload to a webhook URL.
 CREATE OR REPLACE FUNCTION public.send_webhook(webhook_url text, payload jsonb)
 RETURNS void
 LANGUAGE plpgsql
@@ -144,15 +140,14 @@ BEGIN
         PERFORM public.http_post(
             webhook_url,
             payload,
-            'application/json'::text,
-            '{}'::jsonb
+            'application/json'::text
         );
     END IF;
 END;
 $$;
 
 
--- NEW: Trigger function for new submissions
+-- Trigger function to format and send a beautiful embed for NEW SUBMISSIONS.
 CREATE OR REPLACE FUNCTION public.handle_new_submission_webhook()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -164,6 +159,8 @@ BEGIN
     SELECT "SUBMISSION_WEBHOOK_URL", "COMMUNITY_NAME", "LOGO_URL" INTO config_row FROM public.config WHERE id = 1;
     
     payload := jsonb_build_object(
+        'username', config_row.COMMUNITY_NAME || ' Submissions',
+        'avatar_url', config_row.LOGO_URL,
         'embeds', jsonb_build_array(
             jsonb_build_object(
                 'title', '📝 New Application Received!',
@@ -184,7 +181,7 @@ BEGIN
 END;
 $$;
 
--- NEW: Trigger function for new audit logs
+-- Trigger function to format and send a beautiful embed for NEW AUDIT LOGS.
 CREATE OR REPLACE FUNCTION public.handle_new_audit_log_webhook()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -196,10 +193,12 @@ BEGIN
     SELECT "AUDIT_LOG_WEBHOOK_URL", "COMMUNITY_NAME", "LOGO_URL" INTO config_row FROM public.config WHERE id = 1;
 
     payload := jsonb_build_object(
+        'username', config_row.COMMUNITY_NAME || ' Audit Log',
+        'avatar_url', config_row.LOGO_URL,
         'embeds', jsonb_build_array(
             jsonb_build_object(
                 'title', '🛡️ Admin Action Logged',
-                'color', 15105570, -- #e67e22
+                'color', 15105570, -- #e67e22 (Orange)
                 'fields', jsonb_build_array(
                     jsonb_build_object('name', 'Admin', 'value', NEW.admin_username, 'inline', true),
                     jsonb_build_object('name', 'Action', 'value', NEW.action, 'inline', false)
@@ -245,7 +244,7 @@ BEGIN
 END;
 $$;
 
--- Trigger function to log various admin actions
+-- Trigger function to create audit log entries for various admin actions
 CREATE OR REPLACE FUNCTION "public"."log_admin_actions"()
 RETURNS "trigger" LANGUAGE "plpgsql" SECURITY DEFINER AS $$
 DECLARE
@@ -281,7 +280,7 @@ END;
 $$;
 
 
--- 5. TRIGGERS (Complete Refresh)
+-- 5. TRIGGERS (COMPLETE REFRESH)
 -- =============================================
 
 -- Drop ALL old notification-related triggers to ensure a clean slate
@@ -289,12 +288,12 @@ DROP TRIGGER IF EXISTS "on_submission_change_notify" ON "public"."submissions";
 DROP TRIGGER IF EXISTS "trigger_new_submission_webhook" ON "public"."submissions";
 DROP TRIGGER IF EXISTS "trigger_new_audit_log_webhook" ON "public"."audit_logs";
 
--- NEW: Trigger for new submissions (webhook notification)
+-- NEW: Trigger for new submissions (sends webhook notification)
 CREATE TRIGGER trigger_new_submission_webhook
 AFTER INSERT ON public.submissions
 FOR EACH ROW EXECUTE FUNCTION public.handle_new_submission_webhook();
 
--- NEW: Trigger for new audit logs (webhook notification)
+-- NEW: Trigger for new audit logs (sends webhook notification)
 CREATE TRIGGER trigger_new_audit_log_webhook
 AFTER INSERT ON public.audit_logs
 FOR EACH ROW EXECUTE FUNCTION public.handle_new_audit_log_webhook();
@@ -311,7 +310,7 @@ CREATE TRIGGER "log_submissions_status_changes" AFTER UPDATE OF "status" ON "pub
 CREATE TRIGGER "log_profile_ban_changes" AFTER UPDATE OF "is_banned" ON "public"."profiles" FOR EACH ROW EXECUTE FUNCTION "public"."log_admin_actions"();
 
 
--- 6. ROW LEVEL SECURITY (RLS)
+-- 6. ROW LEVEL SECURITY (RLS) - NO CHANGES, BUT ENSURED FOR COMPLETENESS
 -- =============================================
 ALTER TABLE "public"."profiles" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."config" ENABLE ROW LEVEL SECURITY;

@@ -3,8 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { useLocalization } from '../../hooks/useLocalization';
 import { useToast } from '../../hooks/useToast';
 import { useConfig } from '../../hooks/useConfig';
-import { saveConfig, testNotification, testWebhookNotification } from '../../lib/api';
-import { Loader2, HelpCircle } from 'lucide-react';
+import { saveConfig, testChannelWebhook, testDm } from '../../lib/api';
+import { Loader2 } from 'lucide-react';
 import Modal from '../Modal';
 
 const NotificationsPanel: React.FC = () => {
@@ -46,7 +46,7 @@ const NotificationsPanel: React.FC = () => {
         if (!testTargetId) return;
         setIsTesting(true);
         try {
-            await testNotification(testTargetId, true);
+            await testDm(testTargetId);
             showToast('Test DM sent!', 'success');
             setDmTestModalOpen(false);
             setTestTargetId('');
@@ -60,7 +60,7 @@ const NotificationsPanel: React.FC = () => {
     const handleSendWebhookTest = async (type: 'submission' | 'audit') => {
         setIsTesting(true);
         try {
-            await testWebhookNotification(type);
+            await testChannelWebhook(type);
             showToast(`Test ${type} webhook sent!`, 'success');
         } catch(err) {
              showToast(`Error: ${(err as Error).message}`, 'error');
