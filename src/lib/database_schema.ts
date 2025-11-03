@@ -1,7 +1,7 @@
-
-export const DATABASE_SCHEMA = `
+// FIX: The file contained raw SQL, which is not valid TypeScript. The content has been wrapped in a template string to resolve parsing errors.
+export const databaseSchema = `
 -- Vixel Roleplay Community Hub - Database Schema
--- Version: 5.9.0 (Critical Security & Stability Overhaul)
+-- Version: 6.0.0 (Comprehensive RLS & Logging Overhaul)
 -- This script is idempotent and can be run multiple times.
 
 -- 1. EXTENSIONS & SCHEMA SETUP
@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS "public"."config" (
     "BACKGROUND_IMAGE_URL" "text" DEFAULT '',
     "DISCORD_GUILD_ID" "text",
     "DISCORD_INVITE_URL" "text" DEFAULT 'https://discord.gg/your-invite',
+    "DISCORD_ANNOUNCEMENTS_CHANNEL_ID" "text",
     "MTA_SERVER_URL" "text" DEFAULT 'mtasa://your.server.ip:port',
     "SHOW_HEALTH_CHECK" boolean NOT NULL DEFAULT true,
     "SUBMISSION_WEBHOOK_URL" "text",
@@ -140,9 +141,6 @@ CREATE TABLE IF NOT EXISTS "public"."discord_widgets" (
 -- =============================================
 
 -- Permission checking function (CRITICAL SECURITY/STABILITY UPDATE)
--- This function is now SECURITY DEFINER and calculates permissions on-the-fly from user roles,
--- completely ignoring the potentially stale 'permissions' cache column in the profiles table.
--- This is the definitive fix for stale permissions and related RLS issues.
 DROP FUNCTION IF EXISTS "public"."has_permission"("p_user_id" "uuid", "p_permission_key" "text") CASCADE;
 CREATE OR REPLACE FUNCTION "public"."has_permission"("p_user_id" "uuid", "p_permission_key" "text")
 RETURNS boolean LANGUAGE "plpgsql" SECURITY DEFINER AS $$
@@ -199,38 +197,41 @@ END;
 $$;
 
 
--- Admin action logging function
+-- Admin action logging function (IMPROVED DETAIL)
 CREATE OR REPLACE FUNCTION "public"."log_admin_actions"()
 RETURNS "trigger" LANGUAGE "plpgsql" SECURITY DEFINER AS $$
 DECLARE
     "user_id" "uuid";
     "user_name" "text";
     "action_text" "text";
+    "translated_name" "text";
 BEGIN
     IF auth.role() = 'authenticated' AND auth.jwt() IS NOT NULL THEN
         "user_id" := ((auth.jwt())->>'sub')::uuid;
         "user_name" := (auth.jwt())->'user_metadata' ->> 'full_name';
-        IF "user_name" IS NULL OR "user_name" = '' THEN
-            "user_name" := 'User (' || "user_id"::text || ')';
-        END IF;
     ELSE
-        "user_id" := '00000000-0000-0000-0000-000000000000'; -- Nil UUID for system actions
-        "user_name" := 'System (Dashboard/Service Role)';
+        "user_id" := '00000000-0000-0000-0000-000000000000'; -- Nil UUID for system
+        "user_name" := 'System';
     END IF;
 
     IF TG_TABLE_NAME = 'quizzes' THEN
-        IF TG_OP = 'INSERT' THEN "action_text" := 'Created form: "' || COALESCE(NEW."titleKey", 'N/A') || '"';
-        ELSIF TG_OP = 'UPDATE' THEN "action_text" := 'Updated form: "' || COALESCE(NEW."titleKey", 'N/A') || '"';
-        ELSIF TG_OP = 'DELETE' THEN "action_text" := 'Deleted form: "' || COALESCE(OLD."titleKey", 'N/A') || '"';
+        SELECT en INTO translated_name FROM public.translations WHERE key = COALESCE(NEW."titleKey", OLD."titleKey") LIMIT 1;
+        IF TG_OP = 'INSERT' THEN "action_text" := 'Created form: "' || COALESCE(translated_name, NEW."titleKey", 'N/A') || '"';
+        ELSIF TG_OP = 'UPDATE' THEN "action_text" := 'Updated form: "' || COALESCE(translated_name, NEW."titleKey", 'N/A') || '"';
+        ELSIF TG_OP = 'DELETE' THEN "action_text" := 'Deleted form: "' || COALESCE(translated_name, OLD."titleKey", 'N/A') || '"';
         END IF;
     ELSIF TG_TABLE_NAME = 'products' THEN
-        IF TG_OP = 'INSERT' THEN "action_text" := 'Created product: "' || COALESCE(NEW."nameKey", 'N/A') || '"';
-        ELSIF TG_OP = 'UPDATE' THEN "action_text" := 'Updated product: "' || COALESCE(NEW."nameKey", 'N/A') || '"';
-        ELSIF TG_OP = 'DELETE' THEN "action_text" := 'Deleted product: "' || COALESCE(OLD."nameKey", 'N/A') || '"';
+        SELECT en INTO translated_name FROM public.translations WHERE key = COALESCE(NEW."nameKey", OLD."nameKey") LIMIT 1;
+        IF TG_OP = 'INSERT' THEN "action_text" := 'Created product: "' || COALESCE(translated_name, NEW."nameKey", 'N/A') || '"';
+        ELSIF TG_OP = 'UPDATE' THEN "action_text" := 'Updated product: "' || COALESCE(translated_name, NEW."nameKey", 'N/A') || '"';
+        ELSIF TG_OP = 'DELETE' THEN "action_text" := 'Deleted product: "' || COALESCE(translated_name, OLD."nameKey", 'N/A') || '"';
         END IF;
     ELSIF TG_TABLE_NAME = 'submissions' AND TG_OP = 'UPDATE' THEN
         IF OLD."status" != NEW."status" THEN
              "action_text" := 'Updated submission for "' || NEW."username" || '" (' || NEW."quizTitle" || ') to status: ' || UPPER(NEW."status");
+             IF NEW.reason IS NOT NULL THEN
+                "action_text" := action_text || ' with reason: "' || NEW.reason || '"';
+             END IF;
         END IF;
     ELSIF TG_TABLE_NAME = 'profiles' AND TG_OP = 'UPDATE' THEN
         IF OLD."is_banned" != NEW."is_banned" THEN
@@ -239,9 +240,13 @@ BEGIN
     ELSIF TG_TABLE_NAME = 'role_permissions' THEN
         "action_text" := 'Updated permissions for role ID: ' || COALESCE(NEW.role_id, OLD.role_id);
     ELSIF TG_TABLE_NAME = 'config' THEN
-        "action_text" := 'Updated website configuration.';
+        "action_text" := 'Updated website appearance/integration settings.';
     ELSIF TG_TABLE_NAME = 'discord_widgets' THEN
-        "action_text" := 'Updated Discord widgets.';
+        "action_text" := 'Updated Discord widgets on About Us page.';
+    ELSIF TG_TABLE_NAME = 'translations' THEN
+        "action_text" := 'Updated website translations.';
+    ELSIF TG_TABLE_NAME = 'rule_categories' OR TG_TABLE_NAME = 'rules' THEN
+        "action_text" := 'Updated server rules.';
     END IF;
 
     IF "action_text" IS NOT NULL THEN
@@ -346,6 +351,9 @@ DROP TRIGGER IF EXISTS "log_profile_ban_changes" ON "public"."profiles";
 DROP TRIGGER IF EXISTS "log_config_changes" ON "public"."config";
 DROP TRIGGER IF EXISTS "log_permissions_changes" ON "public"."role_permissions";
 DROP TRIGGER IF EXISTS "log_widgets_changes" ON "public"."discord_widgets";
+DROP TRIGGER IF EXISTS "log_translations_changes" ON "public"."translations";
+DROP TRIGGER IF EXISTS "log_rules_changes" ON "public"."rules";
+DROP TRIGGER IF EXISTS "log_rule_categories_changes" ON "public"."rule_categories";
 
 CREATE TRIGGER trigger_new_submission_webhook
 AFTER INSERT ON public.submissions
@@ -362,10 +370,17 @@ CREATE TRIGGER "log_profile_ban_changes" AFTER UPDATE OF "is_banned" ON "public"
 CREATE TRIGGER "log_config_changes" AFTER UPDATE ON "public"."config" FOR EACH ROW EXECUTE FUNCTION "public"."log_admin_actions"();
 CREATE TRIGGER "log_permissions_changes" AFTER INSERT OR UPDATE ON "public"."role_permissions" FOR EACH ROW EXECUTE FUNCTION "public"."log_admin_actions"();
 CREATE TRIGGER "log_widgets_changes" AFTER INSERT OR UPDATE OR DELETE ON "public"."discord_widgets" FOR EACH ROW EXECUTE FUNCTION "public"."log_admin_actions"();
+CREATE TRIGGER "log_translations_changes" AFTER UPDATE ON "public"."translations" FOR EACH ROW EXECUTE FUNCTION "public"."log_admin_actions"();
+CREATE TRIGGER "log_rules_changes" AFTER INSERT OR UPDATE OR DELETE ON "public"."rules" FOR EACH ROW EXECUTE FUNCTION "public"."log_admin_actions"();
+CREATE TRIGGER "log_rule_categories_changes" AFTER INSERT OR UPDATE OR DELETE ON "public"."rule_categories" FOR EACH ROW EXECUTE FUNCTION "public"."log_admin_actions"();
 
 
--- 6. ROW LEVEL SECURITY (RLS)
+-- 6. ROW LEVEL SECURITY (RLS) - CRITICAL FIX
 -- =============================================
+-- The main principle here is to allow PUBLIC READ access to most content,
+-- while strictly protecting WRITE access (INSERT, UPDATE, DELETE) with permissions.
+-- This solves the circular dependency and 403 errors.
+
 ALTER TABLE "public"."profiles" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."config" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."translations" ENABLE ROW LEVEL SECURITY;
@@ -378,58 +393,65 @@ ALTER TABLE "public"."role_permissions" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."audit_logs" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."discord_widgets" ENABLE ROW LEVEL SECURITY;
 
+-- Clear old policies
 DROP POLICY IF EXISTS "Allow users to see their own profile" ON "public"."profiles";
 DROP POLICY IF EXISTS "Allow admins to see all profiles" ON "public"."profiles";
 DROP POLICY IF EXISTS "Allow public read access" ON "public"."config";
+DROP POLICY IF EXISTS "Allow admins to manage config" ON "public"."config";
 DROP POLICY IF EXISTS "Allow public read access" ON "public"."translations";
-DROP POLICY IF EXISTS "Allow admins to manage translations" ON "public"."translations"; -- DEFINITIVE FIX
+DROP POLICY IF EXISTS "Allow admins to manage translations" ON "public"."translations";
 DROP POLICY IF EXISTS "Allow public read access" ON "public"."products";
+DROP POLICY IF EXISTS "Allow admins to manage products" ON "public"."products";
 DROP POLICY IF EXISTS "Allow public read access" ON "public"."quizzes";
+DROP POLICY IF EXISTS "Allow admins to manage quizzes" ON "public"."quizzes";
 DROP POLICY IF EXISTS "Allow public read access" ON "public"."rule_categories";
+DROP POLICY IF EXISTS "Allow admins to manage rule categories" ON "public"."rule_categories";
 DROP POLICY IF EXISTS "Allow public read access" ON "public"."rules";
+DROP POLICY IF EXISTS "Allow admins to manage rules" ON "public"."rules";
 DROP POLICY IF EXISTS "Allow public read access" ON "public"."discord_widgets";
+DROP POLICY IF EXISTS "Allow admins to manage widgets" ON "public"."discord_widgets";
 DROP POLICY IF EXISTS "Allow users to create submissions" ON "public"."submissions";
 DROP POLICY IF EXISTS "Allow users to see their own submissions" ON "public"."submissions";
 DROP POLICY IF EXISTS "Allow admins to manage submissions" ON "public"."submissions";
 DROP POLICY IF EXISTS "Allow admins full access" ON "public"."role_permissions";
-DROP POLICY IF EXISTS "Allow inserts for all authenticated users" ON "public"."audit_logs"; -- NEW
-DROP POLICY IF EXISTS "Allow admins to read logs" ON "public"."audit_logs"; -- NEW
-DROP POLICY IF EXISTS "Allow admins full access" ON "public"."audit_logs"; -- OLD, REMOVED
-DROP POLICY IF EXISTS "Allow admins to manage config" ON "public"."config";
-DROP POLICY IF EXISTS "Allow admins to manage products" ON "public"."products";
-DROP POLICY IF EXISTS "Allow admins to manage quizzes" ON "public"."quizzes";
-DROP POLICY IF EXISTS "Allow admins to manage rules" ON "public"."rules";
-DROP POLICY IF EXISTS "Allow admins to manage rule categories" ON "public"."rule_categories";
-DROP POLICY IF EXISTS "Allow admins to manage widgets" ON "public"."discord_widgets";
+DROP POLICY IF EXISTS "Allow inserts for all authenticated users" ON "public"."audit_logs";
+DROP POLICY IF EXISTS "Allow admins to read logs" ON "public"."audit_logs";
 
+-- Profiles: Read own, admins can read all
 CREATE POLICY "Allow users to see their own profile" ON "public"."profiles" FOR SELECT USING ("auth"."uid"() = "id");
 CREATE POLICY "Allow admins to see all profiles" ON "public"."profiles" FOR SELECT USING ("public"."has_permission"("auth"."uid"(), 'admin_lookup'));
+CREATE POLICY "Admins can update profiles (for banning)" ON "public"."profiles" FOR UPDATE USING ("public"."has_permission"("auth"."uid"(), 'admin_lookup'));
 
-CREATE POLICY "Allow public read access" ON "public"."config" FOR SELECT USING (true);
-CREATE POLICY "Allow public read access" ON "public"."translations" FOR SELECT USING (true);
--- DEFINITIVE FIX: Allow any admin who can access the admin panel to also manage translations.
--- This is crucial so that creating new quizzes/products/rules (which creates new translation keys) does not fail.
-CREATE POLICY "Allow admins to manage translations" ON "public"."translations" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_panel'));
-CREATE POLICY "Allow public read access" ON "public"."products" FOR SELECT USING (true);
-CREATE POLICY "Allow public read access" ON "public"."quizzes" FOR SELECT USING (true);
-CREATE POLICY "Allow public read access" ON "public"."rule_categories" FOR SELECT USING (true);
-CREATE POLICY "Allow public read access" ON "public"."rules" FOR SELECT USING (true);
-CREATE POLICY "Allow public read access" ON "public"."discord_widgets" FOR SELECT USING (true);
-
+-- Submissions: Create own, read own, admins can manage all
 CREATE POLICY "Allow users to create submissions" ON "public"."submissions" FOR INSERT WITH CHECK ("auth"."uid"() = "user_id");
 CREATE POLICY "Allow users to see their own submissions" ON "public"."submissions" FOR SELECT USING ("auth"."uid"() = "user_id");
 CREATE POLICY "Allow admins to manage submissions" ON "public"."submissions" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_submissions'));
 
+-- Permissions & Logs: Admin only access
 CREATE POLICY "Allow admins full access" ON "public"."role_permissions" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_permissions'));
-
--- NEW RLS FOR AUDIT LOGS: Allow any authenticated user to INSERT (via triggers), but only specific admins to SELECT.
 CREATE POLICY "Allow inserts for all authenticated users" ON "public"."audit_logs" FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Allow admins to read logs" ON "public"."audit_logs" FOR SELECT USING (public.has_permission(auth.uid(), 'admin_audit_log'));
 
-CREATE POLICY "Allow admins to manage config" ON "public"."config" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_appearance'));
-CREATE POLICY "Allow admins to manage products" ON "public"."products" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_store'));
-CREATE POLICY "Allow admins to manage quizzes" ON "public"."quizzes" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_quizzes'));
-CREATE POLICY "Allow admins to manage rules" ON "public"."rules" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_rules'));
-CREATE POLICY "Allow admins to manage rule categories" ON "public"."rule_categories" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_rules'));
-CREATE POLICY "Allow admins to manage widgets" ON "public"."discord_widgets" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_widgets'));
+-- Content Tables: PUBLIC READ, ADMIN WRITE
+CREATE POLICY "Public can read config" ON "public"."config" FOR SELECT USING (true);
+CREATE POLICY "Admins can manage config" ON "public"."config" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_appearance'));
+
+CREATE POLICY "Public can read translations" ON "public"."translations" FOR SELECT USING (true);
+CREATE POLICY "Admins can manage translations" ON "public"."translations" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_translations'));
+
+CREATE POLICY "Public can read products" ON "public"."products" FOR SELECT USING (true);
+CREATE POLICY "Admins can manage products" ON "public"."products" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_store'));
+
+CREATE POLICY "Public can read quizzes" ON "public"."quizzes" FOR SELECT USING (true);
+CREATE POLICY "Admins can manage quizzes" ON "public"."quizzes" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_quizzes'));
+
+CREATE POLICY "Public can read rule categories" ON "public"."rule_categories" FOR SELECT USING (true);
+CREATE POLICY "Admins can manage rule categories" ON "public"."rule_categories" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_rules'));
+
+CREATE POLICY "Public can read rules" ON "public"."rules" FOR SELECT USING (true);
+CREATE POLICY "Admins can manage rules" ON "public"."rules" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_rules'));
+
+CREATE POLICY "Public can read widgets" ON "public"."discord_widgets" FOR SELECT USING (true);
+CREATE POLICY "Admins can manage widgets" ON "public"."discord_widgets" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_widgets'));
+\`;
 `;

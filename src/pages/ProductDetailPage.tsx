@@ -70,7 +70,7 @@ const ProductDetailPage: React.FC = () => {
             <div className="container mx-auto px-6 py-16">
                 <button onClick={() => navigate('/store')} className="flex items-center gap-2 text-gray-400 hover:text-white mb-8 transition-colors">
                     <ArrowLeft size={20} />
-                    Back to Store
+                    {t('back_to_store')}
                 </button>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 bg-brand-dark-blue p-8 rounded-lg border border-brand-light-blue/50">

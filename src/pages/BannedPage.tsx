@@ -32,7 +32,7 @@ const BannedPage: React.FC<BannedPageProps> = ({ reason, expires_at, onLogout })
             <h2 className="font-bold text-brand-cyan text-lg">{t('ban_expires')}</h2>
             <p className="text-gray-200 mt-1">
               {isExpired
-                ? "Your ban has expired. Please log out and log back in."
+                ? t('ban_expired_message')
                 : expirationDate
                 ? expirationDate.toLocaleString()
                 : t('ban_permanent')}

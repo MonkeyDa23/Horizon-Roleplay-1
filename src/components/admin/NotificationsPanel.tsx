@@ -73,10 +73,10 @@ const NotificationsPanel: React.FC = () => {
         return <div className="flex justify-center items-center py-20"><Loader2 size={40} className="text-brand-cyan animate-spin" /></div>;
     }
 
-    const InputField = ({ label, description, value, onChange, placeholder }: { label: string, description: string, value: string | null, onChange: (val: string) => void, placeholder?: string }) => (
+    const InputField = ({ labelKey, descKey, value, onChange, placeholder }: { labelKey: string, descKey: string, value: string | null, onChange: (val: string) => void, placeholder?: string }) => (
         <div>
-            <label className="block text-lg font-semibold text-white mb-1">{label}</label>
-            <p className="text-sm text-gray-400 mb-2">{description}</p>
+            <label className="block text-lg font-semibold text-white mb-1">{t(labelKey)}</label>
+            <p className="text-sm text-gray-400 mb-2">{t(descKey)}</p>
             <input 
                 type="text"
                 value={value || ''}
@@ -97,58 +97,58 @@ const NotificationsPanel: React.FC = () => {
             <div className="bg-brand-dark-blue p-8 rounded-lg border border-brand-light-blue/50 space-y-12">
                 
                 <div>
-                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">Webhook Notifications</h3>
-                    <p className="text-gray-300 mb-6">Webhooks are used for instant, one-way announcements to Discord channels for things like new submissions and admin actions. These are handled directly by the database.</p>
+                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">{t('webhook_notifications')}</h3>
+                    <p className="text-gray-300 mb-6">{t('webhook_notifications_desc')}</p>
                     <div className="space-y-6">
                         <div className="flex items-start gap-4">
                             <div className="flex-grow">
                                 <InputField 
-                                    label="Submission Webhook URL"
-                                    description="A new application submission will be sent here."
+                                    labelKey="submission_webhook_url"
+                                    descKey="submission_webhook_url_desc"
                                     value={settings.SUBMISSION_WEBHOOK_URL}
                                     onChange={val => setSettings(p => ({...p, SUBMISSION_WEBHOOK_URL: val}))}
                                     placeholder="https://discord.com/api/webhooks/..."
                                 />
                             </div>
                             <button onClick={() => handleSendWebhookTest('submission')} disabled={isTesting} className="mt-12 bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-500 disabled:opacity-60 h-fit">
-                                {isTesting ? <Loader2 className="animate-spin" /> : "Test"}
+                                {isTesting ? <Loader2 className="animate-spin" /> : t('test')}
                             </button>
                         </div>
                          <div className="flex items-start gap-4">
                             <div className="flex-grow">
                                 <InputField 
-                                    label="Audit Log Webhook URL"
-                                    description="Admin actions (e.g., banning a user, editing a quiz) will be logged here."
+                                    labelKey="audit_log_webhook_url"
+                                    descKey="audit_log_webhook_url_desc"
                                     value={settings.AUDIT_LOG_WEBHOOK_URL}
                                     onChange={val => setSettings(p => ({...p, AUDIT_LOG_WEBHOOK_URL: val}))}
                                     placeholder="https://discord.com/api/webhooks/..."
                                 />
                             </div>
                             <button onClick={() => handleSendWebhookTest('audit')} disabled={isTesting} className="mt-12 bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-500 disabled:opacity-60 h-fit">
-                                {isTesting ? <Loader2 className="animate-spin" /> : "Test"}
+                                {isTesting ? <Loader2 className="animate-spin" /> : t('test')}
                             </button>
                         </div>
                     </div>
                 </div>
 
                 <div>
-                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">Direct Message (Bot) Notifications</h3>
-                    <p className="text-gray-300 mb-6">The Discord bot is used to send private, direct messages to users, such as application receipts or status updates (accepted/refused). This requires the bot to be running and correctly configured.</p>
+                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">{t('bot_notifications')}</h3>
+                    <p className="text-gray-300 mb-6">{t('bot_notifications_desc')}</p>
                      <button onClick={() => setDmTestModalOpen(true)} className="bg-blue-600 text-white font-bold py-2 px-6 rounded-md hover:bg-blue-500">
-                        Send a Test DM...
+                        {t('send_test_dm')}
                     </button>
                 </div>
             </div>
 
-            <Modal isOpen={isDmTestModalOpen} onClose={() => setDmTestModalOpen(false)} title="Send Test DM">
+            <Modal isOpen={isDmTestModalOpen} onClose={() => setDmTestModalOpen(false)} title={t('test_dm_modal_title')}>
                 <div className="space-y-4">
                     <div>
                         <label className="block font-semibold mb-1">{t('target_id')}</label>
-                        <p className="text-sm text-gray-400 mb-2">Enter the Discord ID of the user you want to send a test DM to.</p>
+                        <p className="text-sm text-gray-400 mb-2">{t('test_dm_modal_desc')}</p>
                         <input type="text" value={testTargetId} onChange={e => setTestTargetId(e.target.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                     </div>
                      <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4">
-                        <button onClick={() => setDmTestModalOpen(false)} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button>
+                        <button onClick={() => setDmTestModalOpen(false)} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">{t('cancel')}</button>
                         <button onClick={handleSendDmTest} disabled={isTesting || !testTargetId} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white disabled:opacity-50 min-w-[8rem] flex justify-center">
                             {isTesting ? <Loader2 className="animate-spin"/> : t('send_test')}
                         </button>

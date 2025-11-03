@@ -109,7 +109,7 @@ const HealthCheckPage: React.FC = () => {
 
   return (
     <>
-      <SEO title="System Health Check" noIndex={true} description="System diagnostics for Vixel"/>
+      <SEO title={t('page_title_health_check')} noIndex={true} description={t('health_check_desc')}/>
       <div className="container mx-auto px-6 py-16">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-4xl font-bold mb-2 text-center">{t('health_check_title')}</h1>
@@ -189,10 +189,10 @@ const HealthCheckPage: React.FC = () => {
                       <input type="text" value={testTargetId} onChange={(e) => setTestTargetId(e.target.value)} placeholder="Enter Channel ID or User ID" className="w-full bg-brand-light-blue p-3 rounded-md border border-gray-600"/>
                       <div className="flex gap-2 w-full sm:w-auto">
                         <button onClick={() => handleTestNotification(false)} disabled={isTestingNotification || !testTargetId} className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-md hover:bg-blue-500 disabled:opacity-60">
-                            {isTestingNotification ? <Loader2 className="animate-spin" /> : "Test Channel"}
+                            {isTestingNotification ? <Loader2 className="animate-spin" /> : t('test_channel_button')}
                         </button>
                         <button onClick={() => handleTestNotification(true)} disabled={isTestingNotification || !testTargetId} className="w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-md hover:bg-blue-500 disabled:opacity-60">
-                            {isTestingNotification ? <Loader2 className="animate-spin" /> : "Test DM"}
+                            {isTestingNotification ? <Loader2 className="animate-spin" /> : t('test_dm_button')}
                         </button>
                       </div>
                   </div>

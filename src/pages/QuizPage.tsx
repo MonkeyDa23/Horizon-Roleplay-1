@@ -76,11 +76,13 @@ const QuizPage: React.FC = () => {
       await addSubmission(submission);
       setQuizState('submitted');
     } catch (error) {
-      console.error("Failed to submit application:", error);
-      alert("An error occurred while submitting your application. Please try again.");
+      console.error("Submission failed:", error);
+      console.error("Detailed error object:", JSON.stringify(error, null, 2));
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
+      showToast(`Submission Error: ${errorMessage}`, 'error');
       setIsSubmitting(false);
     }
-  }, [quiz, user, t, isSubmitting, cheatLog, user?.highestRole]);
+  }, [quiz, user, t, isSubmitting, cheatLog, user?.highestRole, showToast]);
 
   const handleNextQuestion = useCallback(() => {
     if (!quiz) return;
@@ -246,10 +248,10 @@ const QuizPage: React.FC = () => {
         
         <button 
           onClick={handleNextQuestion}
-          disabled={isSubmitting && currentQuestionIndex === quiz.questions.length - 1}
+          disabled={isSubmitting}
           className="mt-8 w-full bg-brand-cyan text-brand-dark font-bold py-4 rounded-lg shadow-glow-cyan hover:bg-white transition-all text-lg flex justify-center items-center disabled:opacity-70 disabled:cursor-not-allowed"
         >
-          {isSubmitting && currentQuestionIndex === quiz.questions.length - 1 ? (
+          {isSubmitting ? (
             <Loader2 size={28} className="animate-spin" />
           ) : currentQuestionIndex < quiz.questions.length - 1 ? (
             t('next_question')

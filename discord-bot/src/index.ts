@@ -1,5 +1,6 @@
 
 
+
 // discord-bot/src/index.ts
 /**
  * Vixel Roleplay - Discord Bot Backend (v2.0)
@@ -276,3 +277,4 @@ const main = async () => {
 };
 
 main().catch(error => logger('FATAL', 'Unhandled exception in main function.', error));
+`;
