@@ -9,6 +9,7 @@ import { ToastProvider } from './contexts/ToastContext';
 import { useConfig } from './hooks/useConfig';
 import { useAuth } from './hooks/useAuth';
 import { TranslationsProvider } from './contexts/TranslationsContext';
+import ErrorBoundary from './components/ErrorBoundary';
 
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -173,20 +174,22 @@ const AppContent: React.FC = () => {
 
 function App() {
   return (
-    <TranslationsProvider>
-      <LocalizationProvider>
-        <ToastProvider>
-          <ConfigProvider>
-            <AuthProvider>
-              <CartProvider>
-                <AppContent />
-                <SessionWatcher />
-              </CartProvider>
-            </AuthProvider>
-          </ConfigProvider>
-        </ToastProvider>
-      </LocalizationProvider>
-    </TranslationsProvider>
+    <ErrorBoundary>
+      <TranslationsProvider>
+        <LocalizationProvider>
+          <ToastProvider>
+            <ConfigProvider>
+              <AuthProvider>
+                <CartProvider>
+                  <AppContent />
+                  <SessionWatcher />
+                </CartProvider>
+              </AuthProvider>
+            </ConfigProvider>
+          </ToastProvider>
+        </LocalizationProvider>
+      </TranslationsProvider>
+    </ErrorBoundary>
   );
 }
 
