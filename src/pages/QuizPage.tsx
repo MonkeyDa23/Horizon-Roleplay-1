@@ -1,6 +1,6 @@
 // src/pages/QuizPage.tsx
 import React, { useState, useEffect, useCallback } from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useLocalization } from '../hooks/useLocalization';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
@@ -9,8 +9,8 @@ import type { Quiz, Answer, CheatAttempt } from '../types';
 import { CheckCircle, Clock, Loader2, ListChecks } from 'lucide-react';
 
 const QuizPage: React.FC = () => {
-  const { quizId } = ReactRouterDOM.useParams<{ quizId: string }>();
-  const navigate = ReactRouterDOM.useNavigate();
+  const { quizId } = useParams<{ quizId: string }>();
+  const navigate = useNavigate();
   const { t } = useLocalization();
   const { user } = useAuth();
   const { showToast } = useToast();

@@ -1,6 +1,6 @@
 // src/components/admin/AdminLayout.tsx
 import React from 'react';
-import * as ReactRouterDOM from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { AlertTriangle } from 'lucide-react';
 import { useLocalization } from '../../hooks/useLocalization';
 import { useConfig } from '../../hooks/useConfig';
@@ -28,9 +28,9 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, tabs, activeTab, se
                     <AlertTriangle className="h-10 w-10 flex-shrink-0" />
                     <div className="text-sm font-semibold">
                       <p>{t('admin_health_check_promo')}</p>
-                      <ReactRouterDOM.Link to="/health-check" className="underline hover:text-white font-bold text-base">
+                      <Link to="/health-check" className="underline hover:text-white font-bold text-base">
                         {t('admin_health_check_promo_link')}
-                      </ReactRouterDOM.Link>
+                      </Link>
                     </div>
                   </div>
                 </div>
