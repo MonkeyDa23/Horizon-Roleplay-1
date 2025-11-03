@@ -44,6 +44,11 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     try {
       const configData = await getConfig();
+      if (!configData) {
+        // This handles the case where .single() finds no rows and returns data: null.
+        // This was the likely cause of the white screen crash.
+        throw new Error("No configuration found in the database. Please ensure the 'config' table has one row of data. You may need to re-run the database schema script from `src/lib/database_schema.ts`.");
+      }
       setConfig(configData);
       setConfigError(null);
     } catch (error) {

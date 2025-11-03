@@ -7,7 +7,7 @@
  * to fetch real-time Discord data and send notifications.
  * It also serves a web-based control panel at its root URL.
  */
-// FIX: Changed import to be namespace-based to avoid global type conflicts with Request/Response.
+// FIX: Use default express import and qualified types to avoid collision with global DOM types for Request and Response.
 import express from 'express';
 import cors from 'cors';
 import {
@@ -167,12 +167,11 @@ const main = async () => {
 
     const app = express();
     const PORT = Number(process.env.PORT) || 14355;
-    // FIX: Using express.RequestHandler directly. The `as RequestHandler` cast was incorrect and causing type errors.
+    
     app.use(cors());
     app.use(express.json());
 
-    // FIX: All types are now prefixed with `express.` to ensure correctness and avoid global type conflicts.
-    const authenticate: express.RequestHandler = (req, res, next) => {
+    const authenticate = (req: express.Request, res: express.Response, next: express.NextFunction) => {
         const receivedKey = (req.headers.authorization || '').substring(7);
         if (receivedKey && receivedKey === config.API_SECRET_KEY) {
             return next();
