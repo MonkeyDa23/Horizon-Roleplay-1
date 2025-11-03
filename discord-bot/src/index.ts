@@ -1,3 +1,5 @@
+
+
 // discord-bot/src/index.ts
 /**
  * Vixel Roleplay - Discord Bot Backend (v2.0)
@@ -8,7 +10,6 @@
  * It also serves a web-based control panel at its root URL.
  */
 import express, { Request, Response, NextFunction } from 'express';
-// FIX: Removed 'process' import to use the Node.js global, fixing type errors.
 import cors from 'cors';
 import {
     Client,
@@ -173,9 +174,9 @@ const main = async () => {
     // FIX: Cast to 'any' to bypass broken type definitions causing compilation errors.
     app.use(express.json() as any);
 
-    // FIX: Changed function signature to use explicit types for parameters instead of 'express.RequestHandler',
-    // which resolves type conflict errors while maintaining type safety inside the function.
-    const authenticate = (req: Request, res: Response, next: NextFunction) => {
+    // FIX: Type errors on req/res properties suggest a type conflict. Using the standard express.RequestHandler
+    // type for middleware is a robust fix that resolves these errors.
+    const authenticate: express.RequestHandler = (req, res, next) => {
         const receivedKey = (req.headers.authorization || '').substring(7);
         if (receivedKey && receivedKey === config.API_SECRET_KEY) {
             return next();

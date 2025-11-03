@@ -43,9 +43,9 @@ export async function forceRefreshUserProfile(): Promise<{ user: User, syncError
     return invokeFunction('sync-user-profile', { force: true });
 }
 
-export async function revalidateSession(): Promise<User> {
-    const { user } = await invokeFunction('sync-user-profile');
-    return user;
+// FIX: Update `revalidateSession` to return the full `{ user, syncError }` object, matching `fetchUserProfile`. This fixes a destructuring error in `SessionWatcher.tsx`.
+export async function revalidateSession(): Promise<{ user: User, syncError: string | null }> {
+    return invokeFunction('sync-user-profile');
 }
 
 export async function lookupUser(discordId: string): Promise<UserLookupResult> {

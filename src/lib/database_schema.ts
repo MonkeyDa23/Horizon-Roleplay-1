@@ -1,7 +1,7 @@
 
 export const DATABASE_SCHEMA = `
 -- Vixel Roleplay Community Hub - Database Schema
--- Version: 5.8.0 (Fix Translations RLS & Stability)
+-- Version: 5.9.0 (Critical Security & Stability Overhaul)
 -- This script is idempotent and can be run multiple times.
 
 -- 1. EXTENSIONS & SCHEMA SETUP
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS "public"."profiles" (
     "discord_id" "text" UNIQUE,
     "roles" "jsonb" DEFAULT '[]'::"jsonb",
     "highest_role" "jsonb",
-    "permissions" "text"[] DEFAULT '{}'::"text"[], -- NEW: Caches user permissions for performance and reliability
+    "permissions" "text"[] DEFAULT '{}'::"text"[], -- Caches user permissions for performance and UI display. RLS SHOULD NOT rely on this.
     "last_synced_at" timestamptz,
     "is_banned" boolean NOT NULL DEFAULT false,
     "ban_reason" "text",
@@ -139,18 +139,33 @@ CREATE TABLE IF NOT EXISTS "public"."discord_widgets" (
 -- 3. CORE FUNCTIONS
 -- =============================================
 
--- Permission checking function
+-- Permission checking function (CRITICAL SECURITY/STABILITY UPDATE)
+-- This function is now SECURITY DEFINER and calculates permissions on-the-fly from user roles,
+-- completely ignoring the potentially stale 'permissions' cache column in the profiles table.
+-- This is the definitive fix for stale permissions and related RLS issues.
 DROP FUNCTION IF EXISTS "public"."has_permission"("p_user_id" "uuid", "p_permission_key" "text") CASCADE;
 CREATE OR REPLACE FUNCTION "public"."has_permission"("p_user_id" "uuid", "p_permission_key" "text")
-RETURNS boolean LANGUAGE "sql" SECURITY INVOKER AS $$
-  SELECT EXISTS (
-    SELECT 1
-    FROM public.profiles
-    WHERE id = p_user_id
-    AND (
-      p_permission_key = ANY(permissions) OR '_super_admin' = ANY(permissions)
-    )
-  );
+RETURNS boolean LANGUAGE "plpgsql" SECURITY DEFINER AS $$
+DECLARE
+    has_perm boolean;
+BEGIN
+    -- Check if user has the permission directly or via super_admin from their roles
+    SELECT EXISTS (
+        SELECT 1
+        FROM public.role_permissions rp
+        WHERE rp.role_id IN (
+            SELECT value->>'id'
+            FROM public.profiles p,
+                 jsonb_array_elements(p.roles)
+            WHERE p.id = p_user_id
+        ) AND (
+            p_permission_key = ANY(rp.permissions) OR
+            '_super_admin' = ANY(rp.permissions)
+        )
+    ) INTO has_perm;
+    
+    RETURN has_perm;
+END;
 $$;
 DROP FUNCTION IF EXISTS "public"."get_user_permissions"("p_user_id" "uuid");
 
@@ -377,7 +392,9 @@ DROP POLICY IF EXISTS "Allow users to create submissions" ON "public"."submissio
 DROP POLICY IF EXISTS "Allow users to see their own submissions" ON "public"."submissions";
 DROP POLICY IF EXISTS "Allow admins to manage submissions" ON "public"."submissions";
 DROP POLICY IF EXISTS "Allow admins full access" ON "public"."role_permissions";
-DROP POLICY IF EXISTS "Allow admins full access" ON "public"."audit_logs";
+DROP POLICY IF EXISTS "Allow inserts for all authenticated users" ON "public"."audit_logs"; -- NEW
+DROP POLICY IF EXISTS "Allow admins to read logs" ON "public"."audit_logs"; -- NEW
+DROP POLICY IF EXISTS "Allow admins full access" ON "public"."audit_logs"; -- OLD, REMOVED
 DROP POLICY IF EXISTS "Allow admins to manage config" ON "public"."config";
 DROP POLICY IF EXISTS "Allow admins to manage products" ON "public"."products";
 DROP POLICY IF EXISTS "Allow admins to manage quizzes" ON "public"."quizzes";
@@ -404,7 +421,11 @@ CREATE POLICY "Allow users to see their own submissions" ON "public"."submission
 CREATE POLICY "Allow admins to manage submissions" ON "public"."submissions" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_submissions'));
 
 CREATE POLICY "Allow admins full access" ON "public"."role_permissions" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_permissions'));
-CREATE POLICY "Allow admins full access" ON "public"."audit_logs" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_audit_log'));
+
+-- NEW RLS FOR AUDIT LOGS: Allow any authenticated user to INSERT (via triggers), but only specific admins to SELECT.
+CREATE POLICY "Allow inserts for all authenticated users" ON "public"."audit_logs" FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+CREATE POLICY "Allow admins to read logs" ON "public"."audit_logs" FOR SELECT USING (public.has_permission(auth.uid(), 'admin_audit_log'));
+
 CREATE POLICY "Allow admins to manage config" ON "public"."config" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_appearance'));
 CREATE POLICY "Allow admins to manage products" ON "public"."products" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_store'));
 CREATE POLICY "Allow admins to manage quizzes" ON "public"."quizzes" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_quizzes'));

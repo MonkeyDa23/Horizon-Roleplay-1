@@ -1,3 +1,4 @@
+
 import { Translations } from '../types';
 
 export const translations: Translations = {
@@ -255,6 +256,11 @@ export const translations: Translations = {
   ban_reason: { ar: 'سبب الحظر', en: 'Ban Reason' },
   ban_expires: { ar: 'انتهاء الحظر', en: 'Ban Expires' },
   ban_permanent: { ar: 'دائم', en: 'Permanent' },
+
+  // Session Management Toasts
+  admin_granted: { ar: 'تم منحك صلاحيات المدير!', en: 'Admin permissions have been granted!' },
+  admin_revoked: { ar: 'تم سحب صلاحيات المدير منك. سيتم إعادة توجيهك.', en: 'Admin permissions have been revoked. You will be redirected.' },
+  session_expired_not_in_guild: { ar: 'انتهت صلاحية الجلسة أو لم تعد عضواً في سيرفر الديسكورد. الرجاء تسجيل الدخول مرة أخرى.', en: 'Session expired or you are no longer in the Discord server. Please log in again.' },
   
   // MOCK DATA (will be replaced by admin panel entries)
   product_vip_bronze_name: { ar: 'عضوية VIP برونزية', en: 'Bronze VIP Membership' },
