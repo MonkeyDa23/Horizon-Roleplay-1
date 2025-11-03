@@ -1,6 +1,7 @@
+
 export const DATABASE_SCHEMA = `
 -- Vixel Roleplay Community Hub - Database Schema
--- Version: 5.0.0 (Pure Webhook & Simplified Bot Architecture)
+-- Version: 5.8.0 (Fix Translations RLS & Stability)
 -- This script is idempotent and can be run multiple times.
 
 -- 1. EXTENSIONS & SCHEMA SETUP
@@ -11,17 +12,26 @@ CREATE EXTENSION IF NOT EXISTS "http" WITH SCHEMA "public"; -- Required for webh
 -- 2. TABLES
 -- =============================================
 
--- Profiles table
+-- Profiles table (NOW WITH CACHED PERMISSIONS for stability)
 CREATE TABLE IF NOT EXISTS "public"."profiles" (
     "id" "uuid" NOT NULL PRIMARY KEY REFERENCES "auth"."users"("id") ON DELETE CASCADE,
     "discord_id" "text" UNIQUE,
     "roles" "jsonb" DEFAULT '[]'::"jsonb",
     "highest_role" "jsonb",
+    "permissions" "text"[] DEFAULT '{}'::"text"[], -- NEW: Caches user permissions for performance and reliability
     "last_synced_at" timestamptz,
     "is_banned" boolean NOT NULL DEFAULT false,
     "ban_reason" "text",
     "ban_expires_at" timestamptz
 );
+-- Add permissions column if it doesn't exist on an existing table
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='profiles' AND column_name='permissions') THEN
+        ALTER TABLE "public"."profiles" ADD COLUMN "permissions" "text"[] DEFAULT '{}'::"text"[];
+    END IF;
+END $$;
+
 
 -- Config table (Webhook URLs are now the primary notification method)
 CREATE TABLE IF NOT EXISTS "public"."config" (
@@ -111,7 +121,7 @@ CREATE TABLE IF NOT EXISTS "public"."role_permissions" (
 CREATE TABLE IF NOT EXISTS "public"."audit_logs" (
     "id" bigserial PRIMARY KEY,
     "timestamp" timestamptz NOT NULL DEFAULT "now"(),
-    "admin_id" "uuid" NOT NULL REFERENCES "auth"."users"("id"),
+    "admin_id" "uuid" NOT NULL,
     "admin_username" "text" NOT NULL,
     "action" "text" NOT NULL
 );
@@ -126,148 +136,97 @@ CREATE TABLE IF NOT EXISTS "public"."discord_widgets" (
 );
 
 
--- 3. WEBHOOK FUNCTIONS (NEW SYSTEM)
+-- 3. CORE FUNCTIONS
 -- =============================================
 
--- Generic function to send a payload to a webhook URL.
+-- Permission checking function
+DROP FUNCTION IF EXISTS "public"."has_permission"("p_user_id" "uuid", "p_permission_key" "text") CASCADE;
+CREATE OR REPLACE FUNCTION "public"."has_permission"("p_user_id" "uuid", "p_permission_key" "text")
+RETURNS boolean LANGUAGE "sql" SECURITY INVOKER AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.profiles
+    WHERE id = p_user_id
+    AND (
+      p_permission_key = ANY(permissions) OR '_super_admin' = ANY(permissions)
+    )
+  );
+$$;
+DROP FUNCTION IF EXISTS "public"."get_user_permissions"("p_user_id" "uuid");
+
+
+-- Webhook sender function
 CREATE OR REPLACE FUNCTION public.send_webhook(webhook_url text, payload jsonb)
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
+DECLARE
+  func_oid oid;
+  func_schema name;
+  payload_text text;
 BEGIN
     IF webhook_url IS NOT NULL AND webhook_url <> '' THEN
-        PERFORM public.http_post(
-            webhook_url,
-            payload,
-            'application/json'::text
-        );
+        SELECT p.oid, n.nspname INTO func_oid, func_schema
+        FROM pg_proc p JOIN pg_namespace n ON p.pronamespace = n.oid
+        WHERE p.proname = 'http_post' AND n.nspname IN ('public', 'extensions')
+        LIMIT 1;
+
+        IF func_oid IS NOT NULL THEN
+            payload_text := payload::text;
+            EXECUTE format('SELECT %I.http_post(%L, $1, %L)', func_schema, webhook_url, 'application/json')
+            USING payload_text;
+        ELSE
+            RAISE NOTICE 'Webhook Error: http_post function not found.';
+        END IF;
     END IF;
 END;
 $$;
 
 
--- Trigger function to format and send a beautiful embed for NEW SUBMISSIONS.
-CREATE OR REPLACE FUNCTION public.handle_new_submission_webhook()
-RETURNS trigger
-LANGUAGE plpgsql
-AS $$
-DECLARE
-    config_row record;
-    payload jsonb;
-BEGIN
-    SELECT "SUBMISSION_WEBHOOK_URL", "COMMUNITY_NAME", "LOGO_URL" INTO config_row FROM public.config WHERE id = 1;
-    
-    payload := jsonb_build_object(
-        'username', config_row.COMMUNITY_NAME || ' Submissions',
-        'avatar_url', config_row.LOGO_URL,
-        'embeds', jsonb_build_array(
-            jsonb_build_object(
-                'title', '📝 New Application Received!',
-                'color', 62194, -- #00f2ea
-                'fields', jsonb_build_array(
-                    jsonb_build_object('name', 'Applicant', 'value', NEW.username, 'inline', true),
-                    jsonb_build_object('name', 'Application Type', 'value', NEW.quizTitle, 'inline', true),
-                    jsonb_build_object('name', 'Highest Role', 'value', COALESCE(NEW.user_highest_role, 'Member'), 'inline', true)
-                ),
-                'footer', jsonb_build_object('text', config_row.COMMUNITY_NAME, 'icon_url', config_row.LOGO_URL),
-                'timestamp', to_char(NEW.submittedAt, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
-            )
-        )
-    );
-    
-    PERFORM public.send_webhook(config_row.SUBMISSION_WEBHOOK_URL, payload);
-    RETURN NEW;
-END;
-$$;
-
--- Trigger function to format and send a beautiful embed for NEW AUDIT LOGS.
-CREATE OR REPLACE FUNCTION public.handle_new_audit_log_webhook()
-RETURNS trigger
-LANGUAGE plpgsql
-AS $$
-DECLARE
-    config_row record;
-    payload jsonb;
-BEGIN
-    SELECT "AUDIT_LOG_WEBHOOK_URL", "COMMUNITY_NAME", "LOGO_URL" INTO config_row FROM public.config WHERE id = 1;
-
-    payload := jsonb_build_object(
-        'username', config_row.COMMUNITY_NAME || ' Audit Log',
-        'avatar_url', config_row.LOGO_URL,
-        'embeds', jsonb_build_array(
-            jsonb_build_object(
-                'title', '🛡️ Admin Action Logged',
-                'color', 15105570, -- #e67e22 (Orange)
-                'fields', jsonb_build_array(
-                    jsonb_build_object('name', 'Admin', 'value', NEW.admin_username, 'inline', true),
-                    jsonb_build_object('name', 'Action', 'value', NEW.action, 'inline', false)
-                ),
-                'footer', jsonb_build_object('text', config_row.COMMUNITY_NAME, 'icon_url', config_row.LOGO_URL),
-                'timestamp', to_char(NEW.timestamp, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
-            )
-        )
-    );
-
-    PERFORM public.send_webhook(config_row.AUDIT_LOG_WEBHOOK_URL, payload);
-    RETURN NEW;
-END;
-$$;
-
-
--- 4. OTHER FUNCTIONS & TRIGGERS
--- =============================================
-
--- Get a user's permissions based on their roles
-CREATE OR REPLACE FUNCTION "public"."get_user_permissions"("p_user_id" "uuid")
-RETURNS "text"[] LANGUAGE "sql" SECURITY DEFINER AS $$
-    SELECT COALESCE(array_agg(DISTINCT "p"), '{}'::"text"[])
-    FROM (
-        SELECT "unnest"("permissions") AS "p"
-        FROM "public"."role_permissions"
-        WHERE "role_id" = ANY(
-            SELECT value ->> 'id'
-            FROM jsonb_array_elements(
-                (SELECT "roles" FROM "public"."profiles" WHERE "id" = "p_user_id")
-            )
-        )
-    ) AS "user_perms";
-$$;
-
--- Check if a user has a specific permission
-CREATE OR REPLACE FUNCTION "public"."has_permission"("p_user_id" "uuid", "p_permission_key" "text")
-RETURNS boolean LANGUAGE "plpgsql" SECURITY DEFINER AS $$
-DECLARE "user_permissions" "text"[];
-BEGIN
-    SELECT "public"."get_user_permissions"("p_user_id") INTO "user_permissions";
-    RETURN '_super_admin' = ANY("user_permissions") OR "p_permission_key" = ANY("user_permissions");
-END;
-$$;
-
--- Trigger function to create audit log entries for various admin actions
+-- Admin action logging function
 CREATE OR REPLACE FUNCTION "public"."log_admin_actions"()
 RETURNS "trigger" LANGUAGE "plpgsql" SECURITY DEFINER AS $$
 DECLARE
-    "user_id" "uuid" := "auth"."uid"();
-    "user_name" "text" := COALESCE((SELECT "raw_user_meta_data" ->> 'global_name' FROM "auth"."users" WHERE "id" = "user_id"), 'Unknown Admin');
+    "user_id" "uuid";
+    "user_name" "text";
     "action_text" "text";
 BEGIN
+    IF auth.role() = 'authenticated' AND auth.jwt() IS NOT NULL THEN
+        "user_id" := ((auth.jwt())->>'sub')::uuid;
+        "user_name" := (auth.jwt())->'user_metadata' ->> 'full_name';
+        IF "user_name" IS NULL OR "user_name" = '' THEN
+            "user_name" := 'User (' || "user_id"::text || ')';
+        END IF;
+    ELSE
+        "user_id" := '00000000-0000-0000-0000-000000000000'; -- Nil UUID for system actions
+        "user_name" := 'System (Dashboard/Service Role)';
+    END IF;
+
     IF TG_TABLE_NAME = 'quizzes' THEN
-        IF TG_OP = 'INSERT' THEN "action_text" := 'Created quiz: ' || NEW."titleKey";
-        ELSIF TG_OP = 'UPDATE' THEN "action_text" := 'Updated quiz: ' || NEW."titleKey";
-        ELSIF TG_OP = 'DELETE' THEN "action_text" := 'Deleted quiz: ' || OLD."titleKey";
+        IF TG_OP = 'INSERT' THEN "action_text" := 'Created form: "' || COALESCE(NEW."titleKey", 'N/A') || '"';
+        ELSIF TG_OP = 'UPDATE' THEN "action_text" := 'Updated form: "' || COALESCE(NEW."titleKey", 'N/A') || '"';
+        ELSIF TG_OP = 'DELETE' THEN "action_text" := 'Deleted form: "' || COALESCE(OLD."titleKey", 'N/A') || '"';
         END IF;
     ELSIF TG_TABLE_NAME = 'products' THEN
-        IF TG_OP = 'INSERT' THEN "action_text" := 'Created product: ' || NEW."nameKey";
-        ELSIF TG_OP = 'UPDATE' THEN "action_text" := 'Updated product: ' || NEW."nameKey";
-        ELSIF TG_OP = 'DELETE' THEN "action_text" := 'Deleted product: ' || OLD."nameKey";
+        IF TG_OP = 'INSERT' THEN "action_text" := 'Created product: "' || COALESCE(NEW."nameKey", 'N/A') || '"';
+        ELSIF TG_OP = 'UPDATE' THEN "action_text" := 'Updated product: "' || COALESCE(NEW."nameKey", 'N/A') || '"';
+        ELSIF TG_OP = 'DELETE' THEN "action_text" := 'Deleted product: "' || COALESCE(OLD."nameKey", 'N/A') || '"';
         END IF;
     ELSIF TG_TABLE_NAME = 'submissions' AND TG_OP = 'UPDATE' THEN
-        "action_text" := 'Updated submission status for ' || NEW."username" || ' to ' || UPPER(NEW."status");
+        IF OLD."status" != NEW."status" THEN
+             "action_text" := 'Updated submission for "' || NEW."username" || '" (' || NEW."quizTitle" || ') to status: ' || UPPER(NEW."status");
+        END IF;
     ELSIF TG_TABLE_NAME = 'profiles' AND TG_OP = 'UPDATE' THEN
         IF OLD."is_banned" != NEW."is_banned" THEN
            "action_text" := CASE WHEN NEW."is_banned" THEN 'BANNED' ELSE 'UNBANNED' END || ' user with Discord ID: ' || NEW."discord_id";
         END IF;
+    ELSIF TG_TABLE_NAME = 'role_permissions' THEN
+        "action_text" := 'Updated permissions for role ID: ' || COALESCE(NEW.role_id, OLD.role_id);
+    ELSIF TG_TABLE_NAME = 'config' THEN
+        "action_text" := 'Updated website configuration.';
+    ELSIF TG_TABLE_NAME = 'discord_widgets' THEN
+        "action_text" := 'Updated Discord widgets.';
     END IF;
 
     IF "action_text" IS NOT NULL THEN
@@ -280,37 +239,117 @@ END;
 $$;
 
 
--- 5. TRIGGERS (COMPLETE REFRESH)
+-- 4. WEBHOOK TRIGGERS
 -- =============================================
 
--- Drop ALL old notification-related triggers to ensure a clean slate
+-- Webhook for NEW SUBMISSIONS.
+CREATE OR REPLACE FUNCTION public.handle_new_submission_webhook()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_webhook_url text;
+    v_community_name text;
+    v_logo_url text;
+    payload jsonb;
+BEGIN
+    SELECT "SUBMISSION_WEBHOOK_URL", "COMMUNITY_NAME", "LOGO_URL"
+    INTO v_webhook_url, v_community_name, v_logo_url
+    FROM public.config WHERE id = 1;
+    
+    payload := jsonb_build_object(
+        'username', v_community_name || ' Submissions',
+        'avatar_url', v_logo_url,
+        'embeds', jsonb_build_array(
+            jsonb_build_object(
+                'title', '📝 New Application Received!',
+                'color', 62194, -- #00f2ea
+                'fields', jsonb_build_array(
+                    jsonb_build_object('name', 'Applicant', 'value', NEW.username, 'inline', true),
+                    jsonb_build_object('name', 'Application Type', 'value', NEW.quizTitle, 'inline', true),
+                    jsonb_build_object('name', 'Highest Role', 'value', COALESCE(NEW.user_highest_role, 'Member'), 'inline', true)
+                ),
+                'footer', jsonb_build_object('text', v_community_name, 'icon_url', v_logo_url),
+                'timestamp', to_char(NEW.submittedAt, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+            )
+        )
+    );
+    
+    PERFORM public.send_webhook(v_webhook_url, payload);
+    RETURN NEW;
+END;
+$$;
+
+-- Webhook for NEW AUDIT LOGS.
+CREATE OR REPLACE FUNCTION public.handle_new_audit_log_webhook()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_webhook_url text;
+    v_community_name text;
+    v_logo_url text;
+    payload jsonb;
+BEGIN
+    SELECT "AUDIT_LOG_WEBHOOK_URL", "COMMUNITY_NAME", "LOGO_URL"
+    INTO v_webhook_url, v_community_name, v_logo_url
+    FROM public.config WHERE id = 1;
+
+    payload := jsonb_build_object(
+        'username', v_community_name || ' Audit Log',
+        'avatar_url', v_logo_url,
+        'embeds', jsonb_build_array(
+            jsonb_build_object(
+                'title', '🛡️ Admin Action Logged',
+                'color', 15105570, -- #e67e22 (Orange)
+                'fields', jsonb_build_array(
+                    jsonb_build_object('name', 'Admin', 'value', NEW.admin_username, 'inline', true),
+                    jsonb_build_object('name', 'Action', 'value', NEW.action, 'inline', false)
+                ),
+                'footer', jsonb_build_object('text', v_community_name, 'icon_url', v_logo_url),
+                'timestamp', to_char(NEW.timestamp, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+            )
+        )
+    );
+    
+    PERFORM public.send_webhook(v_webhook_url, payload);
+    RETURN NEW;
+END;
+$$;
+
+
+-- 5. TRIGGERS
+-- =============================================
+
 DROP TRIGGER IF EXISTS "on_submission_change_notify" ON "public"."submissions";
 DROP TRIGGER IF EXISTS "trigger_new_submission_webhook" ON "public"."submissions";
 DROP TRIGGER IF EXISTS "trigger_new_audit_log_webhook" ON "public"."audit_logs";
-
--- NEW: Trigger for new submissions (sends webhook notification)
-CREATE TRIGGER trigger_new_submission_webhook
-AFTER INSERT ON public.submissions
-FOR EACH ROW EXECUTE FUNCTION public.handle_new_submission_webhook();
-
--- NEW: Trigger for new audit logs (sends webhook notification)
-CREATE TRIGGER trigger_new_audit_log_webhook
-AFTER INSERT ON public.audit_logs
-FOR EACH ROW EXECUTE FUNCTION public.handle_new_audit_log_webhook();
-
--- Admin action logging triggers (these CREATE the logs, the triggers above SEND them)
 DROP TRIGGER IF EXISTS "log_quizzes_changes" ON "public"."quizzes";
 DROP TRIGGER IF EXISTS "log_products_changes" ON "public"."products";
 DROP TRIGGER IF EXISTS "log_submissions_status_changes" ON "public"."submissions";
 DROP TRIGGER IF EXISTS "log_profile_ban_changes" ON "public"."profiles";
+DROP TRIGGER IF EXISTS "log_config_changes" ON "public"."config";
+DROP TRIGGER IF EXISTS "log_permissions_changes" ON "public"."role_permissions";
+DROP TRIGGER IF EXISTS "log_widgets_changes" ON "public"."discord_widgets";
+
+CREATE TRIGGER trigger_new_submission_webhook
+AFTER INSERT ON public.submissions
+FOR EACH ROW EXECUTE FUNCTION public.handle_new_submission_webhook();
+
+CREATE TRIGGER trigger_new_audit_log_webhook
+AFTER INSERT ON public.audit_logs
+FOR EACH ROW EXECUTE FUNCTION public.handle_new_audit_log_webhook();
 
 CREATE TRIGGER "log_quizzes_changes" AFTER INSERT OR UPDATE OR DELETE ON "public"."quizzes" FOR EACH ROW EXECUTE FUNCTION "public"."log_admin_actions"();
 CREATE TRIGGER "log_products_changes" AFTER INSERT OR UPDATE OR DELETE ON "public"."products" FOR EACH ROW EXECUTE FUNCTION "public"."log_admin_actions"();
 CREATE TRIGGER "log_submissions_status_changes" AFTER UPDATE OF "status" ON "public"."submissions" FOR EACH ROW EXECUTE FUNCTION "public"."log_admin_actions"();
 CREATE TRIGGER "log_profile_ban_changes" AFTER UPDATE OF "is_banned" ON "public"."profiles" FOR EACH ROW EXECUTE FUNCTION "public"."log_admin_actions"();
+CREATE TRIGGER "log_config_changes" AFTER UPDATE ON "public"."config" FOR EACH ROW EXECUTE FUNCTION "public"."log_admin_actions"();
+CREATE TRIGGER "log_permissions_changes" AFTER INSERT OR UPDATE ON "public"."role_permissions" FOR EACH ROW EXECUTE FUNCTION "public"."log_admin_actions"();
+CREATE TRIGGER "log_widgets_changes" AFTER INSERT OR UPDATE OR DELETE ON "public"."discord_widgets" FOR EACH ROW EXECUTE FUNCTION "public"."log_admin_actions"();
 
 
--- 6. ROW LEVEL SECURITY (RLS) - NO CHANGES, BUT ENSURED FOR COMPLETENESS
+-- 6. ROW LEVEL SECURITY (RLS)
 -- =============================================
 ALTER TABLE "public"."profiles" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."config" ENABLE ROW LEVEL SECURITY;
@@ -328,6 +367,7 @@ DROP POLICY IF EXISTS "Allow users to see their own profile" ON "public"."profil
 DROP POLICY IF EXISTS "Allow admins to see all profiles" ON "public"."profiles";
 DROP POLICY IF EXISTS "Allow public read access" ON "public"."config";
 DROP POLICY IF EXISTS "Allow public read access" ON "public"."translations";
+DROP POLICY IF EXISTS "Allow admins to manage translations" ON "public"."translations"; -- DEFINITIVE FIX
 DROP POLICY IF EXISTS "Allow public read access" ON "public"."products";
 DROP POLICY IF EXISTS "Allow public read access" ON "public"."quizzes";
 DROP POLICY IF EXISTS "Allow public read access" ON "public"."rule_categories";
@@ -339,7 +379,6 @@ DROP POLICY IF EXISTS "Allow admins to manage submissions" ON "public"."submissi
 DROP POLICY IF EXISTS "Allow admins full access" ON "public"."role_permissions";
 DROP POLICY IF EXISTS "Allow admins full access" ON "public"."audit_logs";
 DROP POLICY IF EXISTS "Allow admins to manage config" ON "public"."config";
-DROP POLICY IF EXISTS "Allow admins to manage translations" ON "public"."translations";
 DROP POLICY IF EXISTS "Allow admins to manage products" ON "public"."products";
 DROP POLICY IF EXISTS "Allow admins to manage quizzes" ON "public"."quizzes";
 DROP POLICY IF EXISTS "Allow admins to manage rules" ON "public"."rules";
@@ -351,6 +390,9 @@ CREATE POLICY "Allow admins to see all profiles" ON "public"."profiles" FOR SELE
 
 CREATE POLICY "Allow public read access" ON "public"."config" FOR SELECT USING (true);
 CREATE POLICY "Allow public read access" ON "public"."translations" FOR SELECT USING (true);
+-- DEFINITIVE FIX: Allow any admin who can access the admin panel to also manage translations.
+-- This is crucial so that creating new quizzes/products/rules (which creates new translation keys) does not fail.
+CREATE POLICY "Allow admins to manage translations" ON "public"."translations" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_panel'));
 CREATE POLICY "Allow public read access" ON "public"."products" FOR SELECT USING (true);
 CREATE POLICY "Allow public read access" ON "public"."quizzes" FOR SELECT USING (true);
 CREATE POLICY "Allow public read access" ON "public"."rule_categories" FOR SELECT USING (true);
@@ -364,7 +406,6 @@ CREATE POLICY "Allow admins to manage submissions" ON "public"."submissions" FOR
 CREATE POLICY "Allow admins full access" ON "public"."role_permissions" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_permissions'));
 CREATE POLICY "Allow admins full access" ON "public"."audit_logs" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_audit_log'));
 CREATE POLICY "Allow admins to manage config" ON "public"."config" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_appearance'));
-CREATE POLICY "Allow admins to manage translations" ON "public"."translations" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_translations'));
 CREATE POLICY "Allow admins to manage products" ON "public"."products" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_store'));
 CREATE POLICY "Allow admins to manage quizzes" ON "public"."quizzes" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_quizzes'));
 CREATE POLICY "Allow admins to manage rules" ON "public"."rules" FOR ALL USING ("public"."has_permission"("auth"."uid"(), 'admin_rules'));
