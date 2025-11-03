@@ -7,7 +7,8 @@
  * to fetch real-time Discord data and send notifications.
  * It also serves a web-based control panel at its root URL.
  */
-import express, { Request, Response, NextFunction, RequestHandler } from 'express';
+// FIX: Changed import to be namespace-based to avoid global type conflicts with Request/Response.
+import express from 'express';
 import cors from 'cors';
 import {
     Client,
@@ -166,11 +167,11 @@ const main = async () => {
 
     const app = express();
     const PORT = Number(process.env.PORT) || 14355;
-    // FIX: Type errors on req/res properties suggest a type conflict. Using the standard express.RequestHandler
-    // type for middleware is a robust fix that resolves these errors.
-    app.use(cors() as RequestHandler);
-    app.use(express.json() as RequestHandler);
+    // FIX: Using express.RequestHandler directly. The `as RequestHandler` cast was incorrect and causing type errors.
+    app.use(cors());
+    app.use(express.json());
 
+    // FIX: All types are now prefixed with `express.` to ensure correctness and avoid global type conflicts.
     const authenticate: express.RequestHandler = (req, res, next) => {
         const receivedKey = (req.headers.authorization || '').substring(7);
         if (receivedKey && receivedKey === config.API_SECRET_KEY) {
@@ -180,16 +181,16 @@ const main = async () => {
         res.status(401).send({ error: 'Authentication failed.' });
     };
 
-    app.get('/', (req: Request, res: Response) => res.setHeader('Content-Type', 'text/html').send(CONTROL_PANEL_HTML));
-    app.get('/health', (req: Request, res: Response) => res.status(200).send({ status: 'ok' }));
+    app.get('/', (req: express.Request, res: express.Response) => res.setHeader('Content-Type', 'text/html').send(CONTROL_PANEL_HTML));
+    app.get('/health', (req: express.Request, res: express.Response) => res.status(200).send({ status: 'ok' }));
     
-    app.get('/api/status', authenticate, async (req: Request, res: Response) => {
+    app.get('/api/status', authenticate, async (req: express.Request, res: express.Response) => {
         if (!client.isReady() || !client.user) return res.status(503).json({ error: 'Bot is not ready' });
         const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
         res.json({ username: client.user.username, avatar: client.user.displayAvatarURL(), guildName: guild.name, memberCount: guild.memberCount });
     });
 
-    app.post('/api/set-presence', authenticate, (req: Request, res: Response) => {
+    app.post('/api/set-presence', authenticate, (req: express.Request, res: express.Response) => {
         const { status, activityType, activityName } = req.body;
         if (!status || !activityType || !activityName) return res.status(400).json({ error: 'Missing required fields' });
         try {
@@ -199,7 +200,7 @@ const main = async () => {
         } catch (error) { res.status(500).json({ error: 'Failed to update presence.' }); }
     });
     
-    app.get('/api/roles', authenticate, async (req: Request, res: Response) => {
+    app.get('/api/roles', authenticate, async (req: express.Request, res: express.Response) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
             const roles = (await guild.roles.fetch()).map(r => ({ id: r.id, name: r.name, color: r.color, position: r.position })).sort((a, b) => b.position - a.position);
@@ -207,7 +208,7 @@ const main = async () => {
         } catch (error) { res.status(500).json({ error: 'Failed to fetch roles.' }); }
     });
 
-    app.get('/api/user/:id', authenticate, async (req: Request, res: Response) => {
+    app.get('/api/user/:id', authenticate, async (req: express.Request, res: express.Response) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
             const member = await guild.members.fetch(req.params.id);
@@ -221,7 +222,7 @@ const main = async () => {
         }
     });
 
-    app.post('/api/dm', authenticate, async (req: Request, res: Response) => {
+    app.post('/api/dm', authenticate, async (req: express.Request, res: express.Response) => {
         const { userId, embed } = req.body;
         logger('INFO', `Received DM request for user: ${userId}`);
         try {
@@ -239,7 +240,7 @@ const main = async () => {
         }
     });
 
-    app.post('/api/send-test-message', authenticate, async(req: Request, res: Response) => {
+    app.post('/api/send-test-message', authenticate, async(req: express.Request, res: express.Response) => {
         const { channelId, message } = req.body;
         try {
             const channel = await client.channels.fetch(channelId) as TextChannel;
@@ -250,7 +251,7 @@ const main = async () => {
         }
     });
 
-    app.post('/api/send-dm', authenticate, async(req: Request, res: Response) => {
+    app.post('/api/send-dm', authenticate, async(req: express.Request, res: express.Response) => {
         const { userId, message } = req.body;
         try {
             const user = await client.users.fetch(userId);

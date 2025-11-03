@@ -6,14 +6,14 @@ import { env } from '../env';
 import { checkDiscordApiHealth, troubleshootUserSync, checkFunctionSecrets, testNotification } from '../lib/api';
 import SEO from '../components/SEO';
 import { useAuth } from '../hooks/useAuth';
-import * as ReactRouterDOM from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useToast } from '../hooks/useToast';
 
 const HealthCheckPage: React.FC = () => {
   const { t } = useLocalization();
   const { hasPermission } = useAuth();
   const { showToast } = useToast();
-  const navigate = ReactRouterDOM.useNavigate();
+  const navigate = useNavigate();
   
   const [secretsResult, setSecretsResult] = React.useState<any>(null);
   const [secretsLoading, setSecretsLoading] = React.useState(true);
