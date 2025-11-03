@@ -54,12 +54,15 @@ const AppliesPage: React.FC = () => {
   );
 
   const getApplyButton = (quiz: Quiz) => {
-      const hasAppliedInCurrentSeason = quiz.lastOpenedAt
-        ? userSubmissions.some(sub => 
-            sub.quizId === quiz.id && 
-            new Date(sub.submittedAt) >= new Date(quiz.lastOpenedAt!)
-          )
-        : userSubmissions.some(sub => sub.quizId === quiz.id);
+      const hasAppliedInCurrentSeason = userSubmissions.some(sub => {
+          if (sub.quizId !== quiz.id) return false;
+          // If the quiz has a "season" start date, only count submissions after that date.
+          if (quiz.lastOpenedAt) {
+              return new Date(sub.submittedAt) >= new Date(quiz.lastOpenedAt);
+          }
+          // If no season start date, any submission for this quiz counts.
+          return true;
+      });
 
       if (hasAppliedInCurrentSeason) {
         return (

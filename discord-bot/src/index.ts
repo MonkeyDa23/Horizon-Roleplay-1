@@ -7,8 +7,8 @@
  * to fetch real-time Discord data and send notifications.
  * It also serves a web-based control panel at its root URL.
  */
-// FIX: Using named type imports for express request/response objects to resolve type inference issues.
-import express, { type Request, type Response, type NextFunction } from 'express';
+// FIX: Removed 'type' keyword from express import to resolve type resolution issues.
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import {
     Client,
