@@ -9,10 +9,11 @@ interface State {
 }
 
 export class ErrorBoundary extends React.Component<React.PropsWithChildren<{}>, State> {
-    constructor(props: React.PropsWithChildren<{}>) {
-        super(props);
-        this.state = { hasError: false, error: null, errorInfo: null };
-    }
+    // FIX: Initialize state as a class property. This is a more modern syntax
+    // and can resolve issues where TypeScript doesn't correctly infer the type of `this`
+    // inside the constructor. This fixes errors related to `this.state`, `this.setState`,
+    // and `this.props` being undefined on the component type.
+    public state: State = { hasError: false, error: null, errorInfo: null };
 
     static getDerivedStateFromError(error: Error): Partial<State> {
         return { hasError: true, error: error };

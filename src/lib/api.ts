@@ -86,7 +86,7 @@ export async function logAdminAccess(): Promise<void> {
 
 
 // Config & Translations
-export async function getConfig(): Promise<AppConfig> {
+export async function getConfig(): Promise<AppConfig | null> {
     if (!supabase) throw new Error("Supabase not available");
     const { data, error } = await supabase.from('config').select('*').single();
     if (error) throw error;
