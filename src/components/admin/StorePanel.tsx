@@ -1,3 +1,4 @@
+
 // src/components/admin/StorePanel.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalization } from '../../hooks/useLocalization';
@@ -112,9 +113,9 @@ const StorePanel: React.FC = () => {
                     <table className="w-full text-left min-w-[600px]">
                         <thead className="border-b border-brand-light-blue/50 text-gray-300 bg-brand-light-blue/30">
                             <tr>
-                                <th className="p-4">{t('product_name')}</th>
-                                <th className="p-4">{t('price')}</th>
-                                <th className="p-4 text-right">{t('actions')}</th>
+                                <th className="p-4">Product Name</th>
+                                <th className="p-4">Price</th>
+                                <th className="p-4 text-right">Actions</th>
                             </tr>
                         </thead>
                         <tbody>

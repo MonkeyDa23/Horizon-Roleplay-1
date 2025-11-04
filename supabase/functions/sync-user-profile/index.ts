@@ -29,7 +29,6 @@ const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 

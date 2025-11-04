@@ -276,7 +276,7 @@ export const CONTROL_PANEL_HTML = `
                 const reqOptions = { ...options };
                 reqOptions.headers = {
                     'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + API_KEY,
+                    'Authorization': 'Bearer ' + encodeURIComponent(API_KEY),
                     ...(reqOptions.headers || {})
                 };
 
@@ -325,7 +325,7 @@ export const CONTROL_PANEL_HTML = `
 
                 try {
                     const response = await fetch('/api/status', {
-                        headers: { 'Authorization': 'Bearer ' + key }
+                        headers: { 'Authorization': 'Bearer ' + encodeURIComponent(key) }
                     });
 
                     if (response.ok) {
@@ -343,7 +343,11 @@ export const CONTROL_PANEL_HTML = `
                         showToast(\`Error: \${errorData.error || response.statusText}\`, 'error');
                     }
                 } catch (error) {
-                    showToast('Could not connect to the bot server: ' + error.message, 'error');
+                    if (error instanceof TypeError && error.message.includes('non ISO-8859-1')) {
+                         showToast('Invalid characters in password. Please use only standard letters, numbers, and symbols.', 'error');
+                    } else {
+                        showToast('Could not connect to the bot server: ' + error.message, 'error');
+                    }
                 } finally {
                     unlockBtn.disabled = false;
                     unlockBtn.innerHTML = 'Unlock';

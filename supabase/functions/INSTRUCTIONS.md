@@ -1,6 +1,6 @@
-# Supabase & Bot Setup Guide (V11 - Direct Notifications)
+# Supabase & Bot Setup Guide (V9 - Robust Proxy Architecture)
 
-This guide provides the complete, simplified instructions for deploying and configuring the backend for your website. This architecture uses a **client-driven** approach where your website calls a secure **Supabase Edge Function (`send-notification`)**, which then communicates with your **self-hosted Discord bot**.
+This guide provides the complete, simplified instructions for deploying and configuring the backend for your website. This architecture uses a **Supabase Database Function** to call a secure **Supabase Edge Function (`discord-proxy`)**, which then reliably communicates with your **self-hosted Discord bot**.
 
 This is the most robust and easy-to-debug setup. **Please follow these steps exactly.**
 
@@ -23,7 +23,8 @@ You must deploy the required functions from the `supabase/functions` directory.
 - `check-bot-health`
 - `check-function-secrets`
 - `troubleshoot-user-sync`
-- `send-notification` (The new, unified notification handler)
+- `test-notification`
+- `discord-proxy` (This one is critical for notifications)
 
 ---
 
@@ -32,7 +33,7 @@ You must deploy the required functions from the `supabase/functions` directory.
 These secrets allow your Edge Functions to securely communicate with your bot.
 
 1.  Go to Supabase Project -> **Settings** (gear icon) -> **Edge Functions**.
-2.  Under the **"Secrets"** section, add the following two secrets.
+2.  Under the **"Secrets"** section, add the following two secrets. These are used by `sync-user-profile`, `discord-proxy`, and other functions to talk to your bot.
 
 | Secret Name                | Value                                                                       | Where to get it?                                                              |
 | -------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
@@ -43,31 +44,39 @@ These secrets allow your Edge Functions to securely communicate with your bot.
 
 ## Step 3: Run the Database Schema (VERY IMPORTANT)
 
-This script sets up all your tables and backend helper functions in the database.
+This script sets up all your tables and backend functions in the database, including the new robust notification system.
 
 1.  Go to Supabase Project -> **SQL Editor**.
 2.  Click **"+ New query"**.
 3.  Copy the ENTIRE content of the file at `src/lib/database_schema.ts`.
 4.  Paste it into the editor and click **"RUN"**.
 
-This script is now much simpler as it no longer contains the complex webhook triggers.
+This script will automatically enable the `http` extension required for the database to send notifications via the proxy.
 
 ---
 
-## Step 4: Configure Notification Channels in Admin Panel
+## Step 4: Configure Notification System in Admin Panel (CRITICAL)
 
-You need to tell the website which Discord channels to send notifications to.
+The database needs to know how to contact its own `discord-proxy` function. You will set this from the website's admin panel.
 
 1.  Log into your website with your admin account.
 2.  Navigate to the **Admin Panel**.
-3.  Go to the **Notifications** tab.
-4.  Fill in the **Channel IDs** for:
-    -   **Submission Channel**: Where new application notifications will be sent.
-    -   **Audit Log Channel**: Where admin action logs will be sent.
-5.  Click **"Save Settings"**.
+3.  Go to the **Appearance** tab.
+4.  Scroll down to the **"Discord & Notification Integration"** section.
+5.  Fill in the following two fields:
+
+    -   **Supabase Project URL**:
+        -   **Where to find it:** Go to your Supabase Dashboard -> Project Settings -> API. Copy the **Project URL**.
+        -   **Example:** `https://yourprojectid.supabase.co`
+
+    -   **Discord Proxy Secret**:
+        -   **What it is:** This is a password YOU create. It acts as a secret handshake between your database and your `discord-proxy` function.
+        -   **Action:** Create a strong, random password (e.g., from a password generator) and paste it here.
+
+6.  Click **"Save Settings"**.
 
 ---
 
 ## Final Check
 
-After completing all steps, your backend should be fully operational. You can use the **Health Check** page in the Admin Panel to verify all connections and send test notifications to ensure everything is working correctly.
+After completing all steps, your backend should be fully operational. You can use the **Health Check** page in the Admin Panel to verify all connections. If notifications still fail, any error will now appear instantly on the website, telling you exactly what went wrong.

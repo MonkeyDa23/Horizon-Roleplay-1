@@ -15,4 +15,16 @@ const AdminDashboard: React.FC = () => {
     );
 };
 
+// Add translation for the welcome message
+export const adminDashboardTranslations = {
+    admin_dashboard_welcome_message: {
+        en: 'Welcome to the control panel. You can manage all website settings from the sidebar.',
+        ar: 'أهلاً بك في لوحة التحكم. يمكنك إدارة جميع إعدادات الموقع من الشريط الجانبي.'
+    },
+    dashboard: {
+        en: 'Dashboard',
+        ar: 'الرئيسية'
+    }
+};
+
 export default AdminDashboard;

@@ -125,10 +125,10 @@ const RulesPanel: React.FC = () => {
     return (
         <div className="animate-fade-in-up">
             <div className="flex justify-between items-center mb-6">
-                <p className="text-gray-400">{t('rules_management_desc')}</p>
+                <p className="text-gray-400">Manage rule categories and their contents below.</p>
                 <div className="flex gap-4">
                      <button onClick={addCategory} className="bg-blue-500/80 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-500 transition-colors flex items-center gap-2">
-                        <Plus size={18} /> {t('add_category')}
+                        <Plus size={18} /> Add Category
                     </button>
                     <button onClick={handleSave} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white transition-colors min-w-[9rem] flex justify-center">
                         {isSaving ? <Loader2 className="animate-spin" /> : t('save_rules')}
@@ -159,7 +159,7 @@ const RulesPanel: React.FC = () => {
                                 </div>
                             ))}
                             <button onClick={() => addRule(catIndex)} className="text-sm text-brand-cyan hover:text-white font-semibold flex items-center gap-1">
-                                <Plus size={16} /> {t('add_rule')}
+                                <Plus size={16} /> Add Rule
                             </button>
                         </div>
                     </div>

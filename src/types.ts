@@ -12,9 +12,9 @@ export interface Translations {
 }
 
 export interface LocalizationContextType {
-  t: (key: string, replacements?: Record<string, string | number>) => string;
   language: Language;
   setLanguage: (lang: Language) => void;
+  t: (key: string, replacements?: Record<string, string | number>) => string;
   dir: 'rtl' | 'ltr';
 }
 
@@ -37,7 +37,7 @@ export type PermissionKey =
   | 'admin_permissions'
   | 'admin_lookup'
   | 'admin_notifications'
-  | 'admin_widgets';
+  | 'admin_widgets'; // New permission for Discord widgets
 
 export interface DiscordRole {
   id: string;
@@ -161,21 +161,8 @@ export interface Quiz {
   allowedTakeRoles?: string[];
   logoUrl?: string;
   bannerUrl?: string;
-  lastOpenedAt?: string;
+  lastOpenedAt?: string; // To track "application seasons"
 }
-
-export interface EditingQuestion extends QuizQuestion {
-  textEn: string;
-  textAr: string;
-}
-
-export type EditingQuizData = Omit<Quiz, 'questions'> & {
-    titleEn: string;
-    titleAr: string;
-    descriptionEn: string;
-    descriptionAr: string;
-    questions: EditingQuestion[];
-};
 
 
 // =============================================
@@ -201,7 +188,10 @@ export interface DiscordWidget {
     position: number;
 }
 
+// FIX: Updated AppConfig to use webhook URLs instead of channel IDs, matching the database schema and component usage.
 export interface AppConfig {
+    SUPABASE_PROJECT_URL: string | null;
+    DISCORD_PROXY_SECRET: string | null;
     COMMUNITY_NAME: string;
     LOGO_URL: string;
     DISCORD_GUILD_ID: string;
@@ -209,8 +199,11 @@ export interface AppConfig {
     MTA_SERVER_URL: string;
     BACKGROUND_IMAGE_URL: string;
     SHOW_HEALTH_CHECK: boolean;
-    SUBMISSION_WEBHOOK_URL: string | null;
+    SUBMISSIONS_WEBHOOK_URL: string | null;
     AUDIT_LOG_WEBHOOK_URL: string | null;
+    AUDIT_LOG_SUBMISSIONS_WEBHOOK_URL: string | null;
+    AUDIT_LOG_BANS_WEBHOOK_URL: string | null;
+    AUDIT_LOG_ADMIN_WEBHOOK_URL: string | null;
 }
 
 // =============================================
@@ -228,6 +221,7 @@ export interface MtaServerStatus {
     name: string;
     players: number;
     maxPlayers: number;
+    version: string;
 }
 
 export interface MtaLogEntry {

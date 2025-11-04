@@ -45,14 +45,15 @@ const AppearancePanel: React.FC = () => {
         );
     }
     
-    const InputField = ({ labelKey, descKey, value, onChange }: { labelKey: string, descKey?: string, value: string | null, onChange: (val: string) => void }) => (
+    const InputField = ({ labelKey, descKey, value, onChange, placeholder, isPassword }: { labelKey: string, descKey?: string, value: string | null, onChange: (val: string) => void, placeholder?: string, isPassword?: boolean }) => (
         <div>
             <label className="block text-lg font-semibold text-white mb-1">{t(labelKey)}</label>
             {descKey && <p className="text-sm text-gray-400 mb-2">{t(descKey)}</p>}
             <input 
-                type="text"
+                type={isPassword ? "password" : "text"}
                 value={value || ''}
                 onChange={(e) => onChange(e.target.value)}
+                placeholder={placeholder}
                 className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan"
             />
         </div>
@@ -67,7 +68,7 @@ const AppearancePanel: React.FC = () => {
             </div>
             <div className="bg-brand-dark-blue p-8 rounded-lg border border-brand-light-blue/50 space-y-8">
                 <div>
-                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">{t('general_settings')}</h3>
+                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">General Settings</h3>
                     <div className="space-y-6">
                         <InputField labelKey="community_name" value={settings.COMMUNITY_NAME || ''} onChange={val => handleChange('COMMUNITY_NAME', val)} />
                         <InputField labelKey="logo_url" value={settings.LOGO_URL || ''} onChange={val => handleChange('LOGO_URL', val)} />
@@ -76,13 +77,26 @@ const AppearancePanel: React.FC = () => {
                 </div>
 
                 <div>
-                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">{t('integration_settings')}</h3>
+                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">Discord & DM Integration</h3>
                     <div className="space-y-6">
                         <InputField labelKey="discord_guild_id" descKey="discord_guild_id_desc" value={settings.DISCORD_GUILD_ID || ''} onChange={val => handleChange('DISCORD_GUILD_ID', val)} />
-                        <InputField labelKey="discord_invite_url" descKey="discord_invite_url_desc" value={settings.DISCORD_INVITE_URL || ''} onChange={val => handleChange('DISCORD_INVITE_URL', val)} />
-                        <InputField labelKey="mta_server_url" descKey="mta_server_url_desc" value={settings.MTA_SERVER_URL || ''} onChange={val => handleChange('MTA_SERVER_URL', val)} />
+                        <InputField labelKey="supabase_project_url" descKey="supabase_project_url_desc" value={settings.SUPABASE_PROJECT_URL || ''} onChange={val => handleChange('SUPABASE_PROJECT_URL', val)} placeholder="e.g., https://xyz.supabase.co" />
+                        <InputField labelKey="discord_proxy_secret" descKey="discord_proxy_secret_desc" value={settings.DISCORD_PROXY_SECRET || ''} onChange={val => handleChange('DISCORD_PROXY_SECRET', val)} isPassword />
                     </div>
                 </div>
+                
+                 <div>
+                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">Notification Webhooks</h3>
+                     <p className="text-sm text-gray-400 mb-6 -mt-4">These webhooks are used for sending messages to Discord channels. To get a webhook URL, go to your Discord channel settings {'>'} Integrations {'>'} Webhooks {'>'} New Webhook.</p>
+                    <div className="space-y-6">
+                        <InputField labelKey="submissions_webhook_url" descKey="submissions_webhook_url_desc" value={settings.SUBMISSIONS_WEBHOOK_URL} onChange={val => handleChange('SUBMISSIONS_WEBHOOK_URL', val)} />
+                        <InputField labelKey="audit_log_webhook_url" descKey="audit_log_webhook_url_desc" value={settings.AUDIT_LOG_WEBHOOK_URL} onChange={val => handleChange('AUDIT_LOG_WEBHOOK_URL', val)} />
+                        <InputField labelKey="log_webhook_submissions" descKey="log_webhook_submissions_desc" value={settings.AUDIT_LOG_SUBMISSIONS_WEBHOOK_URL} onChange={val => handleChange('AUDIT_LOG_SUBMISSIONS_WEBHOOK_URL', val)} />
+                        <InputField labelKey="log_webhook_bans" descKey="log_webhook_bans_desc" value={settings.AUDIT_LOG_BANS_WEBHOOK_URL} onChange={val => handleChange('AUDIT_LOG_BANS_WEBHOOK_URL', val)} />
+                        <InputField labelKey="log_webhook_admin" descKey="log_webhook_admin_desc" value={settings.AUDIT_LOG_ADMIN_WEBHOOK_URL} onChange={val => handleChange('AUDIT_LOG_ADMIN_WEBHOOK_URL', val)} />
+                    </div>
+                </div>
+
             </div>
         </div>
     );

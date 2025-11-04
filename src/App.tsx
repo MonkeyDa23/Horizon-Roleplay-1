@@ -19,7 +19,7 @@ import PermissionWarningBanner from './components/PermissionWarningBanner';
 
 import HomePage from './pages/HomePage';
 import StorePage from './pages/StorePage';
-import ProductDetailPage from './pages/ProductDetailPage';
+import ProductDetailPage from './pages/ProductDetailPage'; // New import
 import RulesPage from './pages/RulesPage';
 import AppliesPage from './pages/AppliesPage';
 import AboutUsPage from './pages/AboutUsPage';

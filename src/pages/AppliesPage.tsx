@@ -1,4 +1,9 @@
-// src/pages/AppliesPage.tsx
+
+
+
+
+
+
 import React, { useState, useEffect } from 'react';
 // FIX: Fix "no exported member" errors from 'react-router-dom' by switching to a namespace import.
 import * as ReactRouterDOM from 'react-router-dom';
@@ -55,11 +60,14 @@ const AppliesPage: React.FC = () => {
   );
 
   const getApplyButton = (quiz: Quiz) => {
+      // New logic: Check if the user has applied in the current "season"
+      // A season is defined by the last time the quiz was opened.
       const hasAppliedInCurrentSeason = quiz.lastOpenedAt
         ? userSubmissions.some(sub => 
             sub.quizId === quiz.id && 
             new Date(sub.submittedAt) >= new Date(quiz.lastOpenedAt!)
           )
+        // Fallback for old quizzes that might not have this timestamp
         : userSubmissions.some(sub => sub.quizId === quiz.id);
 
       if (hasAppliedInCurrentSeason) {
@@ -97,11 +105,6 @@ const AppliesPage: React.FC = () => {
           {t('apply_now')}
         </ReactRouterDOM.Link>
       );
-  };
-
-  const getTotalQuestions = (quiz: Quiz) => {
-    // FIX: Reverted from 'rounds' to 'questions' to align with the actual Quiz type definition.
-    return (quiz.questions || []).length;
   };
 
   return (
@@ -147,7 +150,7 @@ const AppliesPage: React.FC = () => {
                               </div>
                               <div>
                                   <h2 className="text-2xl font-bold text-white">{t(quiz.titleKey)}</h2>
-                                  <p className="text-sm text-gray-400">{getTotalQuestions(quiz)} {t('questions')}</p>
+                                  <p className="text-sm text-gray-400">{(quiz.questions || []).length} {t('questions')}</p>
                               </div>
                           </div>
                           <p className="text-gray-300 mb-6 min-h-[40px]">{t(quiz.descriptionKey)}</p>
