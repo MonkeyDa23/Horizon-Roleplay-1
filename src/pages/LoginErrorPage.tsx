@@ -2,7 +2,6 @@
 import React from 'react';
 import { AlertTriangle, RefreshCw, LogOut } from 'lucide-react';
 import { ApiError } from '../lib/api';
-import { useLocalization } from '../hooks/useLocalization';
 
 interface LoginErrorPageProps {
   error: Error;
@@ -11,13 +10,13 @@ interface LoginErrorPageProps {
 }
 
 const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogout }) => {
-    const { t } = useLocalization();
     
-    let title = t('login_error_title');
+    let title = "Login Synchronization Failed";
     let advice: React.ReactNode[] = [];
 
     const getTroubleshootingSteps = () => {
         const steps = [];
+        // FIX: Check if error is an instance of ApiError before accessing status property
         if (error instanceof ApiError) {
              switch (error.status) {
                 case 401:
@@ -57,10 +56,12 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
                     <AlertTriangle className="text-red-400" size={48} />
                 </div>
                 <h1 className="text-3xl md:text-4xl font-extrabold text-red-400 mb-4">{title}</h1>
-                <p className="text-md text-gray-300 mb-8">{t('login_error_message')}</p>
+                <p className="text-md text-gray-300 mb-8">
+                    We couldn't synchronize your profile with Discord after you logged in. This usually happens because of a configuration issue between the website and the backend bot.
+                </p>
 
                 <div className="bg-brand-dark p-6 rounded-lg text-left space-y-4 border border-brand-light-blue">
-                    <h2 className="font-bold text-brand-cyan text-lg">{t('how_to_fix')}</h2>
+                    <h2 className="font-bold text-brand-cyan text-lg">How to Fix:</h2>
                     <div className="text-gray-200 mt-1 space-y-3">
                        {advice.map((item, index) => (
                            <div key={index} className="flex items-start gap-3">
@@ -77,14 +78,14 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
                         className="w-full sm:w-auto px-8 py-3 bg-gray-600 text-white font-bold text-lg rounded-lg hover:bg-gray-500 transform transition-all duration-300 ease-in-out flex items-center justify-center gap-3"
                     >
                         <LogOut size={22}/>
-                        {t('logout')}
+                        Logout
                     </button>
                      <button
                         onClick={onRetry}
                         className="w-full sm:w-auto px-8 py-3 bg-brand-cyan text-brand-dark font-bold text-lg rounded-lg shadow-glow-cyan hover:bg-white hover:scale-105 transform transition-all duration-300 ease-in-out flex items-center justify-center gap-3"
                     >
                         <RefreshCw size={22}/>
-                        {t('retry_connection')}
+                        Retry Connection
                     </button>
                 </div>
             </div>

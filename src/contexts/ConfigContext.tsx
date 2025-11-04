@@ -11,12 +11,12 @@ interface ConfigContextType {
   refreshConfig: () => Promise<void>;
 }
 
+// FIX: Replaced outdated *_CHANNEL_ID properties with *_WEBHOOK_URL to match the AppConfig type.
 const defaultConfig: AppConfig = {
     COMMUNITY_NAME: 'Vixel Roleplay',
     LOGO_URL: 'https://l.top4top.io/p_356271n1v1.png',
     DISCORD_GUILD_ID: '',
     DISCORD_INVITE_URL: 'https://discord.gg/u3CazwhxVa',
-    DISCORD_ANNOUNCEMENTS_CHANNEL_ID: null,
     MTA_SERVER_URL: 'mtasa://134.255.216.22:22041',
     BACKGROUND_IMAGE_URL: '',
     SHOW_HEALTH_CHECK: false,
@@ -44,11 +44,6 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     try {
       const configData = await getConfig();
-      if (!configData) {
-        // This handles the case where .single() finds no rows and returns data: null.
-        // This was the likely cause of the white screen crash.
-        throw new Error("No configuration found in the database. Please ensure the 'config' table has one row of data. You may need to re-run the database schema script from `src/lib/database_schema.ts`.");
-      }
       setConfig(configData);
       setConfigError(null);
     } catch (error) {

@@ -1,8 +1,7 @@
 // src/pages/AdminPage.tsx
 import React, { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
-// FIX: Corrected import path for useLocalization hook.
+import * as ReactRouterDOM from 'react-router-dom';
 import { useLocalization } from '../hooks/useLocalization';
 import AdminLayout from '../components/admin/AdminLayout';
 import AdminDashboard from '../components/admin/AdminDashboard';
@@ -28,7 +27,7 @@ export type AdminTab = 'dashboard' | 'submissions' | 'quizzes' | 'rules' | 'stor
 
 const AdminPage: React.FC = () => {
     const { hasPermission } = useAuth();
-    const navigate = useNavigate();
+    const navigate = ReactRouterDOM.useNavigate();
     const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
     const { t } = useLocalization();
 

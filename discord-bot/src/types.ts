@@ -9,3 +9,11 @@ export interface BotConfig {
     API_SECRET_KEY: string;
     PRESENCE_COMMAND_ROLE_IDS: string[];
 }
+
+/**
+ * Represents the JSON body for any notification.
+ * The `type` determines where the message is sent.
+ */
+export type NotifyPayload =
+  | { type: 'channel'; payload: { channelId: string; embed: any; content?: string; } }
+  | { type: 'dm'; payload: { userId: string; embed: any; } };

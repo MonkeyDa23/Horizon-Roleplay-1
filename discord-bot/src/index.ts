@@ -7,10 +7,9 @@
  * to fetch real-time Discord data and send notifications.
  * It also serves a web-based control panel at its root URL.
  */
-// FIX: Changed import to use the default export and then qualify types like `express.Request`.
-// This resolves ambiguity and ensures the correct types are used, fixing errors where
-// properties like `.status`, `.json`, `.headers` etc. were not found.
-import express from 'express';
+// FIX: Aliased Request and Response to avoid name collisions with global types (e.g., from DOM).
+import express, { Request as ExpressRequest, Response as ExpressResponse, NextFunction } from 'express';
+import process from 'process';
 import cors from 'cors';
 import {
     Client,
@@ -169,11 +168,11 @@ const main = async () => {
 
     const app = express();
     const PORT = Number(process.env.PORT) || 14355;
-    
     app.use(cors());
     app.use(express.json());
 
-    const authenticate = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    // FIX: Used aliased types to resolve type conflicts.
+    const authenticate = (req: ExpressRequest, res: ExpressResponse, next: NextFunction) => {
         const receivedKey = (req.headers.authorization || '').substring(7);
         if (receivedKey && receivedKey === config.API_SECRET_KEY) {
             return next();
@@ -182,16 +181,16 @@ const main = async () => {
         res.status(401).send({ error: 'Authentication failed.' });
     };
 
-    app.get('/', (req: express.Request, res: express.Response) => res.setHeader('Content-Type', 'text/html').send(CONTROL_PANEL_HTML));
-    app.get('/health', (req: express.Request, res: express.Response) => res.status(200).send({ status: 'ok' }));
+    app.get('/', (req, res) => res.setHeader('Content-Type', 'text/html').send(CONTROL_PANEL_HTML));
+    app.get('/health', (req, res) => res.status(200).send({ status: 'ok' }));
     
-    app.get('/api/status', authenticate, async (req: express.Request, res: express.Response) => {
+    app.get('/api/status', authenticate, async (req, res) => {
         if (!client.isReady() || !client.user) return res.status(503).json({ error: 'Bot is not ready' });
         const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
         res.json({ username: client.user.username, avatar: client.user.displayAvatarURL(), guildName: guild.name, memberCount: guild.memberCount });
     });
 
-    app.post('/api/set-presence', authenticate, (req: express.Request, res: express.Response) => {
+    app.post('/api/set-presence', authenticate, (req, res) => {
         const { status, activityType, activityName } = req.body;
         if (!status || !activityType || !activityName) return res.status(400).json({ error: 'Missing required fields' });
         try {
@@ -201,7 +200,7 @@ const main = async () => {
         } catch (error) { res.status(500).json({ error: 'Failed to update presence.' }); }
     });
     
-    app.get('/api/roles', authenticate, async (req: express.Request, res: express.Response) => {
+    app.get('/api/roles', authenticate, async (req, res) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
             const roles = (await guild.roles.fetch()).map(r => ({ id: r.id, name: r.name, color: r.color, position: r.position })).sort((a, b) => b.position - a.position);
@@ -209,7 +208,7 @@ const main = async () => {
         } catch (error) { res.status(500).json({ error: 'Failed to fetch roles.' }); }
     });
 
-    app.get('/api/user/:id', authenticate, async (req: express.Request, res: express.Response) => {
+    app.get('/api/user/:id', authenticate, async (req, res) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
             const member = await guild.members.fetch(req.params.id);
@@ -223,45 +222,70 @@ const main = async () => {
         }
     });
 
-    app.post('/api/dm', authenticate, async (req: express.Request, res: express.Response) => {
-        const { userId, embed } = req.body;
-        logger('INFO', `Received DM request for user: ${userId}`);
+    app.post('/api/notify', authenticate, async (req, res) => {
+        const { type, payload } = req.body;
+        logger('INFO', `Received notification request of type: ${type}`);
         try {
-            if (!userId || !embed) throw new Error("Missing 'userId' or 'embed'.");
-            const user = await client.users.fetch(userId);
-            const finalEmbed = new EmbedBuilder(embed);
-            await user.send({ embeds: [finalEmbed] });
-            logger('INFO', `✅ Sent DM to user ${user.tag}.`);
-            res.status(200).json({ message: 'DM sent successfully.' });
+            const embed = new EmbedBuilder(payload.embed);
+            if (type === 'channel') {
+                const channel = await client.channels.fetch(payload.channelId) as TextChannel;
+                if (!channel) throw new Error(`Channel ${payload.channelId} not found.`);
+                await channel.send({ content: payload.content, embeds: [embed] });
+                logger('INFO', `✅ Sent embed to channel #${channel.name}.`);
+            } else if (type === 'dm') {
+                const user = await client.users.fetch(payload.userId);
+                await user.send({ embeds: [embed] });
+                logger('INFO', `✅ Sent DM to user ${user.tag}.`);
+            } else {
+                throw new Error(`Unknown notification type: ${type}`);
+            }
+            res.status(200).json({ message: 'Notification sent successfully.' });
         } catch (error) {
             let errorMessage = (error instanceof Error) ? error.message : "An unknown error occurred.";
-            logger('ERROR', `Failed to process DM. Error: ${errorMessage}`, error);
-            if (error instanceof DiscordAPIError && error.code === 50007) errorMessage = "Cannot send DMs to this user (they may have DMs disabled or have blocked the bot).";
-            res.status(500).json({ error: 'Failed to send DM.', details: errorMessage });
+            logger('ERROR', `Failed to process notification. Error: ${errorMessage}`, error);
+            if (error instanceof DiscordAPIError && error.code === 50007) errorMessage = "Cannot send DMs to this user.";
+            res.status(500).json({ error: 'Failed to send notification.', details: errorMessage });
         }
     });
 
-    app.post('/api/send-test-message', authenticate, async(req: express.Request, res: express.Response) => {
+    // Endpoints for the web control panel
+    app.post('/api/send-test-message', authenticate, async (req, res) => {
         const { channelId, message } = req.body;
+        if (!channelId || !message) {
+            return res.status(400).json({ error: 'channelId and message are required.' });
+        }
         try {
             const channel = await client.channels.fetch(channelId) as TextChannel;
+            if (!channel || !channel.isTextBased()) {
+                return res.status(404).json({ error: 'Text channel not found.' });
+            }
             await channel.send(message);
-            res.json({ message: 'Message sent successfully' });
-        } catch(error) {
-            res.status(500).json({ error: (error as Error).message });
+            logger('INFO', `Sent test message to #${channel.name}`);
+            res.status(200).json({ message: 'Test message sent successfully.' });
+        } catch (error) {
+            logger('ERROR', `Failed to send test message: ${(error as Error).message}`, error);
+            res.status(500).json({ error: 'Failed to send message.', details: (error as Error).message });
         }
     });
 
-    app.post('/api/send-dm', authenticate, async(req: express.Request, res: express.Response) => {
+    app.post('/api/send-dm', authenticate, async (req, res) => {
         const { userId, message } = req.body;
+        if (!userId || !message) {
+            return res.status(400).json({ error: 'userId and message are required.' });
+        }
         try {
             const user = await client.users.fetch(userId);
             await user.send(message);
-            res.json({ message: 'DM sent successfully' });
-        } catch(error) {
-            res.status(500).json({ error: (error as Error).message });
+            logger('INFO', `Sent test DM to ${user.tag}`);
+            res.status(200).json({ message: 'Test DM sent successfully.' });
+        } catch (error) {
+            logger('ERROR', `Failed to send test DM: ${(error as Error).message}`, error);
+            if (error instanceof DiscordAPIError && error.code === 50007) {
+                return res.status(403).json({ error: "Cannot send DMs to this user. They may have DMs disabled or have blocked the bot." });
+            }
+            res.status(500).json({ error: 'Failed to send DM.', details: (error as Error).message });
         }
-    })
+    });
 
     try {
         await client.login(config.DISCORD_BOT_TOKEN);

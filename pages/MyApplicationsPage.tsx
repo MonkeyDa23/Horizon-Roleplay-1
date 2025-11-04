@@ -1,0 +1,105 @@
+
+
+
+
+import React, { useState, useEffect } from 'react';
+// FIX: Updated import paths to point to the 'src' directory
+import { useAuth } from '../src/hooks/useAuth';
+import { useLocalization } from '../src/hooks/useLocalization';
+// FIX: Switched from mockData to asynchronous API call
+import { getSubmissionsByUserId } from '../src/lib/api';
+import type { QuizSubmission, SubmissionStatus } from '../src/types';
+// FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
+// FIX: Switched to a namespace import for react-router-dom to resolve module resolution errors.
+import * as ReactRouterDOM from 'react-router-dom';
+import { FileText, Loader2 } from 'lucide-react';
+
+const MyApplicationsPage: React.FC = () => {
+  const { user } = useAuth();
+  const { t } = useLocalization();
+  // FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
+  const navigate = ReactRouterDOM.useNavigate();
+  const [submissions, setSubmissions] = useState<QuizSubmission[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) {
+      navigate('/');
+      return;
+    }
+
+    const fetchSubmissions = async () => {
+        setLoading(true);
+        try {
+            const userSubmissions = await getSubmissionsByUserId(user.id);
+            setSubmissions(userSubmissions);
+        } catch(error) {
+            console.error("Failed to fetch user submissions", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    fetchSubmissions();
+    
+  }, [user, navigate]);
+  
+  const renderStatusBadge = (status: SubmissionStatus) => {
+    const statusMap = {
+      pending: { text: t('status_pending'), color: 'bg-yellow-500/20 text-yellow-400' },
+      taken: { text: t('status_taken'), color: 'bg-blue-500/20 text-blue-400' },
+      accepted: { text: t('status_accepted'), color: 'bg-green-500/20 text-green-400' },
+      refused: { text: t('status_refused'), color: 'bg-red-500/20 text-red-400' },
+    };
+    const { text, color } = statusMap[status];
+    return <span className={`px-3 py-1 text-sm font-bold rounded-full ${color}`}>{text}</span>;
+  };
+  
+  return (
+    <div className="container mx-auto px-6 py-16">
+      <div className="text-center mb-12">
+        <div className="inline-block p-4 bg-brand-light-blue rounded-full mb-4">
+          <FileText className="text-brand-cyan" size={48} />
+        </div>
+        <h1 className="text-4xl md:text-5xl font-bold mb-4">{t('page_title_my_applications')}</h1>
+      </div>
+
+      <div className="max-w-4xl mx-auto bg-brand-dark-blue rounded-lg border border-brand-light-blue/50">
+        <div className="overflow-x-auto">
+          {loading ? (
+             <div className="flex justify-center items-center h-48">
+                <Loader2 size={40} className="text-brand-cyan animate-spin" />
+             </div>
+          ) : (
+            <table className="w-full text-left min-w-[600px]">
+              <thead className="border-b border-brand-light-blue/50 text-gray-300">
+                <tr>
+                  <th className="p-4">{t('application_type')}</th>
+                  <th className="p-4">{t('submitted_on')}</th>
+                  <th className="p-4">{t('status')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {submissions.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="p-8 text-center text-gray-400 text-lg">
+                      {t('no_applications_submitted')}
+                    </td>
+                  </tr>
+                ) : submissions.map((sub, index) => (
+                  <tr key={sub.id} className={`border-b border-brand-light-blue/50 ${index === submissions.length - 1 ? 'border-none' : ''}`}>
+                    <td className="p-4 font-semibold">{sub.quizTitle}</td>
+                    <td className="p-4 text-sm text-gray-400">{new Date(sub.submittedAt).toLocaleString()}</td>
+                    <td className="p-4">{renderStatusBadge(sub.status)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default MyApplicationsPage;

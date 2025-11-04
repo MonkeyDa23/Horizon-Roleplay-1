@@ -1,6 +1,6 @@
 // src/pages/QuizPage.tsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { useLocalization } from '../hooks/useLocalization';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
@@ -9,8 +9,8 @@ import type { Quiz, Answer, CheatAttempt } from '../types';
 import { CheckCircle, Clock, Loader2, ListChecks } from 'lucide-react';
 
 const QuizPage: React.FC = () => {
-  const { quizId } = useParams<{ quizId: string }>();
-  const navigate = useNavigate();
+  const { quizId } = ReactRouterDOM.useParams<{ quizId: string }>();
+  const navigate = ReactRouterDOM.useNavigate();
   const { t } = useLocalization();
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -76,13 +76,11 @@ const QuizPage: React.FC = () => {
       await addSubmission(submission);
       setQuizState('submitted');
     } catch (error) {
-      console.error("Submission failed:", error);
-      console.error("Detailed error object:", JSON.stringify(error, null, 2));
-      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-      showToast(`Submission Error: ${errorMessage}`, 'error');
+      console.error("Failed to submit application:", error);
+      alert("An error occurred while submitting your application. Please try again.");
       setIsSubmitting(false);
     }
-  }, [quiz, user, t, isSubmitting, cheatLog, user?.highestRole, showToast]);
+  }, [quiz, user, t, isSubmitting, cheatLog, user?.highestRole]);
 
   const handleNextQuestion = useCallback(() => {
     if (!quiz) return;
@@ -248,10 +246,10 @@ const QuizPage: React.FC = () => {
         
         <button 
           onClick={handleNextQuestion}
-          disabled={isSubmitting}
+          disabled={isSubmitting && currentQuestionIndex === quiz.questions.length - 1}
           className="mt-8 w-full bg-brand-cyan text-brand-dark font-bold py-4 rounded-lg shadow-glow-cyan hover:bg-white transition-all text-lg flex justify-center items-center disabled:opacity-70 disabled:cursor-not-allowed"
         >
-          {isSubmitting ? (
+          {isSubmitting && currentQuestionIndex === quiz.questions.length - 1 ? (
             <Loader2 size={28} className="animate-spin" />
           ) : currentQuestionIndex < quiz.questions.length - 1 ? (
             t('next_question')

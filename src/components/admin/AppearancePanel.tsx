@@ -80,7 +80,6 @@ const AppearancePanel: React.FC = () => {
                     <div className="space-y-6">
                         <InputField labelKey="discord_guild_id" descKey="discord_guild_id_desc" value={settings.DISCORD_GUILD_ID || ''} onChange={val => handleChange('DISCORD_GUILD_ID', val)} />
                         <InputField labelKey="discord_invite_url" descKey="discord_invite_url_desc" value={settings.DISCORD_INVITE_URL || ''} onChange={val => handleChange('DISCORD_INVITE_URL', val)} />
-                        <InputField labelKey="announcements_channel_id" descKey="announcements_channel_id_desc" value={settings.DISCORD_ANNOUNCEMENTS_CHANNEL_ID || ''} onChange={val => handleChange('DISCORD_ANNOUNCEMENTS_CHANNEL_ID', val)} />
                         <InputField labelKey="mta_server_url" descKey="mta_server_url_desc" value={settings.MTA_SERVER_URL || ''} onChange={val => handleChange('MTA_SERVER_URL', val)} />
                     </div>
                 </div>

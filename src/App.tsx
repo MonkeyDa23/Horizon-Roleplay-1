@@ -1,6 +1,7 @@
 // src/App.tsx
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+// FIX: Fix "no exported member" errors from 'react-router-dom' by switching to a namespace import.
+import * as ReactRouterDOM from 'react-router-dom';
 import { LocalizationProvider } from './contexts/LocalizationContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
@@ -9,7 +10,6 @@ import { ToastProvider } from './contexts/ToastContext';
 import { useConfig } from './hooks/useConfig';
 import { useAuth } from './hooks/useAuth';
 import { TranslationsProvider } from './contexts/TranslationsContext';
-import ErrorBoundary from './components/ErrorBoundary';
 
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -36,7 +36,7 @@ import type { PermissionKey } from './types';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode; permission: PermissionKey; }> = ({ children, permission }) => {
   const { user, hasPermission, loading } = useAuth();
-  const location = useLocation();
+  const location = ReactRouterDOM.useLocation();
 
   if (loading) {
     return (
@@ -47,7 +47,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; permission: Permissi
   }
 
   if (!user || !hasPermission(permission)) {
-    return <Navigate to="/" state={{ from: location }} replace />;
+    return <ReactRouterDOM.Navigate to="/" state={{ from: location }} replace />;
   }
 
   return <>{children}</>;
@@ -111,7 +111,7 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <BrowserRouter>
+    <ReactRouterDOM.BrowserRouter>
       <div 
         className="flex flex-col min-h-screen text-white font-sans"
         style={{ 
@@ -126,32 +126,32 @@ const AppContent: React.FC = () => {
           <Navbar />
           {permissionWarning && <PermissionWarningBanner message={permissionWarning} />}
           <main className="flex-grow">
-            <Routes>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/store" element={<StorePage />} />
-              <Route path="/store/:productId" element={<ProductDetailPage />} />
-              <Route path="/rules" element={<RulesPage />} />
-              <Route path="/applies" element={<AppliesPage />} />
-              <Route path="/applies/:quizId" element={<QuizPage />} />
-              <Route path="/about" element={<AboutUsPage />} />
-              <Route path="/admin" element={
+            <ReactRouterDOM.Routes>
+              <ReactRouterDOM.Route path="/" element={<HomePage />} />
+              <ReactRouterDOM.Route path="/store" element={<StorePage />} />
+              <ReactRouterDOM.Route path="/store/:productId" element={<ProductDetailPage />} />
+              <ReactRouterDOM.Route path="/rules" element={<RulesPage />} />
+              <ReactRouterDOM.Route path="/applies" element={<AppliesPage />} />
+              <ReactRouterDOM.Route path="/applies/:quizId" element={<QuizPage />} />
+              <ReactRouterDOM.Route path="/about" element={<AboutUsPage />} />
+              <ReactRouterDOM.Route path="/admin" element={
                 <ProtectedRoute permission="admin_panel">
                   <AdminPage />
                 </ProtectedRoute>
               } />
-              <Route path="/my-applications" element={
+              <ReactRouterDOM.Route path="/my-applications" element={
                 <ProtectedRoute permission="page_applies">
                   <MyApplicationsPage />
                 </ProtectedRoute>
               }/>
-              <Route path="/profile" element={
+              <ReactRouterDOM.Route path="/profile" element={
                  <ProtectedRoute permission="page_applies">
                   <ProfilePage />
                 </ProtectedRoute>
               } />
               
               {config.SHOW_HEALTH_CHECK && (
-                <Route 
+                <ReactRouterDOM.Route 
                   path="/health-check" 
                   element={
                      <ProtectedRoute permission="admin_panel">
@@ -161,35 +161,33 @@ const AppContent: React.FC = () => {
                 />
               )}
               {/* Fallback route for any undefined paths */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
+              <ReactRouterDOM.Route path="*" element={<ReactRouterDOM.Navigate to="/" replace />} />
+            </ReactRouterDOM.Routes>
           </main>
           <Footer />
         </div>
       </div>
-    </BrowserRouter>
+    </ReactRouterDOM.BrowserRouter>
   );
 };
 
 
 function App() {
   return (
-    <ErrorBoundary>
-      <TranslationsProvider>
-        <LocalizationProvider>
-          <ToastProvider>
-            <ConfigProvider>
-              <AuthProvider>
-                <CartProvider>
-                  <AppContent />
-                  <SessionWatcher />
-                </CartProvider>
-              </AuthProvider>
-            </ConfigProvider>
-          </ToastProvider>
-        </LocalizationProvider>
-      </TranslationsProvider>
-    </ErrorBoundary>
+    <TranslationsProvider>
+      <LocalizationProvider>
+        <ToastProvider>
+          <ConfigProvider>
+            <AuthProvider>
+              <CartProvider>
+                <AppContent />
+                <SessionWatcher />
+              </CartProvider>
+            </AuthProvider>
+          </ConfigProvider>
+        </ToastProvider>
+      </LocalizationProvider>
+    </TranslationsProvider>
   );
 }
 

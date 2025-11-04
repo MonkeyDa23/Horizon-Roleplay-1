@@ -1,6 +1,6 @@
 # Vixel Roleplay - Discord Bot (v2.0)
 
-This is the completely rebuilt backend Discord bot required for the Vixel Roleplay website. It's a lightweight, robust Express.js server that communicates with the Discord API to provide real-time user data and send notifications. This version focuses on stability, detailed logging, and clear error handling.
+This is the completely rebuilt backend Discord bot required for the Vixel Roleplay website. It's a lightweight, robust Express.js server that communicates with the Discord API to provide real-time user data and send notifications/logs. This version focuses on stability, detailed logging, and clear error handling.
 
 This bot also includes a web-based control panel accessible directly from its URL (e.g., `http://YOUR_BOT_IP:14355`).
 

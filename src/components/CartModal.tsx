@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useLocalization } from '../hooks/useLocalization';
 import { useCart } from '../hooks/useCart';
 import { useConfig } from '../hooks/useConfig';
+import Modal from './Modal';
 import { X, Trash2, ShoppingBag, Plus, Minus } from 'lucide-react';
 import DiscordLogo from './icons/DiscordLogo';
 
@@ -10,50 +11,6 @@ import DiscordLogo from './icons/DiscordLogo';
 interface CartModalProps {
   isOpen: boolean;
   onClose: () => void;
-}
-
-const CheckoutModal: React.FC<{isOpen: boolean, onClose: () => void, onConfirm: () => void}> = ({isOpen, onClose, onConfirm}) => {
-    const { t } = useLocalization();
-    if (!isOpen) return null;
-
-    return (
-        <div 
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[1001] flex items-center justify-center p-4"
-          onClick={onClose}
-        >
-            <div
-                className="bg-brand-dark-blue border border-brand-light-blue rounded-lg shadow-2xl shadow-black/50 w-full max-w-md relative animate-slide-in-down flex flex-col"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <div className="p-6 border-b border-brand-light-blue flex justify-between items-center">
-                    <h2 className="text-2xl font-bold text-brand-cyan">{t('checkout_via_discord')}</h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-white"><X size={28} /></button>
-                </div>
-                <div className="p-8 text-center">
-                    <div className="mx-auto w-16 h-16 flex items-center justify-center rounded-full bg-brand-light-blue mb-6">
-                        <DiscordLogo className="w-8 h-8 text-white"/>
-                    </div>
-                    <p className="text-gray-300 mb-8 leading-relaxed">
-                        {t('checkout_instructions')}
-                    </p>
-                    <button
-                        onClick={onConfirm}
-                        className="flex items-center justify-center gap-3 w-full p-4 bg-[#5865F2] text-white font-bold rounded-lg hover:bg-[#4f5bda] transition-colors duration-300 text-lg"
-                    >
-                        <DiscordLogo className="w-7 h-7" />
-                        <span>{t('open_ticket')}</span>
-                    </button>
-                </div>
-            </div>
-             <style>{`
-                @keyframes slide-in-down {
-                  from { opacity: 0; transform: translateY(-30px) scale(0.95); }
-                  to { opacity: 1; transform: translateY(0) scale(1); }
-                }
-                .animate-slide-in-down { animation: slide-in-down 0.4s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
-            `}</style>
-        </div>
-    );
 }
 
 const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
@@ -65,14 +22,18 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   const handleCheckout = () => {
-    onClose(); // Close the side panel
     setCheckoutModalOpen(true);
+  };
+
+  const closeAllModals = () => {
+    setCheckoutModalOpen(false);
+    onClose();
   };
   
   const handleOpenTicket = () => {
     window.open(config.DISCORD_INVITE_URL, '_blank');
     clearCart();
-    setCheckoutModalOpen(false);
+    closeAllModals();
   };
 
   return (
@@ -149,11 +110,23 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
         }
       `}</style>
     
-      <CheckoutModal 
-        isOpen={isCheckoutModalOpen} 
-        onClose={() => setCheckoutModalOpen(false)}
-        onConfirm={handleOpenTicket}
-      />
+      <Modal isOpen={isCheckoutModalOpen} onClose={closeAllModals} title={t('checkout_via_discord')}>
+        <div className="text-center">
+            <div className="mx-auto w-16 h-16 flex items-center justify-center rounded-full bg-brand-light-blue mb-6">
+                <DiscordLogo className="w-8 h-8 text-white"/>
+            </div>
+            <p className="text-gray-300 mb-8 leading-relaxed">
+                {t('checkout_instructions')}
+            </p>
+            <button
+                onClick={handleOpenTicket}
+                className="flex items-center justify-center gap-3 w-full p-4 bg-[#5865F2] text-white font-bold rounded-lg hover:bg-[#4f5bda] transition-colors duration-300 text-lg"
+            >
+                <DiscordLogo className="w-7 h-7" />
+                <span>{t('open_ticket')}</span>
+            </button>
+        </div>
+      </Modal>
     </>
   );
 };

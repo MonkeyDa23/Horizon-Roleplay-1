@@ -9,51 +9,48 @@ interface SEOProps {
   image?: string;
 }
 
-const SEO: React.FC<SEOProps> = ({ title, description, keywords, noIndex, image }) => {
+const SEO: React.FC<SEOProps> = ({ title, description, keywords, noIndex = false, image }) => {
   const { config } = useConfig();
 
   useEffect(() => {
     document.title = title;
 
-    const setMeta = (attr: 'name' | 'property', key: string, content: string | undefined) => {
-        if (!content) {
-            // If content is undefined, remove the tag if it exists
-            const element = document.head.querySelector(`meta[${attr}="${key}"]`);
-            if (element) {
-                element.remove();
-            }
-            return;
+    const updateMetaTag = (name: string, content: string | undefined, isProperty = false) => {
+      if (!content) return;
+      const selector = isProperty ? `meta[property="${name}"]` : `meta[name="${name}"]`;
+      let element = document.querySelector(selector) as HTMLMetaElement | null;
+      if (!element) {
+        element = document.createElement('meta');
+        if (isProperty) {
+          element.setAttribute('property', name);
+        } else {
+          element.setAttribute('name', name);
         }
-        let element = document.head.querySelector(`meta[${attr}="${key}"]`);
-        if (!element) {
-            element = document.createElement('meta');
-            element.setAttribute(attr, key);
-            document.head.appendChild(element);
-        }
-        element.setAttribute('content', content);
+        document.head.appendChild(element);
+      }
+      element.setAttribute('content', content);
     };
 
-    setMeta('name', 'description', description);
-    setMeta('name', 'keywords', keywords);
-    
-    if (noIndex) {
-        setMeta('name', 'robots', 'noindex, nofollow');
-    } else {
-        const robotsTag = document.head.querySelector('meta[name="robots"]');
-        if (robotsTag) {
-            robotsTag.remove();
-        }
-    }
-    
-    // Open Graph / Social Media
-    setMeta('property', 'og:title', title);
-    setMeta('property', 'og:description', description);
-    setMeta('property', 'og:type', 'website');
-    setMeta('property', 'og:image', image || config.LOGO_URL);
+    updateMetaTag('description', description);
+    updateMetaTag('keywords', keywords);
+    updateMetaTag('robots', noIndex ? 'noindex, nofollow' : 'index, follow');
+
+    // Open Graph for rich social media sharing
+    updateMetaTag('og:title', title, true);
+    updateMetaTag('og:description', description, true);
+    updateMetaTag('og:type', 'website', true);
+    updateMetaTag('og:url', window.location.href, true);
+    updateMetaTag('og:image', image || config.LOGO_URL, true);
+
+    // Twitter Card for rich sharing on Twitter
+    updateMetaTag('twitter:card', 'summary_large_image');
+    updateMetaTag('twitter:title', title);
+    updateMetaTag('twitter:description', description);
+    updateMetaTag('twitter:image', image || config.LOGO_URL);
 
   }, [title, description, keywords, noIndex, image, config.LOGO_URL]);
 
-  return null; // This component does not render anything
+  return null; // This component doesn't render anything
 };
 
 export default SEO;

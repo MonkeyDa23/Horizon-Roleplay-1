@@ -206,7 +206,6 @@ export interface AppConfig {
     LOGO_URL: string;
     DISCORD_GUILD_ID: string;
     DISCORD_INVITE_URL: string;
-    DISCORD_ANNOUNCEMENTS_CHANNEL_ID: string | null;
     MTA_SERVER_URL: string;
     BACKGROUND_IMAGE_URL: string;
     SHOW_HEALTH_CHECK: boolean;
