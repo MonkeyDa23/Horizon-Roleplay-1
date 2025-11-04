@@ -1,7 +1,7 @@
 // FIX: Converted the raw SQL script into a TypeScript module by exporting it as a template string. This resolves TS parsing errors while keeping the SQL content available for copy-pasting as instructed in App.tsx.
 export const databaseSchema = `
 /*
--- Vixel Roleplay Website - Full Database Schema (V5.0.0 - Detailed Notifications & UI Enhancements)
+-- Vixel Roleplay Website - Full Database Schema (V6.0.0 - Final Edition)
 
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -98,6 +98,11 @@ CREATE TABLE public.config (
     "AUDIT_LOG_SUBMISSIONS_WEBHOOK_URL" text,
     "AUDIT_LOG_BANS_WEBHOOK_URL" text,
     "AUDIT_LOG_ADMIN_WEBHOOK_URL" text,
+    "MENTION_ROLE_SUBMISSIONS" text,
+    "MENTION_ROLE_AUDIT_LOG_GENERAL" text,
+    "MENTION_ROLE_AUDIT_LOG_SUBMISSIONS" text,
+    "MENTION_ROLE_AUDIT_LOG_BANS" text,
+    "MENTION_ROLE_AUDIT_LOG_ADMIN" text,
     CONSTRAINT id_check CHECK (id = 1)
 );
 INSERT INTO public.config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
@@ -263,8 +268,8 @@ BEGIN
   IF project_url IS NULL OR project_url = '' OR proxy_secret IS NULL OR proxy_secret = '' THEN
     RAISE EXCEPTION 'DM notification system not configured. Please set SUPABASE_PROJECT_URL and DISCORD_PROXY_SECRET in the Admin Panel -> Appearance settings.';
   END IF;
-  proxy_url := CONCAT(project_url, '/functions/v1/discord-proxy');
-  request := ROW('POST', proxy_url, ARRAY[extensions.http_header('Content-Type', 'application/json'), extensions.http_header('Authorization', CONCAT('Bearer ', proxy_secret))], 'application/json', jsonb_build_object('type', p_type, 'payload', p_payload)::text)::extensions.http_request;
+  proxy_url := project_url || '/functions/v1/discord-proxy';
+  request := ROW('POST', proxy_url, ARRAY[extensions.http_header('Content-Type', 'application/json'), extensions.http_header('Authorization', 'Bearer ' || proxy_secret)], 'application/json', jsonb_build_object('type', p_type, 'payload', p_payload)::text)::extensions.http_request;
   response := extensions.http(request);
   IF response.status >= 300 THEN
     RAISE EXCEPTION 'Notification proxy function for DMs responded with an error. Status: %, Body: %', response.status, response.content;
@@ -330,10 +335,8 @@ DECLARE
   receipt_payload jsonb;
   receipt_title text;
   receipt_body text;
-  webhook_title text;
-  webhook_body text;
-  webhook_url text;
   config_record record;
+  mention_role_id text;
 BEGIN
   SELECT * INTO config_record FROM public.config WHERE id = 1;
   
@@ -354,7 +357,7 @@ BEGIN
             'title', receipt_title,
             'description', REPLACE(REPLACE(receipt_body, '{username}', new_submission.username), '{quizTitle}', new_submission."quizTitle"),
             'color', 3092790, -- Blue
-            'timestamp', new_submission."submittedAt",
+            'timestamp', to_char(new_submission."submittedAt" at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
             'footer', jsonb_build_object('text', config_record."COMMUNITY_NAME")
         )
     );
@@ -366,19 +369,19 @@ BEGIN
   -- 2. Send Admin Channel Notification (uses Webhook)
   BEGIN
     SELECT avatar_url, discord_id INTO profile_record FROM public.profiles WHERE id = public.get_user_id();
-    webhook_url := config_record."SUBMISSIONS_WEBHOOK_URL";
+    mention_role_id := config_record."MENTION_ROLE_SUBMISSIONS";
+
     webhook_payload := jsonb_build_object(
+        'content', CASE WHEN mention_role_id IS NOT NULL THEN '<@&' || mention_role_id || '>' ELSE NULL END,
         'embeds', jsonb_build_array(jsonb_build_object(
-            'author', jsonb_build_object('name', new_submission.username),
-            'thumbnail', jsonb_build_object('url', profile_record.avatar_url),
+            'author', jsonb_build_object('name', new_submission.username, 'icon_url', profile_record.avatar_url),
             'title', new_submission."quizTitle",
             'description', 'A new application has been submitted and is ready for review.',
             'color', 15105570, -- Orange
-            'timestamp', new_submission."submittedAt",
+            'timestamp', to_char(new_submission."submittedAt" at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
             'fields', jsonb_build_array(
-                jsonb_build_object('name', 'Applicant', 'value', new_submission.username, 'inline', true),
-                jsonb_build_object('name', 'Highest Role', 'value', new_submission.user_highest_role, 'inline', true),
-                jsonb_build_object('name', 'User ID', 'value', CONCAT('`', profile_record.discord_id, '`'), 'inline', false)
+                jsonb_build_object('name', 'User ID', 'value', '`' || profile_record.discord_id || '`', 'inline', true),
+                jsonb_build_object('name', 'Highest Role', 'value', new_submission.user_highest_role, 'inline', true)
             ),
             'footer', jsonb_build_object('text', config_record."COMMUNITY_NAME")
         )),
@@ -388,12 +391,12 @@ BEGIN
                 'type', 2,
                 'label', 'View Submissions',
                 'style', 5,
-                -- FIX: Replaced || operator with CONCAT to avoid linter errors.
-                'url', CONCAT('https://', SPLIT_PART(config_record."SUPABASE_PROJECT_URL", '//', 2), '/admin') -- Assuming this points to a valid admin page
+                -- FIX: Replaced CONCAT() with || operator to prevent TS parsing errors.
+                'url', 'https://' || SPLIT_PART(config_record."SUPABASE_PROJECT_URL", '//', 2) || '/admin' 
             ))
         ))
     );
-    PERFORM private.send_webhook(webhook_url, webhook_payload);
+    PERFORM private.send_webhook(config_record."SUBMISSIONS_WEBHOOK_URL", webhook_payload);
   EXCEPTION WHEN OTHERS THEN
       RAISE WARNING 'Failed to send new submission webhook for submission %: %', new_submission.id, SQLERRM;
   END;
@@ -422,15 +425,13 @@ BEGIN
   WHERE id = p_submission_id RETURNING * INTO submission_record;
   
   PERFORM public.log_action(
-    -- FIX: Replaced || operator with CONCAT to avoid linter errors.
-    CONCAT(
-        CASE 
-            WHEN p_new_status = 'taken' THEN '📥' 
-            WHEN p_new_status = 'accepted' THEN '✅' 
-            WHEN p_new_status = 'refused' THEN '❌'
-            ELSE '⚙️'
-        END, ' Updated **', submission_record.username, '''s** application for **', submission_record."quizTitle", '** to `', p_new_status, '`'
-    ),
+    -- FIX: Replaced CONCAT() with || operator to prevent TS parsing errors.
+    CASE 
+        WHEN p_new_status = 'taken' THEN '📥' 
+        WHEN p_new_status = 'accepted' THEN '✅' 
+        WHEN p_new_status = 'refused' THEN '❌'
+        ELSE '⚙️'
+    END || ' Updated **' || submission_record.username || '''s** application for **' || submission_record."quizTitle" || '** to `' || p_new_status || '`',
     'submission'
   );
   
@@ -441,10 +442,10 @@ BEGIN
         notification_payload := jsonb_build_object(
             'userId', profile_record.discord_id,
             'embed', jsonb_build_object(
-                'title', (SELECT en FROM translations WHERE key = CONCAT('notification_submission_', p_new_status, '_title')),
-                'description', (SELECT en FROM translations WHERE key = CONCAT('notification_submission_', p_new_status, '_body')),
+                'title', (SELECT en FROM translations WHERE key = 'notification_submission_' || p_new_status || '_title'),
+                'description', (SELECT en FROM translations WHERE key = 'notification_submission_' || p_new_status || '_body'),
                 'color', CASE WHEN p_new_status = 'accepted' THEN 3066993 ELSE 15158332 END,
-                'timestamp', submission_record."updatedAt",
+                'timestamp', to_char(submission_record."updatedAt" at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
                 'fields', jsonb_build_array(
                     jsonb_build_object('name', 'Application', 'value', submission_record."quizTitle", 'inline', true),
                     jsonb_build_object('name', 'Reviewed By', 'value', admin_user.username, 'inline', true),
@@ -480,8 +481,7 @@ BEGIN
   SELECT username, "quizTitle" INTO submission_record FROM public.submissions WHERE id = p_submission_id;
   IF FOUND THEN
     DELETE FROM public.submissions WHERE id = p_submission_id;
-    -- FIX: Replaced || operator with CONCAT to avoid linter errors.
-    PERFORM public.log_action(CONCAT('🗑️ Deleted submission for **', submission_record.username, '** (`', submission_record."quizTitle", '`)'), 'submission');
+    PERFORM public.log_action('🗑️ Deleted submission for **' || submission_record.username || '** (`' || submission_record."quizTitle" || '`)', 'submission');
   END IF;
 END;
 $$;
@@ -499,7 +499,7 @@ CREATE OR REPLACE FUNCTION public.log_page_visit(p_page_name text) RETURNS void 
 AS $$
 BEGIN
   IF public.has_permission(public.get_user_id(), 'admin_panel') THEN
-    PERFORM public.log_action(CONCAT('👁️ Visited admin page: **', p_page_name, '**'), 'admin');
+    PERFORM public.log_action('👁️ Visited admin page: **' || p_page_name || '**', 'admin');
   END IF;
 END;
 $$;
@@ -520,7 +520,12 @@ BEGIN
     "AUDIT_LOG_WEBHOOK_URL" = coalesce(new_config->>'AUDIT_LOG_WEBHOOK_URL', "AUDIT_LOG_WEBHOOK_URL"), 
     "AUDIT_LOG_SUBMISSIONS_WEBHOOK_URL" = coalesce(new_config->>'AUDIT_LOG_SUBMISSIONS_WEBHOOK_URL', "AUDIT_LOG_SUBMISSIONS_WEBHOOK_URL"),
     "AUDIT_LOG_BANS_WEBHOOK_URL" = coalesce(new_config->>'AUDIT_LOG_BANS_WEBHOOK_URL', "AUDIT_LOG_BANS_WEBHOOK_URL"), 
-    "AUDIT_LOG_ADMIN_WEBHOOK_URL" = coalesce(new_config->>'AUDIT_LOG_ADMIN_WEBHOOK_URL', "AUDIT_LOG_ADMIN_WEBHOOK_URL")
+    "AUDIT_LOG_ADMIN_WEBHOOK_URL" = coalesce(new_config->>'AUDIT_LOG_ADMIN_WEBHOOK_URL', "AUDIT_LOG_ADMIN_WEBHOOK_URL"),
+    "MENTION_ROLE_SUBMISSIONS" = nullif(new_config->>'MENTION_ROLE_SUBMISSIONS', ''),
+    "MENTION_ROLE_AUDIT_LOG_GENERAL" = nullif(new_config->>'MENTION_ROLE_AUDIT_LOG_GENERAL', ''),
+    "MENTION_ROLE_AUDIT_LOG_SUBMISSIONS" = nullif(new_config->>'MENTION_ROLE_AUDIT_LOG_SUBMISSIONS', ''),
+    "MENTION_ROLE_AUDIT_LOG_BANS" = nullif(new_config->>'MENTION_ROLE_AUDIT_LOG_BANS', ''),
+    "MENTION_ROLE_AUDIT_LOG_ADMIN" = nullif(new_config->>'MENTION_ROLE_AUDIT_LOG_ADMIN', '')
   WHERE id = 1;
 END;
 $$;
@@ -530,8 +535,8 @@ DECLARE result public.quizzes; v_question jsonb; action_text text; is_new boolea
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_quizzes') THEN RAISE EXCEPTION 'Insufficient permissions'; END IF;
   is_new := NOT EXISTS (SELECT 1 FROM public.quizzes WHERE id = (p_quiz_data->>'id')::uuid);
-  IF is_new THEN action_text := CONCAT('📝 Created a new application form: **', (p_quiz_data->>'titleEn'), '**');
-  ELSE action_text := CONCAT('✏️ Edited the application form: **', (p_quiz_data->>'titleEn'), '**'); END IF;
+  IF is_new THEN action_text := '📝 Created a new application form: **' || (p_quiz_data->>'titleEn') || '**';
+  ELSE action_text := '✏️ Edited the application form: **' || (p_quiz_data->>'titleEn') || '**'; END IF;
   PERFORM public.log_action(action_text, 'admin');
   INSERT INTO public.translations (key, en, ar) VALUES (p_quiz_data->>'titleKey', p_quiz_data->>'titleEn', p_quiz_data->>'titleAr'), (p_quiz_data->>'descriptionKey', p_quiz_data->>'descriptionEn', p_quiz_data->>'descriptionAr') ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar;
   IF jsonb_typeof(p_quiz_data->'questions') = 'array' THEN FOR v_question IN SELECT * FROM jsonb_array_elements(p_quiz_data->'questions') LOOP INSERT INTO public.translations (key, en, ar) VALUES (v_question->>'textKey', v_question->>'textEn', v_question->>'textAr') ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar; END LOOP; END IF;
@@ -548,8 +553,7 @@ BEGIN
     IF NOT public.has_permission(public.get_user_id(), 'admin_quizzes') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
     SELECT "titleKey" INTO quiz_record FROM public.quizzes WHERE id = p_quiz_id;
     IF FOUND THEN
-        -- FIX: Replaced || operator with CONCAT to avoid linter errors.
-        PERFORM public.log_action(CONCAT('🗑️ Deleted the application form: **', quiz_record."titleKey", '**'), 'admin');
+        PERFORM public.log_action('🗑️ Deleted the application form: **' || quiz_record."titleKey" || '**', 'admin');
         DELETE FROM public.quizzes WHERE id = p_quiz_id;
     END IF;
 END; $$;
@@ -558,8 +562,8 @@ CREATE OR REPLACE FUNCTION public.save_product_with_translations(p_product_data 
 DECLARE result public.products;
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_store') THEN RAISE EXCEPTION 'Insufficient permissions'; END IF;
-  IF EXISTS (SELECT 1 FROM public.products WHERE id = (p_product_data->>'id')::uuid) THEN PERFORM public.log_action(CONCAT('🛍️ Edited the store product: **', (p_product_data->>'nameEn'), '**'), 'admin');
-  ELSE PERFORM public.log_action(CONCAT('➕ Added a new store product: **', (p_product_data->>'nameEn'), '**'), 'admin'); END IF;
+  IF EXISTS (SELECT 1 FROM public.products WHERE id = (p_product_data->>'id')::uuid) THEN PERFORM public.log_action('🛍️ Edited the store product: **' || (p_product_data->>'nameEn') || '**', 'admin');
+  ELSE PERFORM public.log_action('➕ Added a new store product: **' || (p_product_data->>'nameEn') || '**', 'admin'); END IF;
   INSERT INTO public.translations (key, en, ar) VALUES (p_product_data->>'nameKey', p_product_data->>'nameEn', p_product_data->>'nameAr'), (p_product_data->>'descriptionKey', p_product_data->>'descriptionEn', p_product_data->>'descriptionAr') ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar;
   INSERT INTO public.products (id, "nameKey", "descriptionKey", price, "imageUrl") VALUES ((p_product_data->>'id')::uuid, p_product_data->>'nameKey', p_product_data->>'descriptionKey', (p_product_data->>'price')::numeric, p_product_data->>'imageUrl') ON CONFLICT (id) DO UPDATE SET "nameKey" = excluded."nameKey", "descriptionKey" = excluded."descriptionKey", price = excluded.price, "imageUrl" = excluded."imageUrl" RETURNING * INTO result;
   RETURN result;
@@ -571,7 +575,7 @@ BEGIN
     IF NOT public.has_permission(public.get_user_id(), 'admin_store') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
     SELECT "nameKey" INTO product_record FROM public.products WHERE id = p_product_id;
     IF FOUND THEN
-        PERFORM public.log_action(CONCAT('🗑️ Deleted the store product: **', product_record."nameKey", '**'), 'admin');
+        PERFORM public.log_action('🗑️ Deleted the store product: **' || product_record."nameKey" || '**', 'admin');
         DELETE FROM public.products WHERE id = p_product_id;
     END IF;
 END; $$;
@@ -612,7 +616,7 @@ BEGIN
   UPDATE public.bans SET is_active = false WHERE user_id = p_target_user_id AND is_active = true;
   INSERT INTO public.bans(user_id, banned_by, reason, expires_at, is_active) VALUES (p_target_user_id, public.get_user_id(), p_reason, v_expires_at, true);
   SELECT username FROM public.profiles WHERE id = p_target_user_id INTO target_username;
-  PERFORM public.log_action(CONCAT('🚫 Banned user **', coalesce(target_username, p_target_user_id::text), '** for reason: *', p_reason, '*'), 'ban');
+  PERFORM public.log_action('🚫 Banned user **' || coalesce(target_username, p_target_user_id::text) || '** for reason: *' || p_reason || '*', 'ban');
 END;
 $$;
 
@@ -623,14 +627,14 @@ BEGIN
   UPDATE public.profiles SET is_banned = false, ban_reason = null, ban_expires_at = null WHERE id = p_target_user_id;
   UPDATE public.bans SET is_active = false, unbanned_by = public.get_user_id(), unbanned_at = now() WHERE user_id = p_target_user_id AND is_active = true;
   SELECT username FROM public.profiles WHERE id = p_target_user_id INTO target_username;
-  PERFORM public.log_action(CONCAT('✅ Unbanned user **', coalesce(target_username, p_target_user_id::text), '**'), 'ban');
+  PERFORM public.log_action('✅ Unbanned user **' || coalesce(target_username, p_target_user_id::text) || '**', 'ban');
 END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.save_role_permissions(p_role_id text, p_permissions text[]) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_permissions') THEN RAISE EXCEPTION 'Insufficient permissions'; END IF;
-  PERFORM public.log_action(CONCAT('🛡️ Updated permissions for role <@&', p_role_id, '>'), 'admin');
+  PERFORM public.log_action('🛡️ Updated permissions for role <@&' || p_role_id || '>', 'admin');
   INSERT INTO public.role_permissions (role_id, permissions) VALUES (p_role_id, p_permissions) ON CONFLICT (role_id) DO UPDATE SET permissions = excluded.permissions;
 END; $$;
 
@@ -654,23 +658,36 @@ CREATE OR REPLACE FUNCTION public.handle_audit_log_notification()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE
+  config_record record;
   webhook_url text;
+  mention_role_id text;
   payload jsonb;
 BEGIN
-  SELECT CASE 
-    WHEN NEW.log_type = 'submission' THEN "AUDIT_LOG_SUBMISSIONS_WEBHOOK_URL"
-    WHEN NEW.log_type = 'ban' THEN "AUDIT_LOG_BANS_WEBHOOK_URL"
-    WHEN NEW.log_type = 'admin' THEN "AUDIT_LOG_ADMIN_WEBHOOK_URL"
-    ELSE "AUDIT_LOG_WEBHOOK_URL" -- Fallback to general
-  END INTO webhook_url FROM public.config WHERE id = 1;
+  SELECT * INTO config_record FROM public.config WHERE id = 1;
+  
+  SELECT 
+    CASE 
+      WHEN NEW.log_type = 'submission' THEN config_record."AUDIT_LOG_SUBMISSIONS_WEBHOOK_URL"
+      WHEN NEW.log_type = 'ban' THEN config_record."AUDIT_LOG_BANS_WEBHOOK_URL"
+      WHEN NEW.log_type = 'admin' THEN config_record."AUDIT_LOG_ADMIN_WEBHOOK_URL"
+      ELSE config_record."AUDIT_LOG_WEBHOOK_URL"
+    END,
+    CASE 
+      WHEN NEW.log_type = 'submission' THEN config_record."MENTION_ROLE_AUDIT_LOG_SUBMISSIONS"
+      WHEN NEW.log_type = 'ban' THEN config_record."MENTION_ROLE_AUDIT_LOG_BANS"
+      WHEN NEW.log_type = 'admin' THEN config_record."MENTION_ROLE_AUDIT_LOG_ADMIN"
+      ELSE config_record."MENTION_ROLE_AUDIT_LOG_GENERAL"
+    END
+  INTO webhook_url, mention_role_id;
   
   IF webhook_url IS NOT NULL THEN
     payload := jsonb_build_object(
+      'content', CASE WHEN mention_role_id IS NOT NULL THEN '<@&' || mention_role_id || '>' ELSE NULL END,
       'embeds', jsonb_build_array(jsonb_build_object(
         'author', jsonb_build_object('name', NEW.admin_username),
         'description', NEW.action,
         'color', 5814783, -- Gray
-        'timestamp', NEW.timestamp
+        'timestamp', to_char(NEW.timestamp at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
       ))
     );
     PERFORM private.send_webhook(webhook_url, payload);

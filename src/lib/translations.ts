@@ -212,6 +212,17 @@ export const translations: Translations = {
   log_webhook_bans_desc: { ar: 'ويبهوك للسجلات المتعلقة بحظر وفك حظر المستخدمين.', en: 'Webhook for logs related to user bans and unbans.'},
   log_webhook_admin: { ar: 'رابط ويبهوك سجلات الإدارة', en: 'Admin Actions Log Webhook URL' },
   log_webhook_admin_desc: { ar: 'ويبهوك للسجلات المتعلقة بتغييرات لوحة التحكم (مثل تعديل التقديمات، القوانين، الإعدادات).', en: 'Webhook for logs related to admin panel changes (e.g., editing quizzes, rules, settings).'},
+  mention_role_submissions: { ar: 'رتبة منشن التقديمات الجديدة', en: 'New Submissions Mention Role' },
+  mention_role_submissions_desc: { ar: 'معرف الرتبة التي سيتم عمل منشن لها عند وصول تقديم جديد.', en: 'The Role ID to mention when a new application is submitted.' },
+  mention_role_audit_log_general: { ar: 'رتبة منشن السجلات العامة', en: 'General Audit Log Mention Role' },
+  mention_role_audit_log_general_desc: { ar: 'معرف الرتبة للمنشن في قناة السجلات العامة (الاحتياطية).', en: 'The Role ID to mention in the general/fallback audit log channel.' },
+  mention_role_audit_log_submissions: { ar: 'رتبة منشن سجلات التقديمات', en: 'Submissions Log Mention Role' },
+  mention_role_audit_log_submissions_desc: { ar: 'معرف الرتبة للمنشن في قناة سجلات التقديمات.', en: 'The Role ID to mention in the submissions log channel.' },
+  mention_role_audit_log_bans: { ar: 'رتبة منشن سجلات الحظر', en: 'Bans Log Mention Role' },
+  mention_role_audit_log_bans_desc: { ar: 'معرف الرتبة للمنشن في قناة سجلات الحظر.', en: 'The Role ID to mention in the bans log channel.' },
+  mention_role_audit_log_admin: { ar: 'رتبة منشن سجلات الإدارة', en: 'Admin Log Mention Role' },
+  mention_role_audit_log_admin_desc: { ar: 'معرف الرتبة للمنشن في قناة سجلات الإدارة.', en: 'The Role ID to mention in the admin actions log channel.' },
+
 
   // Admin Page - Permissions
   discord_roles: { ar: 'رتب الديسكورد', en: 'Discord Roles' },
@@ -279,7 +290,6 @@ export const translations: Translations = {
   health_check_test_running: { ar: 'جاري الاختبار...', en: 'Testing...'},
   health_check_test_result: { ar: 'نتيجة الاختبار', en: 'Test Result'},
   health_check_step4: { ar: 'الخطوة 4: اختبار مزامنة المستخدم', en: 'Step 4: User Sync Test'},
-  // FIX: Corrected syntax error (user''s -> user's)
   health_check_step4_desc: { ar: 'اختبر جلب بيانات مستخدم معين من ديسكورد عبر البوت.', en: 'Test fetching a specific user\'s data from Discord via the bot.'},
   health_check_get_discord_id: { ar: 'كيف أحصل على معرف ديسكورد؟', en: 'How to get a Discord ID?'},
   health_check_get_discord_id_steps: { ar: 'في ديسكورد، اذهب إلى الإعدادات > متقدم > فعل وضع المطور. ثم انقر بزر الماوس الأيمن على أي مستخدم واختر "نسخ معرف المستخدم".', en: 'In Discord, go to Settings > Advanced > enable Developer Mode. Then, right-click any user and select "Copy User ID".'},

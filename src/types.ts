@@ -204,6 +204,11 @@ export interface AppConfig {
     AUDIT_LOG_SUBMISSIONS_WEBHOOK_URL: string | null;
     AUDIT_LOG_BANS_WEBHOOK_URL: string | null;
     AUDIT_LOG_ADMIN_WEBHOOK_URL: string | null;
+    MENTION_ROLE_SUBMISSIONS: string | null;
+    MENTION_ROLE_AUDIT_LOG_GENERAL: string | null;
+    MENTION_ROLE_AUDIT_LOG_SUBMISSIONS: string | null;
+    MENTION_ROLE_AUDIT_LOG_BANS: string | null;
+    MENTION_ROLE_AUDIT_LOG_ADMIN: string | null;
 }
 
 // =============================================

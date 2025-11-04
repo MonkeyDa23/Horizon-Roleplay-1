@@ -45,7 +45,7 @@ const AppearancePanel: React.FC = () => {
         );
     }
     
-    const InputField = ({ labelKey, descKey, value, onChange, placeholder, isPassword }: { labelKey: string, descKey?: string, value: string | null, onChange: (val: string) => void, placeholder?: string, isPassword?: boolean }) => (
+    const InputField = ({ labelKey, descKey, value, onChange, placeholder, isPassword }: { labelKey: string, descKey?: string, value: string | null | undefined, onChange: (val: string) => void, placeholder?: string, isPassword?: boolean }) => (
         <div>
             <label className="block text-lg font-semibold text-white mb-1">{t(labelKey)}</label>
             {descKey && <p className="text-sm text-gray-400 mb-2">{t(descKey)}</p>}
@@ -94,6 +94,18 @@ const AppearancePanel: React.FC = () => {
                         <InputField labelKey="log_webhook_submissions" descKey="log_webhook_submissions_desc" value={settings.AUDIT_LOG_SUBMISSIONS_WEBHOOK_URL} onChange={val => handleChange('AUDIT_LOG_SUBMISSIONS_WEBHOOK_URL', val)} />
                         <InputField labelKey="log_webhook_bans" descKey="log_webhook_bans_desc" value={settings.AUDIT_LOG_BANS_WEBHOOK_URL} onChange={val => handleChange('AUDIT_LOG_BANS_WEBHOOK_URL', val)} />
                         <InputField labelKey="log_webhook_admin" descKey="log_webhook_admin_desc" value={settings.AUDIT_LOG_ADMIN_WEBHOOK_URL} onChange={val => handleChange('AUDIT_LOG_ADMIN_WEBHOOK_URL', val)} />
+                    </div>
+                </div>
+                
+                 <div>
+                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">Mention Roles (Optional)</h3>
+                     <p className="text-sm text-gray-400 mb-6 -mt-4">Enter a Role ID here to mention that role with the corresponding notification. Right-click a role in Discord (with Developer Mode on) to copy its ID.</p>
+                    <div className="space-y-6">
+                        <InputField labelKey="mention_role_submissions" descKey="mention_role_submissions_desc" value={settings.MENTION_ROLE_SUBMISSIONS} onChange={val => handleChange('MENTION_ROLE_SUBMISSIONS', val)} />
+                        <InputField labelKey="mention_role_audit_log_general" descKey="mention_role_audit_log_general_desc" value={settings.MENTION_ROLE_AUDIT_LOG_GENERAL} onChange={val => handleChange('MENTION_ROLE_AUDIT_LOG_GENERAL', val)} />
+                        <InputField labelKey="mention_role_audit_log_submissions" descKey="mention_role_audit_log_submissions_desc" value={settings.MENTION_ROLE_AUDIT_LOG_SUBMISSIONS} onChange={val => handleChange('MENTION_ROLE_AUDIT_LOG_SUBMISSIONS', val)} />
+                        <InputField labelKey="mention_role_audit_log_bans" descKey="mention_role_audit_log_bans_desc" value={settings.MENTION_ROLE_AUDIT_LOG_BANS} onChange={val => handleChange('MENTION_ROLE_AUDIT_LOG_BANS', val)} />
+                        <InputField labelKey="mention_role_audit_log_admin" descKey="mention_role_audit_log_admin_desc" value={settings.MENTION_ROLE_AUDIT_LOG_ADMIN} onChange={val => handleChange('MENTION_ROLE_AUDIT_LOG_ADMIN', val)} />
                     </div>
                 </div>
 

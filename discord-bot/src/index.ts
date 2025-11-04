@@ -7,11 +7,8 @@
  * to fetch real-time Discord data and send notifications.
  * It also serves a web-based control panel at its root URL.
  */
-// FIX: Switched to a combined default and named import for express to correctly resolve Request, Response, and NextFunction types.
+// FIX: Changed import to default to allow for namespace-qualified types.
 import express from 'express';
-// FIX: The type imports for Request, Response, and NextFunction were causing resolution issues.
-// By removing the separate type import and using the types from the express default import
-// (e.g., express.Request), we ensure the correct types are used, resolving property access errors.
 import process from 'process';
 import cors from 'cors';
 import {
@@ -181,26 +178,23 @@ const main = async () => {
     app.use(cors());
     app.use(express.json());
 
-    // FIX: Replaced express.Request and express.Response with imported Request and Response types.
+    // FIX: Replaced ambiguous Request, Response, NextFunction types with namespace-qualified express types to avoid conflicts with global Fetch API types.
     const authenticate = (req: express.Request, res: express.Response, next: express.NextFunction) => {
         const receivedAuthHeader = req.headers.authorization;
     
         logger('DEBUG', `[AUTH] Request on path: ${req.path} from ${req.ip}.`);
     
         if (receivedAuthHeader && receivedAuthHeader.startsWith('Bearer ')) {
-            // Remove "Bearer " prefix to get the raw key
             const receivedKey = receivedAuthHeader.substring(7);
             
-            // Direct string comparison. Do not decode.
             if (receivedKey.trim() === config.API_SECRET_KEY.trim()) {
                 logger('DEBUG', `[AUTH] SUCCESS: Authentication successful for path ${req.path}.`);
-                return next(); // Success
+                return next();
             }
         }
     
         logger('WARN', `[AUTH] FAILED: Authentication failed for path ${req.path}.`);
 
-        // Detailed logging for debugging mismatches
         const maskKey = (key: string): string => {
             if (!key) return '(empty)';
             if (key.length <= 8) return '****';
@@ -221,13 +215,11 @@ const main = async () => {
 
     // ========== PUBLIC & CONTROL PANEL ENDPOINTS ==========
 
-    // FIX: Replaced express.Request and express.Response with imported Request and Response types.
     app.get('/', (req: express.Request, res: express.Response) => {
         res.setHeader('Content-Type', 'text/html');
         res.send(CONTROL_PANEL_HTML);
     });
 
-    // FIX: Replaced express.Request and express.Response with imported Request and Response types.
     app.get('/health', (req: express.Request, res: express.Response) => {
         if (!client.isReady()) return res.status(503).send({ status: 'error', message: 'Discord Client not ready.' });
         const guild = client.guilds.cache.get(config.DISCORD_GUILD_ID);
@@ -237,7 +229,6 @@ const main = async () => {
     
     // ========== AUTHENTICATED API ENDPOINTS ==========
     
-    // FIX: Replaced express.Request and express.Response with imported Request and Response types.
     app.get('/api/status', authenticate, async (req: express.Request, res: express.Response) => {
         if (!client.isReady() || !client.user) return res.status(503).json({ error: 'Bot is not ready' });
         const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
@@ -249,7 +240,6 @@ const main = async () => {
         });
     });
 
-    // FIX: Replaced express.Request and express.Response with imported Request and Response types.
     app.post('/api/set-presence', authenticate, (req: express.Request, res: express.Response) => {
         const { status, activityType, activityName } = req.body;
         if (!status || !activityType || !activityName) {
@@ -266,7 +256,6 @@ const main = async () => {
         }
     });
 
-    // FIX: Replaced express.Request and express.Response with imported Request and Response types.
     app.post('/api/send-test-message', authenticate, async (req: express.Request, res: express.Response) => {
         const { channelId, message } = req.body;
         if (!channelId || !message) return res.status(400).json({ error: 'Missing channelId or message.' });
@@ -284,7 +273,6 @@ const main = async () => {
         }
     });
 
-    // FIX: Replaced express.Request and express.Response with imported Request and Response types.
     app.post('/api/send-dm', authenticate, async (req: express.Request, res: express.Response) => {
         const { userId, message } = req.body;
         if (!userId || !message) {
@@ -304,7 +292,6 @@ const main = async () => {
         }
     });
 
-    // FIX: Replaced express.Request and express.Response with imported Request and Response types.
     app.get('/api/roles', authenticate, async (req: express.Request, res: express.Response) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
@@ -317,7 +304,6 @@ const main = async () => {
         }
     });
 
-    // FIX: Replaced express.Request and express.Response with imported Request and Response types.
     app.get('/api/user/:id', authenticate, async (req: express.Request, res: express.Response) => {
         try {
             const guild = await client.guilds.fetch(config.DISCORD_GUILD_ID);
@@ -346,7 +332,6 @@ const main = async () => {
         }
     });
 
-    // FIX: Replaced express.Request and express.Response with imported Request and Response types.
     app.post('/api/notify', authenticate, async (req: express.Request, res: express.Response) => {
         const body: NotifyPayload = req.body;
         logger('INFO', `Received notification request of type: ${body.type}`);
@@ -393,7 +378,10 @@ const main = async () => {
                 }
                 
                 const messagePayload: { content?: string, embeds: EmbedBuilder[] } = { embeds: [embed] };
-                if (body.payload.content) messagePayload.content = body.payload.content;
+                // Add content for role mentions
+                if (body.payload.content) {
+                    messagePayload.content = body.payload.content;
+                }
                 
                 await channel.send(messagePayload);
                 logger('INFO', `✅ Sent embed to channel #${channel.name}.`);

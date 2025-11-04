@@ -8,7 +8,7 @@ const SessionWatcher = () => {
     const { user, updateUser, logout } = useAuth();
     const { showToast } = useToast();
     const { t } = useLocalization();
-    const lastValidationTime = useRef<number>(0);
+    const lastValidationTime = useRef<number>(Date.now());
     const isValidating = useRef(false);
 
     useEffect(() => {
@@ -51,13 +51,15 @@ const SessionWatcher = () => {
         };
         
         const handleFocus = () => {
-            if (Date.now() - lastValidationTime.current > 60000) { // 1 minute
+            // Only re-validate if it's been more than 60 seconds since the last check
+            if (Date.now() - lastValidationTime.current > 60000) { 
                 validate();
             }
         };
 
         window.addEventListener('focus', handleFocus);
-        const intervalId = setInterval(validate, 60000); // 1 minute
+        // Keep a periodic check as a fallback (e.g., every 5 minutes)
+        const intervalId = setInterval(validate, 5 * 60 * 1000); 
 
         return () => {
             clearInterval(intervalId);
