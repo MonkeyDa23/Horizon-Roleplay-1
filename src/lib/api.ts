@@ -288,7 +288,7 @@ export const getAuditLogs = async (): Promise<AuditLogEntry[]> => {
 
 export const logAdminAccess = async (): Promise<void> => {
     if (!supabase) throw new Error("Supabase not configured");
-    return handleResponse(await supabase.rpc('log_action', { p_action: '🔑 دخل إلى لوحة التحكم', p_log_type: 'admin' }));
+    return handleResponse(await supabase.rpc('log_action', { p_action: '🔑 Accessed the Admin Panel.', p_log_type: 'admin' }));
 };
 
 export const logAdminPageVisit = async (pageName: string): Promise<void> => {

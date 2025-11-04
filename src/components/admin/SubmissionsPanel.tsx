@@ -171,7 +171,7 @@ const SubmissionsPanel: React.FC = () => {
                     </table>
                 </div>
             </div>
-            {viewingSubmission && user && <Modal isOpen={!!viewingSubmission} onClose={() => setViewingSubmission(null)} title={t('submission_details')}>
+            {viewingSubmission && user && <Modal isOpen={!!viewingSubmission} onClose={() => setViewingSubmission(null)} title={t('submission_details')} maxWidth="2xl">
                 <div className="space-y-4 text-gray-200">
                     <p><strong>{t('applicant')}:</strong> {viewingSubmission.username}</p>
                     <p><strong>{t('application_type')}:</strong> {viewingSubmission.quizTitle}</p>
@@ -181,7 +181,10 @@ const SubmissionsPanel: React.FC = () => {
                         <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
                             {viewingSubmission.answers.map((ans, i) => (
                                 <div key={ans.questionId}>
-                                    <p className="font-semibold text-gray-300">{i+1}. {ans.questionText}</p>
+                                    <div className="flex justify-between items-center">
+                                        <p className="font-semibold text-gray-300">{i+1}. {ans.questionText}</p>
+                                        <span className="text-xs text-gray-400 font-mono">(Answered in {ans.timeTaken}s)</span>
+                                    </div>
                                     <p className="bg-brand-dark p-2 rounded mt-1 text-gray-200 whitespace-pre-wrap">{ans.answer}</p>
                                 </div>
                             ))}

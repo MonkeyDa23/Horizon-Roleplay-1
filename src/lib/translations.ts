@@ -279,6 +279,7 @@ export const translations: Translations = {
   health_check_test_running: { ar: 'جاري الاختبار...', en: 'Testing...'},
   health_check_test_result: { ar: 'نتيجة الاختبار', en: 'Test Result'},
   health_check_step4: { ar: 'الخطوة 4: اختبار مزامنة المستخدم', en: 'Step 4: User Sync Test'},
+  // FIX: Corrected syntax error (user''s -> user's)
   health_check_step4_desc: { ar: 'اختبر جلب بيانات مستخدم معين من ديسكورد عبر البوت.', en: 'Test fetching a specific user\'s data from Discord via the bot.'},
   health_check_get_discord_id: { ar: 'كيف أحصل على معرف ديسكورد؟', en: 'How to get a Discord ID?'},
   health_check_get_discord_id_steps: { ar: 'في ديسكورد، اذهب إلى الإعدادات > متقدم > فعل وضع المطور. ثم انقر بزر الماوس الأيمن على أي مستخدم واختر "نسخ معرف المستخدم".', en: 'In Discord, go to Settings > Advanced > enable Developer Mode. Then, right-click any user and select "Copy User ID".'},
