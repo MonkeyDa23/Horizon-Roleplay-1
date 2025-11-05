@@ -51,9 +51,23 @@ const invokeFunction = async <T>(functionName: string, body?: object, headers?: 
 
     if (error) {
         console.error(`Supabase Function Error (${functionName}):`, error);
-        // Attempt to extract status from context if available, otherwise default to 500
+        
+        let errorMessage = error.message;
         const status = (error as any)?.context?.status ?? 500;
-        throw new ApiError(error.message, status);
+
+        // Try to get a more specific error message from the function's response body
+        // Supabase-js wraps the response JSON in the `context` property of the error object.
+        const functionErrorBody = (error as any).context;
+        if (functionErrorBody && typeof functionErrorBody === 'object' && 'error' in functionErrorBody) {
+             const detailedError = (functionErrorBody as { error: string; details?: string }).error;
+             const detailedDetails = (functionErrorBody as { error: string; details?: string }).details;
+             errorMessage = detailedError + (detailedDetails ? ` (Details: ${detailedDetails})` : '');
+        } else if (functionErrorBody && typeof functionErrorBody === 'string') {
+            // Sometimes the body might be a simple string
+            errorMessage = functionErrorBody;
+        }
+
+        throw new ApiError(errorMessage, status);
     }
     
     return data as T;

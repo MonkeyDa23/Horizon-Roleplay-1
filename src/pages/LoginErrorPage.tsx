@@ -13,27 +13,18 @@ interface LoginErrorPageProps {
 const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogout }) => {
     const navigate = ReactRouterDOM.useNavigate();
     
-    let title = "Login Synchronization Failed";
-    let advice: React.ReactNode[] = [];
-
     const getTroubleshootingSteps = () => {
-        const steps = [];
-        if (error instanceof ApiError) {
-             switch (error.status) {
-                case 401:
-                case 403:
-                    steps.push(<>The website's request was rejected by the bot. This is almost always an <strong>API Key mismatch</strong>. Ensure the <code>API_SECRET_KEY</code> in your bot's <code>config.json</code> exactly matches the <code>VITE_DISCORD_BOT_API_KEY</code> secret in your Supabase project.</>);
-                    break;
-                case 404:
-                    steps.push(<>The bot reported that your Discord user was <strong>not found in the server</strong>. If you recently joined, please wait a few minutes and try again. Ensure you are a member of the correct Discord server specified in the bot's configuration.</>);
-                    break;
-                case 503:
-                    steps.push(<>The bot could not get your roles, which is required for permissions. This is typically caused by the <strong>"Server Members Intent" being disabled</strong>. Go to your bot's settings in the Discord Developer Portal and enable it.</>);
-                    break;
-                default:
-                     steps.push(<>The bot returned an unexpected error (Status: {error.status}). Check the bot's logs on your server for more details. Use <code>pm2 logs vixel-bot</code> if you are using PM2.</>);
-            }
-        } else if (error.message.includes('Failed to fetch')) {
+        const steps: React.ReactNode[] = [];
+        const errorMessage = error.message.toLowerCase();
+
+        // Specific, common errors first
+        if (errorMessage.includes('authentication failed') || errorMessage.includes('api key mismatch')) {
+             steps.push(<>The website's request was rejected by the bot. This is almost always an <strong>API Key mismatch</strong>. Ensure the <code>API_SECRET_KEY</code> in your bot's <code>config.json</code> file exactly matches the <code>VITE_DISCORD_BOT_API_KEY</code> secret in your Supabase project.</>);
+        } else if (errorMessage.includes('not found in the server') || (error instanceof ApiError && error.status === 404)) {
+            steps.push(<>The bot reported that your Discord user was <strong>not found in the server</strong>. If you recently joined, please wait a few minutes and try again. Ensure you are a member of the correct Discord server specified in the bot's configuration.</>);
+        } else if (errorMessage.includes('server members intent')) {
+            steps.push(<>The bot could not get your roles, which is required for permissions. This is typically caused by the <strong>"Server Members Intent" being disabled</strong>. Go to your bot's settings in the Discord Developer Portal and enable it, then restart the bot.</>);
+        } else if (errorMessage.includes('failed to fetch') || errorMessage.includes('connection refused')) {
              steps.push(<>The website could not reach the Discord bot at all. Please check the following:</>);
              steps.push(
                 <ul className="list-disc list-inside pl-4 space-y-1">
@@ -43,12 +34,13 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
                 </ul>
              );
         } else {
-            steps.push(<>An unexpected error occurred. Please check the browser console and the bot's logs for more details.</>);
+            // Generic fallback
+            steps.push(<>An unexpected error occurred. The full error message is: <code className="text-xs bg-brand-dark p-1 rounded">{error.message}</code>. Please check the browser console and the bot's logs on your server for more details.</>);
         }
         return steps;
     };
 
-    advice = getTroubleshootingSteps();
+    const advice = getTroubleshootingSteps();
     
     const handleGoToHealthCheck = () => {
         navigate('/health-check');
@@ -60,7 +52,7 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
                 <div className="mx-auto w-20 h-20 flex items-center justify-center rounded-full bg-red-500/10 border-2 border-red-500/50 mb-6">
                     <AlertTriangle className="text-red-400" size={48} />
                 </div>
-                <h1 className="text-3xl md:text-4xl font-extrabold text-red-400 mb-4">{title}</h1>
+                <h1 className="text-3xl md:text-4xl font-extrabold text-red-400 mb-4">Login Synchronization Failed</h1>
                 <p className="text-md text-gray-300 mb-8">
                     We couldn't synchronize your profile with Discord after you logged in. This usually happens because of a configuration issue between the website and the backend bot.
                 </p>

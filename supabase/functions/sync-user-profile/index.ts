@@ -173,6 +173,11 @@ serve(async (req) => {
     }
     
     if (!finalProfileDataSource) {
+        if (syncError) {
+            // Re-throw the specific sync error for better debugging on the frontend.
+            throw new Error(syncError.replace('. Using last known data.', ''));
+        }
+        // Generic fallback if sync wasn't even attempted for some reason
         throw new Error("Initial profile sync failed and no cached data is available. This can happen if the bot is offline or misconfigured during your first login.");
     }
     

@@ -1,4 +1,3 @@
-
 // FIX: Converted the raw SQL script into a TypeScript module by exporting it as a template string. This resolves TS parsing errors while keeping the SQL content available for copy-pasting as instructed in App.tsx.
 export const databaseSchema = `
 /*
@@ -331,6 +330,7 @@ BEGIN
         'quizTitle', new_submission."quizTitle",
         'submittedAt', new_submission."submittedAt",
         'userHighestRole', new_submission.user_highest_role,
+        -- FIX: Removed incorrect function call `()` at the end of the expression.
         'adminPanelUrl', 'https://' || SPLIT_PART(config_record."SUPABASE_PROJECT_URL", '//', 2)
     );
     PERFORM private.send_notification('new_submission', admin_payload);
@@ -354,6 +354,7 @@ DECLARE
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_submissions') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
   
+  -- FIX: Removed incorrect function call `()` after the COALESCE expression.
   SELECT id, COALESCE(raw_user_meta_data->>'global_name', raw_user_meta_data->>'full_name') AS username INTO admin_user FROM auth.users WHERE id = public.get_user_id();
   
   UPDATE public.submissions SET status = p_new_status, "adminId" = public.get_user_id(), "adminUsername" = admin_user.username, "updatedAt" = now(), reason = p_reason
@@ -432,15 +433,15 @@ BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_appearance') THEN RAISE EXCEPTION 'Insufficient permissions'; END IF;
   PERFORM public.log_action('⚙️ Updated website configuration.', 'admin');
   UPDATE public.config SET
-    "SUPABASE_PROJECT_URL" = coalesce(new_config->>'SUPABASE_PROJECT_URL', "SUPABASE_PROJECT_URL"),
-    "DISCORD_PROXY_SECRET" = coalesce(new_config->>'DISCORD_PROXY_SECRET', "DISCORD_PROXY_SECRET"),
-    "COMMUNITY_NAME" = coalesce(new_config->>'COMMUNITY_NAME', "COMMUNITY_NAME"),
-    "LOGO_URL" = coalesce(new_config->>'LOGO_URL', "LOGO_URL"),
-    "DISCORD_GUILD_ID" = coalesce(new_config->>'DISCORD_GUILD_ID', "DISCORD_GUILD_ID"),
-    "DISCORD_INVITE_URL" = coalesce(new_config->>'DISCORD_INVITE_URL', "DISCORD_INVITE_URL"),
-    "MTA_SERVER_URL" = coalesce(new_config->>'MTA_SERVER_URL', "MTA_SERVER_URL"),
-    "BACKGROUND_IMAGE_URL" = coalesce(new_config->>'BACKGROUND_IMAGE_URL', "BACKGROUND_IMAGE_URL"),
-    "SHOW_HEALTH_CHECK" = coalesce((new_config->>'SHOW_HEALTH_CHECK')::boolean, "SHOW_HEALTH_CHECK")
+    "SUPABASE_PROJECT_URL" = COALESCE(new_config->>'SUPABASE_PROJECT_URL', "SUPABASE_PROJECT_URL"),
+    "DISCORD_PROXY_SECRET" = COALESCE(new_config->>'DISCORD_PROXY_SECRET', "DISCORD_PROXY_SECRET"),
+    "COMMUNITY_NAME" = COALESCE(new_config->>'COMMUNITY_NAME', "COMMUNITY_NAME"),
+    "LOGO_URL" = COALESCE(new_config->>'LOGO_URL', "LOGO_URL"),
+    "DISCORD_GUILD_ID" = COALESCE(new_config->>'DISCORD_GUILD_ID', "DISCORD_GUILD_ID"),
+    "DISCORD_INVITE_URL" = COALESCE(new_config->>'DISCORD_INVITE_URL', "DISCORD_INVITE_URL"),
+    "MTA_SERVER_URL" = COALESCE(new_config->>'MTA_SERVER_URL', "MTA_SERVER_URL"),
+    "BACKGROUND_IMAGE_URL" = COALESCE(new_config->>'BACKGROUND_IMAGE_URL', "BACKGROUND_IMAGE_URL"),
+    "SHOW_HEALTH_CHECK" = COALESCE((new_config->>'SHOW_HEALTH_CHECK')::boolean, "SHOW_HEALTH_CHECK")
   WHERE id = 1;
 END;
 $$;
@@ -532,7 +533,7 @@ BEGIN
   UPDATE public.bans SET is_active = false WHERE user_id = p_target_user_id AND is_active = true;
   INSERT INTO public.bans(user_id, banned_by, reason, expires_at, is_active) VALUES (p_target_user_id, public.get_user_id(), p_reason, v_expires_at, true);
   SELECT username FROM public.profiles WHERE id = p_target_user_id INTO target_username;
-  PERFORM public.log_action('🚫 Banned user **' || coalesce(target_username, p_target_user_id::text) || '** for reason: *' || p_reason || '*', 'ban');
+  PERFORM public.log_action('🚫 Banned user **' || COALESCE(target_username, p_target_user_id::text) || '** for reason: *' || p_reason || '*', 'ban');
 END;
 $$;
 
@@ -543,7 +544,7 @@ BEGIN
   UPDATE public.profiles SET is_banned = false, ban_reason = null, ban_expires_at = null WHERE id = p_target_user_id;
   UPDATE public.bans SET is_active = false, unbanned_by = public.get_user_id(), unbanned_at = now() WHERE user_id = p_target_user_id AND is_active = true;
   SELECT username FROM public.profiles WHERE id = p_target_user_id INTO target_username;
-  PERFORM public.log_action('✅ Unbanned user **' || coalesce(target_username, p_target_user_id::text) || '**', 'ban');
+  PERFORM public.log_action('✅ Unbanned user **' || COALESCE(target_username, p_target_user_id::text) || '**', 'ban');
 END;
 $$;
 
