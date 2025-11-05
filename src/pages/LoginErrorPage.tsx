@@ -1,7 +1,8 @@
 // src/pages/LoginErrorPage.tsx
 import React from 'react';
-import { AlertTriangle, RefreshCw, LogOut } from 'lucide-react';
+import { AlertTriangle, RefreshCw, LogOut, Wrench } from 'lucide-react';
 import { ApiError } from '../lib/api';
+import * as ReactRouterDOM from 'react-router-dom';
 
 interface LoginErrorPageProps {
   error: Error;
@@ -10,6 +11,7 @@ interface LoginErrorPageProps {
 }
 
 const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogout }) => {
+    const navigate = ReactRouterDOM.useNavigate();
     
     let title = "Login Synchronization Failed";
     let advice: React.ReactNode[] = [];
@@ -47,6 +49,10 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
     };
 
     advice = getTroubleshootingSteps();
+    
+    const handleGoToHealthCheck = () => {
+        navigate('/health-check');
+    };
 
     return (
         <div className="flex flex-col items-center justify-center h-screen w-screen bg-brand-dark p-6 text-center">
@@ -59,12 +65,28 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
                     We couldn't synchronize your profile with Discord after you logged in. This usually happens because of a configuration issue between the website and the backend bot.
                 </p>
 
+                <div className="bg-brand-dark p-6 rounded-lg text-left space-y-4 border-2 border-brand-cyan/50 mb-8">
+                    <h2 className="font-bold text-brand-cyan text-lg flex items-center gap-2">
+                        <Wrench size={20} />
+                        Recommended First Step
+                    </h2>
+                    <p className="text-gray-300">
+                        The <strong>System Health Check</strong> page is a powerful diagnostic tool that can automatically test your entire setup and pinpoint the exact problem.
+                    </p>
+                    <button
+                        onClick={handleGoToHealthCheck}
+                        className="w-full px-8 py-3 bg-brand-cyan text-brand-dark font-bold text-lg rounded-lg shadow-glow-cyan hover:bg-white transform transition-all duration-300 ease-in-out"
+                    >
+                        Go to Health Check
+                    </button>
+                </div>
+
                 <div className="bg-brand-dark p-6 rounded-lg text-left space-y-4 border border-brand-light-blue">
-                    <h2 className="font-bold text-brand-cyan text-lg">How to Fix:</h2>
+                    <h2 className="font-bold text-yellow-300 text-lg">Or, Check Manually:</h2>
                     <div className="text-gray-200 mt-1 space-y-3">
                        {advice.map((item, index) => (
                            <div key={index} className="flex items-start gap-3">
-                               <span className="mt-1 font-bold text-brand-cyan">{index + 1}.</span>
+                               <span className="mt-1 font-bold text-yellow-300">{index + 1}.</span>
                                <div>{item}</div>
                            </div>
                        ))}

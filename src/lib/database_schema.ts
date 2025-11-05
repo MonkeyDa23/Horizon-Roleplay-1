@@ -203,7 +203,7 @@ CREATE OR REPLACE FUNCTION public.get_user_id() RETURNS uuid LANGUAGE sql STABLE
 
 CREATE OR REPLACE FUNCTION public.has_permission(p_user_id uuid, p_permission_key text)
 RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public
-AS $function$
+AS $$
 DECLARE user_permissions text[];
 BEGIN
     IF p_user_id IS NULL THEN RETURN false; END IF;
@@ -214,11 +214,11 @@ BEGIN
     CROSS JOIN unnest(rp.permissions) AS p(permission) WHERE prof.id = p_user_id;
     RETURN ('_super_admin' = ANY(user_permissions) OR p_permission_key = ANY(user_permissions));
 END;
-$function$;
+$$;
 
 CREATE OR REPLACE FUNCTION private.send_notification(p_type text, p_payload jsonb)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions
-AS $function$
+AS $$
 DECLARE
   project_url text;
   proxy_secret text;
@@ -237,7 +237,7 @@ BEGIN
     RAISE EXCEPTION 'Notification proxy function responded with an error. Status: %, Body: %', response.status, response.content;
   END IF;
 END;
-$function$;
+$$;
 
 
 -- =================================================================
@@ -281,16 +281,15 @@ CREATE POLICY "Admins can manage submissions" ON public.submissions FOR ALL USIN
 CREATE OR REPLACE FUNCTION public.get_config() RETURNS json LANGUAGE sql STABLE AS $$ SELECT row_to_json(c) FROM public.config c WHERE id = 1; $$;
 
 CREATE OR REPLACE FUNCTION public.get_all_submissions() RETURNS SETOF public.submissions LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
-AS $function$
+AS $$
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_submissions') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
   RETURN QUERY SELECT * FROM public.submissions ORDER BY "submittedAt" DESC;
 END;
-$function$;
+$$;
 
 CREATE OR REPLACE FUNCTION public.add_submission(submission_data jsonb) RETURNS public.submissions LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
--- FIX: Replaced the '$$' PostgreSQL dollar-quoting with tagged '$function$' quotes in the 'add_submission' function to resolve a TypeScript parsing error.
-AS $function$
+AS $$
 DECLARE 
   new_submission public.submissions;
   profile_record record;
@@ -341,13 +340,12 @@ BEGIN
 
   RETURN new_submission;
 END;
-$function$;
+$$;
 
 DROP FUNCTION IF EXISTS public.update_submission_status(uuid, text);
 DROP FUNCTION IF EXISTS public.update_submission_status(uuid, text, text);
 CREATE OR REPLACE FUNCTION public.update_submission_status(p_submission_id uuid, p_new_status text, p_reason text DEFAULT NULL) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
--- FIX: Replaced the '$$' PostgreSQL dollar-quoting with tagged '$function$' quotes in the 'update_submission_status' function to resolve a TypeScript parsing error.
-AS $function$
+AS $$
 DECLARE 
   submission_record record; 
   admin_user record;
@@ -395,10 +393,10 @@ BEGIN
     END;
   END IF;
 END;
-$function$;
+$$;
 
 CREATE OR REPLACE FUNCTION public.delete_submission(p_submission_id uuid) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
-AS $function$
+AS $$
 DECLARE submission_record record;
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_submissions') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
@@ -408,28 +406,28 @@ BEGIN
     PERFORM public.log_action('🗑️ Deleted submission for **' || submission_record.username || '** (`' || submission_record."quizTitle" || '`)', 'submission');
   END IF;
 END;
-$function$;
+$$;
 
 CREATE OR REPLACE FUNCTION public.log_action(p_action text, p_log_type text DEFAULT 'general') RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
-AS $function$
+AS $$
 DECLARE admin_user record;
 BEGIN
   SELECT id, COALESCE(raw_user_meta_data->>'global_name', raw_user_meta_data->>'full_name', 'Unknown') AS username INTO admin_user FROM auth.users WHERE id = public.get_user_id();
   INSERT INTO public.audit_log(admin_id, admin_username, action, log_type) VALUES (admin_user.id, admin_user.username, p_action, p_log_type);
 END;
-$function$;
+$$;
 
 CREATE OR REPLACE FUNCTION public.log_page_visit(p_page_name text) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
-AS $function$
+AS $$
 BEGIN
   IF public.has_permission(public.get_user_id(), 'admin_panel') THEN
     PERFORM public.log_action('👁️ Visited admin page: **' || p_page_name || '**', 'admin');
   END IF;
 END;
-$function$;
+$$;
 
 CREATE OR REPLACE FUNCTION public.update_config(new_config jsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
-AS $function$
+AS $$
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_appearance') THEN RAISE EXCEPTION 'Insufficient permissions'; END IF;
   PERFORM public.log_action('⚙️ Updated website configuration.', 'admin');
@@ -445,9 +443,9 @@ BEGIN
     "SHOW_HEALTH_CHECK" = coalesce((new_config->>'SHOW_HEALTH_CHECK')::boolean, "SHOW_HEALTH_CHECK")
   WHERE id = 1;
 END;
-$function$;
+$$;
 
-CREATE OR REPLACE FUNCTION public.save_quiz_with_translations(p_quiz_data jsonb) RETURNS public.quizzes LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $function$
+CREATE OR REPLACE FUNCTION public.save_quiz_with_translations(p_quiz_data jsonb) RETURNS public.quizzes LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE result public.quizzes; v_question jsonb; action_text text; is_new boolean;
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_quizzes') THEN RAISE EXCEPTION 'Insufficient permissions'; END IF;
@@ -462,9 +460,9 @@ BEGIN
   ON CONFLICT (id) DO UPDATE SET "titleKey" = excluded."titleKey", "descriptionKey" = excluded."descriptionKey", questions = excluded.questions, "isOpen" = excluded."isOpen", "allowedTakeRoles" = excluded."allowedTakeRoles", "logoUrl" = excluded."logoUrl", "bannerUrl" = excluded."bannerUrl", "lastOpenedAt" = CASE WHEN excluded."isOpen" AND NOT quizzes."isOpen" THEN now() ELSE quizzes."lastOpenedAt" END
   RETURNING * INTO result;
   RETURN result;
-END; $function$;
+END; $$;
 
-CREATE OR REPLACE FUNCTION public.delete_quiz(p_quiz_id uuid) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $function$
+CREATE OR REPLACE FUNCTION public.delete_quiz(p_quiz_id uuid) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE quiz_record record;
 BEGIN
     IF NOT public.has_permission(public.get_user_id(), 'admin_quizzes') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
@@ -473,9 +471,9 @@ BEGIN
         PERFORM public.log_action('🗑️ Deleted the application form: **' || quiz_record."titleKey" || '**', 'admin');
         DELETE FROM public.quizzes WHERE id = p_quiz_id;
     END IF;
-END; $function$;
+END; $$;
 
-CREATE OR REPLACE FUNCTION public.save_product_with_translations(p_product_data jsonb) RETURNS public.products LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $function$
+CREATE OR REPLACE FUNCTION public.save_product_with_translations(p_product_data jsonb) RETURNS public.products LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE result public.products;
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_store') THEN RAISE EXCEPTION 'Insufficient permissions'; END IF;
@@ -484,9 +482,9 @@ BEGIN
   INSERT INTO public.translations (key, en, ar) VALUES (p_product_data->>'nameKey', p_product_data->>'nameEn', p_product_data->>'nameAr'), (p_product_data->>'descriptionKey', p_product_data->>'descriptionEn', p_product_data->>'descriptionAr') ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar;
   INSERT INTO public.products (id, "nameKey", "descriptionKey", price, "imageUrl") VALUES ((p_product_data->>'id')::uuid, p_product_data->>'nameKey', p_product_data->>'descriptionKey', (p_product_data->>'price')::numeric, p_product_data->>'imageUrl') ON CONFLICT (id) DO UPDATE SET "nameKey" = excluded."nameKey", "descriptionKey" = excluded."descriptionKey", price = excluded.price, "imageUrl" = excluded."imageUrl" RETURNING * INTO result;
   RETURN result;
-END; $function$;
+END; $$;
 
-CREATE OR REPLACE FUNCTION public.delete_product(p_product_id uuid) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $function$
+CREATE OR REPLACE FUNCTION public.delete_product(p_product_id uuid) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE product_record record;
 BEGIN
     IF NOT public.has_permission(public.get_user_id(), 'admin_store') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
@@ -495,23 +493,23 @@ BEGIN
         PERFORM public.log_action('🗑️ Deleted the store product: **' || product_record."nameKey" || '**', 'admin');
         DELETE FROM public.products WHERE id = p_product_id;
     END IF;
-END; $function$;
+END; $$;
 
-CREATE OR REPLACE FUNCTION public.save_rules(p_rules_data jsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $function$
+CREATE OR REPLACE FUNCTION public.save_rules(p_rules_data jsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE v_category jsonb; v_rule jsonb;
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_rules') THEN RAISE EXCEPTION 'Insufficient permissions'; END IF; PERFORM public.log_action('⚖️ Updated the server rules.', 'admin');
   FOR v_category IN SELECT * FROM jsonb_array_elements(p_rules_data) LOOP INSERT INTO public.translations (key, en, ar) VALUES (v_category->>'titleKey', v_category->>'titleEn', v_category->>'titleAr') ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar; IF jsonb_typeof(v_category->'rules') = 'array' THEN FOR v_rule IN SELECT * FROM jsonb_array_elements(v_category->'rules') LOOP INSERT INTO public.translations (key, en, ar) VALUES (v_rule->>'textKey', v_rule->>'textEn', v_rule->>'textAr') ON CONFLICT (key) DO UPDATE SET en = excluded.en, ar = excluded.ar; END LOOP; END IF; END LOOP;
   DELETE FROM public.rules WHERE true; INSERT INTO public.rules (id, "titleKey", position, rules) SELECT (c->>'id')::uuid, c->>'titleKey', (c->>'position')::int, (SELECT jsonb_agg(jsonb_build_object('id', r->>'id', 'textKey', r->>'textKey')) FROM jsonb_array_elements(c->'rules') AS r) FROM jsonb_array_elements(p_rules_data) AS c;
-END; $function$;
+END; $$;
 
-CREATE OR REPLACE FUNCTION public.get_discord_widgets() RETURNS SETOF public.discord_widgets LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $function$
+CREATE OR REPLACE FUNCTION public.get_discord_widgets() RETURNS SETOF public.discord_widgets LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   RETURN QUERY SELECT * FROM public.discord_widgets ORDER BY position ASC;
 END;
-$function$;
+$$;
 
-CREATE OR REPLACE FUNCTION public.save_discord_widgets(p_widgets_data jsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $function$
+CREATE OR REPLACE FUNCTION public.save_discord_widgets(p_widgets_data jsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE v_widget jsonb;
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_widgets') THEN RAISE EXCEPTION 'Insufficient permissions'; END IF;
@@ -521,10 +519,11 @@ BEGIN
     INSERT INTO public.discord_widgets(server_name, server_id, invite_url, position)
     VALUES (v_widget->>'server_name', v_widget->>'server_id', v_widget->>'invite_url', (v_widget->>'position')::int);
   END LOOP;
-END; $function$;
+END;
+$$;
 
 
-CREATE OR REPLACE FUNCTION public.ban_user(p_target_user_id uuid, p_reason text, p_duration_hours int) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $function$
+CREATE OR REPLACE FUNCTION public.ban_user(p_target_user_id uuid, p_reason text, p_duration_hours int) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE v_expires_at timestamptz; target_username text;
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_lookup') THEN RAISE EXCEPTION 'Insufficient permissions'; END IF;
@@ -535,9 +534,9 @@ BEGIN
   SELECT username FROM public.profiles WHERE id = p_target_user_id INTO target_username;
   PERFORM public.log_action('🚫 Banned user **' || coalesce(target_username, p_target_user_id::text) || '** for reason: *' || p_reason || '*', 'ban');
 END;
-$function$;
+$$;
 
-CREATE OR REPLACE FUNCTION public.unban_user(p_target_user_id uuid) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $function$
+CREATE OR REPLACE FUNCTION public.unban_user(p_target_user_id uuid) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE target_username text;
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_lookup') THEN RAISE EXCEPTION 'Insufficient permissions'; END IF;
@@ -546,18 +545,18 @@ BEGIN
   SELECT username FROM public.profiles WHERE id = p_target_user_id INTO target_username;
   PERFORM public.log_action('✅ Unbanned user **' || coalesce(target_username, p_target_user_id::text) || '**', 'ban');
 END;
-$function$;
+$$;
 
-CREATE OR REPLACE FUNCTION public.save_role_permissions(p_role_id text, p_permissions text[]) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $function$
+CREATE OR REPLACE FUNCTION public.save_role_permissions(p_role_id text, p_permissions text[]) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_permissions') THEN RAISE EXCEPTION 'Insufficient permissions'; END IF;
   PERFORM public.log_action('🛡️ Updated permissions for role <@&' || p_role_id || '>', 'admin');
   INSERT INTO public.role_permissions (role_id, permissions) VALUES (p_role_id, p_permissions) ON CONFLICT (role_id) DO UPDATE SET permissions = excluded.permissions;
-END; $function$;
+END; $$;
 
 CREATE OR REPLACE FUNCTION public.test_http_request()
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = extensions, public
-AS $function$
+AS $$
 DECLARE
   response extensions.http_response;
 BEGIN
@@ -566,14 +565,14 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN
     RETURN jsonb_build_object('error', SQLERRM);
 END;
-$function$;
+$$;
 
 -- =================================================================
 -- 7. NOTIFICATION TRIGGER
 -- =================================================================
 CREATE OR REPLACE FUNCTION public.handle_audit_log_notification()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
-AS $function$
+AS $$
 DECLARE
   payload jsonb;
 BEGIN
@@ -586,7 +585,7 @@ BEGIN
   PERFORM private.send_notification('audit_log', payload);
   RETURN NEW;
 END;
-$function$;
+$$;
 
 CREATE TRIGGER on_audit_log_insert
 AFTER INSERT ON public.audit_log
@@ -612,4 +611,4 @@ ON CONFLICT (key) DO NOTHING;
 
 
 COMMIT;
-`
+`;
