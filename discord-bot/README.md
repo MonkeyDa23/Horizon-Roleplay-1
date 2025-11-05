@@ -60,6 +60,7 @@ You need to host this bot on a server, such as a VPS or a dedicated machine.
 
     ```json
     {
+      "PORT": 14355,
       "DISCORD_BOT_TOKEN": "YOUR_BOT_TOKEN_HERE",
       "DISCORD_GUILD_ID": "YOUR_SERVER_ID_HERE",
       "API_SECRET_KEY": "CREATE_A_STRONG_SECRET_PASSWORD_HERE",
@@ -81,11 +82,12 @@ You need to host this bot on a server, such as a VPS or a dedicated machine.
     }
     ```
 
+-   **`PORT`**: (Optional) The port the bot's web server will run on. Defaults to `14355` if not specified. You must open this port in your server's firewall.
 -   **`DISCORD_BOT_TOKEN`**: Get this from the Discord Developer Portal (Bot tab > "Reset Token").
 -   **`DISCORD_GUILD_ID`**: Right-click your server icon in Discord (with Developer Mode on) and "Copy Server ID".
 -   **`API_SECRET_KEY`**: **Create your own unique, strong password**. This is what your website will use to securely communicate with the bot. This **MUST** match the `VITE_DISCORD_BOT_API_KEY` secret you set in your Supabase project.
 -   **`CHANNELS`**: **This is critical.** Fill in the ID for each channel where you want the bot to post a specific type of log. Right-click a channel in Discord and "Copy Channel ID".
--   **`MENTION_ROLES`**: (Optional) If you want the bot to mention a role with a notification, put the Role ID here. Right-click a role and "Copy Role ID". Leave as `""` if not needed.
+-   **`MENTION_ROLES`**: (Optional) If you want the bot to mention a role with a notification, put the Role ID here. Leave as `""` if not needed.
 
 ### 3. Build and Run
 
@@ -114,7 +116,7 @@ You need to host this bot on a server, such as a VPS or a dedicated machine.
 
 ## Firewall
 
-Ensure that the port the bot is running on (default is **14355**) is open in your server's firewall. Supabase needs to be able to reach this port to send notification requests. If you are using a cloud provider (like AWS, Google Cloud, Oracle), you need to configure the "Security Group" or "Firewall Rules" for your virtual machine to allow inbound traffic on TCP port `14355`.
+Ensure that the port the bot is running on (specified by `PORT` in your `config.json`, default is **14355**) is open in your server's firewall. Supabase needs to be able to reach this port to send notification requests. If you are using a cloud provider (like AWS, Google Cloud, Oracle), you need to configure the "Security Group" or "Firewall Rules" for your virtual machine to allow inbound traffic on TCP port `14355`.
 
 ## Troubleshooting
 

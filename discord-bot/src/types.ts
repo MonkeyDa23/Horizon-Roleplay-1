@@ -4,6 +4,7 @@
  * Defines the structure of the config.json file.
  */
 export interface BotConfig {
+    PORT?: number;
     DISCORD_BOT_TOKEN: string;
     DISCORD_GUILD_ID: string;
     API_SECRET_KEY: string;

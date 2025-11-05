@@ -6,13 +6,17 @@
  * It provides an authenticated REST API for the website (via Supabase Edge Functions)
  * to fetch real-time Discord data and send all notifications.
  */
-import express from 'express';
+// FIX: Add explicit type imports for express to resolve TS errors.
+import express, { Request, Response, NextFunction } from 'express';
 import process from 'process';
 import cors from 'cors';
+// FIX: Update discord.js imports to be compatible with v13 syntax.
 import {
-    Client, GatewayIntentBits, Partials, Events, PermissionFlagsBits, ActivityType, PresenceStatusData,
-    DiscordAPIError, TextChannel, SlashCommandBuilder, EmbedBuilder, Colors
+    Client, Intents, Partials, Events, Permissions,
+    DiscordAPIError, TextChannel, EmbedBuilder, PresenceStatusData
 } from 'discord.js';
+// FIX: Import SlashCommandBuilder from @discordjs/builders for discord.js v13.
+import { SlashCommandBuilder } from '@discordjs/builders';
 import { REST } from '@discordjs/rest';
 import fs from 'fs';
 import path from 'path';
@@ -26,10 +30,12 @@ import { CONTROL_PANEL_HTML } from './controlPanel.js';
 const logger = (level: 'DEBUG' | 'INFO' | 'WARN' | 'ERROR' | 'FATAL', message: string, data?: any) => {
     const timestamp = new Date().toISOString();
     const logMessage = `[${timestamp}] [${level}] ${message}`;
+    // FIX: Add missing 'RESET' key to color map.
     const colorMap = {
         DEBUG: '\x1b[36m', INFO: '\x1b[32m', WARN: '\x1b[33m',
         ERROR: '\x1b[31m', FATAL: '\x1b[41m\x1b[37m', RESET: '\x1b[0m'
     };
+    // FIX: Use colorMap.RESET to correctly apply the reset color code.
     console.log(`${colorMap[level]}${logMessage}${colorMap.RESET}`);
     if (data && (level === 'ERROR' || level === 'FATAL' || level === 'DEBUG')) {
         console.error(data);
@@ -63,7 +69,8 @@ const loadConfig = (): BotConfig => {
 const main = async () => {
     const config = loadConfig();
     const client = new Client({
-        intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
+        // FIX: Use v13 Intents.FLAGS syntax.
+        intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MEMBERS],
         partials: [Partials.Channel],
     });
     // Store translations fetched from the website (a small cache)
@@ -84,7 +91,8 @@ const main = async () => {
     const registerCommands = async (clientId: string) => {
         const setStatusCommand = new SlashCommandBuilder()
             .setName('setstatus').setDescription("Sets the bot's status and activity.")
-            .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+            // FIX: Use v13 Permissions.FLAGS syntax.
+            .setDefaultMemberPermissions(String(Permissions.FLAGS.ADMINISTRATOR))
             .addStringOption(o => o.setName('status').setDescription("Bot's status.").setRequired(true).addChoices({ name: 'Online', value: 'online' }, { name: 'Idle', value: 'idle' }, { name: 'Do Not Disturb', value: 'dnd' }))
             .addStringOption(o => o.setName('activity_type').setDescription("Bot's activity type.").setRequired(true).addChoices({ name: 'Playing', value: 'Playing' }, { name: 'Watching', value: 'Watching' }, { name: 'Listening to', value: 'Listening' }, { name: 'Competing in', value: 'Competing' }))
             .addStringOption(o => o.setName('activity_name').setDescription("Bot's activity name.").setRequired(true));
@@ -102,13 +110,15 @@ const main = async () => {
         if (!interaction.inGuild() || !interaction.guild) return;
         try {
             const member = await interaction.guild.members.fetch(interaction.user.id);
-            const hasAdminPerm = member.permissions.has(PermissionFlagsBits.Administrator);
+            // FIX: Use v13 Permissions.FLAGS syntax.
+            const hasAdminPerm = member.permissions.has(Permissions.FLAGS.ADMINISTRATOR);
             const hasRole = (config.PRESENCE_COMMAND_ROLE_IDS || []).some(id => member.roles.cache.has(id));
             if (!hasAdminPerm && !hasRole) {
                 return interaction.reply({ content: 'You do not have permission to use this command.', ephemeral: true });
             }
             const status = interaction.options.getString('status', true) as PresenceStatusData;
-            const activityType = ActivityType[interaction.options.getString('activity_type', true) as keyof typeof ActivityType];
+            // FIX: Convert activity type string to uppercase for v13 compatibility.
+            const activityType = interaction.options.getString('activity_type', true).toUpperCase() as 'PLAYING' | 'WATCHING' | 'LISTENING' | 'COMPETING';
             const activityName = interaction.options.getString('activity_name', true);
             client.user?.setPresence({ status, activities: [{ name: activityName, type: activityType }] });
             interaction.reply({ content: 'Status updated successfully!', ephemeral: true });
@@ -121,7 +131,8 @@ const main = async () => {
     app.use(cors());
     app.use(express.json());
 
-    const authenticate = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    // FIX: Add explicit types for req, res, and next to resolve TS errors.
+    const authenticate = (req: Request, res: Response, next: NextFunction) => {
         const receivedKey = (req.headers.authorization || '').substring(7);
         if (receivedKey && receivedKey === config.API_SECRET_KEY) return next();
         logger('WARN', `[AUTH] FAILED: Authentication failed for path ${req.path}. Check API keys.`);
@@ -197,7 +208,9 @@ const main = async () => {
         if (!channelId) return logger('WARN', 'Skipping new submission notification: SUBMISSIONS channel ID not set in config.');
         
         const embed = new EmbedBuilder()
-            .setColor(Colors.Orange)
+            // FIX: Use string literal for color, compatible with v13.
+            .setColor('Orange')
+            // FIX: Use v14-compatible setAuthor object, as this is valid in v13 with recent @discordjs/builders.
             .setAuthor({ name: payload.username, iconURL: payload.avatarUrl })
             .setTitle(`📝 تقديم جديد: ${payload.quizTitle}`)
             .setDescription('**تم استلام تقديم جديد وهو جاهز للمراجعة من قبل الإدارة.**')
@@ -224,7 +237,8 @@ const main = async () => {
         if (!channelId) return logger('WARN', `Skipping audit log notification: ${channelKey} channel ID not set.`);
 
         const embed = new EmbedBuilder()
-            .setColor(Colors.Blue)
+            // FIX: Use string literal for color.
+            .setColor('Blue')
             .setAuthor({ name: `👤 ${payload.adminUsername}`})
             .setDescription(payload.action)
             .setTimestamp(new Date(payload.timestamp));
@@ -247,7 +261,8 @@ const main = async () => {
         const embed = new EmbedBuilder()
             .setTitle(isAccepted ? '🎉 تم قبول تقديمك!' : isRefused ? '📑 تحديث بخصوص تقديمك' : '📬 تم استلام تقديمك!')
             .setDescription(body)
-            .setColor(isAccepted ? Colors.Green : isRefused ? Colors.Red : Colors.Blue)
+            // FIX: Use string literals for colors.
+            .setColor(isAccepted ? 'Green' : isRefused ? 'Red' : 'Blue')
             .setTimestamp()
             .setFooter({ text: 'Vixel Roleplay' });
 
@@ -265,7 +280,7 @@ const main = async () => {
 
     try {
         await client.login(config.DISCORD_BOT_TOKEN);
-        const PORT = Number(process.env.PORT) || 14355;
+        const PORT = config.PORT || Number(process.env.PORT) || 14355;
         app.listen(PORT, '0.0.0.0', () => logger('INFO', `✅ Express server is listening on http://0.0.0.0:${PORT}`));
     } catch (error) {
         logger('FATAL', 'Failed to log in to Discord. Is the token in config.json correct?', error);

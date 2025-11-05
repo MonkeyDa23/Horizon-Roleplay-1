@@ -37,7 +37,7 @@ These secrets allow your Edge Functions to securely communicate with your bot.
 
 | Secret Name                | Value                                                                       | Where to get it?                                                              |
 | -------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `VITE_DISCORD_BOT_URL`     | The full URL of your bot. **Ex:** `http://123.45.67.89:14355`                 | The public IP/domain of the server where you are running the `discord-bot`.     |
+| `VITE_DISCORD_BOT_URL`     | The full URL of your bot. **Ex:** `http://123.45.67.89:14355`                 | The public IP/domain of the server where you are running the `discord-bot`, including the port specified in the bot's `config.json`.     |
 | `VITE_DISCORD_BOT_API_KEY` | The secret password from your bot's `config.json` file.                     | You create this. It MUST match the `API_SECRET_KEY` in the bot's config.    |
 
 ---
