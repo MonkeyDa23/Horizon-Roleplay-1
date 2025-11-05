@@ -5,7 +5,7 @@ import { useToast } from '../../hooks/useToast';
 import { useConfig } from '../../hooks/useConfig';
 import { saveConfig } from '../../lib/api';
 import type { AppConfig } from '../../types';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Info } from 'lucide-react';
 
 const AppearancePanel: React.FC = () => {
     const { t } = useLocalization();
@@ -77,38 +77,19 @@ const AppearancePanel: React.FC = () => {
                 </div>
 
                 <div>
-                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">Discord & DM Integration</h3>
+                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">Discord & Notification Integration</h3>
+                    <div className="p-4 rounded-md bg-blue-500/10 border border-blue-500/30 mb-6 flex items-start gap-3">
+                        <Info size={24} className="text-blue-300 flex-shrink-0 mt-1" />
+                        <p className="text-blue-200">
+                            <strong>Important Change:</strong> All notification settings, including channel IDs and mention roles, are now managed directly in your Discord bot's <code>config.json</code> file. This simplifies the website setup and keeps all Discord-related secrets and IDs in one secure place.
+                        </p>
+                    </div>
                     <div className="space-y-6">
                         <InputField labelKey="discord_guild_id" descKey="discord_guild_id_desc" value={settings.DISCORD_GUILD_ID || ''} onChange={val => handleChange('DISCORD_GUILD_ID', val)} />
                         <InputField labelKey="supabase_project_url" descKey="supabase_project_url_desc" value={settings.SUPABASE_PROJECT_URL || ''} onChange={val => handleChange('SUPABASE_PROJECT_URL', val)} placeholder="e.g., https://xyz.supabase.co" />
                         <InputField labelKey="discord_proxy_secret" descKey="discord_proxy_secret_desc" value={settings.DISCORD_PROXY_SECRET || ''} onChange={val => handleChange('DISCORD_PROXY_SECRET', val)} isPassword />
                     </div>
                 </div>
-                
-                 <div>
-                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">Notification Webhooks</h3>
-                     <p className="text-sm text-gray-400 mb-6 -mt-4">These webhooks are used for sending messages to Discord channels. To get a webhook URL, go to your Discord channel settings {'>'} Integrations {'>'} Webhooks {'>'} New Webhook.</p>
-                    <div className="space-y-6">
-                        <InputField labelKey="submissions_webhook_url" descKey="submissions_webhook_url_desc" value={settings.SUBMISSIONS_WEBHOOK_URL} onChange={val => handleChange('SUBMISSIONS_WEBHOOK_URL', val)} />
-                        <InputField labelKey="audit_log_webhook_url" descKey="audit_log_webhook_url_desc" value={settings.AUDIT_LOG_WEBHOOK_URL} onChange={val => handleChange('AUDIT_LOG_WEBHOOK_URL', val)} />
-                        <InputField labelKey="log_webhook_submissions" descKey="log_webhook_submissions_desc" value={settings.AUDIT_LOG_SUBMISSIONS_WEBHOOK_URL} onChange={val => handleChange('AUDIT_LOG_SUBMISSIONS_WEBHOOK_URL', val)} />
-                        <InputField labelKey="log_webhook_bans" descKey="log_webhook_bans_desc" value={settings.AUDIT_LOG_BANS_WEBHOOK_URL} onChange={val => handleChange('AUDIT_LOG_BANS_WEBHOOK_URL', val)} />
-                        <InputField labelKey="log_webhook_admin" descKey="log_webhook_admin_desc" value={settings.AUDIT_LOG_ADMIN_WEBHOOK_URL} onChange={val => handleChange('AUDIT_LOG_ADMIN_WEBHOOK_URL', val)} />
-                    </div>
-                </div>
-                
-                 <div>
-                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">Mention Roles (Optional)</h3>
-                     <p className="text-sm text-gray-400 mb-6 -mt-4">Enter a Role ID here to mention that role with the corresponding notification. Right-click a role in Discord (with Developer Mode on) to copy its ID.</p>
-                    <div className="space-y-6">
-                        <InputField labelKey="mention_role_submissions" descKey="mention_role_submissions_desc" value={settings.MENTION_ROLE_SUBMISSIONS} onChange={val => handleChange('MENTION_ROLE_SUBMISSIONS', val)} />
-                        <InputField labelKey="mention_role_audit_log_general" descKey="mention_role_audit_log_general_desc" value={settings.MENTION_ROLE_AUDIT_LOG_GENERAL} onChange={val => handleChange('MENTION_ROLE_AUDIT_LOG_GENERAL', val)} />
-                        <InputField labelKey="mention_role_audit_log_submissions" descKey="mention_role_audit_log_submissions_desc" value={settings.MENTION_ROLE_AUDIT_LOG_SUBMISSIONS} onChange={val => handleChange('MENTION_ROLE_AUDIT_LOG_SUBMISSIONS', val)} />
-                        <InputField labelKey="mention_role_audit_log_bans" descKey="mention_role_audit_log_bans_desc" value={settings.MENTION_ROLE_AUDIT_LOG_BANS} onChange={val => handleChange('MENTION_ROLE_AUDIT_LOG_BANS', val)} />
-                        <InputField labelKey="mention_role_audit_log_admin" descKey="mention_role_audit_log_admin_desc" value={settings.MENTION_ROLE_AUDIT_LOG_ADMIN} onChange={val => handleChange('MENTION_ROLE_AUDIT_LOG_ADMIN', val)} />
-                    </div>
-                </div>
-
             </div>
         </div>
     );

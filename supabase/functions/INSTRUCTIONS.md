@@ -1,6 +1,6 @@
-# Supabase & Bot Setup Guide (V9 - Robust Proxy Architecture)
+# Supabase & Bot Setup Guide (V10 - Pure Bot Architecture)
 
-This guide provides the complete, simplified instructions for deploying and configuring the backend for your website. This architecture uses a **Supabase Database Function** to call a secure **Supabase Edge Function (`discord-proxy`)**, which then reliably communicates with your **self-hosted Discord bot**.
+This guide provides the complete, simplified instructions for deploying and configuring the backend for your website. This architecture uses a **Supabase Database Function** to call a secure **Supabase Edge Function (`discord-proxy`)**, which then reliably communicates with your **self-hosted Discord bot**. All notifications, including logs and DMs, are sent through the bot.
 
 This is the most robust and easy-to-debug setup. **Please follow these steps exactly.**
 
@@ -24,7 +24,7 @@ You must deploy the required functions from the `supabase/functions` directory.
 - `check-function-secrets`
 - `troubleshoot-user-sync`
 - `test-notification`
-- `discord-proxy` (This one is critical for notifications)
+- `discord-proxy` (This one is critical for all notifications)
 
 ---
 
@@ -44,18 +44,18 @@ These secrets allow your Edge Functions to securely communicate with your bot.
 
 ## Step 3: Run the Database Schema (VERY IMPORTANT)
 
-This script sets up all your tables and backend functions in the database, including the new robust notification system.
+This script sets up all your tables and backend functions in the database, including the new unified notification system.
 
 1.  Go to Supabase Project -> **SQL Editor**.
 2.  Click **"+ New query"**.
 3.  Copy the ENTIRE content of the file at `src/lib/database_schema.ts`.
 4.  Paste it into the editor and click **"RUN"**.
 
-This script will automatically enable the `http` extension required for the database to send notifications via the proxy.
+This script will automatically enable the `http` extension required for the database to send notifications via the proxy function.
 
 ---
 
-## Step 4: Configure Notification System in Admin Panel (CRITICAL)
+## Step 4: Configure Website-to-Bot-Proxy Connection
 
 The database needs to know how to contact its own `discord-proxy` function. You will set this from the website's admin panel.
 
@@ -74,6 +74,16 @@ The database needs to know how to contact its own `discord-proxy` function. You 
         -   **Action:** Create a strong, random password (e.g., from a password generator) and paste it here.
 
 6.  Click **"Save Settings"**.
+
+---
+
+## Step 5: Configure the Bot
+
+All notification destinations (channel IDs, mention roles) are now managed in one place: the bot's configuration file.
+
+1. On the server where you host the bot, open the `discord-bot/config.json` file.
+2. Fill in all the `CHANNELS` and `MENTION_ROLES` with the correct IDs from your Discord server.
+3. Restart the bot for the changes to take effect.
 
 ---
 

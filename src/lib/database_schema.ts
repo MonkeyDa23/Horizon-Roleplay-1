@@ -1,7 +1,7 @@
 // FIX: Converted the raw SQL script into a TypeScript module by exporting it as a template string. This resolves TS parsing errors while keeping the SQL content available for copy-pasting as instructed in App.tsx.
 export const databaseSchema = `
 /*
--- Vixel Roleplay Website - Full Database Schema (V6.0.0 - Final Edition)
+-- Vixel Roleplay Website - Full Database Schema (V7.0.0 - Bot-Centric Architecture)
 
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -14,12 +14,11 @@ export const databaseSchema = `
  2. Click "+ New query".
  3. Copy the ENTIRE content of this file, paste it into the editor, and click "RUN".
 
--- Philosophy Note: Hybrid Notification System
--- This schema uses a two-pronged approach for Discord notifications for maximum reliability:
--- 1. DB Webhooks (DIRECT): For non-critical, high-volume, or public notifications (e.g., new submission alerts in an admin channel, audit logs).
---    These are fired directly from the database via HTTP requests. They are extremely reliable and fast, and will work even if the bot is down.
--- 2. Bot Proxy (INDIRECT): For critical, private user notifications that require a DM (e.g., acceptance/rejection letters).
---    The database calls a secure Supabase Edge Function, which then securely calls the bot to send the DM. This keeps the bot token entirely separate.
+-- Architecture Note: Bot-Centric Notifications
+-- This schema now uses a unified notification system where all events (DMs, channel posts, logs)
+-- are sent through a single proxy to the self-hosted Discord bot. The database is only responsible
+-- for triggering the event and sending the raw data. The bot is responsible for all formatting,
+-- channel routing, and sending, providing maximum control over message appearance.
 
 -- Wrap the entire script in a transaction to ensure it either completes fully or not at all.
 BEGIN;
@@ -93,16 +92,6 @@ CREATE TABLE public.config (
     "MTA_SERVER_URL" text,
     "BACKGROUND_IMAGE_URL" text,
     "SHOW_HEALTH_CHECK" boolean DEFAULT false,
-    "SUBMISSIONS_WEBHOOK_URL" text,
-    "AUDIT_LOG_WEBHOOK_URL" text, -- General/Fallback
-    "AUDIT_LOG_SUBMISSIONS_WEBHOOK_URL" text,
-    "AUDIT_LOG_BANS_WEBHOOK_URL" text,
-    "AUDIT_LOG_ADMIN_WEBHOOK_URL" text,
-    "MENTION_ROLE_SUBMISSIONS" text,
-    "MENTION_ROLE_AUDIT_LOG_GENERAL" text,
-    "MENTION_ROLE_AUDIT_LOG_SUBMISSIONS" text,
-    "MENTION_ROLE_AUDIT_LOG_BANS" text,
-    "MENTION_ROLE_AUDIT_LOG_ADMIN" text,
     CONSTRAINT id_check CHECK (id = 1)
 );
 INSERT INTO public.config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
@@ -111,7 +100,7 @@ CREATE TABLE public.profiles (
     id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     discord_id text NOT NULL UNIQUE,
     username text,
-    avatar_url text, -- Store user avatar URL
+    avatar_url text,
     roles jsonb,
     highest_role jsonb,
     last_synced_at timestamptz,
@@ -176,7 +165,7 @@ CREATE TABLE public.audit_log (
     admin_id uuid REFERENCES auth.users(id),
     admin_username text,
     action text,
-    log_type text -- Used by trigger to route to correct webhook
+    log_type text
 );
 
 CREATE TABLE public.translations (
@@ -226,34 +215,6 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION private.send_webhook(p_webhook_url text, p_payload jsonb)
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = extensions
-AS $$
-DECLARE
-  response extensions.http_response;
-BEGIN
-  IF p_webhook_url IS NULL OR p_webhook_url = '' THEN
-    RAISE WARNING 'send_webhook called with no URL. Notification skipped.';
-    RETURN;
-  END IF;
-  
-  SELECT * INTO response FROM extensions.http((
-    'POST',
-    p_webhook_url,
-    ARRAY[extensions.http_header('Content-Type', 'application/json')],
-    'application/json',
-    p_payload::text
-  )::extensions.http_request);
-
-  IF response.status >= 300 THEN
-    RAISE WARNING 'Webhook failed with status %. URL: %, Body: %', response.status, p_webhook_url, response.content;
-  END IF;
-EXCEPTION WHEN OTHERS THEN
-    RAISE WARNING 'Error in send_webhook function: %', SQLERRM;
-END;
-$$;
-
-
 CREATE OR REPLACE FUNCTION private.send_notification(p_type text, p_payload jsonb)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions
 AS $$
@@ -266,13 +227,13 @@ DECLARE
 BEGIN
   SELECT "SUPABASE_PROJECT_URL", "DISCORD_PROXY_SECRET" INTO project_url, proxy_secret FROM public.config WHERE id = 1;
   IF project_url IS NULL OR project_url = '' OR proxy_secret IS NULL OR proxy_secret = '' THEN
-    RAISE EXCEPTION 'DM notification system not configured. Please set SUPABASE_PROJECT_URL and DISCORD_PROXY_SECRET in the Admin Panel -> Appearance settings.';
+    RAISE EXCEPTION 'Bot notification system is not configured. Please set SUPABASE_PROJECT_URL and DISCORD_PROXY_SECRET in the Admin Panel -> Appearance settings.';
   END IF;
   proxy_url := project_url || '/functions/v1/discord-proxy';
   request := ROW('POST', proxy_url, ARRAY[extensions.http_header('Content-Type', 'application/json'), extensions.http_header('Authorization', 'Bearer ' || proxy_secret)], 'application/json', jsonb_build_object('type', p_type, 'payload', p_payload)::text)::extensions.http_request;
   response := extensions.http(request);
   IF response.status >= 300 THEN
-    RAISE EXCEPTION 'Notification proxy function for DMs responded with an error. Status: %, Body: %', response.status, response.content;
+    RAISE EXCEPTION 'Notification proxy function responded with an error. Status: %, Body: %', response.status, response.content;
   END IF;
 END;
 $$;
@@ -301,7 +262,7 @@ CREATE POLICY "Allow public read access" ON public.translations FOR SELECT USING
 CREATE POLICY "Allow public read access" ON public.discord_widgets FOR SELECT USING (true);
 CREATE POLICY "Users can read their own profile" ON public.profiles FOR SELECT USING (id = public.get_user_id());
 CREATE POLICY "Users can access their own submissions" ON public.submissions FOR ALL USING (user_id = public.get_user_id());
-CREATE POLICY "Admins can manage config" ON public.config FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_appearance') OR public.has_permission(public.get_user_id(), 'admin_notifications'));
+CREATE POLICY "Admins can manage config" ON public.config FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_appearance'));
 CREATE POLICY "Admins can manage products" ON public.products FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_store'));
 CREATE POLICY "Admins can manage quizzes" ON public.quizzes FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_quizzes'));
 CREATE POLICY "Admins can manage rules" ON public.rules FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_rules'));
@@ -327,16 +288,14 @@ END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.add_submission(submission_data jsonb) RETURNS public.submissions LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
-AS $$
+-- FIX: Replaced the '$$' PostgreSQL dollar-quoting with tagged '$function$' quotes in the 'add_submission' function to resolve a TypeScript parsing error.
+AS $function$
 DECLARE 
   new_submission public.submissions;
   profile_record record;
-  webhook_payload jsonb;
+  admin_payload jsonb;
   receipt_payload jsonb;
-  receipt_title text;
-  receipt_body text;
   config_record record;
-  mention_role_id text;
 BEGIN
   SELECT * INTO config_record FROM public.config WHERE id = 1;
   
@@ -346,19 +305,15 @@ BEGIN
     submission_data->'answers', submission_data->'cheatAttempts', submission_data->>'user_highest_role'
   ) RETURNING * INTO new_submission;
 
-  -- 1. Send User Receipt DM (uses Bot via proxy)
+  -- 1. Send User Receipt DM
   BEGIN
     SELECT discord_id INTO profile_record FROM public.profiles WHERE id = public.get_user_id();
-    SELECT en INTO receipt_title FROM translations WHERE key = 'notification_submission_receipt_title';
-    SELECT en INTO receipt_body FROM translations WHERE key = 'notification_submission_receipt_body';
     receipt_payload := jsonb_build_object(
         'userId', profile_record.discord_id,
         'embed', jsonb_build_object(
-            'title', receipt_title,
-            'description', REPLACE(REPLACE(receipt_body, '{username}', new_submission.username), '{quizTitle}', new_submission."quizTitle"),
-            'color', 3092790, -- Blue
-            'timestamp', to_char(new_submission."submittedAt" at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
-            'footer', jsonb_build_object('text', config_record."COMMUNITY_NAME")
+            'titleKey', 'notification_submission_receipt_title',
+            'bodyKey', 'notification_submission_receipt_body',
+            'replacements', jsonb_build_object('username', new_submission.username, 'quizTitle', new_submission."quizTitle")
         )
     );
     PERFORM private.send_notification('submission_receipt', receipt_payload);
@@ -366,66 +321,46 @@ BEGIN
     RAISE WARNING 'Failed to send submission receipt DM for submission %: %', new_submission.id, SQLERRM;
   END;
 
-  -- 2. Send Admin Channel Notification (uses Webhook)
+  -- 2. Send Admin Channel Notification
   BEGIN
     SELECT avatar_url, discord_id INTO profile_record FROM public.profiles WHERE id = public.get_user_id();
-    mention_role_id := config_record."MENTION_ROLE_SUBMISSIONS";
-
-    webhook_payload := jsonb_build_object(
-        'content', CASE WHEN mention_role_id IS NOT NULL THEN '<@&' || mention_role_id || '>' ELSE NULL END,
-        'embeds', jsonb_build_array(jsonb_build_object(
-            'author', jsonb_build_object('name', new_submission.username, 'icon_url', profile_record.avatar_url),
-            'title', new_submission."quizTitle",
-            'description', 'A new application has been submitted and is ready for review.',
-            'color', 15105570, -- Orange
-            'timestamp', to_char(new_submission."submittedAt" at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
-            'fields', jsonb_build_array(
-                jsonb_build_object('name', 'User ID', 'value', '`' || profile_record.discord_id || '`', 'inline', true),
-                jsonb_build_object('name', 'Highest Role', 'value', new_submission.user_highest_role, 'inline', true)
-            ),
-            'footer', jsonb_build_object('text', config_record."COMMUNITY_NAME")
-        )),
-        'components', jsonb_build_array(jsonb_build_object(
-            'type', 1,
-            'components', jsonb_build_array(jsonb_build_object(
-                'type', 2,
-                'label', 'View Submissions',
-                'style', 5,
-                -- FIX: Replaced CONCAT() with || operator to prevent TS parsing errors.
-                'url', 'https://' || SPLIT_PART(config_record."SUPABASE_PROJECT_URL", '//', 2) || '/admin' 
-            ))
-        ))
+    admin_payload := jsonb_build_object(
+        'username', new_submission.username,
+        'avatarUrl', profile_record.avatar_url,
+        'discordId', profile_record.discord_id,
+        'quizTitle', new_submission."quizTitle",
+        'submittedAt', new_submission."submittedAt",
+        'userHighestRole', new_submission.user_highest_role,
+        'adminPanelUrl', 'https://' || SPLIT_PART(config_record."SUPABASE_PROJECT_URL", '//', 2)
     );
-    PERFORM private.send_webhook(config_record."SUBMISSIONS_WEBHOOK_URL", webhook_payload);
+    PERFORM private.send_notification('new_submission', admin_payload);
   EXCEPTION WHEN OTHERS THEN
-      RAISE WARNING 'Failed to send new submission webhook for submission %: %', new_submission.id, SQLERRM;
+      RAISE WARNING 'Failed to send new submission admin notification for submission %: %', new_submission.id, SQLERRM;
   END;
 
   RETURN new_submission;
 END;
-$$;
+$function$;
 
 DROP FUNCTION IF EXISTS public.update_submission_status(uuid, text);
 DROP FUNCTION IF EXISTS public.update_submission_status(uuid, text, text);
 CREATE OR REPLACE FUNCTION public.update_submission_status(p_submission_id uuid, p_new_status text, p_reason text DEFAULT NULL) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
-AS $$
+-- FIX: Replaced the '$$' PostgreSQL dollar-quoting with tagged '$function$' quotes in the 'update_submission_status' function to resolve a TypeScript parsing error.
+AS $function$
 DECLARE 
   submission_record record; 
   admin_user record;
   profile_record record;
   notification_payload jsonb;
-  config_record record;
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_submissions') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
   
-  SELECT * INTO config_record FROM public.config WHERE id=1;
   SELECT id, COALESCE(raw_user_meta_data->>'global_name', raw_user_meta_data->>'full_name') AS username INTO admin_user FROM auth.users WHERE id = public.get_user_id();
   
   UPDATE public.submissions SET status = p_new_status, "adminId" = public.get_user_id(), "adminUsername" = admin_user.username, "updatedAt" = now(), reason = p_reason
   WHERE id = p_submission_id RETURNING * INTO submission_record;
   
   PERFORM public.log_action(
-    -- FIX: Replaced CONCAT() with || operator to prevent TS parsing errors.
     CASE 
         WHEN p_new_status = 'taken' THEN '📥' 
         WHEN p_new_status = 'accepted' THEN '✅' 
@@ -442,27 +377,15 @@ BEGIN
         notification_payload := jsonb_build_object(
             'userId', profile_record.discord_id,
             'embed', jsonb_build_object(
-                'title', (SELECT en FROM translations WHERE key = 'notification_submission_' || p_new_status || '_title'),
-                'description', (SELECT en FROM translations WHERE key = 'notification_submission_' || p_new_status || '_body'),
-                'color', CASE WHEN p_new_status = 'accepted' THEN 3066993 ELSE 15158332 END,
-                'timestamp', to_char(submission_record."updatedAt" at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
-                'fields', jsonb_build_array(
-                    jsonb_build_object('name', 'Application', 'value', submission_record."quizTitle", 'inline', true),
-                    jsonb_build_object('name', 'Reviewed By', 'value', admin_user.username, 'inline', true),
-                    CASE WHEN p_reason IS NOT NULL AND p_reason <> '' THEN
-                        jsonb_build_object('name', 'Reason', 'value', p_reason, 'inline', false)
-                    ELSE
-                        NULL
-                    END
-                ),
-                'footer', jsonb_build_object('text', config_record."COMMUNITY_NAME")
+                'titleKey', 'notification_submission_' || p_new_status || '_title',
+                'bodyKey', 'notification_submission_' || p_new_status || '_body',
+                'replacements', jsonb_build_object(
+                    'username', submission_record.username,
+                    'quizTitle', submission_record."quizTitle",
+                    'adminUsername', admin_user.username,
+                    'reason', p_reason
+                )
             )
-        );
-        -- Remove null fields from the 'fields' array
-        notification_payload := jsonb_set(
-            notification_payload,
-            '{embed,fields}',
-            (SELECT jsonb_agg(elem) FROM jsonb_array_elements(notification_payload->'embed'->'fields') AS elem WHERE elem IS NOT NULL)
         );
         PERFORM private.send_notification('submission_result', notification_payload);
       END IF;
@@ -471,7 +394,7 @@ BEGIN
     END;
   END IF;
 END;
-$$;
+$function$;
 
 CREATE OR REPLACE FUNCTION public.delete_submission(p_submission_id uuid) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
@@ -507,25 +430,18 @@ $$;
 CREATE OR REPLACE FUNCTION public.update_config(new_config jsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
 BEGIN
-  IF NOT public.has_permission(public.get_user_id(), 'admin_appearance') AND NOT public.has_permission(public.get_user_id(), 'admin_notifications') THEN RAISE EXCEPTION 'Insufficient permissions'; END IF;
+  IF NOT public.has_permission(public.get_user_id(), 'admin_appearance') THEN RAISE EXCEPTION 'Insufficient permissions'; END IF;
   PERFORM public.log_action('⚙️ Updated website configuration.', 'admin');
   UPDATE public.config SET
     "SUPABASE_PROJECT_URL" = coalesce(new_config->>'SUPABASE_PROJECT_URL', "SUPABASE_PROJECT_URL"),
     "DISCORD_PROXY_SECRET" = coalesce(new_config->>'DISCORD_PROXY_SECRET', "DISCORD_PROXY_SECRET"),
-    "COMMUNITY_NAME" = coalesce(new_config->>'COMMUNITY_NAME', "COMMUNITY_NAME"), "LOGO_URL" = coalesce(new_config->>'LOGO_URL', "LOGO_URL"),
-    "DISCORD_GUILD_ID" = coalesce(new_config->>'DISCORD_GUILD_ID', "DISCORD_GUILD_ID"), "DISCORD_INVITE_URL" = coalesce(new_config->>'DISCORD_INVITE_URL', "DISCORD_INVITE_URL"),
-    "MTA_SERVER_URL" = coalesce(new_config->>'MTA_SERVER_URL', "MTA_SERVER_URL"), "BACKGROUND_IMAGE_URL" = coalesce(new_config->>'BACKGROUND_IMAGE_URL', "BACKGROUND_IMAGE_URL"),
-    "SHOW_HEALTH_CHECK" = coalesce((new_config->>'SHOW_HEALTH_CHECK')::boolean, "SHOW_HEALTH_CHECK"), 
-    "SUBMISSIONS_WEBHOOK_URL" = coalesce(new_config->>'SUBMISSIONS_WEBHOOK_URL', "SUBMISSIONS_WEBHOOK_URL"),
-    "AUDIT_LOG_WEBHOOK_URL" = coalesce(new_config->>'AUDIT_LOG_WEBHOOK_URL', "AUDIT_LOG_WEBHOOK_URL"), 
-    "AUDIT_LOG_SUBMISSIONS_WEBHOOK_URL" = coalesce(new_config->>'AUDIT_LOG_SUBMISSIONS_WEBHOOK_URL', "AUDIT_LOG_SUBMISSIONS_WEBHOOK_URL"),
-    "AUDIT_LOG_BANS_WEBHOOK_URL" = coalesce(new_config->>'AUDIT_LOG_BANS_WEBHOOK_URL', "AUDIT_LOG_BANS_WEBHOOK_URL"), 
-    "AUDIT_LOG_ADMIN_WEBHOOK_URL" = coalesce(new_config->>'AUDIT_LOG_ADMIN_WEBHOOK_URL', "AUDIT_LOG_ADMIN_WEBHOOK_URL"),
-    "MENTION_ROLE_SUBMISSIONS" = nullif(new_config->>'MENTION_ROLE_SUBMISSIONS', ''),
-    "MENTION_ROLE_AUDIT_LOG_GENERAL" = nullif(new_config->>'MENTION_ROLE_AUDIT_LOG_GENERAL', ''),
-    "MENTION_ROLE_AUDIT_LOG_SUBMISSIONS" = nullif(new_config->>'MENTION_ROLE_AUDIT_LOG_SUBMISSIONS', ''),
-    "MENTION_ROLE_AUDIT_LOG_BANS" = nullif(new_config->>'MENTION_ROLE_AUDIT_LOG_BANS', ''),
-    "MENTION_ROLE_AUDIT_LOG_ADMIN" = nullif(new_config->>'MENTION_ROLE_AUDIT_LOG_ADMIN', '')
+    "COMMUNITY_NAME" = coalesce(new_config->>'COMMUNITY_NAME', "COMMUNITY_NAME"),
+    "LOGO_URL" = coalesce(new_config->>'LOGO_URL', "LOGO_URL"),
+    "DISCORD_GUILD_ID" = coalesce(new_config->>'DISCORD_GUILD_ID', "DISCORD_GUILD_ID"),
+    "DISCORD_INVITE_URL" = coalesce(new_config->>'DISCORD_INVITE_URL', "DISCORD_INVITE_URL"),
+    "MTA_SERVER_URL" = coalesce(new_config->>'MTA_SERVER_URL', "MTA_SERVER_URL"),
+    "BACKGROUND_IMAGE_URL" = coalesce(new_config->>'BACKGROUND_IMAGE_URL', "BACKGROUND_IMAGE_URL"),
+    "SHOW_HEALTH_CHECK" = coalesce((new_config->>'SHOW_HEALTH_CHECK')::boolean, "SHOW_HEALTH_CHECK")
   WHERE id = 1;
 END;
 $$;
@@ -658,40 +574,15 @@ CREATE OR REPLACE FUNCTION public.handle_audit_log_notification()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE
-  config_record record;
-  webhook_url text;
-  mention_role_id text;
   payload jsonb;
 BEGIN
-  SELECT * INTO config_record FROM public.config WHERE id = 1;
-  
-  SELECT 
-    CASE 
-      WHEN NEW.log_type = 'submission' THEN config_record."AUDIT_LOG_SUBMISSIONS_WEBHOOK_URL"
-      WHEN NEW.log_type = 'ban' THEN config_record."AUDIT_LOG_BANS_WEBHOOK_URL"
-      WHEN NEW.log_type = 'admin' THEN config_record."AUDIT_LOG_ADMIN_WEBHOOK_URL"
-      ELSE config_record."AUDIT_LOG_WEBHOOK_URL"
-    END,
-    CASE 
-      WHEN NEW.log_type = 'submission' THEN config_record."MENTION_ROLE_AUDIT_LOG_SUBMISSIONS"
-      WHEN NEW.log_type = 'ban' THEN config_record."MENTION_ROLE_AUDIT_LOG_BANS"
-      WHEN NEW.log_type = 'admin' THEN config_record."MENTION_ROLE_AUDIT_LOG_ADMIN"
-      ELSE config_record."MENTION_ROLE_AUDIT_LOG_GENERAL"
-    END
-  INTO webhook_url, mention_role_id;
-  
-  IF webhook_url IS NOT NULL THEN
-    payload := jsonb_build_object(
-      'content', CASE WHEN mention_role_id IS NOT NULL THEN '<@&' || mention_role_id || '>' ELSE NULL END,
-      'embeds', jsonb_build_array(jsonb_build_object(
-        'author', jsonb_build_object('name', NEW.admin_username),
-        'description', NEW.action,
-        'color', 5814783, -- Gray
-        'timestamp', to_char(NEW.timestamp at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
-      ))
-    );
-    PERFORM private.send_webhook(webhook_url, payload);
-  END IF;
+  payload := jsonb_build_object(
+      'adminUsername', NEW.admin_username,
+      'action', NEW.action,
+      'timestamp', NEW.timestamp,
+      'log_type', NEW.log_type
+  );
+  PERFORM private.send_notification('audit_log', payload);
   RETURN NEW;
 END;
 $$;
@@ -720,4 +611,4 @@ ON CONFLICT (key) DO NOTHING;
 
 
 COMMIT;
-`;
+`

@@ -19,19 +19,8 @@ const defaultConfig: AppConfig = {
     MTA_SERVER_URL: 'mtasa://134.255.216.22:22041',
     BACKGROUND_IMAGE_URL: '',
     SHOW_HEALTH_CHECK: false,
-    SUBMISSIONS_WEBHOOK_URL: null,
-    AUDIT_LOG_WEBHOOK_URL: null,
-    AUDIT_LOG_SUBMISSIONS_WEBHOOK_URL: null,
-    AUDIT_LOG_BANS_WEBHOOK_URL: null,
-    AUDIT_LOG_ADMIN_WEBHOOK_URL: null,
     SUPABASE_PROJECT_URL: null,
     DISCORD_PROXY_SECRET: null,
-    // FIX: Added missing properties to default config to match AppConfig type.
-    MENTION_ROLE_SUBMISSIONS: null,
-    MENTION_ROLE_AUDIT_LOG_GENERAL: null,
-    MENTION_ROLE_AUDIT_LOG_SUBMISSIONS: null,
-    MENTION_ROLE_AUDIT_LOG_BANS: null,
-    MENTION_ROLE_AUDIT_LOG_ADMIN: null,
 };
 
 export const ConfigContext = createContext<ConfigContextType>({
