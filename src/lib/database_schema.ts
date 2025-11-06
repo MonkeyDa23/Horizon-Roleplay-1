@@ -1,3 +1,4 @@
+
 // FIX: Converted the raw SQL script into a TypeScript module by exporting it as a template string. This resolves TS parsing errors while keeping the SQL content available for copy-pasting as instructed in App.tsx.
 export const databaseSchema = `
 /*
@@ -330,7 +331,6 @@ BEGIN
         'quizTitle', new_submission."quizTitle",
         'submittedAt', new_submission."submittedAt",
         'userHighestRole', new_submission.user_highest_role,
-        -- FIX: Removed incorrect function call `()` at the end of the expression.
         'adminPanelUrl', 'https://' || SPLIT_PART(config_record."SUPABASE_PROJECT_URL", '//', 2)
     );
     PERFORM private.send_notification('new_submission', admin_payload);
@@ -354,7 +354,6 @@ DECLARE
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_submissions') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
   
-  -- FIX: Removed incorrect function call `()` after the COALESCE expression.
   SELECT id, COALESCE(raw_user_meta_data->>'global_name', raw_user_meta_data->>'full_name') AS username INTO admin_user FROM auth.users WHERE id = public.get_user_id();
   
   UPDATE public.submissions SET status = p_new_status, "adminId" = public.get_user_id(), "adminUsername" = admin_user.username, "updatedAt" = now(), reason = p_reason
@@ -533,6 +532,7 @@ BEGIN
   UPDATE public.bans SET is_active = false WHERE user_id = p_target_user_id AND is_active = true;
   INSERT INTO public.bans(user_id, banned_by, reason, expires_at, is_active) VALUES (p_target_user_id, public.get_user_id(), p_reason, v_expires_at, true);
   SELECT username FROM public.profiles WHERE id = p_target_user_id INTO target_username;
+  -- FIX: Corrected callable expression on type cast. `::text()` is invalid SQL; it should be `::text`.
   PERFORM public.log_action('🚫 Banned user **' || COALESCE(target_username, p_target_user_id::text) || '** for reason: *' || p_reason || '*', 'ban');
 END;
 $$;
@@ -551,6 +551,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.save_role_permissions(p_role_id text, p_permissions text[]) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_permissions') THEN RAISE EXCEPTION 'Insufficient permissions'; END IF;
+  -- FIX: Corrected callable expression on a variable. `p_role_id()` is invalid; it should be `p_role_id`.
   PERFORM public.log_action('🛡️ Updated permissions for role <@&' || p_role_id || '>', 'admin');
   INSERT INTO public.role_permissions (role_id, permissions) VALUES (p_role_id, p_permissions) ON CONFLICT (role_id) DO UPDATE SET permissions = excluded.permissions;
 END; $$;

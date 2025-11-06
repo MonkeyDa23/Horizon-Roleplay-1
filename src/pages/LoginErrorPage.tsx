@@ -15,7 +15,7 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
     
     const getTroubleshootingSteps = () => {
         const steps: React.ReactNode[] = [];
-        const errorMessage = error.message.toLowerCase();
+        const errorMessage = (error && typeof error.message === 'string') ? error.message.toLowerCase() : '';
 
         // Specific, common errors first
         if (errorMessage.includes('authentication failed') || errorMessage.includes('api key mismatch')) {
@@ -35,7 +35,7 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
              );
         } else {
             // Generic fallback
-            steps.push(<>An unexpected error occurred. The full error message is: <code className="text-xs bg-brand-dark p-1 rounded">{error.message}</code>. Please check the browser console and the bot's logs on your server for more details.</>);
+            steps.push(<>An unexpected error occurred. The full error message is: <code className="text-xs bg-brand-dark p-1 rounded">{(error && error.message) ? error.message : 'No error message available'}</code>. Please check the browser console and the bot's logs on your server for more details.</>);
         }
         return steps;
     };

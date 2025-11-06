@@ -52,19 +52,24 @@ const invokeFunction = async <T>(functionName: string, body?: object, headers?: 
     if (error) {
         console.error(`Supabase Function Error (${functionName}):`, error);
         
-        let errorMessage = error.message;
+        let errorMessage = error.message; // Default to the original message
         const status = (error as any)?.context?.status ?? 500;
 
-        // Try to get a more specific error message from the function's response body
-        // Supabase-js wraps the response JSON in the `context` property of the error object.
-        const functionErrorBody = (error as any).context;
-        if (functionErrorBody && typeof functionErrorBody === 'object' && 'error' in functionErrorBody) {
-             const detailedError = (functionErrorBody as { error: string; details?: string }).error;
-             const detailedDetails = (functionErrorBody as { error: string; details?: string }).details;
-             errorMessage = detailedError + (detailedDetails ? ` (Details: ${detailedDetails})` : '');
-        } else if (functionErrorBody && typeof functionErrorBody === 'string') {
-            // Sometimes the body might be a simple string
-            errorMessage = functionErrorBody;
+        try {
+            const functionErrorBody = (error as any).context;
+            if (functionErrorBody && typeof functionErrorBody === 'object') {
+                if ('error' in functionErrorBody && typeof functionErrorBody.error === 'string') {
+                    errorMessage = functionErrorBody.error;
+                    if ('details' in functionErrorBody && typeof functionErrorBody.details === 'string') {
+                        errorMessage += ` (Details: ${functionErrorBody.details})`;
+                    }
+                }
+            } else if (typeof functionErrorBody === 'string' && functionErrorBody.trim() !== '') {
+                // If the body is a simple non-empty string
+                errorMessage = functionErrorBody;
+            }
+        } catch (e) {
+            console.warn("Could not parse detailed error from function context.", e);
         }
 
         throw new ApiError(errorMessage, status);

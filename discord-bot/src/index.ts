@@ -1,3 +1,4 @@
+
 // discord-bot/src/index.ts
 /**
  * Vixel Roleplay - Discord Bot Backend (v3.0 - Bot-Centric)
@@ -6,9 +7,8 @@
  * It provides an authenticated REST API for the website (via Supabase Edge Functions)
  * to fetch real-time Discord data and send all notifications.
  */
-import express from 'express';
-// FIX: Changed to a regular import from a type-only import to resolve errors where properties like `headers`, `path`, and `status` were not found on Request and Response types.
-import { Request, Response, NextFunction } from 'express';
+// FIX: Switched to a namespace import for express to resolve type conflicts and ensure correct type definitions are used for Request, Response, and NextFunction.
+import * as express from 'express';
 import process from 'process';
 import cors from 'cors';
 import {
@@ -124,11 +124,12 @@ const main = async () => {
         }
     });
 
-    const app = express();
+    const app = express.default();
     app.use(cors());
     app.use(express.json());
 
-    const authenticate = (req: Request, res: Response, next: NextFunction) => {
+    // FIX: Updated types to use the express namespace, ensuring correct properties like .headers, .path, and .status are available.
+    const authenticate = (req: express.Request, res: express.Response, next: express.NextFunction) => {
         const receivedKey = (req.headers.authorization || '').substring(7);
         if (receivedKey && receivedKey === config.API_SECRET_KEY) return next();
         logger('WARN', `[AUTH] FAILED: Authentication failed for path ${req.path}. Check API keys.`);

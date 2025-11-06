@@ -34,7 +34,7 @@ export const env = {
   /**
    * The public URL where your Discord Bot API is hosted.
    */
-  VITE_DISCORD_BOT_URL: import.meta.env.VITE_DISCORD_BOT_URL || 'http://127.0.0.2:50002',
+  VITE_DISCORD_BOT_URL: import.meta.env.VITE_DISCORD_BOT_URL || 'http://217.160.125.125:14686',
 
   /**
    * The secret API key you created to protect your bot's API.
