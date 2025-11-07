@@ -1,61 +1,75 @@
+// FIX: Add Deno types reference to resolve "Cannot find name 'Deno'" errors.
+/// <reference types="https://deno.land/x/deno/cli/types/deno.d.ts" />
+
 // supabase/functions/check-bot-health/index.ts
 
 // @deno-types="https://esm.sh/@supabase/functions-js@2"
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 const createResponse = (data: unknown, status = 200) => {
   return new Response(JSON.stringify(data), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
     status,
-  })
-}
+  });
+};
 
+// This function now checks the health of the Discord API connection directly,
+// using the stored bot token.
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    // These secrets must be set in the Supabase project settings
-    // @ts-ignore
-    const BOT_URL = Deno.env.get('VITE_DISCORD_BOT_URL');
-    // @ts-ignore
-    const BOT_API_KEY = Deno.env.get('VITE_DISCORD_BOT_API_KEY');
+    const DISCORD_BOT_TOKEN = Deno.env.get("DISCORD_BOT_TOKEN");
 
-    if (!BOT_URL || !BOT_API_KEY) {
-        return createResponse({
-            error: "Configuration Error in Supabase Secrets.",
-            details: "One or more required secrets (VITE_DISCORD_BOT_URL, VITE_DISCORD_BOT_API_KEY) are missing from your Supabase project settings. Please go to Settings > Edge Functions to add them.",
-        });
+    if (!DISCORD_BOT_TOKEN) {
+      return createResponse({
+        ok: false,
+        message: "Configuration Error",
+        details:
+          "The 'DISCORD_BOT_TOKEN' secret is missing from your Supabase project settings. Please go to Settings > Edge Functions to add it.",
+      }, 500);
     }
-    
-    // Perform a health check against the external bot
-    const endpoint = new URL('/health', BOT_URL);
-    const botResponse = await fetch(endpoint, {
-      headers: { 'Authorization': `Bearer ${BOT_API_KEY}` }
+
+    // Make a simple request to the Discord API to verify the token is valid.
+    const response = await fetch("https://discord.com/api/v10/users/@me", {
+      headers: {
+        "Authorization": `Bot ${DISCORD_BOT_TOKEN}`,
+      },
     });
 
-    if (!botResponse.ok) {
-        let errorDetails = `The Supabase function tried to contact your bot at ${BOT_URL} but received an error (Status: ${botResponse.status}). Common causes: the bot is not running, a firewall is blocking the port, or the URL is incorrect.`;
-        return createResponse({ 
-            error: "Could not connect to the Discord Bot.",
-            details: errorDetails 
-        });
+    if (!response.ok) {
+        let errorDetails = `The Discord API rejected the request. This almost always means your DISCORD_BOT_TOKEN is invalid or has been reset. Please verify it in your Supabase function secrets. (Status: ${response.status})`;
+         return createResponse({
+            ok: false,
+            message: "Discord API Connection Failed",
+            details: errorDetails,
+        }, response.status);
     }
-
-    const botData = await botResponse.json();
-    return createResponse(botData);
+    
+    const botData = await response.json();
+    return createResponse({
+      ok: true,
+      message: "Successfully connected to Discord API.",
+      bot: {
+        username: botData.username,
+        id: botData.id,
+      },
+    });
 
   } catch (error) {
-    // This catches errors like DNS resolution failure, meaning the URL is likely wrong
-    return createResponse({ 
-      error: 'The Supabase function failed to execute. This often means the Bot URL is invalid or unreachable.',
-      details: error.message
-    })
+    // This catches network-level errors (e.g., Supabase can't reach Discord)
+    return createResponse({
+      ok: false,
+      message: "Network Error",
+      details:
+        `The Supabase function failed to reach the Discord API. This may indicate a temporary network issue with Supabase or Discord. Error: ${error.message}`,
+    }, 500);
   }
-})
+});

@@ -1,3 +1,6 @@
+// FIX: Add Deno types reference to resolve "Cannot find name 'Deno'" errors.
+/// <reference types="https://deno.land/x/deno/cli/types/deno.d.ts" />
+
 // supabase/functions/check-function-secrets/index.ts
 
 // @deno-types="https://esm.sh/@supabase/functions-js@2"
@@ -21,29 +24,21 @@ serve(async (req) => {
   }
 
   try {
-    // These variables must be set as a secret in the Supabase project settings
-    // under Settings > Edge Functions.
-    // @ts-ignore
-    const botUrl = Deno.env.get('VITE_DISCORD_BOT_URL');
-    // @ts-ignore
-    const apiKey = Deno.env.get('VITE_DISCORD_BOT_API_KEY');
+    // This is the only secret required for the bot-less architecture.
+    const botToken = Deno.env.get('DISCORD_BOT_TOKEN');
 
     // For security, we only show a portion of the secret key.
     const maskValue = (value: string | undefined) => {
       if (!value) return null;
-      if (value.length <= 8) return '****';
-      return `${value.substring(0, 4)}...${value.substring(value.length - 4)}`;
+      if (value.length <= 12) return '********';
+      return `${value.substring(0, 6)}...${value.substring(value.length - 6)}`;
     };
 
     const secrets = {
-      VITE_DISCORD_BOT_URL: {
-        found: !!botUrl,
-        value: botUrl || null, // URL is not a secret, can be shown
-      },
-      VITE_DISCORD_BOT_API_KEY: {
-        found: !!apiKey,
-        value: maskValue(apiKey), // Mask the key
-      },
+      DISCORD_BOT_TOKEN: {
+        found: !!botToken,
+        value: maskValue(botToken),
+      }
     };
 
     return createResponse(secrets, 200);

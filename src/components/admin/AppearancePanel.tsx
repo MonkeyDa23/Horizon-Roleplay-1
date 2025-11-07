@@ -5,7 +5,7 @@ import { useToast } from '../../hooks/useToast';
 import { useConfig } from '../../hooks/useConfig';
 import { saveConfig } from '../../lib/api';
 import type { AppConfig } from '../../types';
-import { Loader2, Info } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 const AppearancePanel: React.FC = () => {
     const { t } = useLocalization();
@@ -45,12 +45,12 @@ const AppearancePanel: React.FC = () => {
         );
     }
     
-    const InputField = ({ labelKey, descKey, value, onChange, placeholder, isPassword }: { labelKey: string, descKey?: string, value: string | null | undefined, onChange: (val: string) => void, placeholder?: string, isPassword?: boolean }) => (
+    const InputField = ({ labelKey, descKey, value, onChange, placeholder }: { labelKey: string, descKey?: string, value: string | null | undefined, onChange: (val: string) => void, placeholder?: string }) => (
         <div>
             <label className="block text-lg font-semibold text-white mb-1">{t(labelKey)}</label>
             {descKey && <p className="text-sm text-gray-400 mb-2">{t(descKey)}</p>}
             <input 
-                type={isPassword ? "password" : "text"}
+                type="text"
                 value={value || ''}
                 onChange={(e) => onChange(e.target.value)}
                 placeholder={placeholder}
@@ -77,17 +77,9 @@ const AppearancePanel: React.FC = () => {
                 </div>
 
                 <div>
-                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">Discord & Notification Integration</h3>
-                    <div className="p-4 rounded-md bg-blue-500/10 border border-blue-500/30 mb-6 flex items-start gap-3">
-                        <Info size={24} className="text-blue-300 flex-shrink-0 mt-1" />
-                        <p className="text-blue-200">
-                            <strong>Important Change:</strong> All notification settings, including channel IDs and mention roles, are now managed directly in your Discord bot's <code>config.json</code> file. This simplifies the website setup and keeps all Discord-related secrets and IDs in one secure place.
-                        </p>
-                    </div>
-                    <div className="space-y-6">
+                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">Core Integration</h3>
+                     <div className="space-y-6">
                         <InputField labelKey="discord_guild_id" descKey="discord_guild_id_desc" value={settings.DISCORD_GUILD_ID || ''} onChange={val => handleChange('DISCORD_GUILD_ID', val)} />
-                        <InputField labelKey="supabase_project_url" descKey="supabase_project_url_desc" value={settings.SUPABASE_PROJECT_URL || ''} onChange={val => handleChange('SUPABASE_PROJECT_URL', val)} placeholder="e.g., https://xyz.supabase.co" />
-                        <InputField labelKey="discord_proxy_secret" descKey="discord_proxy_secret_desc" value={settings.DISCORD_PROXY_SECRET || ''} onChange={val => handleChange('DISCORD_PROXY_SECRET', val)} isPassword />
                     </div>
                 </div>
             </div>

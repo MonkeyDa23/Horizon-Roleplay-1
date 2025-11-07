@@ -1,3 +1,6 @@
+// FIX: Add Deno types reference to resolve "Cannot find name 'Deno'" errors.
+/// <reference types="https://deno.land/x/deno/cli/types/deno.d.ts" />
+
 // supabase/functions/troubleshoot-user-sync/index.ts
 
 // @deno-types="https://esm.sh/@supabase/functions-js@2"
@@ -9,13 +12,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Helper function to create a standardized JSON response
 const createResponse = (data: unknown, status = 200) => {
   return new Response(JSON.stringify(data), {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     status,
   })
 }
+
+const discordApi = async (endpoint: string) => {
+  const DISCORD_BOT_TOKEN = Deno.env.get("DISCORD_BOT_TOKEN");
+  if (!DISCORD_BOT_TOKEN) throw new Error("Bot token is not configured.");
+
+  const url = `https://discord.com/api/v10${endpoint}`;
+  const response = await fetch(url, {
+    headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` },
+  });
+  
+  // Return the raw response so the caller can handle status codes
+  return response;
+};
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -28,49 +43,46 @@ serve(async (req) => {
         return createResponse({ error: 'A valid Discord User ID is required.' }, 400);
     }
     
-    // Create an admin client to fetch profile data
     const supabaseAdmin = createClient(
-      // @ts-ignore
       Deno.env.get('SUPABASE_URL') ?? '',
-      // @ts-ignore
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
     
-    const { data: profileData } = await supabaseAdmin.from('profiles').select('id, is_banned, ban_reason, ban_expires_at').eq('discord_id', discordId).maybeSingle();
+    // Fetch DB data and Discord data concurrently
+    const [profileResult, configResult] = await Promise.all([
+        supabaseAdmin.from('profiles').select('id, is_banned, ban_reason, ban_expires_at').eq('discord_id', discordId).maybeSingle(),
+        supabaseAdmin.from('config').select('DISCORD_GUILD_ID').single()
+    ]);
+    
+    const { data: profileData } = profileResult;
+    const { data: config, error: configError } = configResult;
+    if (configError || !config?.DISCORD_GUILD_ID) {
+      throw new Error("DISCORD_GUILD_ID is not configured in the database.");
+    }
+    
+    // Fetch member data directly from Discord
+    const discordResponse = await discordApi(`/guilds/${config.DISCORD_GUILD_ID}/members/${discordId}`);
+    const discordData = await discordResponse.json();
 
-    // These secrets must be set in the Supabase project settings
-    // @ts-ignore
-    const BOT_URL = Deno.env.get('VITE_DISCORD_BOT_URL');
-    // @ts-ignore
-    const BOT_API_KEY = Deno.env.get('VITE_DISCORD_BOT_API_KEY');
-    if (!BOT_URL || !BOT_API_KEY) {
-      throw new Error("Bot integration is not configured in this function's environment variables.");
+    if (!discordResponse.ok) {
+        // Pass Discord's error through
+        return createResponse(discordData, discordResponse.status);
     }
 
-    // Fetch member data from our external bot
-    const endpoint = new URL(`/api/user/${discordId}`, BOT_URL);
-    const botResponse = await fetch(endpoint, {
-        headers: { 'Authorization': `Bearer ${BOT_API_KEY}` }
-    });
-    
-    const botData = await botResponse.json().catch(() => ({
-        error: `Bot API returned a non-JSON response (Status: ${botResponse.status}). Check bot logs.`
-    }));
-
-    // Combine bot data with our profile data
     const finalData = {
-        ...botData,
-        id: profileData?.id || null, // Supabase Auth UUID
+        username: discordData.user.global_name || discordData.user.username,
+        avatar: discordData.avatar 
+                ? `https://cdn.discordapp.com/guilds/${config.DISCORD_GUILD_ID}/users/${discordId}/avatars/${discordData.avatar}.png`
+                : `https://cdn.discordapp.com/avatars/${discordId}/${discordData.user.avatar}.png`,
+        roles: discordData.roles, // Just IDs for this test
         is_banned: profileData?.is_banned || false,
         ban_reason: profileData?.ban_reason || null,
         ban_expires_at: profileData?.ban_expires_at || null
     };
 
-    // Pass the bot's response directly to the client for diagnosis
-    return createResponse(finalData, botResponse.status);
+    return createResponse(finalData, 200);
 
   } catch (error) {
-    // This catches internal function errors.
     return createResponse({ 
       error: 'The Supabase function itself failed to execute.',
       details: error.message

@@ -140,8 +140,7 @@ const PermissionsPanel: React.FC = () => {
                     <div className="flex flex-col items-center justify-center h-full text-center text-gray-400">
                         <ShieldQuestion size={48} className="mb-4" />
                         <p className="text-xl font-bold">{t('select_role_to_manage')}</p>
-                        <p className="mt-2 text-gray-500">{t('admin_permissions_bootstrap_instructions_title')}</p>
-                        <p className="text-xs text-gray-500 mt-1 max-w-sm" dangerouslySetInnerHTML={{ __html: t('admin_permissions_bootstrap_instructions_body') }} />
+                        <div className="mt-4 text-sm text-gray-500 bg-brand-dark p-4 rounded-lg" dangerouslySetInnerHTML={{ __html: t('admin_permissions_bootstrap_instructions_body') }} />
                     </div>
                 )}
             </div>

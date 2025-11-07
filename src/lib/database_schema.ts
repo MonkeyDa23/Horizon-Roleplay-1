@@ -2,7 +2,7 @@
 
 export const databaseSchema = `
 /*
--- Vixel Roleplay Website - Full Database Schema (V7.1.0 - Bot-Centric Architecture)
+-- Vixel Roleplay Website - Full Database Schema (V8.0.0 - Bot-less Architecture)
 
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -64,7 +64,7 @@ DROP FUNCTION IF EXISTS public.test_http_request();
 -- =================================================================
 -- 2. INITIAL SETUP & EXTENSIONS
 -- =================================================================
-CREATE EXTENSION IF NOT EXISTS http WITH SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS "http" WITH SCHEMA "extensions";
 CREATE SCHEMA private;
 
 -- =================================================================
@@ -72,8 +72,6 @@ CREATE SCHEMA private;
 -- =================================================================
 CREATE TABLE public.config (
     id smallint PRIMARY KEY DEFAULT 1,
-    "SUPABASE_PROJECT_URL" text,
-    "DISCORD_PROXY_SECRET" text,
     "COMMUNITY_NAME" text NOT NULL DEFAULT 'Vixel Roleplay',
     "LOGO_URL" text,
     "DISCORD_GUILD_ID" text,
@@ -81,6 +79,21 @@ CREATE TABLE public.config (
     "MTA_SERVER_URL" text,
     "BACKGROUND_IMAGE_URL" text,
     "SHOW_HEALTH_CHECK" boolean DEFAULT false,
+    
+    -- Notification Webhooks
+    "submissions_webhook_url" text,
+    "log_webhook_submissions" text,
+    "log_webhook_bans" text,
+    "log_webhook_admin" text,
+    "audit_log_webhook_url" text, -- General/Fallback
+    
+    -- Mention Roles
+    "mention_role_submissions" text,
+    "mention_role_audit_log_submissions" text,
+    "mention_role_audit_log_bans" text,
+    "mention_role_audit_log_admin" text,
+    "mention_role_audit_log_general" text,
+
     CONSTRAINT id_check CHECK (id = 1)
 );
 INSERT INTO public.config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
@@ -204,45 +217,41 @@ BEGIN
 END;
 $$;
 
+-- This is the new, simplified notification function.
+-- It securely calls the 'discord-proxy' Edge Function using the service role key.
 CREATE OR REPLACE FUNCTION private.send_notification(p_type text, p_payload jsonb)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions
 AS $$
 DECLARE
   project_url text;
-  proxy_secret text;
   proxy_url text;
-  auth_header text;
+  service_key text;
   response extensions.http_response;
 BEGIN
-  SELECT "SUPABASE_PROJECT_URL", "DISCORD_PROXY_SECRET" INTO project_url, proxy_secret FROM public.config WHERE id = 1;
-  IF project_url IS NULL OR project_url = '' OR proxy_secret IS NULL OR proxy_secret = '' THEN
-    RAISE EXCEPTION 'Bot notification system is not configured. Please set SUPABASE_PROJECT_URL and DISCORD_PROXY_SECRET in the Admin Panel -> Appearance settings.';
-  END IF;
-
-  BEGIN
-    auth_header := current_setting('request.headers', true)::json->>'authorization';
-  EXCEPTION WHEN OTHERS THEN
-    auth_header := NULL;
-  END;
-
-  IF auth_header IS NULL THEN
-    RAISE EXCEPTION 'Could not retrieve Authorization header to call proxy function. This can happen if called from a context without a user session.';
-  END IF;
-
+  project_url := 'https://' || split_part(current_setting('supa.endpoint'), ':', 1);
   proxy_url := project_url || '/functions/v1/discord-proxy';
 
-  -- FIX: Corrected SQL syntax for selecting from a set-returning function into a variable.
-  -- The INTO clause must come after SELECT and before FROM.
+  -- The service role key is retrieved securely from a private schema.
+  -- This key allows this function to securely invoke the Edge Function.
+  SELECT decrypted_secret INTO service_key FROM vault.decrypted_secrets WHERE name = 'service_role_key';
+  IF service_key IS NULL THEN
+    RAISE WARNING 'Could not retrieve service_role_key to send notification. Please ensure it is available in vault.';
+    RETURN;
+  END IF;
+
   SELECT * INTO response FROM extensions.http((
-    'POST'::extensions.http_method, -- method
-    proxy_url, -- uri
-    ARRAY[('Content-Type', 'application/json'), ('Authorization', auth_header), ('X-Proxy-Secret', proxy_secret)]::extensions.http_header[], -- headers
-    'application/json', -- content_type
-    jsonb_build_object('type', p_type, 'payload', p_payload)::text -- content
+    'POST'::extensions.http_method,
+    proxy_url,
+    ARRAY[
+        ('Content-Type', 'application/json'),
+        ('Authorization', 'Bearer ' || service_key)
+    ]::extensions.http_header[],
+    'application/json',
+    jsonb_build_object('type', p_type, 'payload', p_payload)::text
   )::extensions.http_request);
 
   IF response.status >= 300 THEN
-    RAISE EXCEPTION 'Notification proxy function responded with an error. Status: %, Body: %', response.status, response.content;
+    RAISE WARNING 'Notification proxy function responded with an error. Status: %, Body: %', response.status, response.content;
   END IF;
 END;
 $$;
@@ -271,7 +280,8 @@ CREATE POLICY "Allow public read access" ON public.translations FOR SELECT USING
 CREATE POLICY "Allow public read access" ON public.discord_widgets FOR SELECT USING (true);
 CREATE POLICY "Users can read their own profile" ON public.profiles FOR SELECT USING (id = public.get_user_id());
 CREATE POLICY "Users can access their own submissions" ON public.submissions FOR ALL USING (user_id = public.get_user_id());
-CREATE POLICY "Admins can manage config" ON public.config FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_appearance'));
+
+CREATE POLICY "Admins can manage config" ON public.config FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_appearance') OR public.has_permission(public.get_user_id(), 'admin_notifications'));
 CREATE POLICY "Admins can manage products" ON public.products FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_store'));
 CREATE POLICY "Admins can manage quizzes" ON public.quizzes FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_quizzes'));
 CREATE POLICY "Admins can manage rules" ON public.rules FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_rules'));
@@ -334,7 +344,7 @@ BEGIN
         'username', new_submission.username, 'avatarUrl', profile_record.avatar_url,
         'discordId', profile_record.discord_id, 'quizTitle', new_submission."quizTitle",
         'submittedAt', new_submission."submittedAt", 'userHighestRole', new_submission.user_highest_role,
-        'adminPanelUrl', SUBSTRING(config_record."SUPABASE_PROJECT_URL" from 'https?://([^/]+)')
+        'adminPanelUrl', 'https://' || split_part(current_setting('supa.endpoint'), ':', 1)
     );
     PERFORM private.send_notification('new_submission', admin_payload);
   EXCEPTION WHEN OTHERS THEN
@@ -539,17 +549,36 @@ END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.update_config(new_config jsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+    allowed_admin_keys text[] := ARRAY['COMMUNITY_NAME', 'LOGO_URL', 'DISCORD_GUILD_ID', 'BACKGROUND_IMAGE_URL'];
+    allowed_notif_keys text[] := ARRAY['submissions_webhook_url', 'log_webhook_submissions', 'log_webhook_bans', 'log_webhook_admin', 'audit_log_webhook_url', 'mention_role_submissions', 'mention_role_audit_log_submissions', 'mention_role_audit_log_bans', 'mention_role_audit_log_admin', 'mention_role_audit_log_general'];
+    key text;
+    sql_query text := 'UPDATE public.config SET ';
+    updates text[] := '{}';
 BEGIN
-    IF NOT public.has_permission(public.get_user_id(), 'admin_appearance') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
-    UPDATE public.config SET
-        "COMMUNITY_NAME" = new_config->>'COMMUNITY_NAME',
-        "LOGO_URL" = new_config->>'LOGO_URL',
-        "DISCORD_GUILD_ID" = new_config->>'DISCORD_GUILD_ID',
-        "BACKGROUND_IMAGE_URL" = new_config->>'BACKGROUND_IMAGE_URL',
-        "SUPABASE_PROJECT_URL" = new_config->>'SUPABASE_PROJECT_URL',
-        "DISCORD_PROXY_SECRET" = new_config->>'DISCORD_PROXY_SECRET'
-    WHERE id = 1;
-    PERFORM public.log_action('Updated appearance settings', 'admin');
+    IF public.has_permission(public.get_user_id(), 'admin_appearance') THEN
+        FOR key IN SELECT jsonb_object_keys(new_config) LOOP
+            IF key = ANY(allowed_admin_keys) THEN
+                updates := array_append(updates, format('"%s" = %L', key, new_config->>key));
+            END IF;
+        END LOOP;
+    END IF;
+
+    IF public.has_permission(public.get_user_id(), 'admin_notifications') THEN
+        FOR key IN SELECT jsonb_object_keys(new_config) LOOP
+            IF key = ANY(allowed_notif_keys) THEN
+                updates := array_append(updates, format('"%s" = %L', key, new_config->>key));
+            END IF;
+        END LOOP;
+    END IF;
+
+    IF array_length(updates, 1) IS NULL THEN
+        RAISE EXCEPTION 'Insufficient permissions or no valid fields provided.';
+    END IF;
+
+    sql_query := sql_query || array_to_string(updates, ', ') || ' WHERE id = 1;';
+    EXECUTE sql_query;
+    PERFORM public.log_action('Updated system configuration.', 'admin');
 END;
 $$;
 

@@ -188,6 +188,7 @@ export interface DiscordWidget {
     position: number;
 }
 
+// FIX: Add missing notification-related properties to the AppConfig interface.
 export interface AppConfig {
     SUPABASE_PROJECT_URL: string | null;
     DISCORD_PROXY_SECRET: string | null;
@@ -198,6 +199,16 @@ export interface AppConfig {
     MTA_SERVER_URL: string;
     BACKGROUND_IMAGE_URL: string;
     SHOW_HEALTH_CHECK: boolean;
+    submissions_webhook_url: string | null;
+    log_webhook_submissions: string | null;
+    log_webhook_bans: string | null;
+    log_webhook_admin: string | null;
+    audit_log_webhook_url: string | null;
+    mention_role_submissions: string | null;
+    mention_role_audit_log_submissions: string | null;
+    mention_role_audit_log_bans: string | null;
+    mention_role_audit_log_admin: string | null;
+    mention_role_audit_log_general: string | null;
 }
 
 // =============================================

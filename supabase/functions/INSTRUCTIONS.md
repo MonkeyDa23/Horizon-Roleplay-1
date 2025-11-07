@@ -1,12 +1,45 @@
-# Supabase & Bot Setup Guide (V10 - Pure Bot Architecture)
+# Supabase & Bot-less Setup Guide (V9.0.0)
 
-This guide provides the complete, simplified instructions for deploying and configuring the backend for your website. This architecture uses a **Supabase Database Function** to call a secure **Supabase Edge Function (`discord-proxy`)**, which then reliably communicates with your **self-hosted Discord bot**. All notifications, including logs and DMs, are sent through the bot.
+This guide provides the complete, simplified instructions for deploying and configuring the backend for your website. This architecture is **"bot-less"**, meaning you **do not need to host or run a separate bot application**. All communication with Discord happens directly and securely through Supabase Edge Functions.
 
-This is the most robust and easy-to-debug setup. **Please follow these steps exactly.**
+**Please follow these steps exactly.**
 
 ---
 
-## Step 1: Deploy Supabase Edge Functions
+## Step 1: Create a Discord Bot Application
+
+You need a bot application to get a token, which allows your website to interact with Discord.
+
+1.  Go to the [Discord Developer Portal](https://discord.com/developers/applications).
+2.  Click **"New Application"** and give it a name (e.g., "Vixel Website Bot").
+3.  Go to the **"Bot"** tab on the left.
+4.  Under the "Privileged Gateway Intents" section, **enable all three intents**:
+    -   `PRESENCE INTENT`
+    -   `SERVER MEMBERS INTENT` (CRITICAL for role synchronization)
+    -   `MESSAGE CONTENT INTENT`
+5.  Click **"Save Changes"**.
+6.  Click the **"Reset Token"** button, confirm, and **copy the new token**. You will need this in the next step.
+7.  Go to the **"OAuth2"** tab -> **"URL Generator"**.
+8.  Select the scopes `bot` and `applications.commands`.
+9.  Under "Bot Permissions", select **"Administrator"**. This is the easiest way to ensure it has all necessary permissions.
+10. Copy the generated URL at the bottom, paste it into your browser, and add the bot to your Discord server.
+
+---
+
+## Step 2: Set Supabase Function Secrets
+
+This secret allows your Edge Functions to securely act as your bot.
+
+1.  Go to your Supabase Project -> **Settings** (gear icon) -> **Edge Functions**.
+2.  Under the **"Secrets"** section, click **"Add a new secret"**.
+
+| Secret Name         | Value                                                 | Where to get it?                                |
+| ------------------- | ----------------------------------------------------- | ----------------------------------------------- |
+| `DISCORD_BOT_TOKEN` | The bot token you copied in the previous step.        | From your bot's page in the Discord Developer Portal. |
+
+---
+
+## Step 3: Deploy Supabase Edge Functions
 
 You must deploy the required functions from the `supabase/functions` directory.
 
@@ -24,69 +57,38 @@ You must deploy the required functions from the `supabase/functions` directory.
 - `check-function-secrets`
 - `troubleshoot-user-sync`
 - `test-notification`
-- `discord-proxy` (This one is critical for all notifications)
+- `discord-proxy` (This is critical for all notifications)
 
 ---
 
-## Step 2: Set Function Secrets
+## Step 4: Run the Database Schema (VERY IMPORTANT)
 
-These secrets allow your Edge Functions to securely communicate with your bot.
-
-1.  Go to Supabase Project -> **Settings** (gear icon) -> **Edge Functions**.
-2.  Under the **"Secrets"** section, add the following two secrets. These are used by `sync-user-profile`, `discord-proxy`, and other functions to talk to your bot.
-
-| Secret Name                | Value                                                                       | Where to get it?                                                              |
-| -------------------------- | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `VITE_DISCORD_BOT_URL`     | The full URL of your bot. **Ex:** `http://123.45.67.89:14355`                 | The public IP/domain of the server where you are running the `discord-bot`, including the port specified in the bot's `config.json`.     |
-| `VITE_DISCORD_BOT_API_KEY` | The secret password from your bot's `config.json` file.                     | You create this. It MUST match the `API_SECRET_KEY` in the bot's config.    |
-
----
-
-## Step 3: Run the Database Schema (VERY IMPORTANT)
-
-This script sets up all your tables and backend functions in the database, including the new unified notification system.
+This script sets up all your tables and backend functions in the database.
 
 1.  Go to Supabase Project -> **SQL Editor**.
 2.  Click **"+ New query"**.
 3.  Copy the ENTIRE content of the file at `src/lib/database_schema.ts`.
 4.  Paste it into the editor and click **"RUN"**.
 
-This script will automatically enable the `http` extension required for the database to send notifications via the proxy function.
+This script will automatically enable the `http` extension required for the database to send notifications.
 
 ---
 
-## Step 4: Configure Website-to-Bot-Proxy Connection
+## Step 5: Final Configuration in Admin Panel
 
-The database needs to know how to contact its own `discord-proxy` function. You will set this from the website's admin panel.
+Once your website is running, you need to link it to your Discord server and set up notifications.
 
 1.  Log into your website with your admin account.
 2.  Navigate to the **Admin Panel**.
-3.  Go to the **Appearance** tab.
-4.  Scroll down to the **"Discord & Notification Integration"** section.
-5.  Fill in the following two fields:
-
-    -   **Supabase Project URL**:
-        -   **Where to find it:** Go to your Supabase Dashboard -> Project Settings -> API. Copy the **Project URL**.
-        -   **Example:** `https://yourprojectid.supabase.co`
-
-    -   **Discord Proxy Secret**:
-        -   **What it is:** This is a password YOU create. It acts as a secret handshake between your database and your `discord-proxy` function.
-        -   **Action:** Create a strong, random password (e.g., from a password generator) and paste it here.
-
-6.  Click **"Save Settings"**.
-
----
-
-## Step 5: Configure the Bot
-
-All notification destinations (channel IDs, mention roles) are now managed in one place: the bot's configuration file.
-
-1. On the server where you host the bot, open the `discord-bot/config.json` file.
-2. Fill in all the `CHANNELS` and `MENTION_ROLES` with the correct IDs from your Discord server.
-3. Restart the bot for the changes to take effect.
+3.  Go to the **Appearance** tab:
+    -   Fill in your **Discord Guild ID**. (Right-click your server icon in Discord -> "Copy Server ID". You need Developer Mode enabled).
+4.  Go to the **Notifications** tab:
+    -   Fill in the **Webhook URLs** for the channels where you want to receive notifications (e.g., new submissions, audit logs).
+    -   Fill in the **Mention Role IDs** for roles you want to ping in those notifications. (Right-click a role -> "Copy Role ID").
+5.  Click **"Save Settings"** on both pages.
 
 ---
 
 ## Final Check
 
-After completing all steps, your backend should be fully operational. You can use the **Health Check** page in the Admin Panel to verify all connections. If notifications still fail, any error will now appear instantly on the website, telling you exactly what went wrong.
+Your setup is complete! You can now use the **Health Check** page in the Admin Panel to verify that all connections are working correctly.

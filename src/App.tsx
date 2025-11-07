@@ -1,5 +1,5 @@
 // src/App.tsx
-import React from 'react';
+import React, { useEffect, useCallback } from 'react';
 // FIX: Fix "no exported member" errors from 'react-router-dom' by switching to a namespace import.
 import * as ReactRouterDOM from 'react-router-dom';
 import { LocalizationProvider } from './contexts/LocalizationContext';
@@ -28,38 +28,62 @@ import MyApplicationsPage from './pages/MyApplicationsPage';
 import ProfilePage from './pages/ProfilePage';
 import HealthCheckPage from './pages/HealthCheckPage';
 import AdminPage from './pages/AdminPage';
+import BannedPage from './pages/BannedPage';
+import LoginErrorPage from './pages/LoginErrorPage';
+
 
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { env } from './env';
 import type { PermissionKey } from './types';
 
 
+// FIX: Correctly implement ProtectedRoute. The previous version had a syntax error and did not return a value.
 const ProtectedRoute: React.FC<{ children: React.ReactNode; permission?: PermissionKey; }> = ({ children, permission }) => {
   const { user, hasPermission, loading } = useAuth();
-  const location = ReactRouterDOM.useLocation();
-
+  
   if (loading) {
     return (
-      <div className="flex flex-col gap-4 justify-center items-center h-screen w-screen bg-brand-dark">
+      <div className="flex flex-col gap-4 justify-center items-center h-[calc(100vh-136px)] w-full">
         <Loader2 size={48} className="text-brand-cyan animate-spin" />
       </div>
     );
   }
 
-  // If a specific permission is required, check for it.
-  // If no permission is specified, just check if the user is logged in.
-  const isAuthorized = permission ? user && hasPermission(permission) : !!user;
+  if (!user) {
+      return <ReactRouterDOM.Navigate to="/" replace />;
+  }
 
-  if (!isAuthorized) {
-    return <ReactRouterDOM.Navigate to="/" state={{ from: location }} replace />;
+  if (permission && !hasPermission(permission)) {
+      return <ReactRouterDOM.Navigate to="/" replace />;
   }
 
   return <>{children}</>;
 };
-
+  
 const AppContent: React.FC = () => {
+  // FIX: Destructure configLoading and configError from useConfig hook.
   const { config, configLoading, configError } = useConfig();
-  const { permissionWarning } = useAuth();
+  // FIX: Destructure missing properties from the useAuth hook.
+  const { user, loading: authLoading, permissionWarning, syncError, logout } = useAuth();
+  const navigate = ReactRouterDOM.useNavigate();
+  
+  const retrySync = useCallback(async () => {
+    // This function is passed to the LoginErrorPage to allow the user to retry.
+    // We can't call the retry function from the context directly, because this component
+    // will be unmounted. So we navigate to a neutral page to trigger a re-mount and re-sync.
+    navigate('/');
+    window.location.reload();
+  }, [navigate]);
+
+  if (user?.is_banned) {
+    // The BannedPage is also shown from within AuthProvider, but this is a fallback.
+    // It receives the onLogout function to allow the user to exit.
+    return <BannedPage reason={user.ban_reason || 'No reason specified'} expires_at={user.ban_expires_at} onLogout={logout} />;
+  }
+  
+  if (syncError) {
+    return <LoginErrorPage error={syncError} onRetry={retrySync} onLogout={logout} />;
+  }
       
   if (configLoading) {
     return (
@@ -94,7 +118,6 @@ const AppContent: React.FC = () => {
                   <li>In the root of this project, find the file named <code className="bg-brand-dark px-2 py-1 rounded">.env.example</code>.</li>
                   <li>Create a copy of this file and rename it to <code className="bg-brand-dark px-2 py-1 rounded">.env</code>.</li>
                   <li>Paste your <strong className="text-white">Project URL</strong> and <strong className="text-white">anon public API Key</strong> into the <code className="bg-brand-dark px-2 py-1 rounded">.env</code> file.</li>
-                  <li>Also fill in the bot URL and API key variables.</li>
                   <li><strong className="text-white">Restart the development server</strong> to apply the changes.</li>
               </ol>
             </div>
@@ -103,7 +126,7 @@ const AppContent: React.FC = () => {
               <p className="font-semibold text-brand-cyan mb-2">How to fix:</p>
               <ol className="list-decimal list-inside text-gray-300 space-y-1">
                   <li>Go to your Supabase project's SQL Editor.</li>
-                  <li>Copy the SQL code from the <code className="bg-brand-dark px-1 rounded">src/lib/database_schema.ts</code> file.</li>
+                  <li>Copy the SQL code from the <code className="bg-brand-dark px-1 rounded">supabase/functions/INSTRUCTIONS.md</code> file.</li>
                   <li>Paste the code into a new query and click "RUN".</li>
               </ol>
             </div>
@@ -132,11 +155,11 @@ const AppContent: React.FC = () => {
           <main className="flex-grow">
             <ReactRouterDOM.Routes>
               <ReactRouterDOM.Route path="/" element={<HomePage />} />
-              <ReactRouterDOM.Route path="/store" element={<StorePage />} />
-              <ReactRouterDOM.Route path="/store/:productId" element={<ProductDetailPage />} />
-              <ReactRouterDOM.Route path="/rules" element={<RulesPage />} />
-              <ReactRouterDOM.Route path="/applies" element={<AppliesPage />} />
-              <ReactRouterDOM.Route path="/applies/:quizId" element={<ProtectedRoute><QuizPage /></ProtectedRoute>} />
+              <ReactRouterDOM.Route path="/store" element={<ProtectedRoute permission="page_store"><StorePage /></ProtectedRoute>} />
+              <ReactRouterDOM.Route path="/store/:productId" element={<ProtectedRoute permission="page_store"><ProductDetailPage /></ProtectedRoute>} />
+              <ReactRouterDOM.Route path="/rules" element={<ProtectedRoute permission="page_rules"><RulesPage /></ProtectedRoute>} />
+              <ReactRouterDOM.Route path="/applies" element={<ProtectedRoute permission="page_applies"><AppliesPage /></ProtectedRoute>} />
+              <ReactRouterDOM.Route path="/applies/:quizId" element={<ProtectedRoute permission="page_applies"><QuizPage /></ProtectedRoute>} />
               <ReactRouterDOM.Route path="/about" element={<AboutUsPage />} />
               <ReactRouterDOM.Route path="/admin" element={
                 <ProtectedRoute permission="admin_panel">
@@ -158,7 +181,7 @@ const AppContent: React.FC = () => {
                 <ReactRouterDOM.Route 
                   path="/health-check" 
                   element={
-                     <ProtectedRoute permission="admin_panel">
+                     <ProtectedRoute permission="_super_admin">
                         <HealthCheckPage />
                      </ProtectedRoute>
                   }

@@ -2,34 +2,20 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocalization } from '../../hooks/useLocalization';
 import { useToast } from '../../hooks/useToast';
-import { getTranslations, saveTranslations, testNotification } from '../../lib/api';
-import type { Translations } from '../../types';
+import { getTranslations, saveTranslations, testNotification, saveConfig } from '../../lib/api';
+import { useConfig } from '../../hooks/useConfig';
+import type { Translations, AppConfig } from '../../types';
 import { Loader2, Bell, HelpCircle } from 'lucide-react';
 import Modal from '../Modal';
 
 const notificationTemplates = {
-    welcome: {
-        title: 'Welcome Messages',
-        description: 'Sent as a DM to a user upon their first successful login to the website.',
-        messages: [
-            { type: 'welcome_dm', title: 'Welcome DM', placeholders: ['{username}'] }
-        ]
-    },
     submissionUser: {
-        title: 'Submission Messages (to User)',
+        title: 'notification_group_submission_user',
         description: 'Sent as a DM to the user when their application status changes.',
         messages: [
             { type: 'submission_receipt', title: 'Submission Received', placeholders: ['{username}', '{quizTitle}'] },
-            { type: 'submission_taken', title: 'Submission Under Review', placeholders: ['{username}', '{quizTitle}', '{adminUsername}'] },
-            { type: 'submission_accepted', title: 'Submission Accepted', placeholders: ['{username}', '{quizTitle}', '{adminUsername}'] },
-            { type: 'submission_refused', title: 'Submission Refused', placeholders: ['{username}', '{quizTitle}', '{adminUsername}'] }
-        ]
-    },
-    submissionAdmin: {
-        title: 'Submission Notifications (to Admin)',
-        description: 'Sent to a specified admin channel when a new application is submitted.',
-        messages: [
-            { type: 'new_submission', title: 'New Submission Channel Post', placeholders: ['{username}', '{quizTitle}', '{userHighestRole}', '{mentionRole}'] }
+            { type: 'submission_accepted', title: 'Submission Accepted', placeholders: ['{username}', '{quizTitle}', '{adminUsername}', '{reason}'] },
+            { type: 'submission_refused', title: 'Submission Refused', placeholders: ['{username}', '{quizTitle}', '{adminUsername}', '{reason}'] }
         ]
     },
 };
@@ -37,12 +23,20 @@ const notificationTemplates = {
 const NotificationsPanel: React.FC = () => {
     const { t } = useLocalization();
     const { showToast } = useToast();
+    const { config, configLoading, refreshConfig } = useConfig();
     const [allTranslations, setAllTranslations] = useState<Translations>({});
+    const [settings, setSettings] = useState<Partial<AppConfig>>({});
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [testModal, setTestModal] = useState<{ type: string, isUser: boolean } | null>(null);
     const [testTargetId, setTestTargetId] = useState('');
     const [isTesting, setIsTesting] = useState(false);
+
+    useEffect(() => {
+        if (!configLoading) {
+            setSettings(config);
+        }
+    }, [config, configLoading]);
 
     const fetchTranslations = useCallback(async () => {
         setIsLoading(true);
@@ -63,7 +57,11 @@ const NotificationsPanel: React.FC = () => {
     const handleSave = async () => {
         setIsSaving(true);
         try {
-            await saveTranslations(allTranslations);
+            await Promise.all([
+                saveTranslations(allTranslations),
+                saveConfig(settings)
+            ]);
+            await refreshConfig();
             showToast('Notifications saved successfully!', 'success');
         } catch (error) {
             showToast((error as Error).message, 'error');
@@ -93,10 +91,30 @@ const NotificationsPanel: React.FC = () => {
             [key]: { ...(prev[key] || { en: '', ar: '' }), [lang]: value }
         }));
     };
+    
+    const handleConfigChange = (key: keyof AppConfig, value: string) => {
+        setSettings(prev => ({ ...prev, [key]: value }));
+    };
 
-    if (isLoading) {
+    if (isLoading || configLoading) {
         return <div className="flex justify-center items-center py-20"><Loader2 size={40} className="text-brand-cyan animate-spin" /></div>;
     }
+    
+    const WebhookField = ({ labelKey, descKey, value, onChange }: { labelKey: string, descKey: string, value: string | null | undefined, onChange: (val: string) => void }) => (
+        <div>
+            <label className="block text-md font-semibold text-white mb-1">{t(labelKey)}</label>
+            <p className="text-sm text-gray-400 mb-2">{t(descKey)}</p>
+            <input type="text" value={value || ''} onChange={e => onChange(e.target.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
+        </div>
+    );
+    
+    const RoleField = ({ labelKey, descKey, value, onChange }: { labelKey: string, descKey: string, value: string | null | undefined, onChange: (val: string) => void }) => (
+        <div>
+            <label className="block text-md font-semibold text-white mb-1">{t(labelKey)}</label>
+            <p className="text-sm text-gray-400 mb-2">{t(descKey)}</p>
+            <input type="text" value={value || ''} onChange={e => onChange(e.target.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
+        </div>
+    );
 
     const MessageEditor: React.FC<{ type: string; title: string; placeholders: string[] }> = ({ type, title, placeholders }) => {
         const titleKey = `notification_${type}_title`;
@@ -147,15 +165,39 @@ const NotificationsPanel: React.FC = () => {
             </div>
             
             <div className="space-y-8">
+                {/* DM Messages Section */}
                 {Object.values(notificationTemplates).map(group => (
                     <div key={group.title} className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
-                        <h3 className="text-2xl font-bold text-brand-cyan mb-1">{group.title}</h3>
+                        <h3 className="text-2xl font-bold text-brand-cyan mb-1">{t(group.title)}</h3>
                         <p className="text-gray-400 mb-4">{group.description}</p>
                         <div className="space-y-4">
                             {group.messages.map(msg => <MessageEditor key={msg.type} {...msg} />)}
                         </div>
                     </div>
                 ))}
+                
+                {/* Webhook/Role Settings */}
+                <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
+                    <h3 className="text-2xl font-bold text-brand-cyan mb-4">Webhook & Role Settings</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        {/* Webhooks */}
+                        <div className="space-y-6">
+                             <WebhookField labelKey="submissions_webhook_url" descKey="submissions_webhook_url_desc" value={settings.submissions_webhook_url} onChange={v => handleConfigChange('submissions_webhook_url', v)} />
+                             <WebhookField labelKey="log_webhook_submissions" descKey="log_webhook_submissions_desc" value={settings.log_webhook_submissions} onChange={v => handleConfigChange('log_webhook_submissions', v)} />
+                             <WebhookField labelKey="log_webhook_bans" descKey="log_webhook_bans_desc" value={settings.log_webhook_bans} onChange={v => handleConfigChange('log_webhook_bans', v)} />
+                             <WebhookField labelKey="log_webhook_admin" descKey="log_webhook_admin_desc" value={settings.log_webhook_admin} onChange={v => handleConfigChange('log_webhook_admin', v)} />
+                             <WebhookField labelKey="audit_log_webhook_url" descKey="audit_log_webhook_url_desc" value={settings.audit_log_webhook_url} onChange={v => handleConfigChange('audit_log_webhook_url', v)} />
+                        </div>
+                        {/* Roles */}
+                        <div className="space-y-6">
+                             <RoleField labelKey="mention_role_submissions" descKey="mention_role_submissions_desc" value={settings.mention_role_submissions} onChange={v => handleConfigChange('mention_role_submissions', v)} />
+                             <RoleField labelKey="mention_role_audit_log_submissions" descKey="mention_role_audit_log_submissions_desc" value={settings.mention_role_audit_log_submissions} onChange={v => handleConfigChange('mention_role_audit_log_submissions', v)} />
+                             <RoleField labelKey="mention_role_audit_log_bans" descKey="mention_role_audit_log_bans_desc" value={settings.mention_role_audit_log_bans} onChange={v => handleConfigChange('mention_role_audit_log_bans', v)} />
+                             <RoleField labelKey="mention_role_audit_log_admin" descKey="mention_role_audit_log_admin_desc" value={settings.mention_role_audit_log_admin} onChange={v => handleConfigChange('mention_role_audit_log_admin', v)} />
+                             <RoleField labelKey="mention_role_audit_log_general" descKey="mention_role_audit_log_general_desc" value={settings.mention_role_audit_log_general} onChange={v => handleConfigChange('mention_role_audit_log_general', v)} />
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {testModal && (

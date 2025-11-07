@@ -160,7 +160,9 @@ const SubmissionsPanel: React.FC = () => {
                                             <TakeOrderButton submission={sub} />
                                             {sub.status === 'taken' && <span className="text-xs text-gray-400 italic">{t('taken_by')} {sub.adminUsername === user?.username ? 'You' : sub.adminUsername}</span>}
                                             <button onClick={() => setViewingSubmission(sub)} className="text-gray-300 hover:text-brand-cyan" title={t('view_submission')}><Eye size={20}/></button>
-                                            <button onClick={() => handleDelete(sub)} className="text-gray-400 hover:text-red-500" title={t('delete_submission')}><Trash2 size={20}/></button>
+                                            {hasPermission('_super_admin') && (
+                                                <button onClick={() => handleDelete(sub)} className="text-gray-400 hover:text-red-500" title={t('delete_submission')}><Trash2 size={20}/></button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
