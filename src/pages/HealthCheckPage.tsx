@@ -152,6 +152,8 @@ const HealthCheckPage: React.FC = () => {
                   {secretsLoading ? <Loader2 className="animate-spin" /> : (
                     <div className="space-y-2">
                       <ResultItem label="DISCORD_BOT_TOKEN" value={secretsResult?.DISCORD_BOT_TOKEN?.value} good={secretsResult?.DISCORD_BOT_TOKEN?.found} />
+                      <ResultItem label="SUPABASE_URL" value={secretsResult?.SUPABASE_URL?.value} good={secretsResult?.SUPABASE_URL?.found} />
+                      <ResultItem label="SUPABASE_SERVICE_ROLE_KEY" value={secretsResult?.SUPABASE_SERVICE_ROLE_KEY?.value} good={secretsResult?.SUPABASE_SERVICE_ROLE_KEY?.found} />
                     </div>
                   )}
               </div>

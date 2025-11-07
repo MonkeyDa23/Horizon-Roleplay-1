@@ -39,6 +39,8 @@ These secrets allow your Edge Functions to securely act as your bot and call eac
 | `SUPABASE_URL`                | Your Supabase project URL (e.g., `https://xxxx.supabase.co`).           |
 | `SUPABASE_SERVICE_ROLE_KEY`   | Your project's `service_role` key (found in Project Settings > API).    |
 
+**IMPORTANT:** The `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are required for functions to securely call other functions (like `send-notification` calling `discord-proxy`). **Notifications will fail if these are not set correctly.**
+
 ---
 
 ## Step 3: Deploy Supabase Edge Functions

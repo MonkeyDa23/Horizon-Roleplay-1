@@ -1,6 +1,6 @@
 // supabase/functions/send-notification/index.ts
-// FIX: Replaced invalid Deno types reference with a valid one for Supabase edge functions.
-/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
+// FIX: Replaced invalid Deno types reference with a valid one for Supabase edge functions to resolve 'Deno' not found errors.
+/// <reference types="https://esm.sh/@supabase/functions-js@2/src/edge-runtime.d.ts" />
 
 // @deno-types="https://esm.sh/@supabase/functions-js@2"
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
@@ -49,22 +49,10 @@ serve(async (req) => {
     
     // 2. Perform permission check based on notification type
     let requiredPermission: string | null = null;
-    switch (type) {
-        case 'new_submission':
-        case 'submission_receipt':
-            // These are triggered by the user themselves, no admin perm needed
-            break;
-        case 'submission_result':
-        case 'log_action':
-             // For logs, the permission is checked by the RPC function that creates the log.
-             // For submission results, we need to check 'admin_submissions'
-            requiredPermission = 'admin_submissions';
-            break;
-        case type.startsWith('test_') ? type : '':
-            requiredPermission = 'admin_notifications';
-            break;
-        default:
-             // For other admin-initiated actions, they are logged via RPCs which check perms.
+    if (type.startsWith('test_')) {
+        requiredPermission = 'admin_notifications';
+    } else if (type === 'submission_result') {
+        requiredPermission = 'admin_submissions';
     }
     
     if (requiredPermission) {
@@ -91,32 +79,48 @@ serve(async (req) => {
     } else {
         switch (type) {
             case 'new_submission': {
-                const { data: profile } = await supabaseAdmin.from('profiles').select('discord_id, avatar_url').eq('id', user.id).single();
+                const { data: profile, error: profileError } = await supabaseAdmin.from('profiles').select('discord_id').eq('id', user.id).single();
+                if (profileError || !profile) throw new Error(`Could not find profile for user ${user.id}.`);
+                
                 proxyType = 'new_submission';
                 proxyPayload = {
                     ...payload.submission, // Pass through all submission data
-                    discordId: profile?.discord_id,
-                    avatarUrl: profile?.avatar_url,
+                    discordId: profile.discord_id,
                 };
                 break;
             }
             case 'submission_receipt':
             case 'submission_result': {
                 const subId = type === 'submission_receipt' ? payload.submission.id : payload.submissionId;
-                const { data: submission } = await supabaseAdmin.from('submissions').select('*, profiles(discord_id)').eq('id', subId).single();
-                if (!submission) throw new Error(`Submission ${subId} not found.`);
+                const { data: submission, error: subError } = await supabaseAdmin
+                    .from('submissions')
+                    .select('*')
+                    .eq('id', subId)
+                    .single();
+                if (subError || !submission) throw new Error(`Submission ${subId} not found. Error: ${subError?.message}`);
 
-                proxyType = 'submission_result';
+                const { data: profile, error: profileError } = await supabaseAdmin
+                    .from('profiles')
+                    .select('discord_id')
+                    .eq('id', submission.user_id)
+                    .single();
+                if (profileError || !profile) throw new Error(`Profile for user ${submission.user_id} not found for submission ${subId}. Error: ${profileError?.message}`);
+                
+                const messageType = type === 'submission_receipt' 
+                    ? 'submission_receipt' 
+                    : (payload.status === 'accepted' ? 'submission_accepted' : 'submission_refused');
+
+                proxyType = 'submission_result'; // This proxy type handles all DMs
                 proxyPayload = {
-                    userId: (submission.profiles as any)?.discord_id,
+                    userId: profile.discord_id,
                     embed: {
-                        titleKey: `notification_${type}_title`,
-                        bodyKey: `notification_${type}_body`,
+                        titleKey: `notification_${messageType}_title`,
+                        bodyKey: `notification_${messageType}_body`,
                         replacements: {
                             username: submission.username,
                             quizTitle: submission.quizTitle,
                             adminUsername: submission.adminUsername,
-                            reason: payload.reason || 'N/A'
+                            reason: payload.reason || submission.reason || 'N/A'
                         }
                     }
                 };
@@ -140,6 +144,9 @@ serve(async (req) => {
     // 4. Invoke the discord-proxy function with service_role key
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const projectUrl = Deno.env.get('SUPABASE_URL');
+    if (!serviceRoleKey || !projectUrl) {
+      throw new Error("SUPABASE_SERVICE_ROLE_KEY or SUPABASE_URL is not configured in function secrets. This is required for function-to-function calls.");
+    }
     const proxyUrl = `${projectUrl}/functions/v1/discord-proxy`;
 
     const response = await fetch(proxyUrl, {

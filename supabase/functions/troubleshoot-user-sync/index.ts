@@ -1,5 +1,5 @@
-// FIX: Replaced invalid Deno types reference with a valid one for Supabase edge functions.
-/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
+// FIX: Replaced invalid Deno types reference with a valid one for Supabase edge functions to resolve 'Deno' not found errors.
+/// <reference types="https://esm.sh/@supabase/functions-js@2/src/edge-runtime.d.ts" />
 
 // supabase/functions/troubleshoot-user-sync/index.ts
 

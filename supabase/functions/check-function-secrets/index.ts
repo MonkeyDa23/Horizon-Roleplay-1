@@ -1,5 +1,5 @@
-// FIX: Replaced invalid Deno types reference with a valid one for Supabase edge functions.
-/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
+// FIX: Replaced invalid Deno types reference with a valid one for Supabase edge functions to resolve 'Deno' not found errors.
+/// <reference types="https://esm.sh/@supabase/functions-js@2/src/edge-runtime.d.ts" />
 
 // supabase/functions/check-function-secrets/index.ts
 
@@ -24,10 +24,10 @@ serve(async (req) => {
   }
 
   try {
-    // This is the only secret required for the bot-less architecture.
     const botToken = Deno.env.get('DISCORD_BOT_TOKEN');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
-    // For security, we only show a portion of the secret key.
     const maskValue = (value: string | undefined) => {
       if (!value) return null;
       if (value.length <= 12) return '********';
@@ -38,6 +38,14 @@ serve(async (req) => {
       DISCORD_BOT_TOKEN: {
         found: !!botToken,
         value: maskValue(botToken),
+      },
+      SUPABASE_URL: {
+          found: !!supabaseUrl,
+          value: supabaseUrl, // URL is not secret
+      },
+      SUPABASE_SERVICE_ROLE_KEY: {
+          found: !!serviceRoleKey,
+          value: maskValue(serviceRoleKey),
       }
     };
 
