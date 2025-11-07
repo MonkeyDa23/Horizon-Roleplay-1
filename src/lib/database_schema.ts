@@ -2,7 +2,7 @@
 
 export const databaseSchema = `
 /*
--- Vixel Roleplay Website - Full Database Schema (V9.0.0 - True Bot-less)
+-- Vixel Roleplay Website - Full Database Schema (V10.0.0 - Notification & Security Fix)
 
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -60,6 +60,7 @@ DROP FUNCTION IF EXISTS public.get_user_id();
 DROP FUNCTION IF EXISTS public.delete_quiz(uuid);
 DROP FUNCTION IF EXISTS public.delete_product(uuid);
 DROP FUNCTION IF EXISTS public.test_http_request();
+DROP FUNCTION IF EXISTS public.verify_admin_password(text);
 
 -- =================================================================
 -- 2. INITIAL SETUP & EXTENSIONS
@@ -79,8 +80,9 @@ CREATE TABLE public.config (
     "MTA_SERVER_URL" text,
     "BACKGROUND_IMAGE_URL" text,
     "SHOW_HEALTH_CHECK" boolean DEFAULT false,
+    "admin_password" text, -- New: For admin panel password gate
     
-    -- Notification Channel IDs (No more webhooks!)
+    -- Notification Channel IDs
     "submissions_channel_id" text,
     "log_channel_submissions" text,
     "log_channel_bans" text,
@@ -217,41 +219,6 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION private.send_notification(p_type text, p_payload jsonb)
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions
-AS $$
-DECLARE
-  project_url text;
-  proxy_url text;
-  service_key text;
-  response extensions.http_response;
-BEGIN
-  project_url := 'https://' || split_part(current_setting('supa.endpoint'), ':', 1);
-  proxy_url := project_url || '/functions/v1/discord-proxy';
-
-  SELECT decrypted_secret INTO service_key FROM vault.decrypted_secrets WHERE name = 'service_role_key';
-  IF service_key IS NULL THEN
-    RAISE WARNING 'Could not retrieve service_role_key to send notification. Please ensure it is available in vault.';
-    RETURN;
-  END IF;
-
-  SELECT * INTO response FROM extensions.http((
-    'POST'::extensions.http_method,
-    proxy_url,
-    ARRAY[
-        ('Content-Type', 'application/json'),
-        ('Authorization', 'Bearer ' || service_key)
-    ]::extensions.http_header[],
-    'application/json',
-    jsonb_build_object('type', p_type, 'payload', p_payload)::text
-  )::extensions.http_request);
-
-  IF response.status >= 300 THEN
-    RAISE WARNING 'Notification proxy function responded with an error. Status: %, Body: %', response.status, response.content;
-  END IF;
-END;
-$$;
-
 
 -- =================================================================
 -- 5. ROW LEVEL SECURITY (RLS)
@@ -306,47 +273,12 @@ CREATE OR REPLACE FUNCTION public.add_submission(submission_data jsonb) RETURNS 
 AS $$
 DECLARE 
   new_submission public.submissions;
-  profile_record record;
-  admin_payload jsonb;
-  receipt_payload jsonb;
-  config_record record;
 BEGIN
-  SELECT * INTO config_record FROM public.config WHERE id = 1;
-  
   INSERT INTO public.submissions ("quizId", "quizTitle", user_id, username, answers, "cheatAttempts", user_highest_role)
   VALUES (
     (submission_data->>'quizId')::uuid, submission_data->>'quizTitle', public.get_user_id(), submission_data->>'username',
     submission_data->'answers', submission_data->'cheatAttempts', submission_data->>'user_highest_role'
   ) RETURNING * INTO new_submission;
-
-  BEGIN
-    SELECT discord_id INTO profile_record FROM public.profiles WHERE id = public.get_user_id();
-    receipt_payload := jsonb_build_object(
-        'userId', profile_record.discord_id,
-        'embed', jsonb_build_object(
-            'titleKey', 'notification_submission_receipt_title',
-            'bodyKey', 'notification_submission_receipt_body',
-            'replacements', jsonb_build_object('username', new_submission.username, 'quizTitle', new_submission."quizTitle")
-        )
-    );
-    PERFORM private.send_notification('submission_receipt', receipt_payload);
-  EXCEPTION WHEN OTHERS THEN
-    RAISE WARNING 'Failed to send submission receipt DM for submission %: %', new_submission.id, SQLERRM;
-  END;
-
-  BEGIN
-    SELECT avatar_url, discord_id INTO profile_record FROM public.profiles WHERE id = public.get_user_id();
-    admin_payload := jsonb_build_object(
-        'username', new_submission.username, 'avatarUrl', profile_record.avatar_url,
-        'discordId', profile_record.discord_id, 'quizTitle', new_submission."quizTitle",
-        'submittedAt', new_submission."submittedAt", 'userHighestRole', new_submission.user_highest_role,
-        'adminPanelUrl', 'https://' || split_part(current_setting('supa.endpoint'), ':', 1)
-    );
-    PERFORM private.send_notification('new_submission', admin_payload);
-  EXCEPTION WHEN OTHERS THEN
-      RAISE WARNING 'Failed to send new submission admin notification for submission %: %', new_submission.id, SQLERRM;
-  END;
-
   RETURN new_submission;
 END;
 $$;
@@ -356,8 +288,6 @@ AS $$
 DECLARE 
   submission_record record; 
   admin_user record;
-  profile_record record;
-  notification_payload jsonb;
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_submissions') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
   
@@ -379,31 +309,8 @@ BEGIN
 
   PERFORM public.log_action(
     format('Updated submission for %s (%s) to %s. Admin: %s', submission_record.username, submission_record."quizTitle", p_new_status, admin_user.username),
-    'submission'
+    'submissions' -- Fix: Use plural for consistency
   );
-
-  IF p_new_status IN ('accepted', 'refused') THEN
-    BEGIN
-      SELECT discord_id INTO profile_record FROM public.profiles WHERE id = submission_record.user_id;
-      notification_payload := jsonb_build_object(
-        'userId', profile_record.discord_id,
-        'embed', jsonb_build_object(
-          'titleKey', 'notification_submission_' || p_new_status || '_title',
-          'bodyKey', 'notification_submission_' || p_new_status || '_body',
-          'replacements', jsonb_build_object(
-              'username', submission_record.username,
-              'quizTitle', submission_record."quizTitle",
-              'adminUsername', submission_record."adminUsername",
-              'reason', COALESCE(p_reason, 'No reason provided.')
-          )
-        )
-      );
-      PERFORM private.send_notification('submission_result', notification_payload);
-    EXCEPTION WHEN OTHERS THEN
-      RAISE WARNING 'Failed to send submission result DM for submission %: %', submission_record.id, SQLERRM;
-    END;
-  END IF;
-
 END;
 $$;
 
@@ -438,7 +345,8 @@ BEGIN
     p_quiz_data->>'titleKey',
     p_quiz_data->>'descriptionKey',
     (p_quiz_data->>'isOpen')::boolean,
-    (SELECT jsonb_agg(value) FROM jsonb_array_elements_text(p_quiz_data->'allowedTakeRoles')),
+    -- Fix: Cast from jsonb array to text[]
+    (SELECT array_agg(value) FROM jsonb_array_elements_text(p_quiz_data->'allowedTakeRoles')),
     p_quiz_data->>'logoUrl',
     p_quiz_data->>'bannerUrl',
     (SELECT jsonb_agg(jsonb_build_object('id', el->>'id', 'textKey', el->>'textKey', 'timeLimit', (el->>'timeLimit')::int)) FROM jsonb_array_elements(p_quiz_data->'questions') as el),
@@ -503,8 +411,8 @@ DECLARE
     rule jsonb;
 BEGIN
     IF NOT public.has_permission(public.get_user_id(), 'admin_rules') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
-
-    DELETE FROM public.rules;
+    -- Fix: Add WHERE clause to prevent Supabase error
+    DELETE FROM public.rules WHERE 1=1;
 
     FOR category IN SELECT * FROM jsonb_array_elements(p_rules_data) LOOP
         INSERT INTO public.translations (key, en, ar)
@@ -532,7 +440,8 @@ $$;
 CREATE OR REPLACE FUNCTION public.save_discord_widgets(p_widgets_data jsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
     IF NOT public.has_permission(public.get_user_id(), 'admin_widgets') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
-    DELETE FROM public.discord_widgets;
+    -- Fix: Add WHERE clause to prevent Supabase error
+    DELETE FROM public.discord_widgets WHERE 1=1;
     INSERT INTO public.discord_widgets (server_name, server_id, invite_url, position)
     SELECT value->>'server_name', value->>'server_id', value->>'invite_url', (value->>'position')::int
     FROM jsonb_array_elements(p_widgets_data);
@@ -542,7 +451,7 @@ $$;
 
 CREATE OR REPLACE FUNCTION public.update_config(new_config jsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
-    allowed_admin_keys text[] := ARRAY['COMMUNITY_NAME', 'LOGO_URL', 'DISCORD_GUILD_ID', 'BACKGROUND_IMAGE_URL'];
+    allowed_admin_keys text[] := ARRAY['COMMUNITY_NAME', 'LOGO_URL', 'DISCORD_GUILD_ID', 'BACKGROUND_IMAGE_URL', 'admin_password'];
     allowed_notif_keys text[] := ARRAY['submissions_channel_id', 'log_channel_submissions', 'log_channel_bans', 'log_channel_admin', 'audit_log_channel_id', 'mention_role_submissions', 'mention_role_audit_log_submissions', 'mention_role_audit_log_bans', 'mention_role_audit_log_admin', 'mention_role_audit_log_general'];
     key text;
     sql_query text := 'UPDATE public.config SET ';
@@ -603,7 +512,7 @@ BEGIN
 
     UPDATE public.profiles SET is_banned = true, ban_reason = p_reason, ban_expires_at = expires_timestamp WHERE id = p_target_user_id;
     INSERT INTO public.bans (user_id, banned_by, reason, expires_at) VALUES (p_target_user_id, public.get_user_id(), p_reason, expires_timestamp);
-    PERFORM public.log_action(format('Banned user %s. Reason: %s', p_target_user_id, p_reason), 'ban');
+    PERFORM public.log_action(format('Banned user %s. Reason: %s', p_target_user_id, p_reason), 'bans'); -- Fix: Use plural
 END;
 $$;
 
@@ -612,7 +521,7 @@ BEGIN
     IF NOT public.has_permission(public.get_user_id(), 'admin_lookup') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
     UPDATE public.profiles SET is_banned = false, ban_reason = null, ban_expires_at = null WHERE id = p_target_user_id;
     UPDATE public.bans SET is_active = false, unbanned_by = public.get_user_id(), unbanned_at = current_timestamp WHERE user_id = p_target_user_id AND is_active = true;
-    PERFORM public.log_action(format('Unbanned user %s.', p_target_user_id), 'ban');
+    PERFORM public.log_action(format('Unbanned user %s.', p_target_user_id), 'bans'); -- Fix: Use plural
 END;
 $$;
 
@@ -626,32 +535,24 @@ BEGIN
 END;
 $$;
 
--- =================================================================
--- 7. TRIGGERS
--- =================================================================
-CREATE OR REPLACE FUNCTION public.handle_audit_log_notification() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+-- New function for admin password gate
+CREATE OR REPLACE FUNCTION public.verify_admin_password(p_password text) RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
-  payload jsonb;
+  is_correct boolean;
 BEGIN
-  payload := jsonb_build_object(
-    'adminUsername', NEW.admin_username,
-    'action', NEW.action,
-    'timestamp', NEW.timestamp,
-    'log_type', NEW.log_type
-  );
-  BEGIN
-    PERFORM private.send_notification('audit_log', payload);
-  EXCEPTION WHEN OTHERS THEN
-    RAISE WARNING 'Failed to send audit log notification: %', SQLERRM;
-  END;
-  RETURN NEW;
+  IF NOT public.has_permission(public.get_user_id(), 'admin_panel') THEN RETURN false; END IF;
+  SELECT (p_password = config.admin_password) INTO is_correct FROM public.config WHERE id = 1;
+  RETURN is_correct;
 END;
 $$;
 
-CREATE TRIGGER on_audit_log_insert
-AFTER INSERT ON public.audit_log
-FOR EACH ROW EXECUTE FUNCTION public.handle_audit_log_notification();
 
+-- =================================================================
+-- 7. TRIGGERS (REMOVED NOTIFICATION TRIGGER)
+-- =================================================================
+-- The notification trigger has been removed. Notifications are now handled
+-- by the client application invoking a secure Edge Function.
 
 -- =================================================================
 -- 8. HEALTH CHECK FUNCTIONS

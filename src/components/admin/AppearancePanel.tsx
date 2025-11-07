@@ -45,12 +45,12 @@ const AppearancePanel: React.FC = () => {
         );
     }
     
-    const InputField = ({ labelKey, descKey, value, onChange, placeholder }: { labelKey: string, descKey?: string, value: string | null | undefined, onChange: (val: string) => void, placeholder?: string }) => (
+    const InputField = ({ labelKey, descKey, value, onChange, placeholder, type = 'text' }: { labelKey: string, descKey?: string, value: string | null | undefined, onChange: (val: string) => void, placeholder?: string, type?: string }) => (
         <div>
             <label className="block text-lg font-semibold text-white mb-1">{t(labelKey)}</label>
             {descKey && <p className="text-sm text-gray-400 mb-2">{t(descKey)}</p>}
             <input 
-                type="text"
+                type={type}
                 value={value || ''}
                 onChange={(e) => onChange(e.target.value)}
                 placeholder={placeholder}
@@ -80,6 +80,13 @@ const AppearancePanel: React.FC = () => {
                     <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">Core Integration</h3>
                      <div className="space-y-6">
                         <InputField labelKey="discord_guild_id" descKey="discord_guild_id_desc" value={settings.DISCORD_GUILD_ID || ''} onChange={val => handleChange('DISCORD_GUILD_ID', val)} />
+                    </div>
+                </div>
+
+                <div>
+                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">Security</h3>
+                     <div className="space-y-6">
+                        <InputField labelKey="admin_panel_password" descKey="admin_panel_password_desc" value={settings.admin_password || ''} onChange={val => handleChange('admin_password', val)} type="password" placeholder="Leave empty to disable"/>
                     </div>
                 </div>
             </div>

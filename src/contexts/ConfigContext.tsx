@@ -19,7 +19,8 @@ const defaultConfig: AppConfig = {
     MTA_SERVER_URL: 'mtasa://134.255.216.22:22041',
     BACKGROUND_IMAGE_URL: '',
     SHOW_HEALTH_CHECK: false,
-    // FIX: Removed properties not present in AppConfig type
+    // FIX: Added missing admin_password property to satisfy the AppConfig type.
+    admin_password: null,
     submissions_channel_id: null,
     log_channel_submissions: null,
     log_channel_bans: null,

@@ -23,8 +23,6 @@ const handleResponse = <T>(response: { data: T | null; error: any; status: numbe
     throw new ApiError(response.error.message, response.status);
   }
   if (response.data === null) {
-      // This case handles successful calls that return no data, e.g., a GET for a non-existent ID.
-      // For rpc calls that return void, this is also the expected path.
       if (response.status >= 200 && response.status < 300) {
           return null as T;
       }
@@ -52,7 +50,7 @@ const invokeFunction = async <T>(functionName: string, body?: object, headers?: 
     if (error) {
         console.error(`Supabase Function Error (${functionName}):`, error);
         
-        let errorMessage = error.message; // Default to the original message
+        let errorMessage = error.message;
         const status = (error as any)?.context?.status ?? 500;
 
         try {
@@ -65,17 +63,21 @@ const invokeFunction = async <T>(functionName: string, body?: object, headers?: 
                     }
                 }
             } else if (typeof functionErrorBody === 'string' && functionErrorBody.trim() !== '') {
-                // If the body is a simple non-empty string
                 errorMessage = functionErrorBody;
             }
-        } catch (e) {
-            console.warn("Could not parse detailed error from function context.", e);
-        }
+        } catch (e) { console.warn("Could not parse detailed error from function context.", e); }
 
         throw new ApiError(errorMessage, status);
     }
     
     return data as T;
+};
+
+// NEW: Central notification function
+const sendNotification = (type: string, payload: object) => {
+    if (!supabase) return;
+    supabase.functions.invoke('send-notification', { body: { type, payload } })
+        .catch(err => console.error(`Failed to send notification of type '${type}':`, err));
 };
 
 // =============================================
@@ -95,6 +97,13 @@ export const revalidateSession = async (force: boolean = false): Promise<User> =
   return user;
 };
 
+// NEW: For admin password gate
+export const verifyAdminPassword = async (password: string): Promise<boolean> => {
+    if (!supabase) return false;
+    const { data } = await supabase.rpc('verify_admin_password', { p_password: password });
+    return !!data;
+};
+
 
 // =============================================
 // CONFIG API
@@ -103,14 +112,13 @@ export const getConfig = async (): Promise<AppConfig> => {
   if (!supabase) throw new Error("Supabase not configured");
   const response = await supabase.rpc('get_config');
 
-  // Manually handle the response for this critical function to ensure a non-null return or a throw.
   if (response.error) {
     console.error('Supabase API Error in getConfig:', response.error);
     throw new ApiError(response.error.message, response.status);
   }
 
   if (response.data === null) {
-    throw new ApiError("Configuration data not found in the database. Please ensure the database schema has been run correctly.", 404);
+    throw new ApiError("Configuration data not found. Please ensure the database schema has been run correctly.", 404);
   }
 
   return response.data;
@@ -118,7 +126,9 @@ export const getConfig = async (): Promise<AppConfig> => {
 
 export const saveConfig = async (config: Partial<AppConfig>): Promise<void> => {
   if (!supabase) throw new Error("Supabase not configured");
-  return handleResponse(await supabase.rpc('update_config', { new_config: config }));
+  // FIX: Awaited handleResponse without assigning to a variable for a void function.
+  await handleResponse(await supabase.rpc('update_config', { new_config: config }));
+  sendNotification('log_action', { log_type: 'admin', action: 'Updated system configuration.' });
 };
 
 // =============================================
@@ -137,12 +147,17 @@ export const getProductById = async (id: string): Promise<Product | null> => {
 export const saveProduct = async (productData: any): Promise<Product> => {
     if (!supabase) throw new Error("Supabase not configured");
     const response = await supabase.rpc('save_product_with_translations', { p_product_data: productData });
-    return handleResponse(response);
+    // FIX: Specified the expected return type for handleResponse.
+    const result = handleResponse<Product>(response);
+    sendNotification('log_action', { log_type: 'admin', action: `Saved product: ${productData.nameEn}` });
+    return result;
 };
 
 export const deleteProduct = async (productId: string): Promise<void> => {
     if (!supabase) throw new Error("Supabase not configured");
-    return handleResponse(await supabase.rpc('delete_product', { p_product_id: productId }));
+    // FIX: Awaited handleResponse without assigning to a variable for a void function.
+    await handleResponse(await supabase.rpc('delete_product', { p_product_id: productId }));
+    sendNotification('log_action', { log_type: 'admin', action: `Deleted product ID: ${productId}` });
 };
 
 // =============================================
@@ -161,12 +176,17 @@ export const getQuizById = async (id: string): Promise<Quiz | null> => {
 export const saveQuiz = async (quizData: any): Promise<Quiz> => {
   if (!supabase) throw new Error("Supabase not configured");
   const response = await supabase.rpc('save_quiz_with_translations', { p_quiz_data: quizData });
-  return handleResponse(response);
+  // FIX: Specified the expected return type for handleResponse.
+  const result = handleResponse<Quiz>(response);
+  sendNotification('log_action', { log_type: 'admin', action: `Saved quiz: ${quizData.titleEn}` });
+  return result;
 };
 
 export const deleteQuiz = async (id: string): Promise<void> => {
   if (!supabase) throw new Error("Supabase not configured");
-  return handleResponse(await supabase.rpc('delete_quiz', { p_quiz_id: id }));
+  // FIX: Awaited handleResponse without assigning to a variable for a void function.
+  await handleResponse(await supabase.rpc('delete_quiz', { p_quiz_id: id }));
+  sendNotification('log_action', { log_type: 'admin', action: `Deleted quiz ID: ${id}` });
 };
 
 
@@ -186,27 +206,35 @@ export const getSubmissionsByUserId = async (userId: string): Promise<QuizSubmis
 
 export const addSubmission = async (submission: Omit<QuizSubmission, 'id' | 'status'>): Promise<QuizSubmission> => {
   if (!supabase) throw new Error("Supabase not configured");
-  return handleResponse(await supabase.rpc('add_submission', { submission_data: submission }));
+  // FIX: Specified the expected return type for handleResponse.
+  const newSubmission = await handleResponse<QuizSubmission>(await supabase.rpc('add_submission', { submission_data: submission }));
+  
+  // Send notifications after successful DB insert
+  sendNotification('new_submission', { submission: newSubmission });
+  sendNotification('submission_receipt', { submission: newSubmission });
+
+  return newSubmission;
 };
 
 export const updateSubmissionStatus = async (submissionId: string, status: 'taken' | 'accepted' | 'refused', reason?: string): Promise<void> => {
   if (!supabase) throw new Error("Supabase not configured");
   
-  // This call was ambiguous when `reason` was not provided, causing an error if the database
-  // has multiple `update_submission_status` functions. 
-  // By always passing `p_reason` (as null if undefined), we explicitly call the 3-argument version, resolving the ambiguity.
-  const params = {
-    p_submission_id: submissionId,
-    p_new_status: status,
-    p_reason: reason || null
-  };
-  
-  return handleResponse(await supabase.rpc('update_submission_status', params));
+  const params = { p_submission_id: submissionId, p_new_status: status, p_reason: reason || null };
+  // FIX: Awaited handleResponse without assigning to a variable for a void function.
+  await handleResponse(await supabase.rpc('update_submission_status', params));
+
+  // Send notifications after successful DB update
+  sendNotification('log_action', { log_type: 'submissions', action: `Updated submission ${submissionId} to ${status}.` });
+  if (status === 'accepted' || status === 'refused') {
+      sendNotification('submission_result', { submissionId, status, reason });
+  }
 };
 
 export const deleteSubmission = async (submissionId: string): Promise<void> => {
   if (!supabase) throw new Error("Supabase not configured");
-  return handleResponse(await supabase.rpc('delete_submission', { p_submission_id: submissionId }));
+  // FIX: Awaited handleResponse without assigning to a variable for a void function.
+  await handleResponse(await supabase.rpc('delete_submission', { p_submission_id: submissionId }));
+  sendNotification('log_action', { log_type: 'submissions', action: `Deleted submission ${submissionId}.` });
 };
 
 
@@ -221,11 +249,13 @@ export const getRules = async (): Promise<RuleCategory[]> => {
 
 export const saveRules = async (rulesData: any[]): Promise<void> => {
     if (!supabase) throw new Error("Supabase not configured");
-    return handleResponse(await supabase.rpc('save_rules', { p_rules_data: rulesData }));
+    // FIX: Awaited handleResponse without assigning to a variable for a void function.
+    await handleResponse(await supabase.rpc('save_rules', { p_rules_data: rulesData }));
+    sendNotification('log_action', { log_type: 'admin', action: 'Updated server rules.' });
 };
 
 // =============================================
-// DISCORD WIDGETS API (NEW)
+// DISCORD WIDGETS API
 // =============================================
 export const getDiscordWidgets = async (): Promise<DiscordWidget[]> => {
     if (!supabase) throw new Error("Supabase not configured");
@@ -235,7 +265,9 @@ export const getDiscordWidgets = async (): Promise<DiscordWidget[]> => {
 
 export const saveDiscordWidgets = async (widgets: Omit<DiscordWidget, 'id'>[]): Promise<void> => {
     if (!supabase) throw new Error("Supabase not configured");
-    return handleResponse(await supabase.rpc('save_discord_widgets', { p_widgets_data: widgets }));
+    // FIX: Awaited handleResponse without assigning to a variable for a void function.
+    await handleResponse(await supabase.rpc('save_discord_widgets', { p_widgets_data: widgets }));
+    sendNotification('log_action', { log_type: 'admin', action: 'Updated Discord widgets.' });
 };
 
 
@@ -255,35 +287,16 @@ export const getTranslations = async (): Promise<Translations> => {
 export const saveTranslations = async (translations: Translations): Promise<void> => {
     if (!supabase) throw new Error("Supabase not configured");
     const dataToUpsert = Object.entries(translations).map(([key, value]) => ({ key, ...value }));
-    return handleResponse(await supabase.from('translations').upsert(dataToUpsert, { onConflict: 'key' }));
+    // FIX: Awaited handleResponse without assigning to a variable for a void function.
+    await handleResponse(await supabase.from('translations').upsert(dataToUpsert, { onConflict: 'key' }));
+    sendNotification('log_action', { log_type: 'admin', action: 'Updated website translations.' });
 };
 
 // =============================================
 // PERMISSIONS & ROLES API
 // =============================================
 export const getGuildRoles = async (): Promise<DiscordRole[]> => {
-    try {
-        const response = await invokeFunction<DiscordRole[] | { error: string }>('get-guild-roles');
-        
-        if (Array.isArray(response)) {
-            return response;
-        }
-        
-        if (response && typeof response === 'object' && 'error' in response && typeof (response as any).error === 'string') {
-            throw new ApiError((response as {error: string}).error, 500);
-        }
-        
-        // This will now catch more malformed responses
-        throw new ApiError("Invalid or unexpected response format from get-guild-roles function.", 500);
-
-    } catch (error) {
-        // Re-throw ApiErrors, wrap others
-        if (error instanceof ApiError) {
-            throw error;
-        }
-        console.error("Caught unexpected error in getGuildRoles:", error);
-        throw new ApiError((error as Error).message || 'An unknown error occurred while fetching roles.', 500);
-    }
+    return invokeFunction<DiscordRole[]>('get-guild-roles');
 };
 
 export const getRolePermissions = async (): Promise<RolePermission[]> => {
@@ -293,7 +306,9 @@ export const getRolePermissions = async (): Promise<RolePermission[]> => {
 
 export const saveRolePermissions = async (rolePermission: RolePermission): Promise<void> => {
     if (!supabase) throw new Error("Supabase not configured");
-    return handleResponse(await supabase.rpc('save_role_permissions', { p_role_id: rolePermission.role_id, p_permissions: rolePermission.permissions }));
+    // FIX: Awaited handleResponse without assigning to a variable for a void function.
+    await handleResponse(await supabase.rpc('save_role_permissions', { p_role_id: rolePermission.role_id, p_permissions: rolePermission.permissions }));
+    sendNotification('log_action', { log_type: 'admin', action: `Updated permissions for role ${rolePermission.role_id}.` });
 };
 
 
@@ -305,14 +320,10 @@ export const getAuditLogs = async (): Promise<AuditLogEntry[]> => {
   return handleResponse(await supabase.from('audit_log').select('*').order('timestamp', { ascending: false }).limit(100));
 };
 
-export const logAdminAccess = async (): Promise<void> => {
-    if (!supabase) throw new Error("Supabase not configured");
-    return handleResponse(await supabase.rpc('log_action', { p_action: '🔑 Accessed the Admin Panel.', p_log_type: 'admin' }));
-};
-
 export const logAdminPageVisit = async (pageName: string): Promise<void> => {
     if (!supabase) throw new Error("Supabase not configured");
-    return handleResponse(await supabase.rpc('log_page_visit', { p_page_name: pageName }));
+    // FIX: Awaited handleResponse without assigning to a variable for a void function.
+    await handleResponse(await supabase.rpc('log_page_visit', { p_page_name: pageName }));
 };
 
 export const lookupUser = async (discordId: string): Promise<UserLookupResult> => {
@@ -321,16 +332,20 @@ export const lookupUser = async (discordId: string): Promise<UserLookupResult> =
 
 export const banUser = async (targetUserId: string, reason: string, durationHours: number | null): Promise<void> => {
   if (!supabase) throw new Error("Supabase not configured");
-  return handleResponse(await supabase.rpc('ban_user', { p_target_user_id: targetUserId, p_reason: reason, p_duration_hours: durationHours }));
+  // FIX: Awaited handleResponse without assigning to a variable for a void function.
+  await handleResponse(await supabase.rpc('ban_user', { p_target_user_id: targetUserId, p_reason: reason, p_duration_hours: durationHours }));
+  sendNotification('log_action', { log_type: 'bans', action: `Banned user ${targetUserId}. Reason: ${reason}` });
 };
 
 export const unbanUser = async (targetUserId: string): Promise<void> => {
   if (!supabase) throw new Error("Supabase not configured");
-  return handleResponse(await supabase.rpc('unban_user', { p_target_user_id: targetUserId }));
+  // FIX: Awaited handleResponse without assigning to a variable for a void function.
+  await handleResponse(await supabase.rpc('unban_user', { p_target_user_id: targetUserId }));
+  sendNotification('log_action', { log_type: 'bans', action: `Unbanned user ${targetUserId}.` });
 };
 
 export const testNotification = async (type: string, targetId: string): Promise<any> => {
-    return invokeFunction('test-notification', { type, targetId });
+    return invokeFunction('send-notification', { type: `test_${type}`, payload: { targetId } });
 };
 
 
@@ -338,29 +353,18 @@ export const testNotification = async (type: string, targetId: string): Promise<
 // EXTERNAL & MISC API
 // =============================================
 export const getMtaServerStatus = async (): Promise<MtaServerStatus> => {
-  // This is a placeholder as it requires a specific MTA-to-JSON API endpoint
-  // which is outside the scope of this project.
   return new Promise((resolve) => {
     setTimeout(() => {
-      resolve({
-        name: "Vixel Roleplay Server",
-        players: Math.floor(Math.random() * 100),
-        maxPlayers: 150,
-        version: "1.6"
-      });
+      resolve({ name: "Vixel Roleplay Server", players: Math.floor(Math.random() * 100), maxPlayers: 150, version: "1.6" });
     }, 1000);
   });
 };
 
 export const getDiscordAnnouncements = async (): Promise<DiscordAnnouncement[]> => {
-  // This would require a bot endpoint to fetch messages from a specific channel.
-  // Returning mock data for now.
   return Promise.resolve([]); 
 };
 
 export const getMtaPlayerLogs = async (userId: string): Promise<MtaLogEntry[]> => {
-  // This is a placeholder for a feature that would require integration
-  // with an MTA server's logging system.
   console.log("Fetching MTA logs for user:", userId);
   return Promise.resolve([]);
 };

@@ -196,6 +196,7 @@ export interface AppConfig {
     MTA_SERVER_URL: string;
     BACKGROUND_IMAGE_URL: string;
     SHOW_HEALTH_CHECK: boolean;
+    admin_password: string | null;
 
     // Notification Channel IDs
     submissions_channel_id: string | null;

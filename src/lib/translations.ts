@@ -184,6 +184,13 @@ export const translations: Translations = {
   banned_indefinitely: {ar: 'محظور بشكل دائم', en: 'Banned indefinitely'},
   banned_until: {ar: 'محظور حتى {date}', en: 'Banned until {date}'},
 
+  // Admin Page - Password Gate
+  admin_gate_title: { ar: 'التحقق الأمني', en: 'Security Check' },
+  admin_gate_prompt: { ar: 'الرجاء إدخال كلمة مرور لوحة التحكم للمتابعة.', en: 'Please enter the Admin Panel password to continue.' },
+  admin_gate_password: { ar: 'كلمة المرور', en: 'Password' },
+  admin_gate_enter: { ar: 'دخول', en: 'Enter' },
+  admin_gate_incorrect: { ar: 'كلمة مرور غير صحيحة.', en: 'Incorrect password.' },
+
   // Banned Page
   you_are_banned: { ar: 'أنت محظور', en: 'You Are Banned' },
   banned_page_message: { ar: 'تم حظرك من الوصول إلى هذا الموقع.', en: 'You have been banned from accessing this site.' },
@@ -198,6 +205,9 @@ export const translations: Translations = {
   background_image_url_desc: { ar: 'اتركه فارغاً لاستخدام الخلفية الافتراضية.', en: 'Leave empty to use the default animated background.'},
   discord_guild_id: { ar: 'آي دي سيرفر الديسكورد', en: 'Discord Guild ID'},
   discord_guild_id_desc: { ar: 'مطلوب للمصادقة ومزامنة الرتب.', en: 'Required for authentication and role sync.'},
+  admin_panel_password: { ar: 'كلمة مرور لوحة التحكم', en: 'Admin Panel Password' },
+  admin_panel_password_desc: { ar: 'كلمة مرور اختيارية لطبقة أمان إضافية للوصول إلى لوحة التحكم.', en: 'Optional password for an extra layer of security to access the admin panel.' },
+
   
   // Admin Page - Notifications
   channel_id_desc: { ar: 'لتفعيل وضع المطور في ديسكورد: الإعدادات > متقدم > وضع المطور. ثم اضغط بزر الماوس الأيمن على القناة واختر "نسخ معرف القناة".', en: 'To get an ID: Enable Developer Mode in Discord Settings > Advanced, then right-click the channel/user/role and "Copy ID".'},

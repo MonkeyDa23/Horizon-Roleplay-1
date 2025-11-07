@@ -3,13 +3,13 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocalization } from '../../hooks/useLocalization';
 import { useToast } from '../../hooks/useToast';
 import { getTranslations, saveTranslations } from '../../lib/api';
+import { translations as fallbackTranslations } from '../../lib/translations';
 import type { Translations } from '../../types';
 import { Loader2, Search } from 'lucide-react';
 
 const TranslationsPanel: React.FC = () => {
     const { t } = useLocalization();
     const { showToast } = useToast();
-    const [allTranslations, setAllTranslations] = useState<Translations>({});
     const [editableTranslations, setEditableTranslations] = useState<Translations>({});
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -18,11 +18,22 @@ const TranslationsPanel: React.FC = () => {
     const fetchTranslations = useCallback(async () => {
         setIsLoading(true);
         try {
-            const data = await getTranslations();
-            setAllTranslations(data);
-            setEditableTranslations(JSON.parse(JSON.stringify(data))); // Deep copy
+            const dbTranslations = await getTranslations();
+            
+            const mergedTranslations: Translations = {};
+            const allKeys = new Set([...Object.keys(fallbackTranslations), ...Object.keys(dbTranslations)]);
+
+            allKeys.forEach(key => {
+                mergedTranslations[key] = {
+                    ar: dbTranslations[key]?.ar || fallbackTranslations[key]?.ar || '',
+                    en: dbTranslations[key]?.en || fallbackTranslations[key]?.en || '',
+                };
+            });
+
+            setEditableTranslations(mergedTranslations);
         } catch (error) {
             showToast('Failed to load translations.', 'error');
+            setEditableTranslations(fallbackTranslations); // Fallback to local file on error
         } finally {
             setIsLoading(false);
         }
@@ -36,7 +47,6 @@ const TranslationsPanel: React.FC = () => {
         setIsSaving(true);
         try {
             await saveTranslations(editableTranslations);
-            setAllTranslations(JSON.parse(JSON.stringify(editableTranslations)));
             showToast(t('save_translations'), 'success');
         } catch (error) {
             showToast((error as Error).message, 'error');
@@ -55,8 +65,8 @@ const TranslationsPanel: React.FC = () => {
     const filteredKeys = useMemo(() => {
         return Object.keys(editableTranslations).filter(key => 
             key.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            editableTranslations[key].en.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            editableTranslations[key].ar.toLowerCase().includes(searchTerm.toLowerCase())
+            (editableTranslations[key]?.en || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (editableTranslations[key]?.ar || '').toLowerCase().includes(searchTerm.toLowerCase())
         ).sort();
     }, [editableTranslations, searchTerm]);
 
@@ -102,14 +112,14 @@ const TranslationsPanel: React.FC = () => {
                                     <td className="p-4 font-mono text-sm text-brand-cyan align-top pt-5">{key}</td>
                                     <td className="p-4">
                                         <textarea 
-                                            value={editableTranslations[key].en}
+                                            value={editableTranslations[key]?.en || ''}
                                             onChange={(e) => handleTranslationChange(key, 'en', e.target.value)}
                                             className="w-full bg-brand-dark p-2 rounded-md border border-gray-600 h-24 focus:ring-brand-cyan focus:border-brand-cyan"
                                         />
                                     </td>
                                     <td className="p-4">
                                          <textarea 
-                                            value={editableTranslations[key].ar}
+                                            value={editableTranslations[key]?.ar || ''}
                                             onChange={(e) => handleTranslationChange(key, 'ar', e.target.value)}
                                             className="w-full bg-brand-dark p-2 rounded-md border border-gray-600 h-24 focus:ring-brand-cyan focus:border-brand-cyan"
                                             dir="rtl"

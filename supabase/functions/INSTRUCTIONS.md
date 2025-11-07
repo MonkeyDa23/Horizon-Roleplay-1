@@ -1,4 +1,4 @@
-# Supabase & True Bot-less Setup Guide (V10.0.0)
+# Supabase & True Bot-less Setup Guide (V10.1.0)
 
 This guide provides the complete, simplified instructions for deploying and configuring the backend for your website. This architecture is **truly "bot-less"**, meaning you **do not need to host or run a separate bot application**, and you **do not need to create any webhooks**. All communication with Discord happens directly and securely through Supabase Edge Functions using only a bot token.
 
@@ -28,14 +28,16 @@ You need a bot application to get a token, which allows your website to interact
 
 ## Step 2: Set Supabase Function Secrets
 
-This secret allows your Edge Functions to securely act as your bot.
+These secrets allow your Edge Functions to securely act as your bot and call each other.
 
 1.  Go to your Supabase Project -> **Settings** (gear icon) -> **Edge Functions**.
-2.  Under the **"Secrets"** section, click **"Add a new secret"**.
+2.  Under the **"Secrets"** section, click **"Add a new secret"** for each of the following:
 
-| Secret Name         | Value                                                 |
-| ------------------- | ----------------------------------------------------- |
-| `DISCORD_BOT_TOKEN` | The bot token you copied in the previous step.        |
+| Secret Name                   | Value                                                                   |
+| ----------------------------- | ----------------------------------------------------------------------- |
+| `DISCORD_BOT_TOKEN`           | The bot token you copied in the previous step.                          |
+| `SUPABASE_URL`                | Your Supabase project URL (e.g., `https://xxxx.supabase.co`).           |
+| `SUPABASE_SERVICE_ROLE_KEY`   | Your project's `service_role` key (found in Project Settings > API).    |
 
 ---
 
@@ -56,7 +58,7 @@ You must deploy the required functions from the `supabase/functions` directory.
 - `check-bot-health`
 - `check-function-secrets`
 - `troubleshoot-user-sync`
-- `test-notification`
+- `send-notification` (Replaces `test-notification`)
 - `discord-proxy` (This is critical for all notifications)
 
 ---
@@ -70,7 +72,7 @@ This script sets up all your tables and backend functions in the database.
 3.  Copy the ENTIRE content of the file at `src/lib/database_schema.ts`.
 4.  Paste it into the editor and click **"RUN"**.
 
-This script will automatically enable the `http` extension required for the database to send notifications.
+This script will automatically enable the `http` extension required for certain health checks.
 
 ---
 
@@ -95,6 +97,7 @@ Once your website is running, you need to link it to your Discord server and set
 2.  Navigate to the **Admin Panel**.
 3.  Go to the **Appearance** tab:
     -   Fill in your **Discord Guild ID**.
+    -   (Optional) Set a password for the admin panel for extra security.
 4.  Go to the **Notifications** tab:
     -   Fill in the **Channel IDs** for the channels where you want to receive notifications (e.g., new submissions, audit logs).
     -   Fill in the **Mention Role IDs** for roles you want to ping in those notifications.

@@ -1,5 +1,5 @@
-// FIX: Replaced invalid Deno types reference with a valid one.
-/// <reference types="https://raw.githubusercontent.com/denoland/deno/main/cli/tsc/dts/lib.deno.d.ts" />
+// FIX: Replaced invalid Deno types reference with a valid one for Supabase edge functions.
+/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
 
 // supabase/functions/troubleshoot-user-sync/index.ts
 

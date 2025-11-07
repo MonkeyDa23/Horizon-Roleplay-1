@@ -10,6 +10,8 @@ import { ToastProvider } from './contexts/ToastContext';
 import { useConfig } from './hooks/useConfig';
 import { useAuth } from './hooks/useAuth';
 import { TranslationsProvider } from './contexts/TranslationsContext';
+import { AdminGateProvider } from './contexts/AdminGateContext'; // New
+import AdminGate from './components/AdminGate'; // New
 
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -19,7 +21,7 @@ import PermissionWarningBanner from './components/PermissionWarningBanner';
 
 import HomePage from './pages/HomePage';
 import StorePage from './pages/StorePage';
-import ProductDetailPage from './pages/ProductDetailPage'; // New import
+import ProductDetailPage from './pages/ProductDetailPage';
 import RulesPage from './pages/RulesPage';
 import AppliesPage from './pages/AppliesPage';
 import AboutUsPage from './pages/AboutUsPage';
@@ -37,7 +39,6 @@ import { env } from './env';
 import type { PermissionKey } from './types';
 
 
-// FIX: Correctly implement ProtectedRoute. The previous version had a syntax error and did not return a value.
 const ProtectedRoute: React.FC<{ children: React.ReactNode; permission?: PermissionKey; }> = ({ children, permission }) => {
   const { user, hasPermission, loading } = useAuth();
   
@@ -61,23 +62,16 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; permission?: Permiss
 };
   
 const AppContent: React.FC = () => {
-  // FIX: Destructure configLoading and configError from useConfig hook.
   const { config, configLoading, configError } = useConfig();
-  // FIX: Destructure missing properties from the useAuth hook.
-  const { user, loading: authLoading, permissionWarning, syncError, logout } = useAuth();
+  const { user, permissionWarning, syncError, logout } = useAuth();
   const navigate = ReactRouterDOM.useNavigate();
   
   const retrySync = useCallback(async () => {
-    // This function is passed to the LoginErrorPage to allow the user to retry.
-    // We can't call the retry function from the context directly, because this component
-    // will be unmounted. So we navigate to a neutral page to trigger a re-mount and re-sync.
     navigate('/');
     window.location.reload();
   }, [navigate]);
 
   if (user?.is_banned) {
-    // The BannedPage is also shown from within AuthProvider, but this is a fallback.
-    // It receives the onLogout function to allow the user to exit.
     return <BannedPage reason={user.ban_reason || 'No reason specified'} expires_at={user.ban_expires_at} onLogout={logout} />;
   }
   
@@ -126,7 +120,7 @@ const AppContent: React.FC = () => {
               <p className="font-semibold text-brand-cyan mb-2">How to fix:</p>
               <ol className="list-decimal list-inside text-gray-300 space-y-1">
                   <li>Go to your Supabase project's SQL Editor.</li>
-                  <li>Copy the SQL code from the <code className="bg-brand-dark px-1 rounded">supabase/functions/INSTRUCTIONS.md</code> file.</li>
+                  <li>Copy the SQL code from the <code className="bg-brand-dark px-1 rounded">src/lib/database_schema.ts</code> file.</li>
                   <li>Paste the code into a new query and click "RUN".</li>
               </ol>
             </div>
@@ -138,7 +132,6 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <ReactRouterDOM.BrowserRouter>
       <div 
         className="flex flex-col min-h-screen text-white font-sans"
         style={{ 
@@ -163,7 +156,9 @@ const AppContent: React.FC = () => {
               <ReactRouterDOM.Route path="/about" element={<AboutUsPage />} />
               <ReactRouterDOM.Route path="/admin" element={
                 <ProtectedRoute permission="admin_panel">
-                  <AdminPage />
+                  <AdminGate>
+                    <AdminPage />
+                  </AdminGate>
                 </ProtectedRoute>
               } />
               <ReactRouterDOM.Route path="/my-applications" element={
@@ -194,27 +189,30 @@ const AppContent: React.FC = () => {
           <Footer />
         </div>
       </div>
-    </ReactRouterDOM.BrowserRouter>
   );
 };
 
 
 function App() {
   return (
-    <TranslationsProvider>
-      <LocalizationProvider>
-        <ToastProvider>
-          <ConfigProvider>
-            <AuthProvider>
-              <CartProvider>
-                <AppContent />
-                <SessionWatcher />
-              </CartProvider>
-            </AuthProvider>
-          </ConfigProvider>
-        </ToastProvider>
-      </LocalizationProvider>
-    </TranslationsProvider>
+    <ReactRouterDOM.BrowserRouter>
+      <TranslationsProvider>
+        <LocalizationProvider>
+          <ToastProvider>
+            <ConfigProvider>
+              <AuthProvider>
+                <AdminGateProvider>
+                  <CartProvider>
+                    <AppContent />
+                    <SessionWatcher />
+                  </CartProvider>
+                </AdminGateProvider>
+              </AuthProvider>
+            </ConfigProvider>
+          </ToastProvider>
+        </LocalizationProvider>
+      </TranslationsProvider>
+    </ReactRouterDOM.BrowserRouter>
   );
 }
 

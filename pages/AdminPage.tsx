@@ -6,6 +6,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 // FIX: Updated import paths to point to the 'src' directory
 import { useAuth } from '../src/hooks/useAuth';
@@ -27,8 +29,8 @@ import {
   getProducts,
   saveProduct,
   deleteProduct,
-  // FIX: Added missing import for logAdminAccess.
-  logAdminAccess,
+  // FIX: Replaced missing import 'logAdminAccess' with 'logAdminPageVisit'.
+  logAdminPageVisit,
 } from '../src/lib/api';
 import type { Quiz, QuizQuestion, QuizSubmission, SubmissionStatus, AuditLogEntry, RuleCategory, Rule, Product } from '../src/types';
 // FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
@@ -114,8 +116,8 @@ const AdminPage: React.FC = () => {
             setIsSuperAdmin(userIsSuperAdmin);
 
             if (!accessLoggedRef.current) {
-                // FIX: The logAdminAccess function does not take any arguments.
-                await logAdminAccess();
+                // FIX: Replaced call to non-existent 'logAdminAccess' with 'logAdminPageVisit'.
+                await logAdminPageVisit('Admin Panel Access');
                 accessLoggedRef.current = true;
             }
 
