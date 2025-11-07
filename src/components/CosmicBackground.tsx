@@ -19,18 +19,6 @@ const CosmicBackground: React.FC = () => {
           z-index: 0;
         }
 
-        @function multiple-box-shadow($n) {
-          $value: '#{random(2000)}px #{random(2000)}px #FFF';
-          @for $i from 2 through $n {
-            $value: '#{$value} , #{random(2000)}px #{random(2000)}px #FFF';
-          }
-          @return $value;
-        }
-
-        $shadows-small: multiple-box-shadow(700);
-        $shadows-medium: multiple-box-shadow(200);
-        $shadows-big: multiple-box-shadow(100);
-
         #stars {
           width: 1px;
           height: 1px;
@@ -81,10 +69,14 @@ const CosmicBackground: React.FC = () => {
           background: transparent;
           box-shadow: ${" ".repeat(100).replace(/ /g, () => `${Math.random() * 2000}px ${Math.random() * 2000}px #FFF, `).slice(0, -2)};
         }
-        
+
         @keyframes animStar {
-          from { transform: translateY(0px); }
-          to { transform: translateY(-2000px); }
+          from {
+            transform: translateY(0px);
+          }
+          to {
+            transform: translateY(-2000px);
+          }
         }
       `}</style>
     </div>

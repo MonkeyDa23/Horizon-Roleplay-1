@@ -34,7 +34,7 @@ import { env } from './env';
 import type { PermissionKey } from './types';
 
 
-const ProtectedRoute: React.FC<{ children: React.ReactNode; permission: PermissionKey; }> = ({ children, permission }) => {
+const ProtectedRoute: React.FC<{ children: React.ReactNode; permission?: PermissionKey; }> = ({ children, permission }) => {
   const { user, hasPermission, loading } = useAuth();
   const location = ReactRouterDOM.useLocation();
 
@@ -46,7 +46,11 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; permission: Permissi
     );
   }
 
-  if (!user || !hasPermission(permission)) {
+  // If a specific permission is required, check for it.
+  // If no permission is specified, just check if the user is logged in.
+  const isAuthorized = permission ? user && hasPermission(permission) : !!user;
+
+  if (!isAuthorized) {
     return <ReactRouterDOM.Navigate to="/" state={{ from: location }} replace />;
   }
 
@@ -122,7 +126,7 @@ const AppContent: React.FC = () => {
         }}
       >
         <CosmicBackground />
-        <div className="flex flex-col min-h-screen relative z-10 bg-brand-dark/90 backdrop-blur-sm">
+        <div className="flex flex-col min-h-screen relative z-10 bg-brand-dark/90">
           <Navbar />
           {permissionWarning && <PermissionWarningBanner message={permissionWarning} />}
           <main className="flex-grow">
@@ -132,7 +136,7 @@ const AppContent: React.FC = () => {
               <ReactRouterDOM.Route path="/store/:productId" element={<ProductDetailPage />} />
               <ReactRouterDOM.Route path="/rules" element={<RulesPage />} />
               <ReactRouterDOM.Route path="/applies" element={<AppliesPage />} />
-              <ReactRouterDOM.Route path="/applies/:quizId" element={<QuizPage />} />
+              <ReactRouterDOM.Route path="/applies/:quizId" element={<ProtectedRoute><QuizPage /></ProtectedRoute>} />
               <ReactRouterDOM.Route path="/about" element={<AboutUsPage />} />
               <ReactRouterDOM.Route path="/admin" element={
                 <ProtectedRoute permission="admin_panel">
@@ -140,12 +144,12 @@ const AppContent: React.FC = () => {
                 </ProtectedRoute>
               } />
               <ReactRouterDOM.Route path="/my-applications" element={
-                <ProtectedRoute permission="page_applies">
+                <ProtectedRoute>
                   <MyApplicationsPage />
                 </ProtectedRoute>
               }/>
               <ReactRouterDOM.Route path="/profile" element={
-                 <ProtectedRoute permission="page_applies">
+                 <ProtectedRoute>
                   <ProfilePage />
                 </ProtectedRoute>
               } />

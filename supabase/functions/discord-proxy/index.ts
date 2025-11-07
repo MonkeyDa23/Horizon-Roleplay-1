@@ -5,7 +5,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-proxy-secret',
 };
 
 const createResponse = (data: unknown, status = 200) => {
@@ -21,15 +21,15 @@ serve(async (req) => {
   }
 
   try {
-    // 1. Authenticate the request from the database trigger
+    // 1. Authenticate the request from the database trigger using the custom header
     // @ts-ignore
     const proxySecret = Deno.env.get('DISCORD_PROXY_SECRET');
     if (!proxySecret) {
         console.error("[FATAL] DISCORD_PROXY_SECRET is not set in function secrets.");
         return createResponse({ error: "Proxy authentication is not configured." }, 500);
     }
-    const authHeader = req.headers.get('Authorization');
-    if (authHeader !== `Bearer ${proxySecret}`) {
+    const authHeader = req.headers.get('x-proxy-secret');
+    if (authHeader !== proxySecret) {
         console.warn(`[AUTH_FAIL] Unauthorized request to discord-proxy from IP: ${req.headers.get('x-forwarded-for')}`);
         return createResponse({ error: 'Unauthorized.' }, 401);
     }
@@ -73,4 +73,4 @@ serve(async (req) => {
     console.error('[FATAL] An unhandled error occurred in the discord-proxy function:', error.message);
     return createResponse({ error: error.message }, 500);
   }
-})
+}, { verifyJwt: false }) // This option explicitly disables JWT verification for this function.
