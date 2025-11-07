@@ -1,5 +1,5 @@
-// FIX: Add Deno types reference to resolve "Cannot find name 'Deno'" errors.
-/// <reference types="https://deno.land/x/deno/cli/types/deno.d.ts" />
+// FIX: Replaced invalid Deno types reference with a valid one.
+/// <reference types="https://raw.githubusercontent.com/denoland/deno/main/cli/tsc/dts/lib.deno.d.ts" />
 
 // supabase/functions/test-notification/index.ts
 // @deno-types="https://esm.sh/@supabase/functions-js@2"

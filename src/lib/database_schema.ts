@@ -2,7 +2,7 @@
 
 export const databaseSchema = `
 /*
--- Vixel Roleplay Website - Full Database Schema (V8.0.0 - Bot-less Architecture)
+-- Vixel Roleplay Website - Full Database Schema (V9.0.0 - True Bot-less)
 
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -80,12 +80,12 @@ CREATE TABLE public.config (
     "BACKGROUND_IMAGE_URL" text,
     "SHOW_HEALTH_CHECK" boolean DEFAULT false,
     
-    -- Notification Webhooks
-    "submissions_webhook_url" text,
-    "log_webhook_submissions" text,
-    "log_webhook_bans" text,
-    "log_webhook_admin" text,
-    "audit_log_webhook_url" text, -- General/Fallback
+    -- Notification Channel IDs (No more webhooks!)
+    "submissions_channel_id" text,
+    "log_channel_submissions" text,
+    "log_channel_bans" text,
+    "log_channel_admin" text,
+    "audit_log_channel_id" text, -- General/Fallback
     
     -- Mention Roles
     "mention_role_submissions" text,
@@ -217,8 +217,6 @@ BEGIN
 END;
 $$;
 
--- This is the new, simplified notification function.
--- It securely calls the 'discord-proxy' Edge Function using the service role key.
 CREATE OR REPLACE FUNCTION private.send_notification(p_type text, p_payload jsonb)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions
 AS $$
@@ -231,8 +229,6 @@ BEGIN
   project_url := 'https://' || split_part(current_setting('supa.endpoint'), ':', 1);
   proxy_url := project_url || '/functions/v1/discord-proxy';
 
-  -- The service role key is retrieved securely from a private schema.
-  -- This key allows this function to securely invoke the Edge Function.
   SELECT decrypted_secret INTO service_key FROM vault.decrypted_secrets WHERE name = 'service_role_key';
   IF service_key IS NULL THEN
     RAISE WARNING 'Could not retrieve service_role_key to send notification. Please ensure it is available in vault.';
@@ -508,23 +504,19 @@ DECLARE
 BEGIN
     IF NOT public.has_permission(public.get_user_id(), 'admin_rules') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
 
-    -- Clear existing rules
     DELETE FROM public.rules;
 
     FOR category IN SELECT * FROM jsonb_array_elements(p_rules_data) LOOP
-        -- Upsert category title translation
         INSERT INTO public.translations (key, en, ar)
         VALUES (category->>'titleKey', category->>'titleEn', category->>'titleAr')
         ON CONFLICT (key) DO UPDATE SET en = EXCLUDED.en, ar = EXCLUDED.ar;
 
-        -- Upsert rule text translations
         FOR rule IN SELECT * FROM jsonb_array_elements(category->'rules') LOOP
             INSERT INTO public.translations (key, en, ar)
             VALUES (rule->>'textKey', rule->>'textEn', rule->>'textAr')
             ON CONFLICT (key) DO UPDATE SET en = EXCLUDED.en, ar = EXCLUDED.ar;
         END LOOP;
         
-        -- Insert the category with its rules
         INSERT INTO public.rules (id, "titleKey", position, rules)
         VALUES (
             (category->>'id')::uuid,
@@ -551,7 +543,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.update_config(new_config jsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
     allowed_admin_keys text[] := ARRAY['COMMUNITY_NAME', 'LOGO_URL', 'DISCORD_GUILD_ID', 'BACKGROUND_IMAGE_URL'];
-    allowed_notif_keys text[] := ARRAY['submissions_webhook_url', 'log_webhook_submissions', 'log_webhook_bans', 'log_webhook_admin', 'audit_log_webhook_url', 'mention_role_submissions', 'mention_role_audit_log_submissions', 'mention_role_audit_log_bans', 'mention_role_audit_log_admin', 'mention_role_audit_log_general'];
+    allowed_notif_keys text[] := ARRAY['submissions_channel_id', 'log_channel_submissions', 'log_channel_bans', 'log_channel_admin', 'audit_log_channel_id', 'mention_role_submissions', 'mention_role_audit_log_submissions', 'mention_role_audit_log_bans', 'mention_role_audit_log_admin', 'mention_role_audit_log_general'];
     key text;
     sql_query text := 'UPDATE public.config SET ';
     updates text[] := '{}';
@@ -647,11 +639,9 @@ BEGIN
     'timestamp', NEW.timestamp,
     'log_type', NEW.log_type
   );
-  -- Send to bot for logging
   BEGIN
     PERFORM private.send_notification('audit_log', payload);
   EXCEPTION WHEN OTHERS THEN
-    -- Log the error but don't fail the original transaction
     RAISE WARNING 'Failed to send audit log notification: %', SQLERRM;
   END;
   RETURN NEW;

@@ -1,6 +1,6 @@
-# Supabase & Bot-less Setup Guide (V9.0.0)
+# Supabase & True Bot-less Setup Guide (V10.0.0)
 
-This guide provides the complete, simplified instructions for deploying and configuring the backend for your website. This architecture is **"bot-less"**, meaning you **do not need to host or run a separate bot application**. All communication with Discord happens directly and securely through Supabase Edge Functions.
+This guide provides the complete, simplified instructions for deploying and configuring the backend for your website. This architecture is **truly "bot-less"**, meaning you **do not need to host or run a separate bot application**, and you **do not need to create any webhooks**. All communication with Discord happens directly and securely through Supabase Edge Functions using only a bot token.
 
 **Please follow these steps exactly.**
 
@@ -20,7 +20,7 @@ You need a bot application to get a token, which allows your website to interact
 5.  Click **"Save Changes"**.
 6.  Click the **"Reset Token"** button, confirm, and **copy the new token**. You will need this in the next step.
 7.  Go to the **"OAuth2"** tab -> **"URL Generator"**.
-8.  Select the scopes `bot` and `applications.commands`.
+8.  Select the scope `bot`.
 9.  Under "Bot Permissions", select **"Administrator"**. This is the easiest way to ensure it has all necessary permissions.
 10. Copy the generated URL at the bottom, paste it into your browser, and add the bot to your Discord server.
 
@@ -33,9 +33,9 @@ This secret allows your Edge Functions to securely act as your bot.
 1.  Go to your Supabase Project -> **Settings** (gear icon) -> **Edge Functions**.
 2.  Under the **"Secrets"** section, click **"Add a new secret"**.
 
-| Secret Name         | Value                                                 | Where to get it?                                |
-| ------------------- | ----------------------------------------------------- | ----------------------------------------------- |
-| `DISCORD_BOT_TOKEN` | The bot token you copied in the previous step.        | From your bot's page in the Discord Developer Portal. |
+| Secret Name         | Value                                                 |
+| ------------------- | ----------------------------------------------------- |
+| `DISCORD_BOT_TOKEN` | The bot token you copied in the previous step.        |
 
 ---
 
@@ -74,17 +74,30 @@ This script will automatically enable the `http` extension required for the data
 
 ---
 
-## Step 5: Final Configuration in Admin Panel
+## Step 5: How to Get Discord IDs
+
+For the final configuration step, you will need Server, Channel, and Role IDs. Here's how to get them:
+
+1.  In your Discord app, go to **User Settings** (gear icon) -> **Advanced**.
+2.  Enable **Developer Mode**.
+3.  Now you can right-click on anything in Discord to get its ID:
+    -   **Server ID:** Right-click your server's icon -> "Copy Server ID".
+    -   **Channel ID:** Right-click any text channel -> "Copy Channel ID".
+    -   **Role ID:** Go to Server Settings -> Roles, right-click a role -> "Copy Role ID".
+
+---
+
+## Step 6: Final Configuration in Admin Panel
 
 Once your website is running, you need to link it to your Discord server and set up notifications.
 
 1.  Log into your website with your admin account.
 2.  Navigate to the **Admin Panel**.
 3.  Go to the **Appearance** tab:
-    -   Fill in your **Discord Guild ID**. (Right-click your server icon in Discord -> "Copy Server ID". You need Developer Mode enabled).
+    -   Fill in your **Discord Guild ID**.
 4.  Go to the **Notifications** tab:
-    -   Fill in the **Webhook URLs** for the channels where you want to receive notifications (e.g., new submissions, audit logs).
-    -   Fill in the **Mention Role IDs** for roles you want to ping in those notifications. (Right-click a role -> "Copy Role ID").
+    -   Fill in the **Channel IDs** for the channels where you want to receive notifications (e.g., new submissions, audit logs).
+    -   Fill in the **Mention Role IDs** for roles you want to ping in those notifications.
 5.  Click **"Save Settings"** on both pages.
 
 ---

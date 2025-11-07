@@ -37,7 +37,7 @@ export type PermissionKey =
   | 'admin_permissions'
   | 'admin_lookup'
   | 'admin_notifications'
-  | 'admin_widgets'; // New permission for Discord widgets
+  | 'admin_widgets';
 
 export interface DiscordRole {
   id: string;
@@ -67,7 +67,7 @@ export interface AuthContextType {
   updateUser: (user: User) => void;
   hasPermission: (key: PermissionKey) => boolean;
   permissionWarning: string | null;
-  syncError: Error | null; // New property
+  syncError: Error | null;
 }
 
 export interface UserLookupResult {
@@ -188,10 +188,7 @@ export interface DiscordWidget {
     position: number;
 }
 
-// FIX: Add missing notification-related properties to the AppConfig interface.
 export interface AppConfig {
-    SUPABASE_PROJECT_URL: string | null;
-    DISCORD_PROXY_SECRET: string | null;
     COMMUNITY_NAME: string;
     LOGO_URL: string;
     DISCORD_GUILD_ID: string;
@@ -199,11 +196,15 @@ export interface AppConfig {
     MTA_SERVER_URL: string;
     BACKGROUND_IMAGE_URL: string;
     SHOW_HEALTH_CHECK: boolean;
-    submissions_webhook_url: string | null;
-    log_webhook_submissions: string | null;
-    log_webhook_bans: string | null;
-    log_webhook_admin: string | null;
-    audit_log_webhook_url: string | null;
+
+    // Notification Channel IDs
+    submissions_channel_id: string | null;
+    log_channel_submissions: string | null;
+    log_channel_bans: string | null;
+    log_channel_admin: string | null;
+    audit_log_channel_id: string | null;
+
+    // Mention Roles
     mention_role_submissions: string | null;
     mention_role_audit_log_submissions: string | null;
     mention_role_audit_log_bans: string | null;

@@ -1,11 +1,11 @@
 // src/components/admin/NotificationsPanel.tsx
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalization } from '../../hooks/useLocalization';
 import { useToast } from '../../hooks/useToast';
 import { getTranslations, saveTranslations, testNotification, saveConfig } from '../../lib/api';
 import { useConfig } from '../../hooks/useConfig';
 import type { Translations, AppConfig } from '../../types';
-import { Loader2, Bell, HelpCircle } from 'lucide-react';
+import { Loader2, HelpCircle } from 'lucide-react';
 import Modal from '../Modal';
 
 const notificationTemplates = {
@@ -100,19 +100,11 @@ const NotificationsPanel: React.FC = () => {
         return <div className="flex justify-center items-center py-20"><Loader2 size={40} className="text-brand-cyan animate-spin" /></div>;
     }
     
-    const WebhookField = ({ labelKey, descKey, value, onChange }: { labelKey: string, descKey: string, value: string | null | undefined, onChange: (val: string) => void }) => (
+    const IdField = ({ labelKey, descKey, value, onChange }: { labelKey: string, descKey: string, value: string | null | undefined, onChange: (val: string) => void }) => (
         <div>
             <label className="block text-md font-semibold text-white mb-1">{t(labelKey)}</label>
             <p className="text-sm text-gray-400 mb-2">{t(descKey)}</p>
-            <input type="text" value={value || ''} onChange={e => onChange(e.target.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
-        </div>
-    );
-    
-    const RoleField = ({ labelKey, descKey, value, onChange }: { labelKey: string, descKey: string, value: string | null | undefined, onChange: (val: string) => void }) => (
-        <div>
-            <label className="block text-md font-semibold text-white mb-1">{t(labelKey)}</label>
-            <p className="text-sm text-gray-400 mb-2">{t(descKey)}</p>
-            <input type="text" value={value || ''} onChange={e => onChange(e.target.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
+            <input type="text" value={value || ''} onChange={e => onChange(e.target.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 font-mono text-sm"/>
         </div>
     );
 
@@ -165,7 +157,6 @@ const NotificationsPanel: React.FC = () => {
             </div>
             
             <div className="space-y-8">
-                {/* DM Messages Section */}
                 {Object.values(notificationTemplates).map(group => (
                     <div key={group.title} className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
                         <h3 className="text-2xl font-bold text-brand-cyan mb-1">{t(group.title)}</h3>
@@ -176,25 +167,25 @@ const NotificationsPanel: React.FC = () => {
                     </div>
                 ))}
                 
-                {/* Webhook/Role Settings */}
                 <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
-                    <h3 className="text-2xl font-bold text-brand-cyan mb-4">Webhook & Role Settings</h3>
+                    <h3 className="text-2xl font-bold text-brand-cyan mb-4">Channel & Role Settings</h3>
+                    <div className="p-3 rounded-md bg-blue-500/10 border border-blue-500/30 mb-6">
+                        <p className="text-sm text-blue-200 mt-1">{t('channel_id_desc')}</p>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        {/* Webhooks */}
                         <div className="space-y-6">
-                             <WebhookField labelKey="submissions_webhook_url" descKey="submissions_webhook_url_desc" value={settings.submissions_webhook_url} onChange={v => handleConfigChange('submissions_webhook_url', v)} />
-                             <WebhookField labelKey="log_webhook_submissions" descKey="log_webhook_submissions_desc" value={settings.log_webhook_submissions} onChange={v => handleConfigChange('log_webhook_submissions', v)} />
-                             <WebhookField labelKey="log_webhook_bans" descKey="log_webhook_bans_desc" value={settings.log_webhook_bans} onChange={v => handleConfigChange('log_webhook_bans', v)} />
-                             <WebhookField labelKey="log_webhook_admin" descKey="log_webhook_admin_desc" value={settings.log_webhook_admin} onChange={v => handleConfigChange('log_webhook_admin', v)} />
-                             <WebhookField labelKey="audit_log_webhook_url" descKey="audit_log_webhook_url_desc" value={settings.audit_log_webhook_url} onChange={v => handleConfigChange('audit_log_webhook_url', v)} />
+                             <IdField labelKey="submissions_channel_id" descKey="submissions_channel_id_desc" value={settings.submissions_channel_id} onChange={v => handleConfigChange('submissions_channel_id', v)} />
+                             <IdField labelKey="log_channel_submissions" descKey="log_channel_submissions_desc" value={settings.log_channel_submissions} onChange={v => handleConfigChange('log_channel_submissions', v)} />
+                             <IdField labelKey="log_channel_bans" descKey="log_channel_bans_desc" value={settings.log_channel_bans} onChange={v => handleConfigChange('log_channel_bans', v)} />
+                             <IdField labelKey="log_channel_admin" descKey="log_channel_admin_desc" value={settings.log_channel_admin} onChange={v => handleConfigChange('log_channel_admin', v)} />
+                             <IdField labelKey="audit_log_channel_id" descKey="audit_log_channel_id_desc" value={settings.audit_log_channel_id} onChange={v => handleConfigChange('audit_log_channel_id', v)} />
                         </div>
-                        {/* Roles */}
                         <div className="space-y-6">
-                             <RoleField labelKey="mention_role_submissions" descKey="mention_role_submissions_desc" value={settings.mention_role_submissions} onChange={v => handleConfigChange('mention_role_submissions', v)} />
-                             <RoleField labelKey="mention_role_audit_log_submissions" descKey="mention_role_audit_log_submissions_desc" value={settings.mention_role_audit_log_submissions} onChange={v => handleConfigChange('mention_role_audit_log_submissions', v)} />
-                             <RoleField labelKey="mention_role_audit_log_bans" descKey="mention_role_audit_log_bans_desc" value={settings.mention_role_audit_log_bans} onChange={v => handleConfigChange('mention_role_audit_log_bans', v)} />
-                             <RoleField labelKey="mention_role_audit_log_admin" descKey="mention_role_audit_log_admin_desc" value={settings.mention_role_audit_log_admin} onChange={v => handleConfigChange('mention_role_audit_log_admin', v)} />
-                             <RoleField labelKey="mention_role_audit_log_general" descKey="mention_role_audit_log_general_desc" value={settings.mention_role_audit_log_general} onChange={v => handleConfigChange('mention_role_audit_log_general', v)} />
+                             <IdField labelKey="mention_role_submissions" descKey="mention_role_submissions_desc" value={settings.mention_role_submissions} onChange={v => handleConfigChange('mention_role_submissions', v)} />
+                             <IdField labelKey="mention_role_audit_log_submissions" descKey="mention_role_audit_log_submissions_desc" value={settings.mention_role_audit_log_submissions} onChange={v => handleConfigChange('mention_role_audit_log_submissions', v)} />
+                             <IdField labelKey="mention_role_audit_log_bans" descKey="mention_role_audit_log_bans_desc" value={settings.mention_role_audit_log_bans} onChange={v => handleConfigChange('mention_role_audit_log_bans', v)} />
+                             <IdField labelKey="mention_role_audit_log_admin" descKey="mention_role_audit_log_admin_desc" value={settings.mention_role_audit_log_admin} onChange={v => handleConfigChange('mention_role_audit_log_admin', v)} />
+                             <IdField labelKey="mention_role_audit_log_general" descKey="mention_role_audit_log_general_desc" value={settings.mention_role_audit_log_general} onChange={v => handleConfigChange('mention_role_audit_log_general', v)} />
                         </div>
                     </div>
                 </div>

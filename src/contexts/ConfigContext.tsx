@@ -19,8 +19,17 @@ const defaultConfig: AppConfig = {
     MTA_SERVER_URL: 'mtasa://134.255.216.22:22041',
     BACKGROUND_IMAGE_URL: '',
     SHOW_HEALTH_CHECK: false,
-    SUPABASE_PROJECT_URL: null,
-    DISCORD_PROXY_SECRET: null,
+    // FIX: Removed properties not present in AppConfig type
+    submissions_channel_id: null,
+    log_channel_submissions: null,
+    log_channel_bans: null,
+    log_channel_admin: null,
+    audit_log_channel_id: null,
+    mention_role_submissions: null,
+    mention_role_audit_log_submissions: null,
+    mention_role_audit_log_bans: null,
+    mention_role_audit_log_admin: null,
+    mention_role_audit_log_general: null,
 };
 
 export const ConfigContext = createContext<ConfigContextType>({
