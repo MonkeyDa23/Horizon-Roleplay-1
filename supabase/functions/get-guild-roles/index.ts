@@ -33,8 +33,6 @@ const createAdminClient = () => {
 // --- End of inlined shared code ---
 
 // Main function logic
-const GUILD_ID = Deno.env.get('DISCORD_GUILD_ID');
-
 serve(async (req) => {
   // Handle CORS preflight requests. This is crucial for browser-based clients.
   if (req.method === 'OPTIONS') {
@@ -44,6 +42,7 @@ serve(async (req) => {
   try {
     // Initialize clients inside the handler to prevent CORS issues on error
     const discordApi = getDiscordApi();
+    const GUILD_ID = Deno.env.get('DISCORD_GUILD_ID');
 
     if (!GUILD_ID) {
       throw new Error("DISCORD_GUILD_ID is not configured in function secrets.");

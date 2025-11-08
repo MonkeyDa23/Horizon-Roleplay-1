@@ -80,7 +80,8 @@ const QuizPage: React.FC = () => {
     } catch (error) {
       console.error("Failed to submit application:", error);
       // FIX: Replaced alert with window.alert for explicit browser API usage.
-      if (typeof window !== 'undefined') window.alert("An error occurred while submitting your application. Please try again.");
+      // FIX: Cast window to any to bypass potential tsconfig lib errors for 'alert'.
+      if (typeof window !== 'undefined') (window as any).alert("An error occurred while submitting your application. Please try again.");
       setIsSubmitting(false);
     }
   }, [quiz, user, t, isSubmitting]);
@@ -134,7 +135,8 @@ const QuizPage: React.FC = () => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden' && quizState === 'taking') {
         // FIX: Replaced alert with window.alert for explicit browser API usage.
-        if (typeof window !== 'undefined') window.alert("You have switched away from the quiz tab. To ensure fairness, your application attempt has been cancelled.");
+        // FIX: Cast window to any to bypass potential tsconfig lib errors for 'alert'.
+        if (typeof window !== 'undefined') (window as any).alert("You have switched away from the quiz tab. To ensure fairness, your application attempt has been cancelled.");
         navigate('/applies');
       }
     };
@@ -211,7 +213,8 @@ const QuizPage: React.FC = () => {
         <textarea
           value={currentAnswer}
           // FIX: Replaced e.target with e.currentTarget for better type safety.
-          onChange={(e) => setCurrentAnswer(e.currentTarget.value)}
+          // FIX: Explicitly cast e.currentTarget to HTMLTextAreaElement to resolve type error.
+          onChange={(e) => setCurrentAnswer((e.currentTarget as HTMLTextAreaElement).value)}
           className="w-full bg-brand-light-blue text-white p-4 rounded-md border border-gray-600 focus:ring-2 focus:ring-brand-cyan focus:border-brand-cyan transition-colors"
           rows={6}
           placeholder="Type your answer here..."

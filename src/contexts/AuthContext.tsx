@@ -77,7 +77,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = useCallback(async () => {
     if (!supabase) {
         // FIX: Replaced alert with window.alert for explicit browser API usage.
-        if (typeof window !== 'undefined') window.alert("Login is not configured. Please add Supabase environment variables.");
+        // FIX: Cast window to any to bypass potential tsconfig lib errors for 'alert'.
+        if (typeof window !== 'undefined') (window as any).alert("Login is not configured. Please add Supabase environment variables.");
         return;
     }
     setLoading(true);
@@ -90,7 +91,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (error) {
         console.error("Error logging in:", error.message);
         // FIX: Replaced alert with window.alert for explicit browser API usage.
-        if (typeof window !== 'undefined') window.alert(`Login failed: ${error.message}`);
+        // FIX: Cast window to any to bypass potential tsconfig lib errors for 'alert'.
+        if (typeof window !== 'undefined') (window as any).alert(`Login failed: ${error.message}`);
         setLoading(false);
     }
   }, []);

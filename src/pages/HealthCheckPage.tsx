@@ -184,7 +184,8 @@ const HealthCheckPage: React.FC = () => {
                         type="text" 
                         value={syncDiscordId}
                         // FIX: Replaced e.target with e.currentTarget for better type safety.
-                        onChange={(e) => setSyncDiscordId(e.currentTarget.value)}
+                        // FIX: Explicitly cast e.currentTarget to HTMLInputElement to resolve type error.
+                        onChange={(e) => setSyncDiscordId((e.currentTarget as HTMLInputElement).value)}
                         placeholder={t('health_check_discord_id_input')}
                         className="w-full bg-brand-light-blue p-3 rounded-md border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan"
                       />
