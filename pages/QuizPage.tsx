@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useCallback } from 'react';
 // FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
 // FIX: Switched to a namespace import for react-router-dom to resolve module resolution errors.
@@ -115,6 +114,7 @@ const QuizPage: React.FC = () => {
   }, [timeLeft, quizState, quiz, handleNextQuestion]);
   
   useEffect(() => {
+    // FIX: Guard against window access in non-browser environments.
     if (typeof window === 'undefined') return;
     // FIX: Changed BeforeUnloadEvent to any to avoid type errors in non-DOM environments.
     const handleBeforeUnload = (e: any) => {
@@ -128,6 +128,7 @@ const QuizPage: React.FC = () => {
   }, [quizState]);
 
   useEffect(() => {
+    // FIX: Guard against document access in non-browser environments.
     if (typeof document === 'undefined') return;
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden' && quizState === 'taking') {
@@ -139,6 +140,7 @@ const QuizPage: React.FC = () => {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
+      // FIX: Guard against document access in non-browser environments.
       if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [quizState, navigate]);

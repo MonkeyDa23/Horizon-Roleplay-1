@@ -1,8 +1,43 @@
+
+// FIX: Updated the Edge Function type reference to resolve Deno runtime types.
+/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
+
+// This file is bundled for standalone deployment.
+// --- Start of inlined shared code ---
 // FIX: Updated the type reference to a reliable CDN to resolve Deno runtime types.
 /// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
 
-import { corsHeaders, discordApi, createAdminClient } from '../shared/index.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js';
+import { REST } from "https://esm.sh/@discordjs/rest@2.2.0";
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+const BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
+if (!BOT_TOKEN) {
+  throw new Error("DISCORD_BOT_TOKEN is not configured in function secrets.");
+}
+const discordApi = new REST({
+  token: BOT_TOKEN,
+  version: "10",
+});
+
+const createAdminClient = () => {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error('Supabase URL or Service Role Key is not configured in function secrets.');
+  }
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false }
+  });
+};
+// --- End of inlined shared code ---
+
+
+// Original function code for discord-proxy
 const COLORS = {
   INFO: 0x00B2FF, // Blue
   SUCCESS: 0x22C55E, // Green
@@ -29,7 +64,7 @@ serve(async (req) => {
     
     const { data: translations, error: transError } = await supabaseAdmin.from('translations').select('key, en, ar');
     if (transError) throw new Error(`Failed to fetch translations: ${transError.message}`);
-    const t = (key, lang = 'en') => translations.find(tr => tr.key === key)?.[lang] || key;
+    const t = (key: string, lang = 'en') => (translations as any[]).find(tr => tr.key === key)?.[lang] || key;
 
     // 2. Process based on notification type
     switch (type) {
@@ -50,7 +85,7 @@ serve(async (req) => {
           timestamp: new Date(submission.submittedAt).toISOString()
         };
         const content = config.mention_role_submissions ? `<@&${config.mention_role_submissions}>` : '';
-        await discordApi.post(`/channels/${channelId}/messages`, { content, embeds: [embed] });
+        await discordApi.post(`/channels/${channelId}/messages`, { body: { content, embeds: [embed] } });
         break;
       }
       
@@ -65,8 +100,8 @@ serve(async (req) => {
             color: COLORS.INFO,
             timestamp: new Date().toISOString()
          };
-         const dmChannel = await discordApi.post('/users/@me/channels', { recipient_id: profile.discord_id });
-         await discordApi.post(`/channels/${dmChannel.id}/messages`, { embeds: [embed] });
+         const dmChannel = await discordApi.post('/users/@me/channels', { body: { recipient_id: profile.discord_id } }) as { id: string };
+         await discordApi.post(`/channels/${dmChannel.id}/messages`, { body: { embeds: [embed] } });
          break;
       }
 
@@ -95,8 +130,8 @@ serve(async (req) => {
             color: isAccepted ? COLORS.SUCCESS : COLORS.ERROR,
             timestamp: new Date(submission.updatedAt).toISOString()
         };
-        const dmChannel = await discordApi.post('/users/@me/channels', { recipient_id: profile.discord_id });
-        await discordApi.post(`/channels/${dmChannel.id}/messages`, { embeds: [embed] });
+        const dmChannel = await discordApi.post('/users/@me/channels', { body: { recipient_id: profile.discord_id } }) as { id: string };
+        await discordApi.post(`/channels/${dmChannel.id}/messages`, { body: { embeds: [embed] } });
         break;
       }
 
@@ -120,10 +155,10 @@ serve(async (req) => {
          };
 
          if (isUser) {
-            const dmChannel = await discordApi.post('/users/@me/channels', { recipient_id: targetId });
-            await discordApi.post(`/channels/${dmChannel.id}/messages`, { embeds: [embed] });
+            const dmChannel = await discordApi.post('/users/@me/channels', { body: { recipient_id: targetId } }) as {id: string};
+            await discordApi.post(`/channels/${dmChannel.id}/messages`, { body: { embeds: [embed] } });
          } else {
-            await discordApi.post(`/channels/${targetId}/messages`, { embeds: [embed] });
+            await discordApi.post(`/channels/${targetId}/messages`, { body: { embeds: [embed] } });
          }
          break;
       }
@@ -138,7 +173,7 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error(`[CRITICAL] discord-proxy: ${error.message}`);
-    const errorMessage = error.response ? JSON.stringify(await error.response.json()) : error.message;
+    const errorMessage = error.response ? JSON.stringify(await (error.response as any).json()) : error.message;
     return new Response(JSON.stringify({ error: `An unexpected error occurred: ${errorMessage}` }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,

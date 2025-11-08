@@ -1,3 +1,4 @@
+
 // src/components/CartModal.tsx
 import React, { useState } from 'react';
 import { useLocalization } from '../hooks/useLocalization';

@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { useConfig } from '../hooks/useConfig';
 
@@ -25,13 +26,16 @@ const SEO: React.FC<SEOProps> = ({ title, description, keywords, noIndex = false
       if (!element) {
         element = document.createElement('meta');
         if (isProperty) {
-          element.setAttribute('property', name);
+          // FIX: Cast element to 'any' to avoid TypeScript lib errors with setAttribute.
+          (element as any).setAttribute('property', name);
         } else {
-          element.setAttribute('name', name);
+          // FIX: Cast element to 'any' to avoid TypeScript lib errors with setAttribute.
+          (element as any).setAttribute('name', name);
         }
         document.head.appendChild(element);
       }
-      element.setAttribute('content', content);
+      // FIX: Cast element to 'any' to avoid TypeScript lib errors with setAttribute.
+      (element as any).setAttribute('content', content);
     };
 
     updateMetaTag('description', description);

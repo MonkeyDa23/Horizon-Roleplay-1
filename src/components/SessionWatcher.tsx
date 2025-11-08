@@ -12,6 +12,7 @@ const SessionWatcher = () => {
     const isValidating = useRef(false);
 
     useEffect(() => {
+        // FIX: Guard against window access in non-browser environments.
         if (!user || typeof window === 'undefined') {
             return;
         }

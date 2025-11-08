@@ -1,8 +1,43 @@
+
+// FIX: Updated the Edge Function type reference to resolve Deno runtime types.
+/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
+
+// This file is bundled for standalone deployment.
+// --- Start of inlined shared code ---
 // FIX: Updated the type reference to a reliable CDN to resolve Deno runtime types.
 /// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
 
-import { corsHeaders, discordApi, createAdminClient } from '../shared/index.ts';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js';
+import { REST } from "https://esm.sh/@discordjs/rest@2.2.0";
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+const BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
+if (!BOT_TOKEN) {
+  throw new Error("DISCORD_BOT_TOKEN is not configured in function secrets.");
+}
+const discordApi = new REST({
+  token: BOT_TOKEN,
+  version: "10",
+});
+
+const createAdminClient = () => {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error('Supabase URL or Service Role Key is not configured in function secrets.');
+  }
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false }
+  });
+};
+// --- End of inlined shared code ---
+
+
+// Original function code for troubleshoot-user-sync
 const GUILD_ID = Deno.env.get('DISCORD_GUILD_ID');
 
 serve(async (req) => {
@@ -36,8 +71,8 @@ serve(async (req) => {
     const response = {
         discord: {
             found: true,
-            username: member.user.username,
-            roles: member.roles,
+            username: (member as any).user.username,
+            roles: (member as any).roles,
         },
         database: {
             found: !!profile,
@@ -57,7 +92,7 @@ serve(async (req) => {
     let message = error.message;
 
     if (error.response) {
-      status = error.response.status;
+      status = (error.response as any).status;
       if (status === 404) {
         message = `User with ID ${error.config.url.split('/').pop()} was not found in the guild. This means the connection to Discord is working, but the user is not a member.`;
       } else if (status === 403) {

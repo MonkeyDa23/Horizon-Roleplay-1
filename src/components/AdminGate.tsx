@@ -1,3 +1,4 @@
+
 // src/components/AdminGate.tsx
 import React, { useState } from 'react';
 import { useAdminGate } from '../contexts/AdminGateContext';
@@ -53,6 +54,7 @@ const AdminGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                             id="admin-password"
                             type="password"
                             value={password}
+                            // FIX: Changed e.target to e.currentTarget for better type safety.
                             onChange={(e) => setPassword(e.currentTarget.value)}
                             className="w-full bg-brand-light-blue p-3 rounded-md border border-gray-600 text-center text-lg tracking-widest"
                             autoFocus

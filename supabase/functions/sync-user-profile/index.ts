@@ -1,8 +1,43 @@
+
+// FIX: Updated the Edge Function type reference to resolve Deno runtime types.
+/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
+
+// This file is bundled for standalone deployment.
+// --- Start of inlined shared code ---
 // FIX: Updated the type reference to a reliable CDN to resolve Deno runtime types.
 /// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
-import { corsHeaders, discordApi, createAdminClient } from '../shared/index.ts';
+import { REST } from "https://esm.sh/@discordjs/rest@2.2.0";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+const BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
+if (!BOT_TOKEN) {
+  throw new Error("DISCORD_BOT_TOKEN is not configured in function secrets.");
+}
+const discordApi = new REST({
+  token: BOT_TOKEN,
+  version: "10",
+});
+
+const createAdminClient = () => {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error('Supabase URL or Service Role Key is not configured in function secrets.');
+  }
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false }
+  });
+};
+// --- End of inlined shared code ---
+
+
+// Original function code for sync-user-profile
 import type { User, DiscordRole, PermissionKey } from '../../../src/types.ts';
 
 const GUILD_ID = Deno.env.get('DISCORD_GUILD_ID');
@@ -59,14 +94,14 @@ serve(async (req) => {
     }
     
     // 5. Fetch all guild roles once for efficient lookup
-    const allGuildRoles: DiscordRole[] = await discordApi.get(`/guilds/${GUILD_ID}/roles`);
+    const allGuildRoles: DiscordRole[] = (await discordApi.get(`/guilds/${GUILD_ID}/roles`)) as any[];
     const rolesMap = new Map(allGuildRoles.map(r => [r.id, r]));
 
     // 6. Map member's roles and find the highest one
-    const memberRoles: DiscordRole[] = member.roles
+    const memberRoles: DiscordRole[] = (member as any).roles
         .map((roleId: string) => rolesMap.get(roleId))
         .filter(Boolean)
-        .sort((a, b) => b.position - a.position);
+        .sort((a:any, b:any) => b.position - a.position);
 
     const highestRole = memberRoles[0] || null;
 
@@ -74,7 +109,7 @@ serve(async (req) => {
     const { data: permissionsData, error: permissionsError } = await supabaseAdmin
       .from('role_permissions')
       .select('permissions')
-      .in('role_id', member.roles);
+      .in('role_id', (member as any).roles);
 
     if (permissionsError) {
       console.error(`Permissions fetch error:`, permissionsError.message);
@@ -91,10 +126,10 @@ serve(async (req) => {
     const finalUser: User = {
       id: authUser.id,
       discordId: discordId,
-      username: member.user.global_name || member.user.username,
-      avatar: member.avatar 
-        ? `https://cdn.discordapp.com/guilds/${GUILD_ID}/users/${discordId}/avatars/${member.avatar}.png`
-        : `https://cdn.discordapp.com/avatars/${discordId}/${member.user.avatar}.png`,
+      username: (member as any).user.global_name || (member as any).user.username,
+      avatar: (member as any).avatar 
+        ? `https://cdn.discordapp.com/guilds/${GUILD_ID}/users/${discordId}/avatars/${(member as any).avatar}.png`
+        : `https://cdn.discordapp.com/avatars/${discordId}/${(member as any).user.avatar}.png`,
       roles: memberRoles,
       highestRole: highestRole,
       permissions: Array.from(userPermissions),

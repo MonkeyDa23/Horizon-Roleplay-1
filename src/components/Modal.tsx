@@ -1,3 +1,4 @@
+
 // src/components/Modal.tsx
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
@@ -13,7 +14,8 @@ interface ModalProps {
 const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidth = 'md' }) => {
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      // FIX: Cast event to 'any' to access 'key' property, avoiding potential tsconfig lib errors.
+      if ((event as any).key === 'Escape') {
         onClose();
       }
     };

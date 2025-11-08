@@ -1,17 +1,4 @@
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 import React, { useState, useEffect, useCallback } from 'react';
 // FIX: Fix "no exported member" errors from 'react-router-dom' by switching to a namespace import.
 import * as ReactRouterDOM from 'react-router-dom';
@@ -170,6 +157,7 @@ const QuizPage: React.FC = () => {
   }, [timeLeft, quizState, quiz, handleNextQuestion]);
   
   useEffect(() => {
+    // FIX: Guard against document access in non-browser environments.
     if (quizState !== 'taking' || typeof document === 'undefined') return;
 
     const handleCheat = (method: string) => {
