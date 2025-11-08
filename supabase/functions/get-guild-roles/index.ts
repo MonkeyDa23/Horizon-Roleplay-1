@@ -1,5 +1,4 @@
 // supabase/functions/get-guild-roles/index.ts
-// FIX: Updated the Supabase function type reference to a valid path.
 /// <reference types="https://esm.sh/@supabase/functions-js" />
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -12,6 +11,7 @@ const corsHeaders = {
 const DISCORD_API_BASE = 'https://discord.com/api/v10';
 
 async function makeDiscordRequest(endpoint: string, options: RequestInit = {}) {
+  // FIX: Cast Deno to `any` to avoid type errors in some environments.
   const BOT_TOKEN = (Deno as any).env.get('DISCORD_BOT_TOKEN');
   if (!BOT_TOKEN) {
     throw new Error("DISCORD_BOT_TOKEN is not configured in function secrets.");
@@ -27,7 +27,8 @@ async function makeDiscordRequest(endpoint: string, options: RequestInit = {}) {
   });
 
   if (!response.ok) {
-    const errorBody = await response.json().catch(() => ({ message: 'Failed to parse error body' }));
+    // FIX: Safely parse error body and cast to access message property.
+    const errorBody = await response.json().catch(() => ({ message: 'Failed to parse error body' })) as { message?: string };
     console.error(`Discord API Error on ${options.method || 'GET'} ${endpoint}: ${response.status}`, errorBody);
     const error = new Error(`Discord API Error: ${errorBody.message || response.statusText}`);
     (error as any).status = response.status;
@@ -35,11 +36,7 @@ async function makeDiscordRequest(endpoint: string, options: RequestInit = {}) {
     throw error;
   }
   
-  if (response.status === 204) {
-    return null;
-  }
-  
-  return response.json();
+  return response.status === 204 ? null : response.json();
 }
 
 const discordApi = {
@@ -54,6 +51,7 @@ serve(async (req) => {
   }
 
   try {
+    // FIX: Cast Deno to `any` to avoid type errors in some environments.
     const GUILD_ID = (Deno as any).env.get('DISCORD_GUILD_ID');
 
     if (!GUILD_ID) {
@@ -74,7 +72,6 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('[CRITICAL] get-guild-roles:', error);
-    // FIX: Improved error handling to safely access the message property from an unknown type.
     const message = error instanceof Error ? error.message : String(error);
     return new Response(JSON.stringify({ error: `Failed to fetch roles: ${message}` }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

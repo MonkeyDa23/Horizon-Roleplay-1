@@ -19,13 +19,21 @@ const defaultConfig: AppConfig = {
     MTA_SERVER_URL: 'mtasa://134.255.216.22:22041',
     BACKGROUND_IMAGE_URL: '',
     SHOW_HEALTH_CHECK: false,
-    // FIX: Added missing admin_password property to satisfy the AppConfig type.
     admin_password: null,
+
+    // New Webhook logging settings
+    // FIX: Added missing properties to satisfy the AppConfig type.
+    DISCORD_PROXY_URL: null,
+    DISCORD_PROXY_SECRET: null,
+
+    // Notification Channel IDs
     submissions_channel_id: null,
     log_channel_submissions: null,
     log_channel_bans: null,
     log_channel_admin: null,
     audit_log_channel_id: null,
+
+    // Mention Roles
     mention_role_submissions: null,
     mention_role_audit_log_submissions: null,
     mention_role_audit_log_bans: null,

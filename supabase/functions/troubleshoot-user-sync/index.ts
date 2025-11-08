@@ -1,5 +1,4 @@
 // supabase/functions/troubleshoot-user-sync/index.ts
-// FIX: Updated the Supabase function type reference to a valid path.
 /// <reference types="https://esm.sh/@supabase/functions-js" />
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
@@ -13,6 +12,7 @@ const corsHeaders = {
 const DISCORD_API_BASE = 'https://discord.com/api/v10';
 
 async function makeDiscordRequest(endpoint: string, options: RequestInit = {}) {
+  // FIX: Cast Deno to `any` to avoid type errors in some environments.
   const BOT_TOKEN = (Deno as any).env.get('DISCORD_BOT_TOKEN');
   if (!BOT_TOKEN) {
     throw new Error("DISCORD_BOT_TOKEN is not configured in function secrets.");
@@ -28,7 +28,8 @@ async function makeDiscordRequest(endpoint: string, options: RequestInit = {}) {
   });
 
   if (!response.ok) {
-    const errorBody = await response.json().catch(() => ({ message: 'Failed to parse error body' }));
+    // FIX: Safely parse error body and cast to access message property.
+    const errorBody = await response.json().catch(() => ({ message: 'Failed to parse error body' })) as { message?: string };
     console.error(`Discord API Error on ${options.method || 'GET'} ${endpoint}: ${response.status}`, errorBody);
     const error = new Error(`Discord API Error: ${errorBody.message || response.statusText}`);
     (error as any).status = response.status;
@@ -36,11 +37,7 @@ async function makeDiscordRequest(endpoint: string, options: RequestInit = {}) {
     throw error;
   }
   
-  if (response.status === 204) {
-    return null;
-  }
-  
-  return response.json();
+  return response.status === 204 ? null : response.json();
 }
 
 const discordApi = {
@@ -51,6 +48,7 @@ serve(async (req) => {
   console.log(`[troubleshoot-user-sync] Received ${req.method} request.`);
 
   const createAdminClient = () => {
+    // FIX: Cast Deno to `any` to avoid type errors in some environments.
     const supabaseUrl = (Deno as any).env.get('SUPABASE_URL');
     const serviceRoleKey = (Deno as any).env.get('SUPABASE_SERVICE_ROLE_KEY');
     if (!supabaseUrl || !serviceRoleKey) throw new Error('Supabase URL or Service Role Key is not configured in function secrets.');
@@ -67,6 +65,7 @@ serve(async (req) => {
     console.log(`[troubleshoot-user-sync] Processing request for Discord ID: ${discordId}`);
 
     const supabaseAdmin = createAdminClient();
+    // FIX: Cast Deno to `any` to avoid type errors in some environments.
     const GUILD_ID = (Deno as any).env.get('DISCORD_GUILD_ID');
     if (!GUILD_ID) throw new Error("DISCORD_GUILD_ID is not configured in function secrets.");
 
@@ -105,13 +104,14 @@ serve(async (req) => {
 
   } catch (error) {
     let status = 500;
-    // FIX: Improved error handling to safely access the message property from an unknown type.
     let message = error instanceof Error ? error.message : String(error);
 
     if ((error as any).status) {
       status = (error as any).status;
       if (status === 404) {
-        message = `User with ID ${req.url.split('/').pop()} was not found in the guild. This means the connection to Discord is working, but the user is not a member.`;
+        // Correctly get discordId from the request body as it's not in the URL for POST requests
+        const { discordId } = await req.json().catch(() => ({discordId: 'unknown'}));
+        message = `User with ID ${discordId} was not found in the guild. This means the connection to Discord is working, but the user is not a member.`;
       } else if (status === 403) {
         message = 'Discord API returned Forbidden (403). The most common cause is that the "Server Members Intent" is not enabled in the Discord Developer Portal for your bot.';
       }

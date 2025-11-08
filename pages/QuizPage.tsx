@@ -8,6 +8,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useCallback } from 'react';
 // FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
 // FIX: Switched to a namespace import for react-router-dom to resolve module resolution errors.
@@ -143,7 +145,7 @@ const QuizPage: React.FC = () => {
     if (typeof document === 'undefined') return;
     const handleVisibilityChange = () => {
       // FIX: Guard against document access in non-browser environments.
-      if (document.visibilityState === 'hidden' && quizState === 'taking') {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden' && quizState === 'taking') {
         // FIX: Guard against window access in non-browser environments for `window.alert`.
         if (typeof window !== 'undefined') (window as any).alert("You have switched away from the quiz tab. To ensure fairness, your application attempt has been cancelled.");
         navigate('/applies');

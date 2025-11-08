@@ -1,5 +1,4 @@
 // supabase/functions/discord-proxy/index.ts
-// FIX: Updated the Supabase function type reference to a valid path.
 /// <reference types="https://esm.sh/@supabase/functions-js" />
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
@@ -7,7 +6,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-internal-secret',
 };
 
 const COLORS = {
@@ -15,12 +14,14 @@ const COLORS = {
   SUCCESS: 0x22C55E, // Green
   WARNING: 0xF59E0B, // Amber
   ERROR: 0xEF4444, // Red
-  PRIMARY: 0x00F2EA  // Cyan
+  PRIMARY: 0x00F2EA, // Cyan
+  ADMIN: 0x808080, // Gray
 };
 
 const DISCORD_API_BASE = 'https://discord.com/api/v10';
 
 async function makeDiscordRequest(endpoint: string, options: RequestInit = {}) {
+  // FIX: Cast Deno to `any` to avoid type errors in some environments.
   const BOT_TOKEN = (Deno as any).env.get('DISCORD_BOT_TOKEN');
   if (!BOT_TOKEN) {
     throw new Error("DISCORD_BOT_TOKEN is not configured in function secrets.");
@@ -36,7 +37,8 @@ async function makeDiscordRequest(endpoint: string, options: RequestInit = {}) {
   });
 
   if (!response.ok) {
-    const errorBody = await response.json().catch(() => ({ message: 'Failed to parse error body' }));
+    // FIX: Safely parse error body and cast to access message property.
+    const errorBody = await response.json().catch(() => ({ message: 'Failed to parse error body' })) as { message?: string };
     console.error(`Discord API Error on ${options.method || 'GET'} ${endpoint}: ${response.status}`, errorBody);
     const error = new Error(`Discord API Error: ${errorBody.message || response.statusText}`);
     (error as any).status = response.status;
@@ -44,30 +46,22 @@ async function makeDiscordRequest(endpoint: string, options: RequestInit = {}) {
     throw error;
   }
   
-  if (response.status === 204) {
-    return null;
-  }
-  
-  return response.json();
+  return response.status === 204 ? null : response.json();
 }
 
 const discordApi = {
   post: (endpoint: string, body: any) => makeDiscordRequest(endpoint, { method: 'POST', body: JSON.stringify(body) }),
 };
 
-
 serve(async (req) => {
   console.log(`[discord-proxy] Received ${req.method} request.`);
 
   const createAdminClient = () => {
+    // FIX: Cast Deno to `any` to avoid type errors in some environments.
     const supabaseUrl = (Deno as any).env.get('SUPABASE_URL');
     const serviceRoleKey = (Deno as any).env.get('SUPABASE_SERVICE_ROLE_KEY');
-    if (!supabaseUrl || !serviceRoleKey) {
-      throw new Error('Supabase URL or Service Role Key is not configured in function secrets.');
-    }
-    return createClient(supabaseUrl, serviceRoleKey, {
-      auth: { autoRefreshToken: false, persistSession: false }
-    });
+    if (!supabaseUrl || !serviceRoleKey) throw new Error('Supabase URL or Service Role Key is not configured.');
+    return createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
   };
 
   if (req.method === 'OPTIONS') {
@@ -81,32 +75,72 @@ serve(async (req) => {
 
     const supabaseAdmin = createAdminClient();
     
+    // Security check for internal DB triggers
+    if (type === 'audit_log') {
+        const internalSecretHeader = req.headers.get('X-Internal-Secret');
+        // FIX: Cast Deno to `any` to avoid type errors in some environments.
+        const PROXY_SECRET = (Deno as any).env.get('DISCORD_PROXY_SECRET');
+        if (!PROXY_SECRET || internalSecretHeader !== PROXY_SECRET) {
+            console.error("[discord-proxy] Unauthorized internal call attempt.");
+            return new Response(JSON.stringify({ error: "Unauthorized." }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }});
+        }
+    }
+
     const { data: config, error: configError } = await supabaseAdmin.rpc('get_config');
     if (configError) throw new Error(`Failed to fetch config: ${configError.message}`);
-    
     const { data: translations, error: transError } = await supabaseAdmin.from('translations').select('key, en, ar');
     if (transError) throw new Error(`Failed to fetch translations: ${transError.message}`);
     const t = (key: string, lang = 'en') => (translations as any[]).find(tr => tr.key === key)?.[lang] || key;
+    
+    const footer = { text: config.COMMUNITY_NAME, icon_url: config.LOGO_URL };
 
     switch (type) {
-      case 'new_submission': {
-        const { submission } = payload;
-        const channelId = config.submissions_channel_id;
+      case 'audit_log': {
+        const log = payload; // payload is the audit_log row
+        let channelId: string | null = null;
+        let mentionRoleId: string | null = null;
+        let color = COLORS.ADMIN;
+
+        switch(log.log_type) {
+            case 'submissions':
+                channelId = config.log_channel_submissions;
+                mentionRoleId = config.mention_role_audit_log_submissions;
+                color = COLORS.INFO;
+                break;
+            case 'bans':
+                channelId = config.log_channel_bans;
+                mentionRoleId = config.mention_role_audit_log_bans;
+                color = COLORS.ERROR;
+                break;
+            case 'admin':
+                channelId = config.log_channel_admin;
+                mentionRoleId = config.mention_role_audit_log_admin;
+                color = COLORS.WARNING;
+                break;
+        }
+
+        // Fallback to general log channel
+        if (!channelId) channelId = config.audit_log_channel_id;
+        if (!mentionRoleId) mentionRoleId = config.mention_role_audit_log_general;
+
         if (!channelId) {
-            console.warn("[discord-proxy] submissions_channel_id not set, skipping notification.");
-            return new Response(JSON.stringify({ warning: "submissions_channel_id not set, skipping notification." }));
+            console.warn(`[discord-proxy] No channel configured for log_type '${log.log_type}', skipping log notification.`);
+            break;
         }
         
         const embed = {
-          title: `New Application: ${submission.quizTitle}`,
-          description: `A new application has been submitted by **${submission.username}**.`,
-          color: COLORS.PRIMARY,
-          fields: [ { name: "Applicant", value: submission.username, inline: true }, { name: "Application Type", value: submission.quizTitle, inline: true }, { name: "Highest Role", value: submission.user_highest_role || "Member", inline: true } ],
-          timestamp: new Date(submission.submittedAt).toISOString()
+          title: `Audit Log: ${log.log_type.charAt(0).toUpperCase() + log.log_type.slice(1)}`,
+          description: log.action,
+          color,
+          fields: [
+            { name: "Admin", value: log.admin_username, inline: true },
+          ],
+          footer,
+          timestamp: new Date(log.timestamp).toISOString(),
         };
-        const content = config.mention_role_submissions ? `<@&${config.mention_role_submissions}>` : '';
+        const content = mentionRoleId ? `<@&${mentionRoleId}>` : '';
         await discordApi.post(`/channels/${channelId}/messages`, { content, embeds: [embed] });
-        console.log(`[discord-proxy] Sent 'new_submission' notification to channel ${channelId}.`);
+        console.log(`[discord-proxy] Sent 'audit_log' notification for type '${log.log_type}' to channel ${channelId}.`);
         break;
       }
       
@@ -119,6 +153,7 @@ serve(async (req) => {
             title: t('notification_submission_receipt_title', 'en'),
             description: t('notification_submission_receipt_body', 'en').replace('{username}', submission.username).replace('{quizTitle}', submission.quizTitle),
             color: COLORS.INFO,
+            footer,
             timestamp: new Date().toISOString()
          };
          const dmChannel = await discordApi.post('/users/@me/channels', { recipient_id: profile.discord_id }) as { id: string };
@@ -143,6 +178,7 @@ serve(async (req) => {
                 .replace('{username}', replacements.username).replace('{quizTitle}', replacements.quizTitle)
                 .replace('{adminUsername}', replacements.adminUsername).replace('{reason}', replacements.reason),
             color: isAccepted ? COLORS.SUCCESS : COLORS.ERROR,
+            footer,
             timestamp: new Date(submission.updatedAt).toISOString()
         };
         const dmChannel = await discordApi.post('/users/@me/channels', { recipient_id: profile.discord_id }) as { id: string };
@@ -165,7 +201,8 @@ serve(async (req) => {
             description: t(`notification_${messageType}_body`, 'en')
                 .replace('{username}', replacements.username).replace('{quizTitle}', replacements.quizTitle)
                 .replace('{adminUsername}', replacements.adminUsername).replace('{reason}', replacements.reason),
-            color: COLORS.WARNING
+            color: COLORS.WARNING,
+            footer
          };
 
          if (isUser) {
@@ -188,7 +225,6 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error(`[CRITICAL] discord-proxy:`, error);
-    // FIX: Improved error handling to safely access the message property from an unknown type.
     const errorMessage = (error as any).response 
       ? JSON.stringify(await (error as any).response.json()) 
       : (error instanceof Error ? error.message : String(error));

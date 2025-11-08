@@ -1,5 +1,4 @@
 // supabase/functions/sync-user-profile/index.ts
-// FIX: Updated the Supabase function type reference to a valid path.
 /// <reference types="https://esm.sh/@supabase/functions-js" />
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
@@ -34,6 +33,7 @@ const corsHeaders = {
 const DISCORD_API_BASE = 'https://discord.com/api/v10';
 
 async function makeDiscordRequest(endpoint: string, options: RequestInit = {}) {
+  // FIX: Cast Deno to `any` to avoid type errors in some environments.
   const BOT_TOKEN = (Deno as any).env.get('DISCORD_BOT_TOKEN');
   if (!BOT_TOKEN) {
     throw new Error("DISCORD_BOT_TOKEN is not configured in function secrets.");
@@ -49,7 +49,8 @@ async function makeDiscordRequest(endpoint: string, options: RequestInit = {}) {
   });
 
   if (!response.ok) {
-    const errorBody = await response.json().catch(() => ({ message: 'Failed to parse error body' }));
+    // FIX: Safely parse error body and cast to access message property.
+    const errorBody = await response.json().catch(() => ({ message: 'Failed to parse error body' })) as { message?: string };
     console.error(`Discord API Error on ${options.method || 'GET'} ${endpoint}: ${response.status}`, errorBody);
     const error = new Error(`Discord API Error: ${errorBody.message || response.statusText}`);
     (error as any).status = response.status;
@@ -57,11 +58,7 @@ async function makeDiscordRequest(endpoint: string, options: RequestInit = {}) {
     throw error;
   }
   
-  if (response.status === 204) {
-    return null;
-  }
-  
-  return response.json();
+  return response.status === 204 ? null : response.json();
 }
 
 const discordApi = {
@@ -72,6 +69,7 @@ serve(async (req) => {
   console.log(`[sync-user-profile] Received ${req.method} request.`);
 
   const createAdminClient = () => {
+    // FIX: Cast Deno to `any` to avoid type errors in some environments.
     const supabaseUrl = (Deno as any).env.get('SUPABASE_URL');
     const serviceRoleKey = (Deno as any).env.get('SUPABASE_SERVICE_ROLE_KEY');
     if (!supabaseUrl || !serviceRoleKey) throw new Error('Supabase URL or Service Role Key is not configured in function secrets.');
@@ -92,10 +90,13 @@ serve(async (req) => {
       });
     }
 
+    // FIX: Cast Deno to `any` to avoid type errors in some environments.
     const GUILD_ID = (Deno as any).env.get('DISCORD_GUILD_ID');
     if (!GUILD_ID) throw new Error("DISCORD_GUILD_ID is not configured in function secrets.");
     
+    console.log("[sync-user-profile] Initializing Supabase client with user context...");
     const supabase = createClient(
+      // FIX: Cast Deno to `any` to avoid type errors in some environments.
       (Deno as any).env.get('SUPABASE_URL') ?? '',
       (Deno as any).env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: authHeader } } }
@@ -125,12 +126,15 @@ serve(async (req) => {
 
     const supabaseAdmin = createAdminClient();
 
+    console.log(`[sync-user-profile] Checking ban status for user ${authUser.id}...`);
     const { data: banData, error: banError } = await supabaseAdmin
       .from('profiles').select('is_banned, ban_reason, ban_expires_at').eq('id', authUser.id).single();
     if (banError && banError.code !== 'PGRST116') console.error(`[sync-user-profile] Ban check error for ${authUser.id}:`, banError.message);
-    
+    else console.log(`[sync-user-profile] Ban status checked. Is banned: ${!!banData?.is_banned}`);
+
     let member;
     try {
+        console.log(`[sync-user-profile] Fetching member from Discord for guild ${GUILD_ID}...`);
         member = await discordApi.get(`/guilds/${GUILD_ID}/members/${discordId}`);
         console.log(`[sync-user-profile] Successfully fetched member from Discord for ID ${discordId}.`);
     } catch(e) {
@@ -141,8 +145,10 @@ serve(async (req) => {
         throw e;
     }
     
+    console.log(`[sync-user-profile] Fetching all guild roles...`);
     const allGuildRoles: DiscordRole[] = (await discordApi.get(`/guilds/${GUILD_ID}/roles`)) as any[];
     const rolesMap = new Map(allGuildRoles.map(r => [r.id, r]));
+    console.log(`[sync-user-profile] Mapped ${allGuildRoles.length} guild roles.`);
 
     const memberRoles: DiscordRole[] = (member as any).roles
         .map((roleId: string) => rolesMap.get(roleId)).filter(Boolean).sort((a:any, b:any) => b.position - a.position);
@@ -150,6 +156,7 @@ serve(async (req) => {
 
     const highestRole = memberRoles[0] || null;
 
+    console.log(`[sync-user-profile] Fetching permissions for user roles...`);
     const { data: permissionsData, error: permissionsError } = await supabaseAdmin
       .from('role_permissions').select('permissions').in('role_id', (member as any).roles);
     if (permissionsError) console.error(`[sync-user-profile] Permissions fetch error:`, permissionsError.message);
@@ -175,6 +182,7 @@ serve(async (req) => {
       ban_expires_at: banData?.ban_expires_at ?? null,
     };
     
+    console.log(`[sync-user-profile] Upserting profile into database...`);
     const { error: upsertError } = await supabaseAdmin.from('profiles').upsert({
         id: finalUser.id, discord_id: finalUser.discordId, username: finalUser.username, avatar_url: finalUser.avatar,
         roles: finalUser.roles, highest_role: finalUser.highestRole, last_synced_at: new Date().toISOString()
@@ -194,7 +202,6 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('[CRITICAL] sync-user-profile:', error);
-    // FIX: Improved error handling to safely access the message property from an unknown type.
     const message = error instanceof Error ? error.message : String(error);
     return new Response(JSON.stringify({ error: `An unexpected error occurred: ${message}` }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

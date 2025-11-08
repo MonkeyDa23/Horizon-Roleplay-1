@@ -2,7 +2,7 @@
 
 export const databaseSchema = `
 /*
--- Vixel Roleplay Website - Full Database Schema (V11.2.0 - Notification & UUID Fix)
+-- Vixel Roleplay Website - Full Database Schema (V12.0.0 - Advanced Logging & Embeds)
 
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -36,6 +36,7 @@ DROP TABLE IF EXISTS public.profiles CASCADE;
 DROP TABLE IF EXISTS public.config CASCADE;
 DROP TABLE IF EXISTS public.translations CASCADE;
 
+DROP FUNCTION IF EXISTS public.handle_audit_log_notification();
 DROP FUNCTION IF EXISTS public.get_config();
 DROP FUNCTION IF EXISTS public.get_all_submissions();
 DROP FUNCTION IF EXISTS public.add_submission(jsonb);
@@ -89,6 +90,9 @@ CREATE TABLE public.config (
     "mention_role_audit_log_bans" text,
     "mention_role_audit_log_admin" text,
     "mention_role_audit_log_general" text,
+    -- New fields for the webhook-based logging system
+    "DISCORD_PROXY_URL" text,
+    "DISCORD_PROXY_SECRET" text,
     CONSTRAINT id_check CHECK (id = 1)
 );
 INSERT INTO public.config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
@@ -196,6 +200,13 @@ BEGIN
     (submission_data->>'quizId')::uuid, submission_data->>'quizTitle', public.get_user_id(), submission_data->>'username',
     submission_data->'answers', submission_data->'cheatAttempts', submission_data->>'user_highest_role'
   ) RETURNING * INTO new_submission;
+
+  -- Log the action, which will trigger the notification
+  PERFORM public.log_action(
+    format('New submission by %s for %s.', new_submission.username, new_submission."quizTitle"),
+    'submissions'
+  );
+
   RETURN new_submission;
 END;
 $$;
@@ -218,14 +229,14 @@ BEGIN
     "adminId" = CASE WHEN p_new_status = 'taken' THEN admin_user.id ELSE "adminId" END,
     "adminUsername" = CASE WHEN p_new_status = 'taken' THEN admin_user.username ELSE "adminUsername" END,
     reason = CASE WHEN p_new_status IN ('accepted', 'refused') THEN p_reason ELSE reason END,
-    "updatedAt" = CASE WHEN p_new_status IN ('accepted', 'refused') THEN current_timestamp ELSE "updatedAt" END
+    "updatedAt" = current_timestamp
   WHERE id = p_submission_id
   RETURNING * INTO submission_record;
 
   IF NOT FOUND THEN RAISE EXCEPTION 'Submission not found.'; END IF;
   
   PERFORM public.log_action(
-    format('Updated submission for %s (%s) to %s. Admin: %s', submission_record.username, submission_record."quizTitle", p_new_status, admin_user.username),
+    format('Submission for **%s** (%s) was updated to **%s** by admin %s.', submission_record.username, submission_record."quizTitle", upper(p_new_status), admin_user.username),
     'submissions'
   );
   
@@ -234,9 +245,17 @@ END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.delete_submission(p_submission_id uuid) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  deleted_submission record;
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), '_super_admin') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
-  DELETE FROM public.submissions WHERE id = p_submission_id;
+  
+  DELETE FROM public.submissions WHERE id = p_submission_id RETURNING username, "quizTitle" INTO deleted_submission;
+
+  PERFORM public.log_action(
+    format('Deleted submission from %s for %s.', deleted_submission.username, deleted_submission."quizTitle"),
+    'admin'
+  );
 END;
 $$;
 
@@ -367,7 +386,7 @@ $$;
 
 CREATE OR REPLACE FUNCTION public.update_config(new_config jsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
-    allowed_appearance_keys text[] := ARRAY['COMMUNITY_NAME', 'LOGO_URL', 'DISCORD_GUILD_ID', 'BACKGROUND_IMAGE_URL', 'admin_password'];
+    allowed_appearance_keys text[] := ARRAY['COMMUNITY_NAME', 'LOGO_URL', 'DISCORD_GUILD_ID', 'BACKGROUND_IMAGE_URL', 'admin_password', 'DISCORD_PROXY_URL', 'DISCORD_PROXY_SECRET'];
     allowed_notif_keys text[] := ARRAY['submissions_channel_id', 'log_channel_submissions', 'log_channel_bans', 'log_channel_admin', 'audit_log_channel_id', 'mention_role_submissions', 'mention_role_audit_log_submissions', 'mention_role_audit_log_bans', 'mention_role_audit_log_admin', 'mention_role_audit_log_general'];
     key text;
     sql_query text := 'UPDATE public.config SET ';
@@ -480,7 +499,51 @@ END;
 $$;
 
 -- =================================================================
--- 7. HEALTH CHECK FUNCTIONS
+-- 7. NOTIFICATION TRIGGER (NEW!)
+-- =================================================================
+CREATE OR REPLACE FUNCTION public.handle_audit_log_notification()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public, extensions
+AS $$
+DECLARE
+  log_payload jsonb;
+  proxy_url text;
+  proxy_secret text;
+BEGIN
+  -- Build the payload from the new log entry
+  log_payload := jsonb_build_object(
+    'type', 'audit_log',
+    'payload', row_to_json(NEW)
+  );
+
+  -- Get the webhook URL and secret from the config table
+  SELECT "DISCORD_PROXY_URL", "DISCORD_PROXY_SECRET" INTO proxy_url, proxy_secret FROM public.config WHERE id = 1;
+
+  -- If a URL and secret are configured, invoke the edge function
+  IF proxy_url IS NOT NULL AND proxy_secret IS NOT NULL THEN
+    PERFORM net.http_post(
+      url:=proxy_url,
+      headers:=jsonb_build_object(
+        'Content-Type', 'application/json',
+        'Authorization', 'Bearer ' || current_setting('request.jwt.claim', true), -- Pass along the user's JWT
+        'X-Internal-Secret', proxy_secret
+      ),
+      body:=log_payload
+    );
+  END IF;
+  
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER on_audit_log_insert
+  AFTER INSERT ON public.audit_log
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_audit_log_notification();
+
+-- =================================================================
+-- 8. HEALTH CHECK FUNCTIONS
 -- =================================================================
 CREATE OR REPLACE FUNCTION public.test_http_request() RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$

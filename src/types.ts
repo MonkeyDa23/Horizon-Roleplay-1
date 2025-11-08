@@ -200,6 +200,10 @@ export interface AppConfig {
     SHOW_HEALTH_CHECK: boolean;
     admin_password: string | null;
 
+    // New Webhook logging settings
+    DISCORD_PROXY_URL: string | null;
+    DISCORD_PROXY_SECRET: string | null;
+
     // Notification Channel IDs
     submissions_channel_id: string | null;
     log_channel_submissions: string | null;
@@ -224,6 +228,7 @@ export interface AuditLogEntry {
   admin_id: string;
   admin_username: string;
   action: string;
+  log_type: string;
 }
 
 export interface MtaServerStatus {
