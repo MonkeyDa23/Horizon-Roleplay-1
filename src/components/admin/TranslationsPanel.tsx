@@ -1,4 +1,5 @@
 
+
 // src/components/admin/TranslationsPanel.tsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocalization } from '../../hooks/useLocalization';
@@ -89,7 +90,7 @@ const TranslationsPanel: React.FC = () => {
                         placeholder="Search by key or text..."
                         value={searchTerm}
                         // FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property.
-                        onChange={(e) => setSearchTerm((e.currentTarget as HTMLInputElement).value)}
+                        onChange={(e) => setSearchTerm(e.currentTarget.value)}
                         className="w-full bg-brand-light-blue p-2 pl-10 rounded-md border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan"
                     />
                 </div>
@@ -116,7 +117,7 @@ const TranslationsPanel: React.FC = () => {
                                         <textarea 
                                             value={editableTranslations[key]?.en || ''}
                                             // FIX: Explicitly cast e.currentTarget to HTMLTextAreaElement to access its 'value' property.
-                                            onChange={(e) => handleTranslationChange(key, 'en', (e.currentTarget as HTMLTextAreaElement).value)}
+                                            onChange={(e) => handleTranslationChange(key, 'en', e.currentTarget.value)}
                                             className="w-full bg-brand-dark p-2 rounded-md border border-gray-600 h-24 focus:ring-brand-cyan focus:border-brand-cyan"
                                         />
                                     </td>
@@ -124,7 +125,7 @@ const TranslationsPanel: React.FC = () => {
                                          <textarea 
                                             value={editableTranslations[key]?.ar || ''}
                                             // FIX: Explicitly cast e.currentTarget to HTMLTextAreaElement to access its 'value' property.
-                                            onChange={(e) => handleTranslationChange(key, 'ar', (e.currentTarget as HTMLTextAreaElement).value)}
+                                            onChange={(e) => handleTranslationChange(key, 'ar', e.currentTarget.value)}
                                             className="w-full bg-brand-dark p-2 rounded-md border border-gray-600 h-24 focus:ring-brand-cyan focus:border-brand-cyan"
                                             dir="rtl"
                                         />

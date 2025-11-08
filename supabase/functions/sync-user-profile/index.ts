@@ -1,5 +1,6 @@
 // supabase/functions/sync-user-profile/index.ts
-/// <reference types="https://esm.sh/@supabase/functions-js" />
+// FIX: Update the Supabase function type reference to a valid path.
+/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";

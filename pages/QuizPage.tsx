@@ -10,6 +10,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useCallback } from 'react';
 // FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
 // FIX: Switched to a namespace import for react-router-dom to resolve module resolution errors.
@@ -135,9 +137,9 @@ const QuizPage: React.FC = () => {
       }
     };
     // FIX: Cast window to any to bypass potential tsconfig lib errors for 'addEventListener'.
-    (window as any).addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('beforeunload', handleBeforeUnload);
     // FIX: Cast window to any to bypass potential tsconfig lib errors for 'removeEventListener'.
-    return () => (window as any).removeEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [quizState]);
 
   useEffect(() => {
@@ -145,7 +147,7 @@ const QuizPage: React.FC = () => {
     if (typeof document === 'undefined') return;
     const handleVisibilityChange = () => {
       // FIX: Guard against document access in non-browser environments.
-      if (typeof document !== 'undefined' && document.visibilityState === 'hidden' && quizState === 'taking') {
+      if (document.visibilityState === 'hidden' && quizState === 'taking') {
         // FIX: Guard against window access in non-browser environments for `window.alert`.
         if (typeof window !== 'undefined') (window as any).alert("You have switched away from the quiz tab. To ensure fairness, your application attempt has been cancelled.");
         navigate('/applies');
@@ -156,7 +158,7 @@ const QuizPage: React.FC = () => {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       // FIX: Guard against document access in non-browser environments.
-      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [quizState, navigate]);
   
@@ -225,7 +227,7 @@ const QuizPage: React.FC = () => {
         <textarea
           value={currentAnswer}
           // FIX: Explicitly cast e.currentTarget to HTMLTextAreaElement to access its 'value' property.
-          onChange={(e) => setCurrentAnswer((e.currentTarget as HTMLTextAreaElement).value)}
+          onChange={(e) => setCurrentAnswer(e.currentTarget.value)}
           className="w-full bg-brand-light-blue text-white p-4 rounded-md border border-gray-600 focus:ring-2 focus:ring-brand-cyan focus:border-brand-cyan transition-colors"
           rows={6}
           placeholder="Type your answer here..."

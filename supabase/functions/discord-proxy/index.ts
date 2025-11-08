@@ -1,5 +1,6 @@
 // supabase/functions/discord-proxy/index.ts
-/// <reference types="https://esm.sh/@supabase/functions-js" />
+// FIX: Update the Supabase function type reference to a valid path.
+/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -90,37 +91,89 @@ serve(async (req) => {
     if (configError) throw new Error(`Failed to fetch config: ${configError.message}`);
     const { data: translations, error: transError } = await supabaseAdmin.from('translations').select('key, en, ar');
     if (transError) throw new Error(`Failed to fetch translations: ${transError.message}`);
-    const t = (key: string, lang = 'en') => (translations as any[]).find(tr => tr.key === key)?.[lang] || key;
+    
+    const t_fallback: { [key: string]: string } = {
+        'notification_submission_receipt_title': "Application Submitted Successfully! ✅",
+        'notification_submission_receipt_body': "Hey {username},\n\nWe have successfully received your application for **{quizTitle}**. Our team will review it as soon as possible.",
+        'notification_submission_accepted_title': "Congratulations! Your Application was Accepted! 🎉",
+        'notification_submission_accepted_body': "Hey {username},\n\nGreat news! Your application for **{quizTitle}** has been reviewed and **accepted** by {adminUsername}.\n\nReason: {reason}",
+        'notification_submission_refused_title': "Update on Your Application",
+        'notification_submission_refused_body': "Hey {username},\n\nThank you for your interest in **{quizTitle}**. After careful review by {adminUsername}, we have decided not to move forward with your application at this time.\n\nReason: {reason}"
+    };
+
+    const t = (key: string, lang = 'en') => {
+        const dbTranslation = (translations as any[]).find(tr => tr.key === key);
+        if (dbTranslation && dbTranslation[lang]) return dbTranslation[lang];
+        if (dbTranslation && dbTranslation[lang === 'en' ? 'ar' : 'en']) return dbTranslation[lang === 'en' ? 'ar' : 'en'];
+        return t_fallback[key] || key;
+    }
     
     const footer = { text: config.COMMUNITY_NAME, icon_url: config.LOGO_URL };
 
     switch (type) {
       case 'audit_log': {
         const log = payload; // payload is the audit_log row
+
+        // --- SPECIAL CASE: New Submission Notification ---
+        if (log.log_type === 'submissions' && log.action.startsWith('New submission by')) {
+            const channelId = config.submissions_channel_id;
+            const mentionRoleId = config.mention_role_submissions;
+            
+            if (!channelId) {
+                console.warn(`[discord-proxy] No 'submissions_channel_id' configured, skipping new submission notification.`);
+                break;
+            }
+
+            const matches = log.action.match(/New submission by (.*) for (.*)\./);
+            const username = matches ? matches[1] : log.admin_username;
+            const quizTitle = matches ? matches[2] : 'Unknown Quiz';
+
+            const embed = {
+                author: { name: "New Application Received", icon_url: "https://i.imgur.com/gJt1kUD.png" },
+                description: `An application from **${username}** for **${quizTitle}** is awaiting review.`,
+                color: COLORS.PRIMARY,
+                fields: [
+                    { name: "Applicant", value: username, inline: true },
+                    { name: "Application Type", value: quizTitle, inline: true },
+                ],
+                footer,
+                timestamp: new Date(log.timestamp).toISOString(),
+            };
+
+            const content = mentionRoleId ? `<@&${mentionRoleId}>` : '';
+            await discordApi.post(`/channels/${channelId}/messages`, { content, embeds: [embed] });
+            console.log(`[discord-proxy] Sent 'new_submission' notification to channel ${channelId}.`);
+            break; // Exit after handling this special case
+        }
+        
+        // --- REGULAR Audit Log Flow ---
         let channelId: string | null = null;
         let mentionRoleId: string | null = null;
         let color = COLORS.ADMIN;
+        let title = `Audit Log: ${log.log_type.charAt(0).toUpperCase() + log.log_type.slice(1)}`;
 
         switch(log.log_type) {
             case 'submissions':
                 channelId = config.log_channel_submissions;
                 mentionRoleId = config.mention_role_audit_log_submissions;
                 color = COLORS.INFO;
+                title = "Submission Status Update";
                 break;
             case 'bans':
                 channelId = config.log_channel_bans;
                 mentionRoleId = config.mention_role_audit_log_bans;
                 color = COLORS.ERROR;
+                title = "User Moderation Action";
                 break;
             case 'admin':
                 channelId = config.log_channel_admin;
                 mentionRoleId = config.mention_role_audit_log_admin;
                 color = COLORS.WARNING;
+                title = "Admin Panel Action";
                 break;
         }
-
-        // Fallback to general log channel
-        if (!channelId) channelId = config.audit_log_channel_id;
+        
+        if (!channelId) channelId = config.audit_log_channel_id; // Fallback to general channel
         if (!mentionRoleId) mentionRoleId = config.mention_role_audit_log_general;
 
         if (!channelId) {
@@ -129,12 +182,10 @@ serve(async (req) => {
         }
         
         const embed = {
-          title: `Audit Log: ${log.log_type.charAt(0).toUpperCase() + log.log_type.slice(1)}`,
+          title: title,
           description: log.action,
           color,
-          fields: [
-            { name: "Admin", value: log.admin_username, inline: true },
-          ],
+          fields: [ { name: "Action By", value: log.admin_username, inline: true } ],
           footer,
           timestamp: new Date(log.timestamp).toISOString(),
         };
@@ -226,7 +277,7 @@ serve(async (req) => {
   } catch (error) {
     console.error(`[CRITICAL] discord-proxy:`, error);
     const errorMessage = (error as any).response 
-      ? JSON.stringify(await (error as any).response.json()) 
+      ? JSON.stringify(await (error as any).response.json().catch(() => 'Unreadable error response'))
       : (error instanceof Error ? error.message : String(error));
     return new Response(JSON.stringify({ error: `An unexpected error occurred: ${errorMessage}` }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

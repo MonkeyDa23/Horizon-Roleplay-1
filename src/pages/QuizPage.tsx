@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useCallback } from 'react';
 // FIX: Fix "no exported member" errors from 'react-router-dom' by switching to a namespace import.
 import * as ReactRouterDOM from 'react-router-dom';
@@ -177,21 +179,17 @@ const QuizPage: React.FC = () => {
 
     const handleVisibilityChange = () => {
         // FIX: Guard against document access in non-browser environments.
-        if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        if (document.visibilityState === 'hidden') {
             handleCheat(t('cheat_method_switched_tab'));
         }
     };
 
     // FIX: Guard against document access in non-browser environments.
-    if (typeof document !== 'undefined') {
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-    }
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
         // FIX: Guard against document access in non-browser environments.
-        if (typeof document !== 'undefined') {
-          document.removeEventListener('visibilitychange', handleVisibilityChange);
-        }
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [quizState, quiz, showToast, t]);
   
@@ -305,7 +303,7 @@ const QuizPage: React.FC = () => {
                 <textarea
                   value={currentAnswer}
                   // FIX: Explicitly cast e.currentTarget to HTMLTextAreaElement to resolve type error on 'value' property.
-                  onChange={(e) => setCurrentAnswer((e.currentTarget as HTMLTextAreaElement).value)}
+                  onChange={(e) => setCurrentAnswer(e.currentTarget.value)}
                   className="w-full bg-brand-light-blue text-white p-4 rounded-md border border-gray-600 focus:ring-2 focus:ring-brand-cyan focus:border-brand-cyan transition-colors"
                   rows={6}
                   placeholder="Type your answer here..."

@@ -1,5 +1,6 @@
 // supabase/functions/get-guild-roles/index.ts
-/// <reference types="https://esm.sh/@supabase/functions-js" />
+// FIX: Update the Supabase function type reference to a valid path.
+/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 

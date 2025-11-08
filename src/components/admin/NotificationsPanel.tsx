@@ -1,4 +1,5 @@
 
+
 // src/components/admin/NotificationsPanel.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalization } from '../../hooks/useLocalization';
@@ -106,7 +107,7 @@ const NotificationsPanel: React.FC = () => {
             <label className="block text-md font-semibold text-white mb-1">{t(labelKey)}</label>
             <p className="text-sm text-gray-400 mb-2">{t(descKey)}</p>
             {/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property. */}
-            <input type="text" value={value || ''} onChange={e => onChange((e.currentTarget as HTMLInputElement).value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 font-mono text-sm"/>
+            <input type="text" value={value || ''} onChange={e => onChange(e.currentTarget.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 font-mono text-sm"/>
         </div>
     );
 
@@ -125,22 +126,22 @@ const NotificationsPanel: React.FC = () => {
                     <div>
                         <label className="block text-sm font-semibold text-gray-400">{t('title_en')}</label>
                         {/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property. */}
-                        <input type="text" value={allTranslations[titleKey]?.en || ''} onChange={e => handleTranslationChange(titleKey, 'en', (e.currentTarget as HTMLInputElement).value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
+                        <input type="text" value={allTranslations[titleKey]?.en || ''} onChange={e => handleTranslationChange(titleKey, 'en', e.currentTarget.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                     </div>
                      <div>
                         <label className="block text-sm font-semibold text-gray-400">{t('title_ar')}</label>
                         {/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property. */}
-                        <input type="text" dir="rtl" value={allTranslations[titleKey]?.ar || ''} onChange={e => handleTranslationChange(titleKey, 'ar', (e.currentTarget as HTMLInputElement).value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
+                        <input type="text" dir="rtl" value={allTranslations[titleKey]?.ar || ''} onChange={e => handleTranslationChange(titleKey, 'ar', e.currentTarget.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                     </div>
                      <div>
                         <label className="block text-sm font-semibold text-gray-400">{t('description_en')}</label>
                         {/* FIX: Explicitly cast e.currentTarget to HTMLTextAreaElement to access its 'value' property. */}
-                        <textarea value={allTranslations[bodyKey]?.en || ''} onChange={e => handleTranslationChange(bodyKey, 'en', (e.currentTarget as HTMLTextAreaElement).value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 h-24" />
+                        <textarea value={allTranslations[bodyKey]?.en || ''} onChange={e => handleTranslationChange(bodyKey, 'en', e.currentTarget.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 h-24" />
                     </div>
                      <div>
                         <label className="block text-sm font-semibold text-gray-400">{t('description_ar')}</label>
                         {/* FIX: Explicitly cast e.currentTarget to HTMLTextAreaElement to access its 'value' property. */}
-                        <textarea dir="rtl" value={allTranslations[bodyKey]?.ar || ''} onChange={e => handleTranslationChange(bodyKey, 'ar', (e.currentTarget as HTMLTextAreaElement).value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 h-24" />
+                        <textarea dir="rtl" value={allTranslations[bodyKey]?.ar || ''} onChange={e => handleTranslationChange(bodyKey, 'ar', e.currentTarget.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 h-24" />
                     </div>
                 </div>
                 <div className="mt-3 p-2 bg-brand-dark rounded-md">
@@ -184,38 +185,4 @@ const NotificationsPanel: React.FC = () => {
                              <IdField labelKey="log_channel_submissions" descKey="log_channel_submissions_desc" value={settings.log_channel_submissions} onChange={v => handleConfigChange('log_channel_submissions', v)} />
                              <IdField labelKey="log_channel_bans" descKey="log_channel_bans_desc" value={settings.log_channel_bans} onChange={v => handleConfigChange('log_channel_bans', v)} />
                              <IdField labelKey="log_channel_admin" descKey="log_channel_admin_desc" value={settings.log_channel_admin} onChange={v => handleConfigChange('log_channel_admin', v)} />
-                             <IdField labelKey="audit_log_channel_id" descKey="audit_log_channel_id_desc" value={settings.audit_log_channel_id} onChange={v => handleConfigChange('audit_log_channel_id', v)} />
-                        </div>
-                        <div className="space-y-6">
-                             <IdField labelKey="mention_role_submissions" descKey="mention_role_submissions_desc" value={settings.mention_role_submissions} onChange={v => handleConfigChange('mention_role_submissions', v)} />
-                             <IdField labelKey="mention_role_audit_log_submissions" descKey="mention_role_audit_log_submissions_desc" value={settings.mention_role_audit_log_submissions} onChange={v => handleConfigChange('mention_role_audit_log_submissions', v)} />
-                             <IdField labelKey="mention_role_audit_log_bans" descKey="mention_role_audit_log_bans_desc" value={settings.mention_role_audit_log_bans} onChange={v => handleConfigChange('mention_role_audit_log_bans', v)} />
-                             <IdField labelKey="mention_role_audit_log_admin" descKey="mention_role_audit_log_admin_desc" value={settings.mention_role_audit_log_admin} onChange={v => handleConfigChange('mention_role_audit_log_admin', v)} />
-                             <IdField labelKey="mention_role_audit_log_general" descKey="mention_role_audit_log_general_desc" value={settings.mention_role_audit_log_general} onChange={v => handleConfigChange('mention_role_audit_log_general', v)} />
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {testModal && (
-                <Modal isOpen={!!testModal} onClose={() => setTestModal(null)} title={t('test_notification')}>
-                    <div className="space-y-4">
-                         <div>
-                            <label className="block font-semibold mb-1">{t('target_id')}</label>
-                            {/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property. */}
-                            <input type="text" value={testTargetId} onChange={e => setTestTargetId((e.currentTarget as HTMLInputElement).value)} placeholder={testModal.isUser ? "Enter User ID" : "Enter Channel ID"} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
-                        </div>
-                        <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4">
-                            <button onClick={() => setTestModal(null)} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button>
-                            <button onClick={handleSendTest} disabled={isTesting || !testTargetId} className="bg-blue-600 text-white font-bold py-2 px-6 rounded-md hover:bg-blue-500 disabled:opacity-50 min-w-[8rem] flex justify-center">
-                                {isTesting ? <Loader2 className="animate-spin" /> : t('send_test')}
-                            </button>
-                        </div>
-                    </div>
-                </Modal>
-            )}
-        </div>
-    );
-};
-
-export default NotificationsPanel;
+                             <

@@ -1,4 +1,5 @@
 
+
 // src/components/admin/PermissionsPanel.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalization } from '../../hooks/useLocalization';
@@ -171,7 +172,7 @@ const PermissionsPanel: React.FC = () => {
                                        className="mt-1 h-5 w-5 rounded bg-brand-dark border-gray-500 text-brand-cyan focus:ring-brand-cyan"
                                        checked={selectedRolePermissions.includes(key)}
                                        // FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'checked' property.
-                                       onChange={(e) => handlePermissionChange(key, (e.currentTarget as HTMLInputElement).checked)}
+                                       onChange={(e) => handlePermissionChange(key, e.currentTarget.checked)}
                                    />
                                    <div>
                                        <code className="font-bold text-white text-base">{key}</code>
