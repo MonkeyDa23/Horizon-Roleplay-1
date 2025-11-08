@@ -1,7 +1,6 @@
-
 // supabase/functions/check-bot-health/index.ts
-// FIX: Removed version from reference path for better stability.
-/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
+// FIX: Updated the Supabase function type reference to a valid path.
+/// <reference types="https://esm.sh/@supabase/functions-js" />
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -66,8 +65,8 @@ serve(async (req) => {
 
     } catch (error) {
         let message = 'Failed to connect to Discord API.';
-        // FIX: Cast error to Error type to safely access the message property.
-        let details = (error as Error).message;
+        // FIX: Improved error handling to safely access the message property from an unknown type.
+        let details = error instanceof Error ? error.message : String(error);
 
         if ((error as any).status === 401) {
             message = 'Authentication failed (401 Unauthorized).';

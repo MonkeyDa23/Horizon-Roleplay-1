@@ -1,7 +1,6 @@
-
 // supabase/functions/discord-proxy/index.ts
-// FIX: Removed version from reference path for better stability.
-/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
+// FIX: Updated the Supabase function type reference to a valid path.
+/// <reference types="https://esm.sh/@supabase/functions-js" />
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -189,8 +188,10 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error(`[CRITICAL] discord-proxy:`, error);
-    // FIX: Cast error to any to access response property and safely access the message property.
-    const errorMessage = (error as any).response ? JSON.stringify(await (error as any).response.json()) : (error as Error).message;
+    // FIX: Improved error handling to safely access the message property from an unknown type.
+    const errorMessage = (error as any).response 
+      ? JSON.stringify(await (error as any).response.json()) 
+      : (error instanceof Error ? error.message : String(error));
     return new Response(JSON.stringify({ error: `An unexpected error occurred: ${errorMessage}` }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,

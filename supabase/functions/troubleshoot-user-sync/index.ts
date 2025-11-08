@@ -1,7 +1,6 @@
-
 // supabase/functions/troubleshoot-user-sync/index.ts
-// FIX: Removed version from reference path for better stability.
-/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
+// FIX: Updated the Supabase function type reference to a valid path.
+/// <reference types="https://esm.sh/@supabase/functions-js" />
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -106,8 +105,8 @@ serve(async (req) => {
 
   } catch (error) {
     let status = 500;
-    // FIX: Cast error to Error type to safely access the message property.
-    let message = (error as Error).message;
+    // FIX: Improved error handling to safely access the message property from an unknown type.
+    let message = error instanceof Error ? error.message : String(error);
 
     if ((error as any).status) {
       status = (error as any).status;

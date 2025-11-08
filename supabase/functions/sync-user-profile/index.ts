@@ -1,7 +1,6 @@
-
 // supabase/functions/sync-user-profile/index.ts
-// FIX: Removed version from reference path for better stability.
-/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
+// FIX: Updated the Supabase function type reference to a valid path.
+/// <reference types="https://esm.sh/@supabase/functions-js" />
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -195,8 +194,9 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('[CRITICAL] sync-user-profile:', error);
-    // FIX: Cast error to Error type to safely access the message property.
-    return new Response(JSON.stringify({ error: `An unexpected error occurred: ${(error as Error).message}` }), {
+    // FIX: Improved error handling to safely access the message property from an unknown type.
+    const message = error instanceof Error ? error.message : String(error);
+    return new Response(JSON.stringify({ error: `An unexpected error occurred: ${message}` }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
     });
