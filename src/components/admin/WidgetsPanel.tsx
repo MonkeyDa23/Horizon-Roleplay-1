@@ -136,4 +136,4 @@ const WidgetsPanel: React.FC = () => {
                             {/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property. */}
                             <input type="text" value={editingWidget.invite_url} onChange={e => setEditingWidget({...editingWidget, invite_url: (e.currentTarget as HTMLInputElement).value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
                         </div>
-                        <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4
+                        <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50

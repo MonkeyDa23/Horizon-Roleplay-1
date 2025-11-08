@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 // FIX: Fix "no exported member" errors from 'react-router-dom' by switching to a namespace import.
 import * as ReactRouterDOM from 'react-router-dom';
@@ -117,7 +118,7 @@ const QuizPage: React.FC = () => {
       console.error("Failed to submit application:", error);
       // FIX: Guard against window access for browser-specific 'alert'.
       if (typeof window !== 'undefined') {
-        window.alert("An error occurred while submitting your application. Please try again.");
+        (window as any).alert("An error occurred while submitting your application. Please try again.");
       }
       setIsSubmitting(false);
     }

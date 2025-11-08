@@ -83,7 +83,7 @@ const StorePanel: React.FC = () => {
 
     const handleDelete = async (product: Product) => {
         // FIX: Guard against window access in non-browser environments.
-        if (typeof window !== 'undefined' && window.confirm(`Delete "${t(product.nameKey)}"? This is irreversible.`)) {
+        if (typeof window !== 'undefined' && (window as any).confirm(`Delete "${t(product.nameKey)}"? This is irreversible.`)) {
             try {
                 await deleteProduct(product.id);
                 showToast('Product deleted!', 'success');

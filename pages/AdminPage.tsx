@@ -15,6 +15,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 // FIX: Updated import paths to point to the 'src' directory
 import { useAuth } from '../src/hooks/useAuth';
@@ -208,7 +210,7 @@ const AdminPage: React.FC = () => {
     if (!user) return;
     const quizToDelete = quizzes.find(q => q.id === quizId);
     // FIX: Guard against window access in non-browser environments for `window.confirm`.
-    if (typeof window !== 'undefined' && window.confirm(`Delete "${t(quizToDelete?.titleKey || 'this')}" quiz?`)) {
+    if (typeof window !== 'undefined' && (window as any).confirm(`Delete "${t(quizToDelete?.titleKey || 'this')}" quiz?`)) {
         try {
             // FIX: Removed user argument from API call
             await apiDeleteQuiz(quizId);

@@ -123,7 +123,7 @@ const QuizzesPanel: React.FC = () => {
 
     const handleDelete = async (quiz: Quiz) => {
         // FIX: Guard against window access in non-browser environments.
-        if (typeof window !== 'undefined' && window.confirm(`Delete "${t(quiz.titleKey)}"? This is irreversible.`)) {
+        if (typeof window !== 'undefined' && (window as any).confirm(`Delete "${t(quiz.titleKey)}"? This is irreversible.`)) {
             try {
                 await deleteQuiz(quiz.id);
                 showToast('Quiz deleted!', 'success');

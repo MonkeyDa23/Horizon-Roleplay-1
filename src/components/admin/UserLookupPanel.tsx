@@ -62,7 +62,7 @@ const UserLookupPanel: React.FC = () => {
     const handleUnban = async () => {
         if (!searchResult) return;
         // FIX: Guard against window access in non-browser environments.
-        if (typeof window !== 'undefined' && window.confirm('Are you sure you want to unban this user?')) {
+        if (typeof window !== 'undefined' && (window as any).confirm('Are you sure you want to unban this user?')) {
             try {
                 await unbanUser(searchResult.id);
                 showToast('User unbanned successfully.', 'success');
