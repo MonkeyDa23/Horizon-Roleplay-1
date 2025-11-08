@@ -2,7 +2,7 @@
 
 export const databaseSchema = `
 /*
--- Vixel Roleplay Website - Full Database Schema (V11.0.0 - Edge Function Architecture)
+-- Vixel Roleplay Website - Full Database Schema (V11.1.0 - Secure Password Hashing)
 
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -63,6 +63,7 @@ DROP FUNCTION IF EXISTS public.verify_admin_password(text);
 -- =================================================================
 CREATE EXTENSION IF NOT EXISTS "http" WITH SCHEMA "extensions";
 CREATE EXTENSION IF NOT EXISTS "pg_net" WITH SCHEMA "extensions";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto" WITH SCHEMA "extensions";
 CREATE SCHEMA private;
 
 -- =================================================================
@@ -391,24 +392,36 @@ $$;
 
 CREATE OR REPLACE FUNCTION public.update_config(new_config jsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
-    allowed_admin_keys text[] := ARRAY['COMMUNITY_NAME', 'LOGO_URL', 'DISCORD_GUILD_ID', 'BACKGROUND_IMAGE_URL', 'admin_password'];
+    allowed_appearance_keys text[] := ARRAY['COMMUNITY_NAME', 'LOGO_URL', 'DISCORD_GUILD_ID', 'BACKGROUND_IMAGE_URL', 'admin_password'];
     allowed_notif_keys text[] := ARRAY['submissions_channel_id', 'log_channel_submissions', 'log_channel_bans', 'log_channel_admin', 'audit_log_channel_id', 'mention_role_submissions', 'mention_role_audit_log_submissions', 'mention_role_audit_log_bans', 'mention_role_audit_log_admin', 'mention_role_audit_log_general'];
     key text;
     sql_query text := 'UPDATE public.config SET ';
     updates text[] := '{}';
 BEGIN
+    -- Handle Appearance Settings
     IF public.has_permission(public.get_user_id(), 'admin_appearance') THEN
         FOR key IN SELECT jsonb_object_keys(new_config) LOOP
-            IF key = ANY(allowed_admin_keys) THEN
-                updates := array_append(updates, format('"%s" = %L', key, new_config->>key));
+            IF key = ANY(allowed_appearance_keys) THEN
+                IF key = 'admin_password' THEN
+                    IF new_config->>key IS NOT NULL AND new_config->>key != '' THEN
+                        updates := array_append(updates, format('"admin_password" = crypt(%L, gen_salt(''bf''))', new_config->>key));
+                    ELSE
+                        updates := array_append(updates, '"admin_password" = NULL');
+                    END IF;
+                ELSE
+                    updates := array_append(updates, format('"%s" = %L', key, new_config->>key));
+                END IF;
             END IF;
         END LOOP;
     END IF;
 
+    -- Handle Notifications Settings
     IF public.has_permission(public.get_user_id(), 'admin_notifications') THEN
         FOR key IN SELECT jsonb_object_keys(new_config) LOOP
             IF key = ANY(allowed_notif_keys) THEN
-                updates := array_append(updates, format('"%s" = %L', key, new_config->>key));
+                IF NOT (format('"%s" = %L', key, new_config->>key) = ANY(updates)) THEN
+                    updates := array_append(updates, format('"%s" = %L', key, new_config->>key));
+                END IF;
             END IF;
         END LOOP;
     END IF;
@@ -476,13 +489,18 @@ END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.verify_admin_password(p_password text) RETURNS boolean
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
-  is_correct boolean;
+  stored_hash text;
 BEGIN
-  IF NOT public.has_permission(public.get_user_id(), 'admin_panel') THEN RETURN false; END IF;
-  SELECT (p_password = config.admin_password) INTO is_correct FROM public.config WHERE id = 1;
-  RETURN is_correct;
+  IF NOT public.has_permission(public.get_user_id(), 'admin_panel') THEN
+    RETURN false;
+  END IF;
+  SELECT admin_password INTO stored_hash FROM public.config WHERE id = 1;
+  IF stored_hash IS NULL THEN
+    RETURN false;
+  END IF;
+  RETURN (stored_hash = crypt(p_password, stored_hash));
 END;
 $$;
 

@@ -79,7 +79,8 @@ const UserLookupPanel: React.FC = () => {
                     <input 
                         type="text"
                         value={discordId}
-                        onChange={(e) => setDiscordId(e.currentTarget.value)}
+                        // FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property.
+                        onChange={(e) => setDiscordId((e.currentTarget as HTMLInputElement).value)}
                         placeholder={t('discord_id_placeholder')}
                         className="w-full bg-brand-light-blue p-3 rounded-md border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan"
                     />
@@ -127,11 +128,11 @@ const UserLookupPanel: React.FC = () => {
                 <div className="space-y-4">
                     <div>
                         <label className="block font-semibold mb-1">{t('reason')}</label>
-                        <input type="text" value={banReason} onChange={e => setBanReason(e.currentTarget.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
+                        <input type="text" value={banReason} onChange={e => setBanReason((e.currentTarget as HTMLInputElement).value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                     </div>
                     <div>
                         <label className="block font-semibold mb-1">{t('duration')} (in hours)</label>
-                        <input type="number" onChange={e => setBanDuration(parseInt(e.currentTarget.value) || null)} placeholder="Leave empty for permanent" className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
+                        <input type="number" onChange={e => setBanDuration(parseInt((e.currentTarget as HTMLInputElement).value) || null)} placeholder="Leave empty for permanent" className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                     </div>
                      <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4">
                         <button onClick={() => setBanModalOpen(false)} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button>

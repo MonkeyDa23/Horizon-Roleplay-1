@@ -14,6 +14,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 // FIX: Updated import paths to point to the 'src' directory
 import { useAuth } from '../src/hooks/useAuth';
@@ -429,9 +431,9 @@ const AdminPage: React.FC = () => {
       {editingQuiz && <Modal isOpen={!!editingQuiz} onClose={() => setEditingQuiz(null)} title={editingQuiz.id ? t('edit_quiz') : t('create_new_quiz')}>
         <div className="space-y-4 text-white">
             {/* Full quiz editor form would go here, simplified for brevity */}
-{/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access 'value' property. */}
+{/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property. */}
              <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_title')}</label><input type="text" value={editingQuiz.titleKey} onChange={(e) => setEditingQuiz({...editingQuiz, titleKey: (e.currentTarget as HTMLInputElement).value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
-{/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access 'value' property. */}
+{/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property. */}
              <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_handler_roles')}</label><input type="text" placeholder="e.g. 123,456" value={(editingQuiz.allowedTakeRoles || []).join(',')} onChange={(e) => setEditingQuiz({...editingQuiz, allowedTakeRoles: (e.currentTarget as HTMLInputElement).value.split(',').map(s=>s.trim()).filter(Boolean)})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /><p className="text-xs text-gray-400 mt-1">{t('quiz_handler_roles_desc')}</p></div>
              <div className="flex items-center gap-4 pt-2">
                 <label className="font-semibold text-gray-300">{t('status')}:</label>
