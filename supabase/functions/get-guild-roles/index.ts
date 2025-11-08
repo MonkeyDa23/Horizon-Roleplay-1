@@ -12,6 +12,8 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log(`[get-guild-roles] Received ${req.method} request.`);
+
   // Define helpers inside the handler to ensure no code runs on initialization.
   function getDiscordApi() {
     const BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
@@ -34,10 +36,12 @@ serve(async (req) => {
       throw new Error("DISCORD_GUILD_ID is not configured in function secrets.");
     }
     
+    console.log(`[get-guild-roles] Fetching roles for guild: ${GUILD_ID}`);
     const roles = await discordApi.get(`/guilds/${GUILD_ID}/roles`);
     
     // Sort roles by position, highest first
     (roles as any[]).sort((a, b) => b.position - a.position);
+    console.log(`[get-guild-roles] Successfully fetched and sorted ${ (roles as any[]).length} roles.`);
 
     return new Response(JSON.stringify(roles), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -45,7 +49,7 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('get-guild-roles error:', error.message);
+    console.error('[CRITICAL] get-guild-roles:', error);
     return new Response(JSON.stringify({ error: `Failed to fetch roles: ${error.message}` }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,

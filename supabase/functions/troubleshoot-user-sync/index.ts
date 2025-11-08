@@ -12,51 +12,48 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  console.log(`[troubleshoot-user-sync] Received ${req.method} request.`);
+
   // Define helpers inside the handler to ensure no code runs on initialization.
   function getDiscordApi() {
     const BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
-    if (!BOT_TOKEN) {
-      throw new Error("DISCORD_BOT_TOKEN is not configured in function secrets.");
-    }
+    if (!BOT_TOKEN) throw new Error("DISCORD_BOT_TOKEN is not configured in function secrets.");
     return new REST({ token: BOT_TOKEN, version: "10" });
   }
 
   const createAdminClient = () => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    if (!supabaseUrl || !serviceRoleKey) {
-      throw new Error('Supabase URL or Service Role Key is not configured in function secrets.');
-    }
-    return createClient(supabaseUrl, serviceRoleKey, {
-      auth: { autoRefreshToken: false, persistSession: false }
-    });
+    if (!supabaseUrl || !serviceRoleKey) throw new Error('Supabase URL or Service Role Key is not configured in function secrets.');
+    return createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
   };
 
-  // Handle CORS preflight requests.
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
+    const { discordId } = await req.json();
+    if (!discordId) throw new Error("Missing 'discordId' in request body.");
+    console.log(`[troubleshoot-user-sync] Processing request for Discord ID: ${discordId}`);
+
     const discordApi = getDiscordApi();
     const supabaseAdmin = createAdminClient();
     const GUILD_ID = Deno.env.get('DISCORD_GUILD_ID');
+    if (!GUILD_ID) throw new Error("DISCORD_GUILD_ID is not configured in function secrets.");
 
-    if (!GUILD_ID) {
-      throw new Error("DISCORD_GUILD_ID is not configured in function secrets.");
-    }
-    const { discordId } = await req.json();
-    if (!discordId) {
-      throw new Error("Missing 'discordId' in request body.");
-    }
-
+    console.log(`[troubleshoot-user-sync] Fetching member from Discord...`);
     const member = await discordApi.get(`/guilds/${GUILD_ID}/members/${discordId}`);
+    console.log(`[troubleshoot-user-sync] Successfully fetched member from Discord.`);
 
+    console.log(`[troubleshoot-user-sync] Fetching profile from database...`);
     const { data: profile, error: profileError } = await supabaseAdmin
-        .from('profiles')
-        .select('id, is_banned')
-        .eq('discord_id', discordId)
-        .single();
+        .from('profiles').select('id, is_banned').eq('discord_id', discordId).single();
+    if(profileError && profileError.code !== 'PGRST116') {
+        console.warn(`[troubleshoot-user-sync] DB profile lookup warning: ${profileError.message}`);
+    } else {
+        console.log(`[troubleshoot-user-sync] DB profile lookup complete. Found: ${!!profile}`);
+    }
     
     const response = {
         discord: {
@@ -72,6 +69,7 @@ serve(async (req) => {
         }
     }
     
+    console.log(`[troubleshoot-user-sync] Test complete. Returning results.`);
     return new Response(JSON.stringify(response), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
@@ -90,7 +88,7 @@ serve(async (req) => {
       }
     }
 
-    console.error('troubleshoot-user-sync error:', message);
+    console.error('[CRITICAL] troubleshoot-user-sync:', error);
     return new Response(JSON.stringify({ error: message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: status,

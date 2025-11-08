@@ -79,8 +79,7 @@ const QuizPage: React.FC = () => {
       setQuizState('submitted');
     } catch (error) {
       console.error("Failed to submit application:", error);
-      // FIX: Replaced alert with window.alert for explicit browser API usage.
-      // FIX: Cast window to any to bypass potential tsconfig lib errors for 'alert'.
+      // FIX: Guard against window access in non-browser environments for `window.alert`.
       if (typeof window !== 'undefined') (window as any).alert("An error occurred while submitting your application. Please try again.");
       setIsSubmitting(false);
     }
@@ -118,8 +117,7 @@ const QuizPage: React.FC = () => {
   useEffect(() => {
     // FIX: Guard against window access in non-browser environments.
     if (typeof window === 'undefined') return;
-    // FIX: Changed BeforeUnloadEvent to any to avoid type errors in non-DOM environments.
-    const handleBeforeUnload = (e: any) => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (quizState === 'taking') {
         e.preventDefault();
         e.returnValue = 'Are you sure you want to leave? Your progress will be lost.';
@@ -134,8 +132,7 @@ const QuizPage: React.FC = () => {
     if (typeof document === 'undefined') return;
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden' && quizState === 'taking') {
-        // FIX: Replaced alert with window.alert for explicit browser API usage.
-        // FIX: Cast window to any to bypass potential tsconfig lib errors for 'alert'.
+        // FIX: Guard against window access in non-browser environments for `window.alert`.
         if (typeof window !== 'undefined') (window as any).alert("You have switched away from the quiz tab. To ensure fairness, your application attempt has been cancelled.");
         navigate('/applies');
       }
@@ -212,7 +209,6 @@ const QuizPage: React.FC = () => {
         
         <textarea
           value={currentAnswer}
-          // FIX: Replaced e.target with e.currentTarget for better type safety.
           // FIX: Explicitly cast e.currentTarget to HTMLTextAreaElement to resolve type error.
           onChange={(e) => setCurrentAnswer((e.currentTarget as HTMLTextAreaElement).value)}
           className="w-full bg-brand-light-blue text-white p-4 rounded-md border border-gray-600 focus:ring-2 focus:ring-brand-cyan focus:border-brand-cyan transition-colors"

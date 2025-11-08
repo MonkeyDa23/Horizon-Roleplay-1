@@ -11,6 +11,8 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+    console.log(`[check-bot-health] Received ${req.method} request.`);
+    
     // Define helper inside the handler to ensure no code runs on initialization.
     function getDiscordApi() {
         const BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
@@ -20,16 +22,17 @@ serve(async (req) => {
         return new REST({ token: BOT_TOKEN, version: "10" });
     }
 
-    // Handle CORS preflight requests.
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders });
     }
 
     try {
+        console.log("[check-bot-health] Initializing Discord API client...");
         const discordApi = getDiscordApi();
 
-        // A simple request to a stable Discord endpoint to verify the token
+        console.log("[check-bot-health] Pinging Discord Gateway...");
         await discordApi.get('/gateway');
+        console.log("[check-bot-health] Ping successful.");
         
         return new Response(JSON.stringify({ ok: true, message: "Successfully connected to Discord API." }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -45,7 +48,7 @@ serve(async (req) => {
             details = 'The DISCORD_BOT_TOKEN secret is likely invalid or has been reset. Please check your Supabase function secrets.';
         }
         
-        console.error('check-bot-health error:', error.message);
+        console.error('[CRITICAL] check-bot-health:', error);
         return new Response(JSON.stringify({ ok: false, message, details }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 500,

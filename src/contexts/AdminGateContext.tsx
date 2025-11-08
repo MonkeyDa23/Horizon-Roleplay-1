@@ -1,4 +1,3 @@
-
 // src/contexts/AdminGateContext.tsx
 import React, { createContext, useState, useContext } from 'react';
 
@@ -11,7 +10,6 @@ const AdminGateContext = createContext<AdminGateContextType | undefined>(undefin
 
 export const AdminGateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isVerified, setIsVerified] = useState<boolean>(() => {
-    // Check session storage to persist verification within a browser session
     // FIX: Guard against window/sessionStorage access in non-browser environments.
     try {
       if (typeof window !== 'undefined') {

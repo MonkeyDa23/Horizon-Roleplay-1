@@ -20,6 +20,8 @@ const COLORS = {
 };
 
 serve(async (req) => {
+  console.log(`[discord-proxy] Received ${req.method} request.`);
+
   // Define helpers inside the handler to ensure no code runs on initialization.
   function getDiscordApi() {
     const BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
@@ -40,7 +42,6 @@ serve(async (req) => {
     });
   };
 
-  // Handle CORS preflight requests.
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -48,6 +49,7 @@ serve(async (req) => {
   try {
     const { type, payload } = await req.json();
     if (!type || !payload) throw new Error("Missing 'type' or 'payload'.");
+    console.log(`[discord-proxy] Processing notification type: '${type}'`);
 
     const supabaseAdmin = createAdminClient();
     const discordApi = getDiscordApi();
@@ -63,28 +65,28 @@ serve(async (req) => {
       case 'new_submission': {
         const { submission } = payload;
         const channelId = config.submissions_channel_id;
-        if (!channelId) return new Response(JSON.stringify({ warning: "submissions_channel_id not set, skipping notification." }));
+        if (!channelId) {
+            console.warn("[discord-proxy] submissions_channel_id not set, skipping notification.");
+            return new Response(JSON.stringify({ warning: "submissions_channel_id not set, skipping notification." }));
+        }
         
         const embed = {
           title: `New Application: ${submission.quizTitle}`,
           description: `A new application has been submitted by **${submission.username}**.`,
           color: COLORS.PRIMARY,
-          fields: [
-            { name: "Applicant", value: submission.username, inline: true },
-            { name: "Application Type", value: submission.quizTitle, inline: true },
-            { name: "Highest Role", value: submission.user_highest_role || "Member", inline: true },
-          ],
+          fields: [ { name: "Applicant", value: submission.username, inline: true }, { name: "Application Type", value: submission.quizTitle, inline: true }, { name: "Highest Role", value: submission.user_highest_role || "Member", inline: true } ],
           timestamp: new Date(submission.submittedAt).toISOString()
         };
         const content = config.mention_role_submissions ? `<@&${config.mention_role_submissions}>` : '';
         await discordApi.post(`/channels/${channelId}/messages`, { body: { content, embeds: [embed] } });
+        console.log(`[discord-proxy] Sent 'new_submission' notification to channel ${channelId}.`);
         break;
       }
       
       case 'submission_receipt': {
          const { submission } = payload;
          const { data: profile } = await supabaseAdmin.from('profiles').select('discord_id').eq('id', submission.user_id).single();
-         if (!profile) break;
+         if (!profile) { console.warn(`[discord-proxy] Could not find profile for user_id ${submission.user_id} to send receipt.`); break; }
          
          const embed = {
             title: t('notification_submission_receipt_title', 'en'),
@@ -94,6 +96,7 @@ serve(async (req) => {
          };
          const dmChannel = await discordApi.post('/users/@me/channels', { body: { recipient_id: profile.discord_id } }) as { id: string };
          await discordApi.post(`/channels/${dmChannel.id}/messages`, { body: { embeds: [embed] } });
+         console.log(`[discord-proxy] Sent 'submission_receipt' DM to user ${profile.discord_id}.`);
          break;
       }
 
@@ -103,27 +106,21 @@ serve(async (req) => {
         const messageType = isAccepted ? 'submission_accepted' : 'submission_refused';
 
         const { data: profile } = await supabaseAdmin.from('profiles').select('discord_id').eq('id', submission.user_id).single();
-        if (!profile) break;
+        if (!profile) { console.warn(`[discord-proxy] Could not find profile for user_id ${submission.user_id} to send result.`); break; }
 
-        const replacements = {
-            username: submission.username,
-            quizTitle: submission.quizTitle,
-            adminUsername: submission.adminUsername || 'Staff',
-            reason: submission.reason || 'No reason provided.'
-        };
+        const replacements = { username: submission.username, quizTitle: submission.quizTitle, adminUsername: submission.adminUsername || 'Staff', reason: submission.reason || 'No reason provided.' };
 
         const embed = {
             title: t(`notification_${messageType}_title`, 'en'),
             description: t(`notification_${messageType}_body`, 'en')
-                .replace('{username}', replacements.username)
-                .replace('{quizTitle}', replacements.quizTitle)
-                .replace('{adminUsername}', replacements.adminUsername)
-                .replace('{reason}', replacements.reason),
+                .replace('{username}', replacements.username).replace('{quizTitle}', replacements.quizTitle)
+                .replace('{adminUsername}', replacements.adminUsername).replace('{reason}', replacements.reason),
             color: isAccepted ? COLORS.SUCCESS : COLORS.ERROR,
             timestamp: new Date(submission.updatedAt).toISOString()
         };
         const dmChannel = await discordApi.post('/users/@me/channels', { body: { recipient_id: profile.discord_id } }) as { id: string };
         await discordApi.post(`/channels/${dmChannel.id}/messages`, { body: { embeds: [embed] } });
+        console.log(`[discord-proxy] Sent '${messageType}' DM to user ${profile.discord_id}.`);
         break;
       }
 
@@ -139,10 +136,8 @@ serve(async (req) => {
          const embed = {
             title: `[TEST] ${t(`notification_${messageType}_title`, 'en')}`,
             description: t(`notification_${messageType}_body`, 'en')
-                .replace('{username}', replacements.username)
-                .replace('{quizTitle}', replacements.quizTitle)
-                .replace('{adminUsername}', replacements.adminUsername)
-                .replace('{reason}', replacements.reason),
+                .replace('{username}', replacements.username).replace('{quizTitle}', replacements.quizTitle)
+                .replace('{adminUsername}', replacements.adminUsername).replace('{reason}', replacements.reason),
             color: COLORS.WARNING
          };
 
@@ -152,6 +147,7 @@ serve(async (req) => {
          } else {
             await discordApi.post(`/channels/${targetId}/messages`, { body: { embeds: [embed] } });
          }
+         console.log(`[discord-proxy] Sent test notification '${type}' to target ${targetId}.`);
          break;
       }
 
@@ -164,7 +160,7 @@ serve(async (req) => {
       status: 200,
     });
   } catch (error) {
-    console.error(`[CRITICAL] discord-proxy: ${error.message}`);
+    console.error(`[CRITICAL] discord-proxy:`, error);
     const errorMessage = error.response ? JSON.stringify(await (error.response as any).json()) : error.message;
     return new Response(JSON.stringify({ error: `An unexpected error occurred: ${errorMessage}` }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
