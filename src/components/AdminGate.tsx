@@ -53,7 +53,7 @@ const AdminGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                             id="admin-password"
                             type="password"
                             value={password}
-                            onChange={(e) => setPassword(e.target.value)}
+                            onChange={(e) => setPassword(e.currentTarget.value)}
                             className="w-full bg-brand-light-blue p-3 rounded-md border border-gray-600 text-center text-lg tracking-widest"
                             autoFocus
                         />

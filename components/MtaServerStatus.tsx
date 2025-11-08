@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 // FIX: Updated import paths to point to the 'src' directory
 import { useLocalization } from '../src/hooks/useLocalization';

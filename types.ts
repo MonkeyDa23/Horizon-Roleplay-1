@@ -1,4 +1,5 @@
 
+
 export type Language = 'ar' | 'en';
 
 export interface Translations {
@@ -37,8 +38,10 @@ export interface User {
   username: string;
   avatar: string;
   isAdmin: boolean;
-  // FIX: Added 'permissions' property to the User interface to match its usage in AuthContext.
-  permissions: Set<PermissionKey>;
+  // FIX: Replaced Set with an array to support older JS targets.
+  permissions: PermissionKey[];
+  // FIX: Added 'roles' property to the User interface to match its usage.
+  roles: any[];
 }
 
 export interface AuthContextType {
@@ -87,6 +90,8 @@ export interface Quiz {
   descriptionKey: string; // These are the rules shown before starting
   questions: QuizQuestion[];
   isOpen: boolean;
+  // FIX: Added 'allowedTakeRoles' to Quiz interface to match usage in AdminPage.
+  allowedTakeRoles?: string[];
 }
 
 export interface Answer {

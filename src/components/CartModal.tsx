@@ -31,7 +31,10 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
   };
   
   const handleOpenTicket = () => {
-    window.open(config.DISCORD_INVITE_URL, '_blank');
+    // FIX: Guard against window access in non-browser environments.
+    if (typeof window !== 'undefined') {
+      window.open(config.DISCORD_INVITE_URL, '_blank');
+    }
     clearCart();
     closeAllModals();
   };

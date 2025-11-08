@@ -52,7 +52,7 @@ const AppearancePanel: React.FC = () => {
             <input 
                 type={type}
                 value={value || ''}
-                onChange={(e) => onChange(e.target.value)}
+                onChange={(e) => onChange(e.currentTarget.value)}
                 placeholder={placeholder}
                 className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan"
             />

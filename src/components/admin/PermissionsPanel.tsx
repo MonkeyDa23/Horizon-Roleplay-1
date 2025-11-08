@@ -126,7 +126,7 @@ const PermissionsPanel: React.FC = () => {
                                        type="checkbox"
                                        className="mt-1 h-5 w-5 rounded bg-brand-dark border-gray-500 text-brand-cyan focus:ring-brand-cyan"
                                        checked={selectedRolePermissions.includes(key)}
-                                       onChange={(e) => handlePermissionChange(key, e.target.checked)}
+                                       onChange={(e) => handlePermissionChange(key, e.currentTarget.checked)}
                                    />
                                    <div>
                                        <code className="font-bold text-white text-base">{key}</code>

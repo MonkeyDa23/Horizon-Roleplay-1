@@ -52,7 +52,8 @@ export const Toast: React.FC<ToastProps> = ({ id, message, type, onClose }) => {
   );
 };
 
-export const ToastContainer: React.FC<{ toasts: Omit<ToastProps, 'onClose'>[]; onClose: (id: number) => void; }> = ({ toasts, onClose }) => {
+// FIX: Replaced Omit utility type with an explicit type definition for broader compatibility.
+export const ToastContainer: React.FC<{ toasts: { id: number; message: string; type: ToastType; }[]; onClose: (id: number) => void; }> = ({ toasts, onClose }) => {
     return (
         <div className="fixed top-24 end-6 z-[9999] w-full max-w-sm space-y-3">
             {toasts.map((toast) => (

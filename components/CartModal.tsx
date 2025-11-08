@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { useLocalization } from '../hooks/useLocalization';
 import { useCart } from '../hooks/useCart';
@@ -52,7 +53,8 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
                     type="number"
                     min="1"
                     value={item.quantity}
-                    onChange={(e) => updateQuantity(item.id, parseInt(e.target.value, 10))}
+                    // FIX: Replaced e.target with e.currentTarget for better type safety in React.
+                    onChange={(e) => updateQuantity(item.id, parseInt(e.currentTarget.value, 10))}
                     className="w-16 bg-brand-light-blue text-white text-center rounded-md border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan"
                   />
                   <button onClick={() => removeFromCart(item.id)} className="text-red-500 hover:text-red-400">

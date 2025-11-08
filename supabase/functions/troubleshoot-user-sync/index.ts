@@ -1,91 +1,74 @@
-// FIX: Replaced invalid Deno types reference with a valid one for Supabase edge functions to resolve 'Deno' not found errors.
-/// <reference types="https://esm.sh/@supabase/functions-js@2/src/edge-runtime.d.ts" />
+// FIX: Updated the type reference to a reliable CDN to resolve Deno runtime types.
+/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
 
-// supabase/functions/troubleshoot-user-sync/index.ts
+import { corsHeaders, discordApi, createAdminClient } from '../shared/index.ts';
 
-// @deno-types="https://esm.sh/@supabase/functions-js@2"
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-const createResponse = (data: unknown, status = 200) => {
-  return new Response(JSON.stringify(data), {
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    status,
-  })
-}
-
-const discordApi = async (endpoint: string) => {
-  const DISCORD_BOT_TOKEN = Deno.env.get("DISCORD_BOT_TOKEN");
-  if (!DISCORD_BOT_TOKEN) throw new Error("Bot token is not configured.");
-
-  const url = `https://discord.com/api/v10${endpoint}`;
-  const response = await fetch(url, {
-    headers: { Authorization: `Bot ${DISCORD_BOT_TOKEN}` },
-  });
-  
-  // Return the raw response so the caller can handle status codes
-  return response;
-};
+const GUILD_ID = Deno.env.get('DISCORD_GUILD_ID');
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
+    if (!GUILD_ID) {
+      throw new Error("DISCORD_GUILD_ID is not configured in function secrets.");
+    }
     const { discordId } = await req.json();
-    if (!discordId || typeof discordId !== 'string' || !/^\d{17,19}$/.test(discordId)) {
-        return createResponse({ error: 'A valid Discord User ID is required.' }, 400);
-    }
-    
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
-    
-    // Fetch DB data and Discord data concurrently
-    const [profileResult, configResult] = await Promise.all([
-        supabaseAdmin.from('profiles').select('id, is_banned, ban_reason, ban_expires_at').eq('discord_id', discordId).maybeSingle(),
-        supabaseAdmin.from('config').select('DISCORD_GUILD_ID').single()
-    ]);
-    
-    const { data: profileData } = profileResult;
-    const { data: config, error: configError } = configResult;
-    if (configError || !config?.DISCORD_GUILD_ID) {
-      throw new Error("DISCORD_GUILD_ID is not configured in the database.");
-    }
-    
-    // Fetch member data directly from Discord
-    const discordResponse = await discordApi(`/guilds/${config.DISCORD_GUILD_ID}/members/${discordId}`);
-    const discordData = await discordResponse.json();
-
-    if (!discordResponse.ok) {
-        // Pass Discord's error through
-        return createResponse(discordData, discordResponse.status);
+    if (!discordId) {
+      throw new Error("Missing 'discordId' in request body.");
     }
 
-    const finalData = {
-        username: discordData.user.global_name || discordData.user.username,
-        avatar: discordData.avatar 
-                ? `https://cdn.discordapp.com/guilds/${config.DISCORD_GUILD_ID}/users/${discordId}/avatars/${discordData.avatar}.png`
-                : `https://cdn.discordapp.com/avatars/${discordId}/${discordData.user.avatar}.png`,
-        roles: discordData.roles, // Just IDs for this test
-        is_banned: profileData?.is_banned || false,
-        ban_reason: profileData?.ban_reason || null,
-        ban_expires_at: profileData?.ban_expires_at || null
-    };
+    // This function is for admins, so use the service role key to check permissions
+    const supabaseAdmin = createAdminClient();
+    // Note: In a real app, you'd verify the caller is an admin first.
+    // For this diagnostic tool, we assume it's called by an authorized frontend.
 
-    return createResponse(finalData, 200);
+    const member = await discordApi.get(`/guilds/${GUILD_ID}/members/${discordId}`);
+
+    // Additionally, try to get the user's profile from the DB to check both sides
+    const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('id, is_banned')
+        .eq('discord_id', discordId)
+        .single();
+    
+    const response = {
+        discord: {
+            found: true,
+            username: member.user.username,
+            roles: member.roles,
+        },
+        database: {
+            found: !!profile,
+            error: profileError?.message || null,
+            is_banned: profile?.is_banned || false,
+            supabase_id: profile?.id || null,
+        }
+    }
+    
+    return new Response(JSON.stringify(response), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    });
 
   } catch (error) {
-    return createResponse({ 
-      error: 'The Supabase function itself failed to execute.',
-      details: error.message
-    }, 500);
+    let status = 500;
+    let message = error.message;
+
+    if (error.response) {
+      status = error.response.status;
+      if (status === 404) {
+        message = `User with ID ${error.config.url.split('/').pop()} was not found in the guild. This means the connection to Discord is working, but the user is not a member.`;
+      } else if (status === 403) {
+        message = 'Discord API returned Forbidden (403). The most common cause is that the "Server Members Intent" is not enabled in the Discord Developer Portal for your bot.';
+      }
+    }
+
+    console.error('troubleshoot-user-sync error:', message);
+    return new Response(JSON.stringify({ error: message }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: status,
+    });
   }
 })

@@ -6,6 +6,12 @@
 
 
 
+
+
+
+
+
+
 import React, { useState, useEffect, useCallback } from 'react';
 // FIX: Fix "no exported member" errors from 'react-router-dom' by switching to a namespace import.
 import * as ReactRouterDOM from 'react-router-dom';
@@ -121,7 +127,10 @@ const QuizPage: React.FC = () => {
       setQuizState('submitted');
     } catch (error) {
       console.error("Failed to submit application:", error);
-      alert("An error occurred while submitting your application. Please try again.");
+      // FIX: Use `window.alert` for explicit browser API usage.
+      if (typeof window !== 'undefined') {
+        window.alert("An error occurred while submitting your application. Please try again.");
+      }
       setIsSubmitting(false);
     }
   }, [quiz, user, t, isSubmitting, cheatLog]);
@@ -161,7 +170,7 @@ const QuizPage: React.FC = () => {
   }, [timeLeft, quizState, quiz, handleNextQuestion]);
   
   useEffect(() => {
-    if (quizState !== 'taking') return;
+    if (quizState !== 'taking' || typeof document === 'undefined') return;
 
     const handleCheat = (method: string) => {
         setCheatLog(prev => [...prev, { method, timestamp: new Date().toISOString() }]);
@@ -298,7 +307,8 @@ const QuizPage: React.FC = () => {
                 <h2 className="text-2xl md:text-3xl font-semibold mb-6 text-white">{t(currentQuestion.textKey)}</h2>
                 <textarea
                   value={currentAnswer}
-                  onChange={(e) => setCurrentAnswer(e.target.value)}
+                  // FIX: Changed e.target to e.currentTarget for better type safety.
+                  onChange={(e) => setCurrentAnswer(e.currentTarget.value)}
                   className="w-full bg-brand-light-blue text-white p-4 rounded-md border border-gray-600 focus:ring-2 focus:ring-brand-cyan focus:border-brand-cyan transition-colors"
                   rows={6}
                   placeholder="Type your answer here..."

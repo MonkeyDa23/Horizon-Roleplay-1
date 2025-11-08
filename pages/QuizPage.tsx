@@ -1,9 +1,5 @@
 
 
-
-
-
-
 import React, { useState, useEffect, useCallback } from 'react';
 // FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
 // FIX: Switched to a namespace import for react-router-dom to resolve module resolution errors.
@@ -64,7 +60,7 @@ const QuizPage: React.FC = () => {
     fetchQuiz();
   }, [quizId, navigate, user]);
   
-  const handleSubmit = useCallback(async (finalAnswers: Answer[]) => {
+  const handleSubmit = useCallback(async (finalAnswers: any[]) => {
     if (!quiz || !user || isSubmitting) return;
 
     setIsSubmitting(true);
@@ -83,7 +79,8 @@ const QuizPage: React.FC = () => {
       setQuizState('submitted');
     } catch (error) {
       console.error("Failed to submit application:", error);
-      alert("An error occurred while submitting your application. Please try again.");
+      // FIX: Replaced alert with window.alert for explicit browser API usage.
+      if (typeof window !== 'undefined') window.alert("An error occurred while submitting your application. Please try again.");
       setIsSubmitting(false);
     }
   }, [quiz, user, t, isSubmitting]);
@@ -118,7 +115,9 @@ const QuizPage: React.FC = () => {
   }, [timeLeft, quizState, quiz, handleNextQuestion]);
   
   useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+    if (typeof window === 'undefined') return;
+    // FIX: Changed BeforeUnloadEvent to any to avoid type errors in non-DOM environments.
+    const handleBeforeUnload = (e: any) => {
       if (quizState === 'taking') {
         e.preventDefault();
         e.returnValue = 'Are you sure you want to leave? Your progress will be lost.';
@@ -129,16 +128,18 @@ const QuizPage: React.FC = () => {
   }, [quizState]);
 
   useEffect(() => {
+    if (typeof document === 'undefined') return;
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden' && quizState === 'taking') {
-        alert("You have switched away from the quiz tab. To ensure fairness, your application attempt has been cancelled.");
+        // FIX: Replaced alert with window.alert for explicit browser API usage.
+        if (typeof window !== 'undefined') window.alert("You have switched away from the quiz tab. To ensure fairness, your application attempt has been cancelled.");
         navigate('/applies');
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [quizState, navigate]);
   
@@ -206,7 +207,8 @@ const QuizPage: React.FC = () => {
         
         <textarea
           value={currentAnswer}
-          onChange={(e) => setCurrentAnswer(e.target.value)}
+          // FIX: Replaced e.target with e.currentTarget for better type safety.
+          onChange={(e) => setCurrentAnswer(e.currentTarget.value)}
           className="w-full bg-brand-light-blue text-white p-4 rounded-md border border-gray-600 focus:ring-2 focus:ring-brand-cyan focus:border-brand-cyan transition-colors"
           rows={6}
           placeholder="Type your answer here..."

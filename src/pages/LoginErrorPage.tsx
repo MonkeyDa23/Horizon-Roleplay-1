@@ -19,15 +19,20 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
         const steps: React.ReactNode[] = [];
         const errorMessage = (error && typeof error.message === 'string') ? error.message.toLowerCase() : '';
 
-        if (errorMessage.includes('discord api error (403)')) {
+        // FIX: Replaced .includes with .indexOf for broader environment compatibility.
+        if (errorMessage.indexOf('discord api error (403)') !== -1) {
              steps.push(<>The Discord API rejected the request. This is almost always caused by the <strong>"Server Members Intent" being disabled</strong>. Go to your bot's settings in the Discord Developer Portal, enable it, and then invite the bot to your server again.</>);
-        } else if (errorMessage.includes('invalid or has been reset')) {
+        // FIX: Replaced .includes with .indexOf for broader environment compatibility.
+        } else if (errorMessage.indexOf('invalid or has been reset') !== -1) {
             steps.push(<>The Discord API rejected the request because the token is invalid. Please ensure the <code>DISCORD_BOT_TOKEN</code> secret in your Supabase project is correct and has not been reset.</>);
-        } else if (errorMessage.includes('not found') || (error instanceof ApiError && error.status === 404)) {
+        // FIX: Replaced .includes with .indexOf for broader environment compatibility.
+        } else if (errorMessage.indexOf('not found') !== -1 || (error instanceof ApiError && error.status === 404)) {
             steps.push(<>The bot reported that your Discord user was <strong>not found in the server</strong>. If you recently joined, please wait a few minutes and try again. Ensure you are a member of the correct Discord server specified in the website's configuration.</>);
-        } else if (errorMessage.includes('discord_guild_id is not configured')) {
+        // FIX: Replaced .includes with .indexOf for broader environment compatibility.
+        } else if (errorMessage.indexOf('discord_guild_id is not configured') !== -1) {
             steps.push(<>The website doesn't know which Discord server to check. Please go to the <strong>Admin Panel {'>'} Appearance</strong> page and set the correct <strong>Discord Guild ID</strong>.</>);
-        } else if (errorMessage.includes('failed to fetch') || errorMessage.includes('connection refused')) {
+        // FIX: Replaced .includes with .indexOf for broader environment compatibility.
+        } else if (errorMessage.indexOf('failed to fetch') !== -1 || errorMessage.indexOf('connection refused') !== -1) {
              steps.push(<>The Supabase function failed to connect to the Discord API. This could be a temporary network issue with Supabase or Discord. Please try again in a moment.</>);
         } else {
             steps.push(<>An unexpected error occurred. The full error message is: <code className="text-xs bg-brand-dark p-1 rounded">{(error && error.message) ? error.message : 'No error message available'}</code>. Please check the browser console and your Supabase Edge Function logs for more details.</>);

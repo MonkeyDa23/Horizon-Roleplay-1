@@ -13,6 +13,9 @@ const SEO: React.FC<SEOProps> = ({ title, description, keywords, noIndex = false
   const { config } = useConfig();
 
   useEffect(() => {
+    // FIX: Guard against document access in non-browser environments.
+    if (typeof document === 'undefined') return;
+
     document.title = title;
 
     const updateMetaTag = (name: string, content: string | undefined, isProperty = false) => {
@@ -39,7 +42,10 @@ const SEO: React.FC<SEOProps> = ({ title, description, keywords, noIndex = false
     updateMetaTag('og:title', title, true);
     updateMetaTag('og:description', description, true);
     updateMetaTag('og:type', 'website', true);
-    updateMetaTag('og:url', window.location.href, true);
+    // FIX: Guard against window access in non-browser environments.
+    if (typeof window !== 'undefined') {
+      updateMetaTag('og:url', window.location.href, true);
+    }
     updateMetaTag('og:image', image || config.LOGO_URL, true);
 
     // Twitter Card for rich sharing on Twitter

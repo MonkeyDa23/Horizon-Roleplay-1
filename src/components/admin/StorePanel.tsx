@@ -40,7 +40,8 @@ const StorePanel: React.FC = () => {
     }, [fetchProducts]);
 
     const handleCreateNew = () => {
-        const newId = crypto.randomUUID();
+        // FIX: Replaced crypto.randomUUID with a more compatible method.
+        const newId = 'id-' + Date.now() + '-' + Math.random().toString(36).substring(2);
         setEditingProduct({
             id: newId,
             nameKey: `product_${newId}_name`,
@@ -81,7 +82,8 @@ const StorePanel: React.FC = () => {
     };
 
     const handleDelete = async (product: Product) => {
-        if (window.confirm(`Delete "${t(product.nameKey)}"? This is irreversible.`)) {
+        // FIX: Guard against window access in non-browser environments.
+        if (typeof window !== 'undefined' && window.confirm(`Delete "${t(product.nameKey)}"? This is irreversible.`)) {
             try {
                 await deleteProduct(product.id);
                 showToast('Product deleted!', 'success');
@@ -139,27 +141,27 @@ const StorePanel: React.FC = () => {
                     <div className="space-y-4 text-white">
                         <div>
                             <label className="block mb-1 font-semibold text-gray-300">{t('name_en')}</label>
-                            <input type="text" value={editingProduct.nameEn} onChange={(e) => setEditingProduct({ ...editingProduct, nameEn: e.target.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
+                            <input type="text" value={editingProduct.nameEn} onChange={(e) => setEditingProduct({ ...editingProduct, nameEn: e.currentTarget.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                         </div>
                         <div>
                             <label className="block mb-1 font-semibold text-gray-300">{t('name_ar')}</label>
-                            <input type="text" dir="rtl" value={editingProduct.nameAr} onChange={(e) => setEditingProduct({ ...editingProduct, nameAr: e.target.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
+                            <input type="text" dir="rtl" value={editingProduct.nameAr} onChange={(e) => setEditingProduct({ ...editingProduct, nameAr: e.currentTarget.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                         </div>
                         <div>
                             <label className="block mb-1 font-semibold text-gray-300">{t('description_en')}</label>
-                            <input type="text" value={editingProduct.descriptionEn} onChange={(e) => setEditingProduct({ ...editingProduct, descriptionEn: e.target.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
+                            <input type="text" value={editingProduct.descriptionEn} onChange={(e) => setEditingProduct({ ...editingProduct, descriptionEn: e.currentTarget.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                         </div>
                         <div>
                             <label className="block mb-1 font-semibold text-gray-300">{t('description_ar')}</label>
-                            <input type="text" dir="rtl" value={editingProduct.descriptionAr} onChange={(e) => setEditingProduct({ ...editingProduct, descriptionAr: e.target.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
+                            <input type="text" dir="rtl" value={editingProduct.descriptionAr} onChange={(e) => setEditingProduct({ ...editingProduct, descriptionAr: e.currentTarget.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                         </div>
                         <div>
                             <label className="block mb-1 font-semibold text-gray-300">{t('price')}</label>
-                            <input type="number" value={editingProduct.price} onChange={(e) => setEditingProduct({ ...editingProduct, price: parseFloat(e.target.value) || 0 })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
+                            <input type="number" value={editingProduct.price} onChange={(e) => setEditingProduct({ ...editingProduct, price: parseFloat(e.currentTarget.value) || 0 })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                         </div>
                         <div>
                             <label className="block mb-1 font-semibold text-gray-300">{t('image_url')}</label>
-                            <input type="text" value={editingProduct.imageUrl} onChange={(e) => setEditingProduct({ ...editingProduct, imageUrl: e.target.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
+                            <input type="text" value={editingProduct.imageUrl} onChange={(e) => setEditingProduct({ ...editingProduct, imageUrl: e.currentTarget.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                         </div>
                         <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4">
                             <button onClick={() => setEditingProduct(null)} disabled={isSaving} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button>

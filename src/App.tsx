@@ -68,7 +68,10 @@ const AppContent: React.FC = () => {
   
   const retrySync = useCallback(async () => {
     navigate('/');
-    window.location.reload();
+    // FIX: Guard against window access in non-browser environments.
+    if (typeof window !== 'undefined') {
+      window.location.reload();
+    }
   }, [navigate]);
 
   if (user?.is_banned) {

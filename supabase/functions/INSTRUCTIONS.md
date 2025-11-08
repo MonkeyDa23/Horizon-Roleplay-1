@@ -1,112 +1,93 @@
-# Supabase & True Bot-less Setup Guide (V10.1.0)
+# Setup Guide: Supabase Edge Functions (V11.0.0)
 
-This guide provides the complete, simplified instructions for deploying and configuring the backend for your website. This architecture is **truly "bot-less"**, meaning you **do not need to host or run a separate bot application**, and you **do not need to create any webhooks**. All communication with Discord happens directly and securely through Supabase Edge Functions using only a bot token.
+This guide provides instructions for setting up the Vixel Roleplay website using the integrated Supabase Edge Functions backend. This architecture moves all Discord-related logic into secure, serverless functions within your Supabase project.
 
-**Please follow these steps exactly.**
-
----
-
-## Step 1: Create a Discord Bot Application
-
-You need a bot application to get a token, which allows your website to interact with Discord.
-
-1.  Go to the [Discord Developer Portal](https://discord.com/developers/applications).
-2.  Click **"New Application"** and give it a name (e.g., "Vixel Website Bot").
-3.  Go to the **"Bot"** tab on the left.
-4.  Under the "Privileged Gateway Intents" section, **enable all three intents**:
-    -   `PRESENCE INTENT`
-    -   `SERVER MEMBERS INTENT` (CRITICAL for role synchronization)
-    -   `MESSAGE CONTENT INTENT`
-5.  Click **"Save Changes"**.
-6.  Click the **"Reset Token"** button, confirm, and **copy the new token**. You will need this in the next step.
-7.  Go to the **"OAuth2"** tab -> **"URL Generator"**.
-8.  Select the scope `bot`.
-9.  Under "Bot Permissions", select **"Administrator"**. This is the easiest way to ensure it has all necessary permissions.
-10. Copy the generated URL at the bottom, paste it into your browser, and add the bot to your Discord server.
+**RECOMMENDATION:** It is highly recommended to have **Docker Desktop** installed and running on your system before using the Supabase CLI. This can prevent many common deployment issues.
 
 ---
 
-## Step 2: Set Supabase Function Secrets
+## Step 0: Clean Up Old Functions (Important for Upgrades)
 
-These secrets allow your Edge Functions to securely act as your bot and call each other.
+> **⚠️ WARNING:** This is a critical step! If you are upgrading from a previous version, you might have old, obsolete function folders. These WILL cause deployment errors.
 
-1.  Go to your Supabase Project -> **Settings** (gear icon) -> **Edge Functions**.
-2.  Under the **"Secrets"** section, click **"Add a new secret"** for each of the following:
-
-| Secret Name                   | Value                                                                   |
-| ----------------------------- | ----------------------------------------------------------------------- |
-| `DISCORD_BOT_TOKEN`           | The bot token you copied in the previous step.                          |
-| `SUPABASE_URL`                | Your Supabase project URL (e.g., `https://xxxx.supabase.co`).           |
-| `SUPABASE_SERVICE_ROLE_KEY`   | Your project's `service_role` key (found in Project Settings > API).    |
-
-**IMPORTANT:** The `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are required for functions to securely call other functions (like `send-notification` calling `discord-proxy`). **Notifications will fail if these are not set correctly.**
-
----
-
-## Step 3: Deploy Supabase Edge Functions
-
-You must deploy the required functions from the `supabase/functions` directory.
-
-1.  Go to your Supabase Project -> **Edge Functions**.
-2.  For each function listed below, click **"Create a function"**.
-3.  Enter the function's name (it MUST exactly match the folder name).
-4.  Delete all boilerplate code in the editor.
-5.  Copy the entire contents of the corresponding `index.ts` file and paste it into the editor.
-6.  Click **"Deploy"**.
-
-**Deploy these functions:**
-- `sync-user-profile`
-- `get-guild-roles`
-- `check-bot-health`
+**Delete the following folders** from your `supabase/functions` directory if they exist:
+- `discord-bot-interactions`
+- `get-discord-user-profile`
 - `check-function-secrets`
-- `troubleshoot-user-sync`
-- `send-notification` (Replaces `test-notification`)
-- `discord-proxy` (This is critical for all notifications)
+- `send-notification`
+- `test-notification`
+- `_shared`  <-- **DELETE THIS FOLDER**
+
+Your `supabase/functions` directory should only contain the following folders: `shared`, `check-bot-health`, `discord-proxy`, `get-guild-roles`, `sync-user-profile`, `troubleshoot-user-sync`.
 
 ---
 
-## Step 4: Run the Database Schema (VERY IMPORTANT)
+## Step 1: Deploy Supabase Edge Functions
 
-This script sets up all your tables and backend functions in the database.
+You must deploy all the provided functions to your Supabase project.
 
-1.  Go to Supabase Project -> **SQL Editor**.
+### Deployment Method
+
+It is **highly recommended** to deploy functions using the Supabase CLI. This method correctly handles all functions and shared code at once. While deploying directly from the Supabase dashboard's Function Editor is possible (and the code has been updated to support it), the CLI is more reliable.
+
+1.  **Install Supabase CLI:** If you haven't already, install the Supabase command-line interface.
+    ```bash
+    npm install supabase --save-dev
+    ```
+
+2.  **Link Your Project:** In your project's root directory, link the CLI to your remote Supabase project. You will need your Project ID.
+    ```bash
+    npx supabase link --project-ref YOUR_PROJECT_ID
+    ```
+
+3.  **Deploy the Functions:** Deploy all the functions in the `supabase/functions` directory.
+    ```bash
+    npx supabase functions deploy --project-ref YOUR_PROJECT_ID
+    ```
+    This command will deploy all the necessary functions.
+
+---
+
+## Step 2: Set Function Secrets
+
+The functions need secret keys to communicate with Discord. **These are NOT the same as your `.env` file.** These secrets are stored securely in Supabase.
+
+1.  **Go to your Supabase Project Dashboard.**
+2.  Navigate to **Edge Functions**.
+3.  Click on any of the functions you just deployed (e.g., `sync-user-profile`).
+4.  Go to the **Secrets** tab in the function's menu.
+5.  Add the following secrets:
+
+    -   `DISCORD_BOT_TOKEN`: Your Discord bot's secret token.
+    -   `DISCORD_GUILD_ID`: The ID of your Discord server (guild).
+
+    **Important:** You only need to set these secrets **once**. They are shared across all Edge Functions in your project.
+
+---
+
+## Step 3: Run the Database Schema
+
+This script sets up all the necessary tables and database functions, which are now designed to work with your new Edge Functions.
+
+1.  Go to your Supabase Project -> **SQL Editor**.
 2.  Click **"+ New query"**.
 3.  Copy the ENTIRE content of the file at `src/lib/database_schema.ts`.
 4.  Paste it into the editor and click **"RUN"**.
 
-This script will automatically enable the `http` extension required for certain health checks.
-
 ---
 
-## Step 5: How to Get Discord IDs
+## Step 4: Configure the Frontend
 
-For the final configuration step, you will need Server, Channel, and Role IDs. Here's how to get them:
+The frontend needs your Supabase project's URL and public key.
 
-1.  In your Discord app, go to **User Settings** (gear icon) -> **Advanced**.
-2.  Enable **Developer Mode**.
-3.  Now you can right-click on anything in Discord to get its ID:
-    -   **Server ID:** Right-click your server's icon -> "Copy Server ID".
-    -   **Channel ID:** Right-click any text channel -> "Copy Channel ID".
-    -   **Role ID:** Go to Server Settings -> Roles, right-click a role -> "Copy Role ID".
-
----
-
-## Step 6: Final Configuration in Admin Panel
-
-Once your website is running, you need to link it to your Discord server and set up notifications.
-
-1.  Log into your website with your admin account.
-2.  Navigate to the **Admin Panel**.
-3.  Go to the **Appearance** tab:
-    -   Fill in your **Discord Guild ID**.
-    -   (Optional) Set a password for the admin panel for extra security.
-4.  Go to the **Notifications** tab:
-    -   Fill in the **Channel IDs** for the channels where you want to receive notifications (e.g., new submissions, audit logs).
-    -   Fill in the **Mention Role IDs** for roles you want to ping in those notifications.
-5.  Click **"Save Settings"** on both pages.
+1.  In the root of this project, find the file named `.env.example`.
+2.  Create a copy and rename it to `.env`.
+3.  Open the new `.env` file and fill in:
+    -   `VITE_SUPABASE_URL`: Your Supabase project URL.
+    -   `VITE_SUPABASE_ANON_KEY`: Your Supabase project's public `anon` key.
 
 ---
 
 ## Final Check
 
-Your setup is complete! You can now use the **Health Check** page in the Admin Panel to verify that all connections are working correctly.
+Your setup is complete! Use the **System Health Check** page (accessible to Super Admins via the Admin Panel) to verify that the website, database, and Edge Functions are all communicating correctly with the Discord API.

@@ -11,8 +11,12 @@ const AdminGateContext = createContext<AdminGateContextType | undefined>(undefin
 export const AdminGateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isVerified, setIsVerified] = useState<boolean>(() => {
     // Check session storage to persist verification within a browser session
+    // FIX: Guard against window/sessionStorage access in non-browser environments.
     try {
-      return sessionStorage.getItem('isAdminVerified') === 'true';
+      if (typeof window !== 'undefined') {
+        return window.sessionStorage.getItem('isAdminVerified') === 'true';
+      }
+      return false;
     } catch {
       return false;
     }
@@ -20,7 +24,10 @@ export const AdminGateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const verify = () => {
     try {
-      sessionStorage.setItem('isAdminVerified', 'true');
+      // FIX: Guard against window/sessionStorage access in non-browser environments.
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem('isAdminVerified', 'true');
+      }
     } catch {}
     setIsVerified(true);
   };

@@ -58,7 +58,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   const login = async () => {
     if (!supabase) {
-        alert("Login is not configured. Please add Supabase environment variables.");
+        // FIX: Replaced alert with window.alert for explicit browser API usage.
+        if (typeof window !== 'undefined') window.alert("Login is not configured. Please add Supabase environment variables.");
         return;
     }
     setLoading(true);
@@ -70,7 +71,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
     if (error) {
         console.error("Error logging in:", error.message);
-        alert(`Login failed: ${error.message}`);
+        // FIX: Replaced alert with window.alert for explicit browser API usage.
+        if (typeof window !== 'undefined') window.alert(`Login failed: ${error.message}`);
         setLoading(false);
     }
   };
@@ -88,8 +90,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const hasPermission = useCallback((key: PermissionKey): boolean => {
     if (!user) return false;
     // Super admin has all permissions implicitly
-    if (user.permissions.has('_super_admin')) return true;
-    return user.permissions.has(key);
+    // FIX: Changed from .has to .includes to work with arrays.
+    if ((user.permissions || []).includes('_super_admin')) return true;
+    // FIX: Changed from .has to .includes to work with arrays.
+    return (user.permissions || []).includes(key);
   }, [user]);
 
   // Render a full-page loader while the initial session is being processed.

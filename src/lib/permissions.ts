@@ -5,7 +5,8 @@ import type { PermissionKey } from "../types";
 // This object defines all available permissions in the application.
 // The keys are used internally for checks (e.g., hasPermission('admin_quizzes')).
 // The values are used as user-friendly descriptions in the admin panel.
-export const PERMISSIONS: Record<PermissionKey, string> = {
+// FIX: Replaced Record<T, U> with a mapped type for broader compatibility.
+export const PERMISSIONS: { [key in PermissionKey]: string } = {
   // Special super admin permission
   _super_admin: 'Grants all other permissions automatically.',
 

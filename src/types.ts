@@ -14,7 +14,8 @@ export interface Translations {
 export interface LocalizationContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
-  t: (key: string, replacements?: Record<string, string | number>) => string;
+  // FIX: Replaced Record<T, U> with an index signature for broader compatibility.
+  t: (key: string, replacements?: { [key: string]: string | number }) => string;
   dir: 'rtl' | 'ltr';
 }
 

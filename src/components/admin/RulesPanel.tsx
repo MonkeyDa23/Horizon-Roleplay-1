@@ -11,7 +11,11 @@ interface EditableRule extends Rule {
     textEn: string;
     textAr: string;
 }
-interface EditableRuleCategory extends Omit<RuleCategory, 'rules'> {
+// FIX: Replaced Omit with an explicit type definition to fix compatibility issues.
+interface EditableRuleCategory {
+    id: string;
+    titleKey: string;
+    position: number;
     titleEn: string;
     titleAr: string;
     rules: EditableRule[];
@@ -79,7 +83,8 @@ const RulesPanel: React.FC = () => {
     };
     
     const addCategory = () => {
-        const newId = crypto.randomUUID();
+        // FIX: Replaced crypto.randomUUID with a more compatible method.
+        const newId = 'id-' + Date.now() + '-' + Math.random().toString(36).substring(2);
         const newCategory: EditableRuleCategory = {
             id: newId,
             titleKey: `rule_cat_${newId}_title`,
@@ -96,7 +101,8 @@ const RulesPanel: React.FC = () => {
     };
     
     const addRule = (catIndex: number) => {
-        const newId = crypto.randomUUID();
+        // FIX: Replaced crypto.randomUUID with a more compatible method.
+        const newId = 'id-' + Date.now() + '-' + Math.random().toString(36).substring(2);
         const newRule: EditableRule = { 
             id: newId, 
             textKey: `rule_${newId}_text`,
@@ -142,8 +148,8 @@ const RulesPanel: React.FC = () => {
                         <div className="flex items-center gap-3 mb-4 p-2 bg-brand-light-blue/50 rounded-md">
                             <GripVertical className="cursor-grab text-gray-500" />
                              <div className="flex-grow grid grid-cols-2 gap-3">
-                                <input type="text" value={category.titleEn} onChange={(e) => handleCategoryChange(catIndex, 'titleEn', e.target.value)} placeholder="Category Title (EN)" className="w-full bg-transparent text-xl font-bold text-white focus:outline-none"/>
-                                <input type="text" dir="rtl" value={category.titleAr} onChange={(e) => handleCategoryChange(catIndex, 'titleAr', e.target.value)} placeholder="عنوان القسم (AR)" className="w-full bg-transparent text-xl font-bold text-white focus:outline-none"/>
+                                <input type="text" value={category.titleEn} onChange={(e) => handleCategoryChange(catIndex, 'titleEn', e.currentTarget.value)} placeholder="Category Title (EN)" className="w-full bg-transparent text-xl font-bold text-white focus:outline-none"/>
+                                <input type="text" dir="rtl" value={category.titleAr} onChange={(e) => handleCategoryChange(catIndex, 'titleAr', e.currentTarget.value)} placeholder="عنوان القسم (AR)" className="w-full bg-transparent text-xl font-bold text-white focus:outline-none"/>
                              </div>
                             <button onClick={() => deleteCategory(catIndex)} className="text-red-500 hover:text-red-400"><Trash2 size={20} /></button>
                         </div>
@@ -152,8 +158,8 @@ const RulesPanel: React.FC = () => {
                                 <div key={rule.id} className="flex items-start gap-2">
                                     <span className="text-gray-500 font-bold pt-2">{ruleIndex + 1}.</span>
                                     <div className="w-full grid grid-cols-2 gap-2">
-                                        <textarea value={rule.textEn} onChange={(e) => handleRuleChange(catIndex, ruleIndex, 'textEn', e.target.value)} placeholder="Rule Text (EN)" className="w-full bg-brand-dark p-2 rounded-md border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan h-20"/>
-                                        <textarea dir="rtl" value={rule.textAr} onChange={(e) => handleRuleChange(catIndex, ruleIndex, 'textAr', e.target.value)} placeholder="نص القانون (AR)" className="w-full bg-brand-dark p-2 rounded-md border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan h-20"/>
+                                        <textarea value={rule.textEn} onChange={(e) => handleRuleChange(catIndex, ruleIndex, 'textEn', e.currentTarget.value)} placeholder="Rule Text (EN)" className="w-full bg-brand-dark p-2 rounded-md border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan h-20"/>
+                                        <textarea dir="rtl" value={rule.textAr} onChange={(e) => handleRuleChange(catIndex, ruleIndex, 'textAr', e.currentTarget.value)} placeholder="نص القانون (AR)" className="w-full bg-brand-dark p-2 rounded-md border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan h-20"/>
                                     </div>
                                     <button onClick={() => deleteRule(catIndex, ruleIndex)} className="text-red-500 hover:text-red-400 pt-2"><Trash2 size={18} /></button>
                                 </div>

@@ -12,7 +12,7 @@ const SessionWatcher = () => {
     const isValidating = useRef(false);
 
     useEffect(() => {
-        if (!user) {
+        if (!user || typeof window === 'undefined') {
             return;
         }
 
@@ -22,8 +22,8 @@ const SessionWatcher = () => {
             try {
                 const freshUser = await revalidateSession();
                 
-                const hadAdminAccess = user.permissions.includes('admin_panel');
-                const nowHasAdminAccess = freshUser.permissions.includes('admin_panel');
+                const hadAdminAccess = (user.permissions || []).indexOf('admin_panel') !== -1;
+                const nowHasAdminAccess = (freshUser.permissions || []).indexOf('admin_panel') !== -1;
 
                 if (hadAdminAccess !== nowHasAdminAccess) {
                     if (nowHasAdminAccess) {

@@ -8,6 +8,10 @@
 
 
 
+
+
+
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 // FIX: Updated import paths to point to the 'src' directory
 import { useAuth } from '../src/hooks/useAuth';
@@ -200,7 +204,8 @@ const AdminPage: React.FC = () => {
    const handleDeleteQuiz = async (quizId: string) => {
     if (!user) return;
     const quizToDelete = quizzes.find(q => q.id === quizId);
-    if (window.confirm(`Delete "${t(quizToDelete?.titleKey || 'this')}" quiz?`)) {
+    // FIX: Guard against window access in non-browser environments.
+    if (typeof window !== 'undefined' && window.confirm(`Delete "${t(quizToDelete?.titleKey || 'this')}" quiz?`)) {
         try {
             // FIX: Removed user argument from API call
             await apiDeleteQuiz(quizId);
@@ -263,7 +268,7 @@ const AdminPage: React.FC = () => {
       // FIX: The 'roles' property on user was missing. It has been added to the User type
       // and populated in the fetchUserProfile function.
       // FIX: Check userRole.id against the allowedRoles string array.
-      const isAllowed = !allowedRoles || allowedRoles.length === 0 || user.roles.some(userRole => allowedRoles.includes(userRole.id));
+      const isAllowed = !allowedRoles || allowedRoles.length === 0 || (user.roles || []).some(userRole => (allowedRoles || []).includes(userRole.id));
       
       if (!isAllowed) {
           return <div title={t('take_order_forbidden')}><button disabled className="bg-gray-600/50 text-gray-400 font-bold py-1 px-3 rounded-md text-sm cursor-not-allowed">{t('take_order_forbidden')}</button></div>
@@ -422,8 +427,8 @@ const AdminPage: React.FC = () => {
       {editingQuiz && <Modal isOpen={!!editingQuiz} onClose={() => setEditingQuiz(null)} title={editingQuiz.id ? t('edit_quiz') : t('create_new_quiz')}>
         <div className="space-y-4 text-white">
             {/* Full quiz editor form would go here, simplified for brevity */}
-             <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_title')}</label><input type="text" value={editingQuiz.titleKey} onChange={(e) => setEditingQuiz({...editingQuiz, titleKey: e.target.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
-             <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_handler_roles')}</label><input type="text" placeholder="e.g. 123,456" value={(editingQuiz.allowedTakeRoles || []).join(',')} onChange={(e) => setEditingQuiz({...editingQuiz, allowedTakeRoles: e.target.value.split(',').map(s=>s.trim()).filter(Boolean)})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /><p className="text-xs text-gray-400 mt-1">{t('quiz_handler_roles_desc')}</p></div>
+             <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_title')}</label><input type="text" value={editingQuiz.titleKey} onChange={(e) => setEditingQuiz({...editingQuiz, titleKey: e.currentTarget.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /></div>
+             <div><label className="block mb-1 font-semibold text-gray-300">{t('quiz_handler_roles')}</label><input type="text" placeholder="e.g. 123,456" value={(editingQuiz.allowedTakeRoles || []).join(',')} onChange={(e) => setEditingQuiz({...editingQuiz, allowedTakeRoles: e.currentTarget.value.split(',').map(s=>s.trim()).filter(Boolean)})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" /><p className="text-xs text-gray-400 mt-1">{t('quiz_handler_roles_desc')}</p></div>
              <div className="flex items-center gap-4 pt-2">
                 <label className="font-semibold text-gray-300">{t('status')}:</label>
                 <button onClick={() => setEditingQuiz({...editingQuiz, isOpen: !editingQuiz.isOpen})}

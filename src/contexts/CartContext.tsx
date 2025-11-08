@@ -1,10 +1,15 @@
 
+
 import React, { createContext, useState, useEffect, useMemo } from 'react';
 import type { CartContextType, CartItem, Product } from '../types';
 
 export const CartContext = createContext<CartContextType | undefined>(undefined);
 
 const getInitialCart = (): CartItem[] => {
+  // FIX: Guard against window access in non-browser environments.
+  if (typeof window === 'undefined') {
+    return [];
+  }
   try {
     const localData = window.localStorage.getItem('horizon_cart');
     return localData ? JSON.parse(localData) : [];
@@ -18,10 +23,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [cartItems, setCartItems] = useState<CartItem[]>(getInitialCart);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem('horizon_cart', JSON.stringify(cartItems));
-    } catch (error) {
-      console.error("Could not save cart to localStorage", error);
+    // FIX: Guard against window access in non-browser environments.
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem('horizon_cart', JSON.stringify(cartItems));
+      } catch (error) {
+        console.error("Could not save cart to localStorage", error);
+      }
     }
   }, [cartItems]);
 
