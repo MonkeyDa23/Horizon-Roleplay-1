@@ -3,6 +3,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useCallback } from 'react';
 // FIX: Fix "no exported member" errors from 'react-router-dom' by switching to a namespace import.
 import * as ReactRouterDOM from 'react-router-dom';
@@ -184,11 +186,11 @@ const QuizPage: React.FC = () => {
         }
     };
 
-    // FIX: Guard against document access in non-browser environments.
+    // FIX: Add event listener to document.
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-        // FIX: Guard against document access in non-browser environments.
+        // FIX: Remove event listener from document on cleanup.
         document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [quizState, quiz, showToast, t]);
@@ -302,7 +304,7 @@ const QuizPage: React.FC = () => {
                 <h2 className="text-2xl md:text-3xl font-semibold mb-6 text-white">{t(currentQuestion.textKey)}</h2>
                 <textarea
                   value={currentAnswer}
-                  // FIX: Explicitly cast e.currentTarget to HTMLTextAreaElement to resolve type error on 'value' property.
+                  // FIX: Use e.currentTarget.value to correctly access the textarea's value.
                   onChange={(e) => setCurrentAnswer(e.currentTarget.value)}
                   className="w-full bg-brand-light-blue text-white p-4 rounded-md border border-gray-600 focus:ring-2 focus:ring-brand-cyan focus:border-brand-cyan transition-colors"
                   rows={6}

@@ -3,6 +3,8 @@
 
 
 
+
+
 import React, { useEffect } from 'react';
 import { useConfig } from '../hooks/useConfig';
 
@@ -33,15 +35,15 @@ const SEO: React.FC<SEOProps> = ({ title, description, keywords, noIndex = false
         element = document.createElement('meta');
         if (isProperty) {
           // FIX: Cast element to 'any' to avoid TypeScript lib errors with setAttribute.
-          element.setAttribute('property', name);
+          (element as any).setAttribute('property', name);
         } else {
           // FIX: Cast element to 'any' to avoid TypeScript lib errors with setAttribute.
-          element.setAttribute('name', name);
+          (element as any).setAttribute('name', name);
         }
         document.head.appendChild(element);
       }
       // FIX: Cast element to 'any' to avoid TypeScript lib errors with setAttribute.
-      element.setAttribute('content', content);
+      (element as any).setAttribute('content', content);
     };
 
     updateMetaTag('description', description);
@@ -54,7 +56,6 @@ const SEO: React.FC<SEOProps> = ({ title, description, keywords, noIndex = false
     updateMetaTag('og:type', 'website', true);
     // FIX: Guard against window access in non-browser environments.
     if (typeof window !== 'undefined') {
-      // FIX: Cast window to any to bypass potential tsconfig lib errors for 'location'.
       updateMetaTag('og:url', window.location.href, true);
     }
     updateMetaTag('og:image', image || config.LOGO_URL, true);

@@ -54,8 +54,8 @@ const AdminGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                             id="admin-password"
                             type="password"
                             value={password}
-                            // FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property.
-                            onChange={(e) => setPassword((e.currentTarget as HTMLInputElement).value)}
+                            // FIX: Use e.currentTarget.value to correctly access the input's value.
+                            onChange={(e) => setPassword(e.currentTarget.value)}
                             className="w-full bg-brand-light-blue p-3 rounded-md border border-gray-600 text-center text-lg tracking-widest"
                             autoFocus
                         />

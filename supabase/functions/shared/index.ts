@@ -1,7 +1,7 @@
 // supabase/functions/shared/index.ts
 // This file consolidates all shared utilities for Supabase Edge Functions.
-// FIX: Updated the Supabase function type reference to a valid path.
-/// <reference types="https://esm.sh/@supabase/functions-js" />
+// FIX: Update the Supabase function type reference to a valid path.
+/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
 

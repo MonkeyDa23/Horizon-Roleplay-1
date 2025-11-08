@@ -1,5 +1,6 @@
 
 
+
 // src/components/admin/SubmissionsPanel.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalization } from '../../hooks/useLocalization';
@@ -211,7 +212,7 @@ const SubmissionsPanel: React.FC = () => {
                                 <label className="block mb-1 font-semibold text-gray-300">{t('reason')} (Optional)</label>
                                 <textarea 
                                     value={decisionReason}
-                                    // FIX: Explicitly cast e.currentTarget to HTMLTextAreaElement to access its 'value' property.
+                                    // FIX: Use e.currentTarget.value to correctly access the textarea's value.
                                     onChange={(e) => setDecisionReason(e.currentTarget.value)}
                                     placeholder="Provide a reason for acceptance or refusal..."
                                     className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan"

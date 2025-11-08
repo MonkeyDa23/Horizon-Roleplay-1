@@ -52,7 +52,7 @@ const AppearancePanel: React.FC = () => {
             <input 
                 type={type}
                 value={value || ''}
-                // FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property.
+                // FIX: Use e.currentTarget.value to correctly access the input's value.
                 onChange={(e) => onChange(e.currentTarget.value)}
                 placeholder={placeholder}
                 className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan"

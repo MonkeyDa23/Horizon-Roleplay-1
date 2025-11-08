@@ -1,5 +1,6 @@
 
 
+
 // src/components/admin/UserLookupPanel.tsx
 import React, { useState } from 'react';
 import { useLocalization } from '../../hooks/useLocalization';
@@ -81,7 +82,7 @@ const UserLookupPanel: React.FC = () => {
                     <input 
                         type="text"
                         value={discordId}
-                        // FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property.
+                        // FIX: Use e.currentTarget.value to correctly access the input's value.
                         onChange={(e) => setDiscordId(e.currentTarget.value)}
                         placeholder={t('discord_id_placeholder')}
                         className="w-full bg-brand-light-blue p-3 rounded-md border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan"
@@ -130,12 +131,12 @@ const UserLookupPanel: React.FC = () => {
                 <div className="space-y-4">
                     <div>
                         <label className="block font-semibold mb-1">{t('reason')}</label>
-                        {/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property. */}
+                        {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
                         <input type="text" value={banReason} onChange={e => setBanReason(e.currentTarget.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                     </div>
                     <div>
                         <label className="block font-semibold mb-1">{t('duration')} (in hours)</label>
-                        {/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property. */}
+                        {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
                         <input type="number" onChange={e => setBanDuration(parseInt(e.currentTarget.value) || null)} placeholder="Leave empty for permanent" className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                     </div>
                      <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4">
