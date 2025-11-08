@@ -1,10 +1,9 @@
 
 // supabase/functions/discord-proxy/index.ts
-// FIX: Updated Supabase Edge Function type reference to a versioned URL to resolve Deno runtime types.
-/// <reference types="https://esm.sh/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
+// FIX: Removed version from reference path for better stability.
+/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
-import { REST } from "https://esm.sh/@discordjs/rest@2.2.0";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -20,21 +19,48 @@ const COLORS = {
   PRIMARY: 0x00F2EA  // Cyan
 };
 
+const DISCORD_API_BASE = 'https://discord.com/api/v10';
+
+async function makeDiscordRequest(endpoint: string, options: RequestInit = {}) {
+  const BOT_TOKEN = (Deno as any).env.get('DISCORD_BOT_TOKEN');
+  if (!BOT_TOKEN) {
+    throw new Error("DISCORD_BOT_TOKEN is not configured in function secrets.");
+  }
+
+  const response = await fetch(`${DISCORD_API_BASE}${endpoint}`, {
+    ...options,
+    headers: {
+      ...options.headers,
+      'Authorization': `Bot ${BOT_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({ message: 'Failed to parse error body' }));
+    console.error(`Discord API Error on ${options.method || 'GET'} ${endpoint}: ${response.status}`, errorBody);
+    const error = new Error(`Discord API Error: ${errorBody.message || response.statusText}`);
+    (error as any).status = response.status;
+    (error as any).response = response;
+    throw error;
+  }
+  
+  if (response.status === 204) {
+    return null;
+  }
+  
+  return response.json();
+}
+
+const discordApi = {
+  post: (endpoint: string, body: any) => makeDiscordRequest(endpoint, { method: 'POST', body: JSON.stringify(body) }),
+};
+
+
 serve(async (req) => {
   console.log(`[discord-proxy] Received ${req.method} request.`);
 
-  // Define helpers inside the handler to ensure no code runs on initialization.
-  function getDiscordApi() {
-    // FIX: Add type reference to resolve Deno types and cast to any.
-    const BOT_TOKEN = (Deno as any).env.get('DISCORD_BOT_TOKEN');
-    if (!BOT_TOKEN) {
-      throw new Error("DISCORD_BOT_TOKEN is not configured in function secrets.");
-    }
-    return new REST({ token: BOT_TOKEN, version: "10" });
-  }
-
   const createAdminClient = () => {
-    // FIX: Add type reference to resolve Deno types and cast to any.
     const supabaseUrl = (Deno as any).env.get('SUPABASE_URL');
     const serviceRoleKey = (Deno as any).env.get('SUPABASE_SERVICE_ROLE_KEY');
     if (!supabaseUrl || !serviceRoleKey) {
@@ -55,8 +81,7 @@ serve(async (req) => {
     console.log(`[discord-proxy] Processing notification type: '${type}'`);
 
     const supabaseAdmin = createAdminClient();
-    const discordApi = getDiscordApi();
-
+    
     const { data: config, error: configError } = await supabaseAdmin.rpc('get_config');
     if (configError) throw new Error(`Failed to fetch config: ${configError.message}`);
     
@@ -81,7 +106,7 @@ serve(async (req) => {
           timestamp: new Date(submission.submittedAt).toISOString()
         };
         const content = config.mention_role_submissions ? `<@&${config.mention_role_submissions}>` : '';
-        await discordApi.post(`/channels/${channelId}/messages`, { body: { content, embeds: [embed] } });
+        await discordApi.post(`/channels/${channelId}/messages`, { content, embeds: [embed] });
         console.log(`[discord-proxy] Sent 'new_submission' notification to channel ${channelId}.`);
         break;
       }
@@ -97,8 +122,8 @@ serve(async (req) => {
             color: COLORS.INFO,
             timestamp: new Date().toISOString()
          };
-         const dmChannel = await discordApi.post('/users/@me/channels', { body: { recipient_id: profile.discord_id } }) as { id: string };
-         await discordApi.post(`/channels/${dmChannel.id}/messages`, { body: { embeds: [embed] } });
+         const dmChannel = await discordApi.post('/users/@me/channels', { recipient_id: profile.discord_id }) as { id: string };
+         await discordApi.post(`/channels/${dmChannel.id}/messages`, { embeds: [embed] });
          console.log(`[discord-proxy] Sent 'submission_receipt' DM to user ${profile.discord_id}.`);
          break;
       }
@@ -121,8 +146,8 @@ serve(async (req) => {
             color: isAccepted ? COLORS.SUCCESS : COLORS.ERROR,
             timestamp: new Date(submission.updatedAt).toISOString()
         };
-        const dmChannel = await discordApi.post('/users/@me/channels', { body: { recipient_id: profile.discord_id } }) as { id: string };
-        await discordApi.post(`/channels/${dmChannel.id}/messages`, { body: { embeds: [embed] } });
+        const dmChannel = await discordApi.post('/users/@me/channels', { recipient_id: profile.discord_id }) as { id: string };
+        await discordApi.post(`/channels/${dmChannel.id}/messages`, { embeds: [embed] });
         console.log(`[discord-proxy] Sent '${messageType}' DM to user ${profile.discord_id}.`);
         break;
       }
@@ -145,10 +170,10 @@ serve(async (req) => {
          };
 
          if (isUser) {
-            const dmChannel = await discordApi.post('/users/@me/channels', { body: { recipient_id: targetId } }) as {id: string};
-            await discordApi.post(`/channels/${dmChannel.id}/messages`, { body: { embeds: [embed] } });
+            const dmChannel = await discordApi.post('/users/@me/channels', { recipient_id: targetId }) as {id: string};
+            await discordApi.post(`/channels/${dmChannel.id}/messages`, { embeds: [embed] });
          } else {
-            await discordApi.post(`/channels/${targetId}/messages`, { body: { embeds: [embed] } });
+            await discordApi.post(`/channels/${targetId}/messages`, { embeds: [embed] });
          }
          console.log(`[discord-proxy] Sent test notification '${type}' to target ${targetId}.`);
          break;
@@ -164,7 +189,8 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error(`[CRITICAL] discord-proxy:`, error);
-    const errorMessage = error.response ? JSON.stringify(await (error.response as any).json()) : error.message;
+    // FIX: Cast error to any to access response property and safely access the message property.
+    const errorMessage = (error as any).response ? JSON.stringify(await (error as any).response.json()) : (error as Error).message;
     return new Response(JSON.stringify({ error: `An unexpected error occurred: ${errorMessage}` }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,

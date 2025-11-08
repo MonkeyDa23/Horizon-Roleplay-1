@@ -1,6 +1,7 @@
 
 
 
+
 import React, { createContext, useState, useEffect, useMemo } from 'react';
 import type { CartContextType, CartItem, Product } from '../types';
 
@@ -12,7 +13,8 @@ const getInitialCart = (): CartItem[] => {
     return [];
   }
   try {
-    const localData = window.localStorage.getItem('horizon_cart');
+    // FIX: Cast window to any to bypass potential tsconfig lib errors for 'localStorage'.
+    const localData = (window as any).localStorage.getItem('horizon_cart');
     return localData ? JSON.parse(localData) : [];
   } catch (error) {
     console.error("Could not load cart from localStorage", error);
@@ -27,7 +29,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // FIX: Guard against window access in non-browser environments.
     if (typeof window !== 'undefined') {
       try {
-        window.localStorage.setItem('horizon_cart', JSON.stringify(cartItems));
+        // FIX: Cast window to any to bypass potential tsconfig lib errors for 'localStorage'.
+        (window as any).localStorage.setItem('horizon_cart', JSON.stringify(cartItems));
       } catch (error) {
         console.error("Could not save cart to localStorage", error);
       }

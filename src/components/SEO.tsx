@@ -53,7 +53,8 @@ const SEO: React.FC<SEOProps> = ({ title, description, keywords, noIndex = false
     updateMetaTag('og:type', 'website', true);
     // FIX: Guard against window access in non-browser environments.
     if (typeof window !== 'undefined') {
-      updateMetaTag('og:url', window.location.href, true);
+      // FIX: Cast window to any to bypass potential tsconfig lib errors for 'location'.
+      updateMetaTag('og:url', (window as any).location.href, true);
     }
     updateMetaTag('og:image', image || config.LOGO_URL, true);
 

@@ -59,13 +59,15 @@ const SessionWatcher = () => {
             }
         };
 
-        window.addEventListener('focus', handleFocus);
+        // FIX: Cast window to any to bypass potential tsconfig lib errors for 'addEventListener'.
+        (window as any).addEventListener('focus', handleFocus);
         // Keep a periodic check as a fallback (e.g., every 5 minutes)
         const intervalId = setInterval(validate, 5 * 60 * 1000); 
 
         return () => {
             clearInterval(intervalId);
-            window.removeEventListener('focus', handleFocus);
+            // FIX: Cast window to any to bypass potential tsconfig lib errors for 'removeEventListener'.
+            (window as any).removeEventListener('focus', handleFocus);
         };
 
     }, [user, updateUser, logout, showToast, t]);

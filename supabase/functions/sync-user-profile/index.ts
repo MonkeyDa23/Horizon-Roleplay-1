@@ -1,10 +1,9 @@
 
 // supabase/functions/sync-user-profile/index.ts
-// FIX: Updated Supabase Edge Function type reference to a versioned URL to resolve Deno runtime types.
-/// <reference types="https://esm.sh/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
+// FIX: Removed version from reference path for better stability.
+/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
-import { REST } from "https://esm.sh/@discordjs/rest@2.2.0";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 // Inlined types to remove dependency on src/types.ts
@@ -33,19 +32,47 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const DISCORD_API_BASE = 'https://discord.com/api/v10';
+
+async function makeDiscordRequest(endpoint: string, options: RequestInit = {}) {
+  const BOT_TOKEN = (Deno as any).env.get('DISCORD_BOT_TOKEN');
+  if (!BOT_TOKEN) {
+    throw new Error("DISCORD_BOT_TOKEN is not configured in function secrets.");
+  }
+
+  const response = await fetch(`${DISCORD_API_BASE}${endpoint}`, {
+    ...options,
+    headers: {
+      ...options.headers,
+      'Authorization': `Bot ${BOT_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({ message: 'Failed to parse error body' }));
+    console.error(`Discord API Error on ${options.method || 'GET'} ${endpoint}: ${response.status}`, errorBody);
+    const error = new Error(`Discord API Error: ${errorBody.message || response.statusText}`);
+    (error as any).status = response.status;
+    (error as any).response = response;
+    throw error;
+  }
+  
+  if (response.status === 204) {
+    return null;
+  }
+  
+  return response.json();
+}
+
+const discordApi = {
+  get: (endpoint: string) => makeDiscordRequest(endpoint, { method: 'GET' }),
+};
+
 serve(async (req) => {
   console.log(`[sync-user-profile] Received ${req.method} request.`);
 
-  // Define helpers inside the handler
-  function getDiscordApi() {
-    // FIX: Add type reference to resolve Deno types and cast to any.
-    const BOT_TOKEN = (Deno as any).env.get('DISCORD_BOT_TOKEN');
-    if (!BOT_TOKEN) throw new Error("DISCORD_BOT_TOKEN is not configured in function secrets.");
-    return new REST({ token: BOT_TOKEN, version: "10" });
-  }
-
   const createAdminClient = () => {
-    // FIX: Add type reference to resolve Deno types and cast to any.
     const supabaseUrl = (Deno as any).env.get('SUPABASE_URL');
     const serviceRoleKey = (Deno as any).env.get('SUPABASE_SERVICE_ROLE_KEY');
     if (!supabaseUrl || !serviceRoleKey) throw new Error('Supabase URL or Service Role Key is not configured in function secrets.');
@@ -57,7 +84,6 @@ serve(async (req) => {
   }
 
   try {
-    // Robustly handle Authorization header
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
       console.error("[sync-user-profile] Error: Missing Authorization header.");
@@ -67,13 +93,10 @@ serve(async (req) => {
       });
     }
 
-    const discordApi = getDiscordApi();
-    // FIX: Add type reference to resolve Deno types and cast to any.
     const GUILD_ID = (Deno as any).env.get('DISCORD_GUILD_ID');
     if (!GUILD_ID) throw new Error("DISCORD_GUILD_ID is not configured in function secrets.");
     
     const supabase = createClient(
-      // FIX: Add type reference to resolve Deno types and cast to any.
       (Deno as any).env.get('SUPABASE_URL') ?? '',
       (Deno as any).env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: authHeader } } }
@@ -112,7 +135,7 @@ serve(async (req) => {
         member = await discordApi.get(`/guilds/${GUILD_ID}/members/${discordId}`);
         console.log(`[sync-user-profile] Successfully fetched member from Discord for ID ${discordId}.`);
     } catch(e) {
-        if (e.response && e.response.status === 404) {
+        if ((e as any).status === 404) {
              console.warn(`[sync-user-profile] User ${discordId} not found in Discord server ${GUILD_ID}.`);
              return new Response(JSON.stringify({ error: "User not found in the Discord server." }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 404 });
         }
@@ -153,7 +176,6 @@ serve(async (req) => {
       ban_expires_at: banData?.ban_expires_at ?? null,
     };
     
-    // Await the profile update to prevent race conditions.
     const { error: upsertError } = await supabaseAdmin.from('profiles').upsert({
         id: finalUser.id, discord_id: finalUser.discordId, username: finalUser.username, avatar_url: finalUser.avatar,
         roles: finalUser.roles, highest_role: finalUser.highestRole, last_synced_at: new Date().toISOString()
@@ -172,8 +194,9 @@ serve(async (req) => {
     });
 
   } catch (error) {
-    console.error('[CRITICAL] sync-user-profile:', error); // Log the full error object
-    return new Response(JSON.stringify({ error: `An unexpected error occurred: ${error.message}` }), {
+    console.error('[CRITICAL] sync-user-profile:', error);
+    // FIX: Cast error to Error type to safely access the message property.
+    return new Response(JSON.stringify({ error: `An unexpected error occurred: ${(error as Error).message}` }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
     });

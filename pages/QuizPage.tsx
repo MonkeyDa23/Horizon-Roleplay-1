@@ -3,6 +3,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useCallback } from 'react';
 // FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
 // FIX: Switched to a namespace import for react-router-dom to resolve module resolution errors.
@@ -127,8 +129,10 @@ const QuizPage: React.FC = () => {
         e.returnValue = 'Are you sure you want to leave? Your progress will be lost.';
       }
     };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    // FIX: Cast window to any to bypass potential tsconfig lib errors for 'addEventListener'.
+    (window as any).addEventListener('beforeunload', handleBeforeUnload);
+    // FIX: Cast window to any to bypass potential tsconfig lib errors for 'removeEventListener'.
+    return () => (window as any).removeEventListener('beforeunload', handleBeforeUnload);
   }, [quizState]);
 
   useEffect(() => {

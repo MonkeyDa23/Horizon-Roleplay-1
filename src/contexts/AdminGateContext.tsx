@@ -14,7 +14,8 @@ export const AdminGateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // FIX: Guard against window/sessionStorage access in non-browser environments.
     try {
       if (typeof window !== 'undefined') {
-        return window.sessionStorage.getItem('isAdminVerified') === 'true';
+        // FIX: Cast window to any to bypass potential tsconfig lib errors for 'sessionStorage'.
+        return (window as any).sessionStorage.getItem('isAdminVerified') === 'true';
       }
       return false;
     } catch {
@@ -26,7 +27,8 @@ export const AdminGateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     try {
       // FIX: Guard against window/sessionStorage access in non-browser environments.
       if (typeof window !== 'undefined') {
-        window.sessionStorage.setItem('isAdminVerified', 'true');
+        // FIX: Cast window to any to bypass potential tsconfig lib errors for 'sessionStorage'.
+        (window as any).sessionStorage.setItem('isAdminVerified', 'true');
       }
     } catch {}
     setIsVerified(true);

@@ -93,7 +93,8 @@ const HealthCheckPage: React.FC = () => {
       return null;
   }
   // FIX: Guard against window access in non-browser environments.
-  const redirectUri = typeof window !== 'undefined' ? window.location.origin : '';
+  // FIX: Cast window to any to bypass potential tsconfig lib errors for 'location'.
+  const redirectUri = typeof window !== 'undefined' ? (window as any).location.origin : '';
 
   return (
     <>
