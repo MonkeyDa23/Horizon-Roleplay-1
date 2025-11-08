@@ -207,6 +207,10 @@ export const translations: Translations = {
   discord_guild_id_desc: { ar: 'مطلوب للمصادقة ومزامنة الرتب.', en: 'Required for authentication and role sync.'},
   admin_panel_password: { ar: 'كلمة مرور لوحة التحكم', en: 'Admin Panel Password' },
   admin_panel_password_desc: { ar: 'كلمة مرور اختيارية لطبقة أمان إضافية للوصول إلى لوحة التحكم.', en: 'Optional password for an extra layer of security to access the admin panel.' },
+  discord_proxy_url: { ar: 'رابط دالة البروكسي', en: 'Discord Proxy Function URL'},
+  discord_proxy_url_desc: { ar: 'الرابط الكامل لدالة "discord-proxy" لإرسال إشعارات السجل. احصل عليه من إعدادات الدالة في Supabase.', en: 'The full URL for the "discord-proxy" function to send log notifications. Get this from your function settings in Supabase.'},
+  discord_proxy_secret: { ar: 'مفتاح سري لدالة البروكسي', en: 'Discord Proxy Function Secret'},
+  discord_proxy_secret_desc: { ar: 'مفتاح سري مشترك بين إعدادات الموقع وإعدادات الدالة لتأمينها. يجب أن يكون هو نفسه في كلا المكانين.', en: 'A shared secret between the website settings and the function secrets to secure it. Must be the same in both places.'},
 
   
   // Admin Page - Notifications
@@ -236,7 +240,7 @@ export const translations: Translations = {
   discord_roles: { ar: 'رتب الديسكورد', en: 'Discord Roles' },
   available_permissions: { ar: 'الصلاحيات المتاحة', en: 'Available Permissions' },
   select_role_to_manage: { ar: 'اختر رتبة لعرض صلاحياتها.', en: 'Select a role to see its permissions.' },
-  admin_permissions_instructions: { ar: 'اختر رتبة من القائمة لعرض وتعديل صلاحياتها. صلاحية <code>_super_admin</code> تمنح جميع الصلاحيات الأخرى تلقائياً.', en: 'Select a role from the list to view and modify its permissions. The <code>_super_admin</code> permission automatically grants all other permissions.'},
+  admin_permissions_instructions: { ar: 'اختر رتبة من القائمة لعرض وتعديل صلاحياتها. صلاحية <code>_super_admin</code> تمنح جميع الصلاحيات الأخرى تلقائياً.', en: 'Select a role from the list to view and modify its permissions. The `_super_admin` permission automatically grants all other permissions.'},
   admin_permissions_bootstrap_instructions_title: { ar: 'غير قادر على الدخول؟', en: 'Locked Out?' },
   admin_permissions_bootstrap_instructions_body: { 
     ar: `معك حق، هذه الطريقة معقدة جداً. استخدام أمر SQL مباشر أسهل بكثير.<br/><br/>١. اذهب إلى <strong>محرر SQL</strong> في مشروعك على Supabase.<br/>٢. انسخ والصق الأمر الموجود في الأسفل.<br/>٣. استبدل <code>'YOUR_ADMIN_ROLE_ID_HERE'</code> بآي دي رتبة المشرف الحقيقية في ديسكورد.<br/>٤. اضغط على <strong>RUN</strong>، ثم قم بتحديث هذه الصفحة.<br/><br/><pre class="bg-brand-dark text-white p-3 rounded-md text-sm whitespace-pre-wrap text-left" dir="ltr"><code>INSERT INTO public.role_permissions (role_id, permissions) <br/>VALUES ('YOUR_ADMIN_ROLE_ID_HERE', '{"_super_admin"}');</code></pre>`,
@@ -255,6 +259,14 @@ export const translations: Translations = {
   notification_group_welcome: { ar: 'رسائل الترحيب', en: 'Welcome Messages'},
   notification_group_submission_user: { ar: 'رسائل التقديمات (للمستخدم)', en: 'Submission Messages (to User)'},
   notification_group_submission_admin: { ar: 'إشعارات التقديمات (للإدارة)', en: 'Submission Notifications (to Admin)'},
+
+  notification_submission_receipt_title: { en: 'Application Submitted Successfully! ✅', ar: 'تم استلام تقديمك بنجاح! ✅' },
+  notification_submission_receipt_body: { en: 'Hey {username},\n\nWe have successfully received your application for **{quizTitle}**. Our team will review it as soon as possible.\n\nYou can check the status of your application at any time on the "My Applications" page on our website.', ar: 'أهلاً {username},\n\nلقد استلمنا بنجاح تقديمك لوظيفة **{quizTitle}**. سيقوم فريقنا بمراجعته في أقرب وقت ممكن.\n\nيمكنك متابعة حالة تقديمك في أي وقت عبر صفحة "تقديماتي" على موقعنا.' },
+  notification_submission_accepted_title: { en: 'Congratulations! Your Application was Accepted! 🎉', ar: 'تهانينا! تم قبول تقديمك! 🎉' },
+  notification_submission_accepted_body: { en: 'Hey {username},\n\nGreat news! Your application for **{quizTitle}** has been reviewed and **accepted** by {adminUsername}.\n\nReason: {reason}\n\nPlease follow any further instructions provided in our Discord server.', ar: 'أهلاً {username},\n\nأخبار رائعة! بعد المراجعة، تم **قبول** تقديمك لوظيفة **{quizTitle}** من قبل {adminUsername}.\n\nالسبب: {reason}\n\nيرجى اتباع أي تعليمات إضافية في سيرفر الديسكورد.' },
+  notification_submission_refused_title: { en: 'Update on Your Application', ar: 'تحديث بخصوص تقديمك' },
+  notification_submission_refused_body: { en: 'Hey {username},\n\nThank you for your interest and for taking the time to apply for **{quizTitle}**. After careful review by {adminUsername}, we have decided not to move forward with your application at this time.\n\nReason: {reason}\n\nYou are welcome to apply again in the future.', ar: 'أهلاً {username},\n\nشكراً لاهتمامك والوقت الذي قضيته في التقديم لوظيفة **{quizTitle}**. بعد المراجعة الدقيقة من قبل {adminUsername}، قررنا عدم المتابعة في طلبك في الوقت الحالي.\n\nالسبب: {reason}\n\nنرحب بك للتقديم مرة أخرى في المستقبل.' },
+
   
   // Submission Statuses
   status_pending: { ar: 'قيد الانتظار', en: 'Pending' },
@@ -319,6 +331,7 @@ export const translations: Translations = {
   session_expired_not_in_guild: { ar: 'انتهت صلاحية جلستك أو لم تعد عضواً في السيرفر. تم تسجيل خروجك.', en: 'Your session has expired or you are no longer in the guild. You have been logged out.'},
   admin_health_check_promo: { ar: 'هل تواجه مشاكل مثل عدم وصول الإشعارات؟ أداة فحص النظام يمكنها مساعدتك في تشخيص وحل المشاكل الشائعة.', en: 'Having issues like notifications not sending? The System Health Check tool can help you diagnose and solve common problems.' },
   admin_health_check_promo_link: { ar: 'اذهب إلى صفحة فحص النظام الآن.', en: 'Go to the Health Check page now.' },
+  community_announcements: { en: 'Community Announcements', ar: 'إعلانات المجتمع' },
   product_vip_bronze_name: { ar: 'عضوية VIP برونزية', en: 'Bronze VIP Membership' },
   product_vip_bronze_desc: { ar: 'مميزات حصرية داخل السيرفر لمدة شهر.', en: 'Exclusive in-server perks for one month.' },
   product_vip_silver_name: { ar: 'عضوية VIP فضية', en: 'Silver VIP Membership' },

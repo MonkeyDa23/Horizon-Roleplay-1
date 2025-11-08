@@ -1,7 +1,7 @@
 // supabase/functions/shared/index.ts
 // This file consolidates all shared utilities for Supabase Edge Functions.
-// FIX: Update the Supabase function type reference to a valid path.
-/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
+// FIX: Update the Supabase function type reference to a versioned URL to ensure it can be found.
+/// <reference types="https://esm.sh/v135/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
 
@@ -14,6 +14,7 @@ export const corsHeaders = {
 const DISCORD_API_BASE = 'https://discord.com/api/v10';
 
 async function makeDiscordRequest(endpoint: string, options: RequestInit = {}) {
+  // FIX: Cast Deno to `any` to avoid type errors in non-Deno environments.
   const BOT_TOKEN = (Deno as any).env.get('DISCORD_BOT_TOKEN');
   if (!BOT_TOKEN) {
     throw new Error("DISCORD_BOT_TOKEN is not configured in function secrets.");
@@ -53,7 +54,9 @@ export const discordApi = {
 
 // --- Supabase Admin Client ---
 export const createAdminClient = () => {
+  // FIX: Cast Deno to `any` to avoid type errors in non-Deno environments.
   const supabaseUrl = (Deno as any).env.get('SUPABASE_URL');
+  // FIX: Cast Deno to `any` to avoid type errors in non-Deno environments.
   const serviceRoleKey = (Deno as any).env.get('SUPABASE_SERVICE_ROLE_KEY');
 
   if (!supabaseUrl || !serviceRoleKey) {

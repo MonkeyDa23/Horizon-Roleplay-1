@@ -1,6 +1,6 @@
 // supabase/functions/troubleshoot-user-sync/index.ts
-// FIX: Update the Supabase function type reference to a valid path.
-/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
+// FIX: Update the Supabase function type reference to a versioned URL to ensure it can be found.
+/// <reference types="https://esm.sh/v135/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -13,7 +13,7 @@ const corsHeaders = {
 const DISCORD_API_BASE = 'https://discord.com/api/v10';
 
 async function makeDiscordRequest(endpoint: string, options: RequestInit = {}) {
-  // FIX: Cast Deno to `any` to avoid type errors in some environments.
+  // FIX: Cast Deno to `any` to avoid type errors in non-Deno environments.
   const BOT_TOKEN = (Deno as any).env.get('DISCORD_BOT_TOKEN');
   if (!BOT_TOKEN) {
     throw new Error("DISCORD_BOT_TOKEN is not configured in function secrets.");
@@ -49,8 +49,9 @@ serve(async (req) => {
   console.log(`[troubleshoot-user-sync] Received ${req.method} request.`);
 
   const createAdminClient = () => {
-    // FIX: Cast Deno to `any` to avoid type errors in some environments.
+    // FIX: Cast Deno to `any` to avoid type errors in non-Deno environments.
     const supabaseUrl = (Deno as any).env.get('SUPABASE_URL');
+    // FIX: Cast Deno to `any` to avoid type errors in non-Deno environments.
     const serviceRoleKey = (Deno as any).env.get('SUPABASE_SERVICE_ROLE_KEY');
     if (!supabaseUrl || !serviceRoleKey) throw new Error('Supabase URL or Service Role Key is not configured in function secrets.');
     return createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
@@ -66,7 +67,7 @@ serve(async (req) => {
     console.log(`[troubleshoot-user-sync] Processing request for Discord ID: ${discordId}`);
 
     const supabaseAdmin = createAdminClient();
-    // FIX: Cast Deno to `any` to avoid type errors in some environments.
+    // FIX: Cast Deno to `any` to avoid type errors in non-Deno environments.
     const GUILD_ID = (Deno as any).env.get('DISCORD_GUILD_ID');
     if (!GUILD_ID) throw new Error("DISCORD_GUILD_ID is not configured in function secrets.");
 
