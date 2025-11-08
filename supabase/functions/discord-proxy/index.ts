@@ -1,38 +1,16 @@
-// FIX: Updated the Edge Function type reference to resolve Deno runtime types.
-/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
+// supabase/functions/discord-proxy/index.ts
+// FIX: Updated Supabase Edge Function type reference to resolve Deno runtime types.
+/// <reference types="https://esm.sh/v135/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
 
-// Inlined shared code to support manual deployment via Supabase dashboard.
-// This block is a copy of `supabase/functions/shared/index.ts`.
-// --- Start of inlined shared code ---
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
 import { REST } from "https://esm.sh/@discordjs/rest@2.2.0";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-function getDiscordApi() {
-    const BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
-    if (!BOT_TOKEN) {
-      throw new Error("DISCORD_BOT_TOKEN is not configured in function secrets.");
-    }
-    return new REST({ token: BOT_TOKEN, version: "10" });
-}
-
-const createAdminClient = () => {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error('Supabase URL or Service Role Key is not configured in function secrets.');
-  }
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false }
-  });
-};
-// --- End of inlined shared code ---
-
-// Main function logic
 const COLORS = {
   INFO: 0x00B2FF, // Blue
   SUCCESS: 0x22C55E, // Green
@@ -42,7 +20,27 @@ const COLORS = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests. This is crucial for browser-based clients.
+  // Define helpers inside the handler to ensure no code runs on initialization.
+  function getDiscordApi() {
+    const BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
+    if (!BOT_TOKEN) {
+      throw new Error("DISCORD_BOT_TOKEN is not configured in function secrets.");
+    }
+    return new REST({ token: BOT_TOKEN, version: "10" });
+  }
+
+  const createAdminClient = () => {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!supabaseUrl || !serviceRoleKey) {
+      throw new Error('Supabase URL or Service Role Key is not configured in function secrets.');
+    }
+    return createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
+  };
+
+  // Handle CORS preflight requests.
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -51,11 +49,9 @@ serve(async (req) => {
     const { type, payload } = await req.json();
     if (!type || !payload) throw new Error("Missing 'type' or 'payload'.");
 
-    // Initialize clients inside the handler to prevent CORS issues on error
     const supabaseAdmin = createAdminClient();
     const discordApi = getDiscordApi();
 
-    // 1. Fetch config and translations
     const { data: config, error: configError } = await supabaseAdmin.rpc('get_config');
     if (configError) throw new Error(`Failed to fetch config: ${configError.message}`);
     
@@ -63,7 +59,6 @@ serve(async (req) => {
     if (transError) throw new Error(`Failed to fetch translations: ${transError.message}`);
     const t = (key: string, lang = 'en') => (translations as any[]).find(tr => tr.key === key)?.[lang] || key;
 
-    // 2. Process based on notification type
     switch (type) {
       case 'new_submission': {
         const { submission } = payload;
@@ -89,7 +84,7 @@ serve(async (req) => {
       case 'submission_receipt': {
          const { submission } = payload;
          const { data: profile } = await supabaseAdmin.from('profiles').select('discord_id').eq('id', submission.user_id).single();
-         if (!profile) break; // User not found, can't DM
+         if (!profile) break;
          
          const embed = {
             title: t('notification_submission_receipt_title', 'en'),
@@ -170,7 +165,6 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error(`[CRITICAL] discord-proxy: ${error.message}`);
-    // @ts-ignore
     const errorMessage = error.response ? JSON.stringify(await (error.response as any).json()) : error.message;
     return new Response(JSON.stringify({ error: `An unexpected error occurred: ${errorMessage}` }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

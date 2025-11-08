@@ -1,7 +1,7 @@
 // supabase/functions/shared/index.ts
 // This file consolidates all shared utilities for Supabase Edge Functions.
 // FIX: Updated the Edge Function type reference to resolve Deno runtime types.
-/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
+/// <reference types="https://esm.sh/v135/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
 import { REST } from "https://esm.sh/@discordjs/rest@2.2.0";

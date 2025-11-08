@@ -1,46 +1,43 @@
-// FIX: Updated the Edge Function type reference to resolve Deno runtime types.
-/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
+// supabase/functions/troubleshoot-user-sync/index.ts
+// FIX: Updated Supabase Edge Function type reference to resolve Deno runtime types.
+/// <reference types="https://esm.sh/v135/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
 
-// Inlined shared code to support manual deployment via Supabase dashboard.
-// This block is a copy of `supabase/functions/shared/index.ts`.
-// --- Start of inlined shared code ---
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
 import { REST } from "https://esm.sh/@discordjs/rest@2.2.0";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-function getDiscordApi() {
+serve(async (req) => {
+  // Define helpers inside the handler to ensure no code runs on initialization.
+  function getDiscordApi() {
     const BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
     if (!BOT_TOKEN) {
       throw new Error("DISCORD_BOT_TOKEN is not configured in function secrets.");
     }
     return new REST({ token: BOT_TOKEN, version: "10" });
-}
-
-const createAdminClient = () => {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-  if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error('Supabase URL or Service Role Key is not configured in function secrets.');
   }
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false }
-  });
-};
-// --- End of inlined shared code ---
 
-// Main function logic
-serve(async (req) => {
-  // Handle CORS preflight requests. This is crucial for browser-based clients.
+  const createAdminClient = () => {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (!supabaseUrl || !serviceRoleKey) {
+      throw new Error('Supabase URL or Service Role Key is not configured in function secrets.');
+    }
+    return createClient(supabaseUrl, serviceRoleKey, {
+      auth: { autoRefreshToken: false, persistSession: false }
+    });
+  };
+
+  // Handle CORS preflight requests.
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    // Initialize clients inside the handler to prevent CORS issues on error
     const discordApi = getDiscordApi();
     const supabaseAdmin = createAdminClient();
     const GUILD_ID = Deno.env.get('DISCORD_GUILD_ID');
@@ -53,11 +50,8 @@ serve(async (req) => {
       throw new Error("Missing 'discordId' in request body.");
     }
 
-    // Note: In a real app, you'd verify the caller is an admin first.
-    // For this diagnostic tool, we assume it's called by an authorized frontend.
     const member = await discordApi.get(`/guilds/${GUILD_ID}/members/${discordId}`);
 
-    // Additionally, try to get the user's profile from the DB to check both sides
     const { data: profile, error: profileError } = await supabaseAdmin
         .from('profiles')
         .select('id, is_banned')
@@ -87,12 +81,9 @@ serve(async (req) => {
     let status = 500;
     let message = error.message;
 
-    // @ts-ignore
     if (error.response) {
-      // @ts-ignore
       status = error.response.status;
       if (status === 404) {
-        // @ts-ignore
         message = `User with ID ${error.config.url.split('/').pop()} was not found in the guild. This means the connection to Discord is working, but the user is not a member.`;
       } else if (status === 403) {
         message = 'Discord API returned Forbidden (403). The most common cause is that the "Server Members Intent" is not enabled in the Discord Developer Portal for your bot.';

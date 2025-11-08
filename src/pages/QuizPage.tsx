@@ -295,8 +295,8 @@ const QuizPage: React.FC = () => {
                 <h2 className="text-2xl md:text-3xl font-semibold mb-6 text-white">{t(currentQuestion.textKey)}</h2>
                 <textarea
                   value={currentAnswer}
-                  // FIX: Changed e.target to e.currentTarget for better type safety.
-                  onChange={(e) => setCurrentAnswer(e.currentTarget.value)}
+// FIX: Explicitly cast e.currentTarget to HTMLTextAreaElement to resolve type error on 'value' property.
+                  onChange={(e) => setCurrentAnswer((e.currentTarget as HTMLTextAreaElement).value)}
                   className="w-full bg-brand-light-blue text-white p-4 rounded-md border border-gray-600 focus:ring-2 focus:ring-brand-cyan focus:border-brand-cyan transition-colors"
                   rows={6}
                   placeholder="Type your answer here..."
