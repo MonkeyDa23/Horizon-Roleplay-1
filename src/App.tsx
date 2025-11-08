@@ -1,5 +1,5 @@
 // src/App.tsx
-import React, { useEffect, useCallback } from 'react';
+import React from 'react';
 // FIX: Fix "no exported member" errors from 'react-router-dom' by switching to a namespace import.
 import * as ReactRouterDOM from 'react-router-dom';
 import { LocalizationProvider } from './contexts/LocalizationContext';
@@ -63,30 +63,15 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; permission?: Permiss
   
 const AppContent: React.FC = () => {
   const { config, configLoading, configError } = useConfig();
-  const { user, permissionWarning, syncError, logout } = useAuth();
-  const navigate = ReactRouterDOM.useNavigate();
+  const { user, loading: authLoading, permissionWarning, syncError, logout, retrySync } = useAuth();
   
-  const retrySync = useCallback(async () => {
-    navigate('/');
-    // FIX: Guard against window access in non-browser environments.
-    if (typeof window !== 'undefined') {
-      window.location.reload();
-    }
-  }, [navigate]);
-
-  if (user?.is_banned) {
-    return <BannedPage reason={user.ban_reason || 'No reason specified'} expires_at={user.ban_expires_at} onLogout={logout} />;
-  }
-  
-  if (syncError) {
-    return <LoginErrorPage error={syncError} onRetry={retrySync} onLogout={logout} />;
-  }
-      
-  if (configLoading) {
+  if (authLoading || configLoading) {
     return (
       <div className="flex flex-col gap-4 justify-center items-center h-screen w-screen bg-brand-dark">
         <Loader2 size={48} className="text-brand-cyan animate-spin" />
-        <p className="text-xl text-gray-300">Loading Community Hub...</p>
+        <p className="text-xl text-gray-300">
+            {authLoading ? 'Connecting...' : 'Loading Community Hub...'}
+        </p>
       </div>
     )
   }
@@ -132,6 +117,14 @@ const AppContent: React.FC = () => {
           <p className="text-gray-500 mt-4 text-sm">Error details: {configError.message}</p>
       </div>
     )
+  }
+
+  if (syncError) {
+    return <LoginErrorPage error={syncError} onRetry={retrySync!} onLogout={logout} />;
+  }
+
+  if (user?.is_banned) {
+    return <BannedPage reason={user.ban_reason || 'No reason specified'} expires_at={user.ban_expires_at} onLogout={logout} />;
   }
 
   return (

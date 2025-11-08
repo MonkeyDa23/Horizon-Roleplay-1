@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 // FIX: Fix "no exported member" errors from 'react-router-dom' by switching to a namespace import.
 import * as ReactRouterDOM from 'react-router-dom';
@@ -114,7 +115,7 @@ const QuizPage: React.FC = () => {
       setQuizState('submitted');
     } catch (error) {
       console.error("Failed to submit application:", error);
-      // FIX: Use `window.alert` for explicit browser API usage.
+      // FIX: Guard against window access for browser-specific 'alert'.
       if (typeof window !== 'undefined') {
         window.alert("An error occurred while submitting your application. Please try again.");
       }
@@ -174,15 +175,22 @@ const QuizPage: React.FC = () => {
     };
 
     const handleVisibilityChange = () => {
-        if (document.visibilityState === 'hidden') {
+        // FIX: Guard against document access in non-browser environments.
+        if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
             handleCheat(t('cheat_method_switched_tab'));
         }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    // FIX: Guard against document access in non-browser environments.
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
 
     return () => {
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        // FIX: Guard against document access in non-browser environments.
+        if (typeof document !== 'undefined') {
+          document.removeEventListener('visibilitychange', handleVisibilityChange);
+        }
     };
   }, [quizState, quiz, showToast, t]);
   
@@ -295,7 +303,7 @@ const QuizPage: React.FC = () => {
                 <h2 className="text-2xl md:text-3xl font-semibold mb-6 text-white">{t(currentQuestion.textKey)}</h2>
                 <textarea
                   value={currentAnswer}
-// FIX: Explicitly cast e.currentTarget to HTMLTextAreaElement to resolve type error on 'value' property.
+                  // FIX: Explicitly cast e.currentTarget to HTMLTextAreaElement to resolve type error on 'value' property.
                   onChange={(e) => setCurrentAnswer((e.currentTarget as HTMLTextAreaElement).value)}
                   className="w-full bg-brand-light-blue text-white p-4 rounded-md border border-gray-600 focus:ring-2 focus:ring-brand-cyan focus:border-brand-cyan transition-colors"
                   rows={6}

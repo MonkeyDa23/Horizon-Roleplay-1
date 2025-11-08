@@ -1,4 +1,5 @@
 
+
 import React, { useEffect } from 'react';
 import { useConfig } from '../hooks/useConfig';
 
@@ -22,8 +23,12 @@ const SEO: React.FC<SEOProps> = ({ title, description, keywords, noIndex = false
     const updateMetaTag = (name: string, content: string | undefined, isProperty = false) => {
       if (!content) return;
       const selector = isProperty ? `meta[property="${name}"]` : `meta[name="${name}"]`;
+      // FIX: Guard against document access in non-browser environments.
+      if (typeof document === 'undefined') return;
       let element = document.querySelector(selector) as HTMLMetaElement | null;
       if (!element) {
+        // FIX: Guard against document access in non-browser environments.
+        if (typeof document === 'undefined') return;
         element = document.createElement('meta');
         if (isProperty) {
           // FIX: Cast element to 'any' to avoid TypeScript lib errors with setAttribute.

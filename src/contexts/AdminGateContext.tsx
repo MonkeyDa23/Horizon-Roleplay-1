@@ -1,3 +1,4 @@
+
 // src/contexts/AdminGateContext.tsx
 import React, { createContext, useState, useContext } from 'react';
 

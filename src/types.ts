@@ -69,6 +69,7 @@ export interface AuthContextType {
   hasPermission: (key: PermissionKey) => boolean;
   permissionWarning: string | null;
   syncError: Error | null;
+  retrySync?: () => Promise<void>;
 }
 
 export interface UserLookupResult {

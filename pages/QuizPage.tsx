@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 // FIX: Upgraded from react-router-dom v5 `useHistory` to v6 `useNavigate`.
 // FIX: Switched to a namespace import for react-router-dom to resolve module resolution errors.
@@ -117,7 +118,8 @@ const QuizPage: React.FC = () => {
   useEffect(() => {
     // FIX: Guard against window access in non-browser environments.
     if (typeof window === 'undefined') return;
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+    // FIX: Changed BeforeUnloadEvent to 'any' for broader compatibility.
+    const handleBeforeUnload = (e: any) => {
       if (quizState === 'taking') {
         e.preventDefault();
         e.returnValue = 'Are you sure you want to leave? Your progress will be lost.';
@@ -209,7 +211,7 @@ const QuizPage: React.FC = () => {
         
         <textarea
           value={currentAnswer}
-          // FIX: Explicitly cast e.currentTarget to HTMLTextAreaElement to resolve type error.
+          // FIX: Explicitly cast e.currentTarget to HTMLTextAreaElement to access its 'value' property.
           onChange={(e) => setCurrentAnswer((e.currentTarget as HTMLTextAreaElement).value)}
           className="w-full bg-brand-light-blue text-white p-4 rounded-md border border-gray-600 focus:ring-2 focus:ring-brand-cyan focus:border-brand-cyan transition-colors"
           rows={6}

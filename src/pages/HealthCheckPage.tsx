@@ -1,4 +1,5 @@
 
+
 // src/pages/HealthCheckPage.tsx
 import React from 'react';
 import { Loader2, CheckCircle, XCircle, AlertTriangle, HelpCircle, Share2, User, Server, Database, Bot, ChevronRight } from 'lucide-react';
@@ -183,7 +184,6 @@ const HealthCheckPage: React.FC = () => {
                       <input 
                         type="text" 
                         value={syncDiscordId}
-                        // FIX: Replaced e.target with e.currentTarget for better type safety.
                         // FIX: Explicitly cast e.currentTarget to HTMLInputElement to resolve type error.
                         onChange={(e) => setSyncDiscordId((e.currentTarget as HTMLInputElement).value)}
                         placeholder={t('health_check_discord_id_input')}

@@ -1,7 +1,8 @@
+
 // supabase/functions/shared/index.ts
 // This file consolidates all shared utilities for Supabase Edge Functions.
 // FIX: Updated the Edge Function type reference to resolve Deno runtime types.
-/// <reference types="https://esm.sh/v135/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
+/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
 import { REST } from "https://esm.sh/@discordjs/rest@2.2.0";
@@ -16,6 +17,7 @@ export const corsHeaders = {
 // This is now a function to defer the environment variable check until it's called.
 // This prevents top-level errors that break CORS preflight requests.
 export function getDiscordApi() {
+    // FIX: Add type reference to resolve Deno types.
     const BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
     if (!BOT_TOKEN) {
       throw new Error("DISCORD_BOT_TOKEN is not configured in function secrets.");
@@ -25,6 +27,7 @@ export function getDiscordApi() {
 
 // --- Supabase Admin Client ---
 export const createAdminClient = () => {
+  // FIX: Add type reference to resolve Deno types.
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 

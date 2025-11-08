@@ -1,6 +1,7 @@
+
 // supabase/functions/sync-user-profile/index.ts
 // FIX: Updated Supabase Edge Function type reference to resolve Deno runtime types.
-/// <reference types="https://esm.sh/v135/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
+/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
 import { REST } from "https://esm.sh/@discordjs/rest@2.2.0";
@@ -37,12 +38,14 @@ serve(async (req) => {
 
   // Define helpers inside the handler
   function getDiscordApi() {
+    // FIX: Add type reference to resolve Deno types.
     const BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
     if (!BOT_TOKEN) throw new Error("DISCORD_BOT_TOKEN is not configured in function secrets.");
     return new REST({ token: BOT_TOKEN, version: "10" });
   }
 
   const createAdminClient = () => {
+    // FIX: Add type reference to resolve Deno types.
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     if (!supabaseUrl || !serviceRoleKey) throw new Error('Supabase URL or Service Role Key is not configured in function secrets.');
@@ -65,17 +68,33 @@ serve(async (req) => {
     }
 
     const discordApi = getDiscordApi();
+    // FIX: Add type reference to resolve Deno types.
     const GUILD_ID = Deno.env.get('DISCORD_GUILD_ID');
     if (!GUILD_ID) throw new Error("DISCORD_GUILD_ID is not configured in function secrets.");
     
     const supabase = createClient(
+      // FIX: Add type reference to resolve Deno types.
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: authHeader } } }
     );
     const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
-    if (authError) throw authError;
-    if (!authUser) throw new Error("User not found from auth token.");
+    
+    if (authError) {
+      console.error(`[sync-user-profile] Supabase auth error: ${authError.message}`);
+      return new Response(JSON.stringify({ error: `Authentication error: ${authError.message}` }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401,
+      });
+    }
+    if (!authUser) {
+      console.error(`[sync-user-profile] User not found from auth token.`);
+      return new Response(JSON.stringify({ error: "User not found from auth token. Session may be invalid." }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 401,
+      });
+    }
+
     console.log(`[sync-user-profile] Authenticated Supabase user: ${authUser.id}`);
 
     const discordId = authUser.user_metadata?.provider_id;

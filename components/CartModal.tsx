@@ -1,5 +1,6 @@
 
 
+
 import React from 'react';
 import { useLocalization } from '../hooks/useLocalization';
 import { useCart } from '../hooks/useCart';
@@ -53,7 +54,7 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
                     type="number"
                     min="1"
                     value={item.quantity}
-                    // FIX: Explicitly cast e.currentTarget to HTMLInputElement to resolve type error.
+                    // FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property.
                     onChange={(e) => updateQuantity(item.id, parseInt((e.currentTarget as HTMLInputElement).value, 10))}
                     className="w-16 bg-brand-light-blue text-white text-center rounded-md border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan"
                   />

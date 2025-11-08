@@ -3,7 +3,6 @@ import React from 'react';
 import { AlertTriangle, RefreshCw, LogOut, Wrench } from 'lucide-react';
 import { ApiError } from '../lib/api';
 import * as ReactRouterDOM from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
 
 interface LoginErrorPageProps {
   error: Error;
@@ -13,7 +12,6 @@ interface LoginErrorPageProps {
 
 const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogout }) => {
     const navigate = ReactRouterDOM.useNavigate();
-    const { hasPermission } = useAuth();
     
     const getTroubleshootingSteps = () => {
         const steps: React.ReactNode[] = [];
@@ -42,10 +40,6 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
 
     const advice = getTroubleshootingSteps();
     
-    const handleGoToHealthCheck = () => {
-        navigate('/health-check');
-    };
-
     return (
         <div className="flex flex-col items-center justify-center h-screen w-screen bg-brand-dark p-6 text-center">
             <div className="bg-brand-dark-blue border-2 border-red-500/50 rounded-xl p-8 md:p-12 max-w-3xl w-full shadow-2xl shadow-black/50 animate-fade-in-up">
@@ -56,25 +50,6 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
                 <p className="text-md text-gray-300 mb-8">
                     We couldn't synchronize your profile with Discord after you logged in. This usually happens because of a configuration issue between the website and the Discord API.
                 </p>
-
-                {hasPermission('_super_admin') && (
-                    <div className="bg-brand-dark p-6 rounded-lg text-left space-y-4 border-2 border-brand-cyan/50 mb-8">
-                        <h2 className="font-bold text-brand-cyan text-lg flex items-center gap-2">
-                            <Wrench size={20} />
-                            Admin Diagnostic Tool
-                        </h2>
-                        <p className="text-gray-300">
-                            The <strong>System Health Check</strong> page can test your entire setup and pinpoint the exact problem.
-                        </p>
-                        <button
-                            onClick={handleGoToHealthCheck}
-                            className="w-full px-8 py-3 bg-brand-cyan text-brand-dark font-bold text-lg rounded-lg shadow-glow-cyan hover:bg-white transform transition-all duration-300 ease-in-out"
-                        >
-                            Go to Health Check
-                        </button>
-                    </div>
-                )}
-
 
                 <div className="bg-brand-dark p-6 rounded-lg text-left space-y-4 border border-brand-light-blue">
                     <h2 className="font-bold text-yellow-300 text-lg">Troubleshooting Steps:</h2>

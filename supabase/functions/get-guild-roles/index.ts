@@ -1,6 +1,7 @@
+
 // supabase/functions/get-guild-roles/index.ts
 // FIX: Updated Supabase Edge Function type reference to resolve Deno runtime types.
-/// <reference types="https://esm.sh/v135/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
+/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
 import { REST } from "https://esm.sh/@discordjs/rest@2.2.0";
@@ -16,6 +17,7 @@ serve(async (req) => {
 
   // Define helpers inside the handler to ensure no code runs on initialization.
   function getDiscordApi() {
+    // FIX: Add type reference to resolve Deno types.
     const BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
     if (!BOT_TOKEN) {
       throw new Error("DISCORD_BOT_TOKEN is not configured in function secrets.");
@@ -30,6 +32,7 @@ serve(async (req) => {
 
   try {
     const discordApi = getDiscordApi();
+    // FIX: Add type reference to resolve Deno types.
     const GUILD_ID = Deno.env.get('DISCORD_GUILD_ID');
 
     if (!GUILD_ID) {
