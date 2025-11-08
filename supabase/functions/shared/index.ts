@@ -1,4 +1,3 @@
-
 // supabase/functions/shared/index.ts
 // This file consolidates all shared utilities for Supabase Edge Functions.
 // FIX: Updated the Edge Function type reference to resolve Deno runtime types.
@@ -14,14 +13,15 @@ export const corsHeaders = {
 };
 
 // --- Discord API Client ---
-const BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
-if (!BOT_TOKEN) {
-  throw new Error("DISCORD_BOT_TOKEN is not configured in function secrets.");
+// This is now a function to defer the environment variable check until it's called.
+// This prevents top-level errors that break CORS preflight requests.
+export function getDiscordApi() {
+    const BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
+    if (!BOT_TOKEN) {
+      throw new Error("DISCORD_BOT_TOKEN is not configured in function secrets.");
+    }
+    return new REST({ token: BOT_TOKEN, version: "10" });
 }
-export const discordApi = new REST({
-  token: BOT_TOKEN,
-  version: "10",
-});
 
 // --- Supabase Admin Client ---
 export const createAdminClient = () => {

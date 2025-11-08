@@ -1,12 +1,9 @@
-
 // FIX: Updated the Edge Function type reference to resolve Deno runtime types.
 /// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
 
-// This file is bundled for standalone deployment.
+// Inlined shared code to support manual deployment via Supabase dashboard.
+// This block is a copy of `supabase/functions/shared/index.ts`.
 // --- Start of inlined shared code ---
-// FIX: Updated the type reference to a reliable CDN to resolve Deno runtime types.
-/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
 import { REST } from "https://esm.sh/@discordjs/rest@2.2.0";
 
@@ -15,14 +12,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
-if (!BOT_TOKEN) {
-  throw new Error("DISCORD_BOT_TOKEN is not configured in function secrets.");
+function getDiscordApi() {
+    const BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
+    if (!BOT_TOKEN) {
+      throw new Error("DISCORD_BOT_TOKEN is not configured in function secrets.");
+    }
+    return new REST({ token: BOT_TOKEN, version: "10" });
 }
-const discordApi = new REST({
-  token: BOT_TOKEN,
-  version: "10",
-});
 
 const createAdminClient = () => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -36,8 +32,7 @@ const createAdminClient = () => {
 };
 // --- End of inlined shared code ---
 
-
-// Original function code for discord-proxy
+// Main function logic
 const COLORS = {
   INFO: 0x00B2FF, // Blue
   SUCCESS: 0x22C55E, // Green
@@ -46,8 +41,8 @@ const COLORS = {
   PRIMARY: 0x00F2EA  // Cyan
 };
 
-// Main handler for all Discord-bound messages
 serve(async (req) => {
+  // Handle CORS preflight requests. This is crucial for browser-based clients.
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -56,7 +51,9 @@ serve(async (req) => {
     const { type, payload } = await req.json();
     if (!type || !payload) throw new Error("Missing 'type' or 'payload'.");
 
+    // Initialize clients inside the handler to prevent CORS issues on error
     const supabaseAdmin = createAdminClient();
+    const discordApi = getDiscordApi();
 
     // 1. Fetch config and translations
     const { data: config, error: configError } = await supabaseAdmin.rpc('get_config');
@@ -173,6 +170,7 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error(`[CRITICAL] discord-proxy: ${error.message}`);
+    // @ts-ignore
     const errorMessage = error.response ? JSON.stringify(await (error.response as any).json()) : error.message;
     return new Response(JSON.stringify({ error: `An unexpected error occurred: ${errorMessage}` }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -82,7 +82,8 @@ const SubmissionsPanel: React.FC = () => {
     };
 
     const handleDelete = async (submission: QuizSubmission) => {
-        if (window.confirm(t('delete_submission_confirm', { username: submission.username, quizTitle: submission.quizTitle }))) {
+        // FIX: Guard against window access in non-browser environments.
+        if (typeof window !== 'undefined' && window.confirm(t('delete_submission_confirm', { username: submission.username, quizTitle: submission.quizTitle }))) {
             try {
                 await deleteSubmission(submission.id);
                 showToast(t('submission_deleted_success'), 'success');
