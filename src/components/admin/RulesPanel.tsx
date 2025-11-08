@@ -148,8 +148,10 @@ const RulesPanel: React.FC = () => {
                         <div className="flex items-center gap-3 mb-4 p-2 bg-brand-light-blue/50 rounded-md">
                             <GripVertical className="cursor-grab text-gray-500" />
                              <div className="flex-grow grid grid-cols-2 gap-3">
-                                <input type="text" value={category.titleEn} onChange={(e) => handleCategoryChange(catIndex, 'titleEn', e.currentTarget.value)} placeholder="Category Title (EN)" className="w-full bg-transparent text-xl font-bold text-white focus:outline-none"/>
-                                <input type="text" dir="rtl" value={category.titleAr} onChange={(e) => handleCategoryChange(catIndex, 'titleAr', e.currentTarget.value)} placeholder="عنوان القسم (AR)" className="w-full bg-transparent text-xl font-bold text-white focus:outline-none"/>
+                                {/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property. */}
+                                <input type="text" value={category.titleEn} onChange={(e) => handleCategoryChange(catIndex, 'titleEn', (e.currentTarget as HTMLInputElement).value)} placeholder="Category Title (EN)" className="w-full bg-transparent text-xl font-bold text-white focus:outline-none"/>
+                                {/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property. */}
+                                <input type="text" dir="rtl" value={category.titleAr} onChange={(e) => handleCategoryChange(catIndex, 'titleAr', (e.currentTarget as HTMLInputElement).value)} placeholder="عنوان القسم (AR)" className="w-full bg-transparent text-xl font-bold text-white focus:outline-none"/>
                              </div>
                             <button onClick={() => deleteCategory(catIndex)} className="text-red-500 hover:text-red-400"><Trash2 size={20} /></button>
                         </div>
@@ -158,8 +160,10 @@ const RulesPanel: React.FC = () => {
                                 <div key={rule.id} className="flex items-start gap-2">
                                     <span className="text-gray-500 font-bold pt-2">{ruleIndex + 1}.</span>
                                     <div className="w-full grid grid-cols-2 gap-2">
-                                        <textarea value={rule.textEn} onChange={(e) => handleRuleChange(catIndex, ruleIndex, 'textEn', e.currentTarget.value)} placeholder="Rule Text (EN)" className="w-full bg-brand-dark p-2 rounded-md border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan h-20"/>
-                                        <textarea dir="rtl" value={rule.textAr} onChange={(e) => handleRuleChange(catIndex, ruleIndex, 'textAr', e.currentTarget.value)} placeholder="نص القانون (AR)" className="w-full bg-brand-dark p-2 rounded-md border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan h-20"/>
+                                        {/* FIX: Explicitly cast e.currentTarget to HTMLTextAreaElement to access its 'value' property. */}
+                                        <textarea value={rule.textEn} onChange={(e) => handleRuleChange(catIndex, ruleIndex, 'textEn', (e.currentTarget as HTMLTextAreaElement).value)} placeholder="Rule Text (EN)" className="w-full bg-brand-dark p-2 rounded-md border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan h-20"/>
+                                        {/* FIX: Explicitly cast e.currentTarget to HTMLTextAreaElement to access its 'value' property. */}
+                                        <textarea dir="rtl" value={rule.textAr} onChange={(e) => handleRuleChange(catIndex, ruleIndex, 'textAr', (e.currentTarget as HTMLTextAreaElement).value)} placeholder="نص القانون (AR)" className="w-full bg-brand-dark p-2 rounded-md border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan h-20"/>
                                     </div>
                                     <button onClick={() => deleteRule(catIndex, ruleIndex)} className="text-red-500 hover:text-red-400 pt-2"><Trash2 size={18} /></button>
                                 </div>

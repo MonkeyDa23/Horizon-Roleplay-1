@@ -104,6 +104,7 @@ const NotificationsPanel: React.FC = () => {
         <div>
             <label className="block text-md font-semibold text-white mb-1">{t(labelKey)}</label>
             <p className="text-sm text-gray-400 mb-2">{t(descKey)}</p>
+            {/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property. */}
             <input type="text" value={value || ''} onChange={e => onChange((e.currentTarget as HTMLInputElement).value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 font-mono text-sm"/>
         </div>
     );
@@ -122,18 +123,22 @@ const NotificationsPanel: React.FC = () => {
                 <div className="space-y-3">
                     <div>
                         <label className="block text-sm font-semibold text-gray-400">{t('title_en')}</label>
+                        {/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property. */}
                         <input type="text" value={allTranslations[titleKey]?.en || ''} onChange={e => handleTranslationChange(titleKey, 'en', (e.currentTarget as HTMLInputElement).value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                     </div>
                      <div>
                         <label className="block text-sm font-semibold text-gray-400">{t('title_ar')}</label>
+                        {/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property. */}
                         <input type="text" dir="rtl" value={allTranslations[titleKey]?.ar || ''} onChange={e => handleTranslationChange(titleKey, 'ar', (e.currentTarget as HTMLInputElement).value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                     </div>
                      <div>
                         <label className="block text-sm font-semibold text-gray-400">{t('description_en')}</label>
+                        {/* FIX: Explicitly cast e.currentTarget to HTMLTextAreaElement to access its 'value' property. */}
                         <textarea value={allTranslations[bodyKey]?.en || ''} onChange={e => handleTranslationChange(bodyKey, 'en', (e.currentTarget as HTMLTextAreaElement).value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 h-24" />
                     </div>
                      <div>
                         <label className="block text-sm font-semibold text-gray-400">{t('description_ar')}</label>
+                        {/* FIX: Explicitly cast e.currentTarget to HTMLTextAreaElement to access its 'value' property. */}
                         <textarea dir="rtl" value={allTranslations[bodyKey]?.ar || ''} onChange={e => handleTranslationChange(bodyKey, 'ar', (e.currentTarget as HTMLTextAreaElement).value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 h-24" />
                     </div>
                 </div>
@@ -196,6 +201,7 @@ const NotificationsPanel: React.FC = () => {
                     <div className="space-y-4">
                          <div>
                             <label className="block font-semibold mb-1">{t('target_id')}</label>
+                            {/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property. */}
                             <input type="text" value={testTargetId} onChange={e => setTestTargetId((e.currentTarget as HTMLInputElement).value)} placeholder={testModal.isUser ? "Enter User ID" : "Enter Channel ID"} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                         </div>
                         <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4">

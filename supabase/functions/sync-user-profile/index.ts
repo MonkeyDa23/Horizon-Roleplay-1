@@ -1,7 +1,7 @@
 
 // supabase/functions/sync-user-profile/index.ts
-// FIX: Updated Supabase Edge Function type reference to resolve Deno runtime types.
-/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
+// FIX: Updated Supabase Edge Function type reference to a versioned URL to resolve Deno runtime types.
+/// <reference types="https://esm.sh/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
 import { REST } from "https://esm.sh/@discordjs/rest@2.2.0";
@@ -38,16 +38,16 @@ serve(async (req) => {
 
   // Define helpers inside the handler
   function getDiscordApi() {
-    // FIX: Add type reference to resolve Deno types.
-    const BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
+    // FIX: Add type reference to resolve Deno types and cast to any.
+    const BOT_TOKEN = (Deno as any).env.get('DISCORD_BOT_TOKEN');
     if (!BOT_TOKEN) throw new Error("DISCORD_BOT_TOKEN is not configured in function secrets.");
     return new REST({ token: BOT_TOKEN, version: "10" });
   }
 
   const createAdminClient = () => {
-    // FIX: Add type reference to resolve Deno types.
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    // FIX: Add type reference to resolve Deno types and cast to any.
+    const supabaseUrl = (Deno as any).env.get('SUPABASE_URL');
+    const serviceRoleKey = (Deno as any).env.get('SUPABASE_SERVICE_ROLE_KEY');
     if (!supabaseUrl || !serviceRoleKey) throw new Error('Supabase URL or Service Role Key is not configured in function secrets.');
     return createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
   };
@@ -68,14 +68,14 @@ serve(async (req) => {
     }
 
     const discordApi = getDiscordApi();
-    // FIX: Add type reference to resolve Deno types.
-    const GUILD_ID = Deno.env.get('DISCORD_GUILD_ID');
+    // FIX: Add type reference to resolve Deno types and cast to any.
+    const GUILD_ID = (Deno as any).env.get('DISCORD_GUILD_ID');
     if (!GUILD_ID) throw new Error("DISCORD_GUILD_ID is not configured in function secrets.");
     
     const supabase = createClient(
-      // FIX: Add type reference to resolve Deno types.
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      // FIX: Add type reference to resolve Deno types and cast to any.
+      (Deno as any).env.get('SUPABASE_URL') ?? '',
+      (Deno as any).env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: authHeader } } }
     );
     const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
@@ -153,14 +153,17 @@ serve(async (req) => {
       ban_expires_at: banData?.ban_expires_at ?? null,
     };
     
-    // Fire and forget profile update
-    supabaseAdmin.from('profiles').upsert({
+    // Await the profile update to prevent race conditions.
+    const { error: upsertError } = await supabaseAdmin.from('profiles').upsert({
         id: finalUser.id, discord_id: finalUser.discordId, username: finalUser.username, avatar_url: finalUser.avatar,
         roles: finalUser.roles, highest_role: finalUser.highestRole, last_synced_at: new Date().toISOString()
-    }, { onConflict: 'id' }).then(({ error }) => {
-        if (error) console.error("[sync-user-profile] Profile upsert failed:", error.message);
-        else console.log(`[sync-user-profile] Successfully upserted profile for user ${finalUser.id}.`);
-    });
+    }, { onConflict: 'id' });
+
+    if (upsertError) {
+        console.error("[sync-user-profile] Profile upsert failed:", upsertError.message);
+    } else {
+        console.log(`[sync-user-profile] Successfully upserted profile for user ${finalUser.id}.`);
+    }
 
     console.log("[sync-user-profile] Sync complete. Returning user profile.");
     return new Response(JSON.stringify({ user: finalUser, syncError: null }), {

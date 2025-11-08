@@ -1,7 +1,7 @@
 
 // supabase/functions/discord-proxy/index.ts
-// FIX: Updated Supabase Edge Function type reference to resolve Deno runtime types.
-/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
+// FIX: Updated Supabase Edge Function type reference to a versioned URL to resolve Deno runtime types.
+/// <reference types="https://esm.sh/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
 import { REST } from "https://esm.sh/@discordjs/rest@2.2.0";
@@ -25,8 +25,8 @@ serve(async (req) => {
 
   // Define helpers inside the handler to ensure no code runs on initialization.
   function getDiscordApi() {
-    // FIX: Add type reference to resolve Deno types.
-    const BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
+    // FIX: Add type reference to resolve Deno types and cast to any.
+    const BOT_TOKEN = (Deno as any).env.get('DISCORD_BOT_TOKEN');
     if (!BOT_TOKEN) {
       throw new Error("DISCORD_BOT_TOKEN is not configured in function secrets.");
     }
@@ -34,9 +34,9 @@ serve(async (req) => {
   }
 
   const createAdminClient = () => {
-    // FIX: Add type reference to resolve Deno types.
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    // FIX: Add type reference to resolve Deno types and cast to any.
+    const supabaseUrl = (Deno as any).env.get('SUPABASE_URL');
+    const serviceRoleKey = (Deno as any).env.get('SUPABASE_SERVICE_ROLE_KEY');
     if (!supabaseUrl || !serviceRoleKey) {
       throw new Error('Supabase URL or Service Role Key is not configured in function secrets.');
     }

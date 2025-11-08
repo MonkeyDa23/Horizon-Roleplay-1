@@ -1,7 +1,7 @@
 
 // supabase/functions/check-bot-health/index.ts
-// FIX: Updated Supabase Edge Function type reference to resolve Deno runtime types.
-/// <reference types="https://esm.sh/@supabase/functions-js/src/edge-runtime.d.ts" />
+// FIX: Updated Supabase Edge Function type reference to a versioned URL to resolve Deno runtime types.
+/// <reference types="https://esm.sh/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
 
 import { REST } from "https://esm.sh/@discordjs/rest@2.2.0";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -16,8 +16,8 @@ serve(async (req) => {
     
     // Define helper inside the handler to ensure no code runs on initialization.
     function getDiscordApi() {
-        // FIX: Add type reference to resolve Deno types.
-        const BOT_TOKEN = Deno.env.get('DISCORD_BOT_TOKEN');
+        // FIX: Add type reference to resolve Deno types and cast to any.
+        const BOT_TOKEN = (Deno as any).env.get('DISCORD_BOT_TOKEN');
         if (!BOT_TOKEN) {
           throw new Error("DISCORD_BOT_TOKEN is not configured in function secrets.");
         }

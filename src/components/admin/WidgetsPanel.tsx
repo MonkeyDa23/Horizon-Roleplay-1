@@ -123,14 +123,17 @@ const WidgetsPanel: React.FC = () => {
                     <div className="space-y-4">
                         <div>
                             <label className="block font-semibold mb-1">Server Name</label>
+                            {/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property. */}
                             <input type="text" value={editingWidget.server_name} onChange={e => setEditingWidget({...editingWidget, server_name: (e.currentTarget as HTMLInputElement).value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
                         </div>
                          <div>
                             <label className="block font-semibold mb-1">Server ID</label>
+                            {/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property. */}
                             <input type="text" value={editingWidget.server_id} onChange={e => setEditingWidget({...editingWidget, server_id: (e.currentTarget as HTMLInputElement).value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
                         </div>
                          <div>
                             <label className="block font-semibold mb-1">Invite URL</label>
+                            {/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property. */}
                             <input type="text" value={editingWidget.invite_url} onChange={e => setEditingWidget({...editingWidget, invite_url: (e.currentTarget as HTMLInputElement).value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
                         </div>
                         <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4">

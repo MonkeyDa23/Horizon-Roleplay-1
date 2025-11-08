@@ -206,34 +206,41 @@ const QuizzesPanel: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block mb-1 font-semibold text-gray-300">{t('title_en')}</label>
-                            <input type="text" value={editingQuiz.titleEn} onChange={(e) => setEditingQuiz({ ...editingQuiz, titleEn: e.currentTarget.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
+                            {/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property. */}
+                            <input type="text" value={editingQuiz.titleEn} onChange={(e) => setEditingQuiz({ ...editingQuiz, titleEn: (e.currentTarget as HTMLInputElement).value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                         </div>
                         <div>
                             <label className="block mb-1 font-semibold text-gray-300">{t('title_ar')}</label>
-                            <input type="text" dir="rtl" value={editingQuiz.titleAr} onChange={(e) => setEditingQuiz({ ...editingQuiz, titleAr: e.currentTarget.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
+                            {/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property. */}
+                            <input type="text" dir="rtl" value={editingQuiz.titleAr} onChange={(e) => setEditingQuiz({ ...editingQuiz, titleAr: (e.currentTarget as HTMLInputElement).value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                         </div>
                     </div>
                      <div>
                         <label className="block mb-1 font-semibold text-gray-300">{t('description_en')}</label>
-                        <textarea value={editingQuiz.descriptionEn} onChange={(e) => setEditingQuiz({ ...editingQuiz, descriptionEn: e.currentTarget.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 h-24" />
+                        {/* FIX: Explicitly cast e.currentTarget to HTMLTextAreaElement to access its 'value' property. */}
+                        <textarea value={editingQuiz.descriptionEn} onChange={(e) => setEditingQuiz({ ...editingQuiz, descriptionEn: (e.currentTarget as HTMLTextAreaElement).value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 h-24" />
                     </div>
                      <div>
                         <label className="block mb-1 font-semibold text-gray-300">{t('description_ar')}</label>
-                        <textarea dir="rtl" value={editingQuiz.descriptionAr} onChange={(e) => setEditingQuiz({ ...editingQuiz, descriptionAr: e.currentTarget.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 h-24" />
+                        {/* FIX: Explicitly cast e.currentTarget to HTMLTextAreaElement to access its 'value' property. */}
+                        <textarea dir="rtl" value={editingQuiz.descriptionAr} onChange={(e) => setEditingQuiz({ ...editingQuiz, descriptionAr: (e.currentTarget as HTMLTextAreaElement).value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 h-24" />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block mb-1 font-semibold text-gray-300">{t('logo_image_url')}</label>
-                            <input type="text" value={editingQuiz.logoUrl || ''} onChange={(e) => setEditingQuiz({ ...editingQuiz, logoUrl: e.currentTarget.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
+                            {/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property. */}
+                            <input type="text" value={editingQuiz.logoUrl || ''} onChange={(e) => setEditingQuiz({ ...editingQuiz, logoUrl: (e.currentTarget as HTMLInputElement).value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                         </div>
                         <div>
                             <label className="block mb-1 font-semibold text-gray-300">{t('banner_image_url')}</label>
-                            <input type="text" value={editingQuiz.bannerUrl || ''} onChange={(e) => setEditingQuiz({ ...editingQuiz, bannerUrl: e.currentTarget.value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
+                            {/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property. */}
+                            <input type="text" value={editingQuiz.bannerUrl || ''} onChange={(e) => setEditingQuiz({ ...editingQuiz, bannerUrl: (e.currentTarget as HTMLInputElement).value })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                         </div>
                     </div>
                     <div>
                         <label className="block mb-1 font-semibold text-gray-300">{t('quiz_handler_roles')}</label>
-                        <input type="text" placeholder="e.g. 123,456" value={(editingQuiz.allowedTakeRoles || []).join(',')} onChange={(e) => setEditingQuiz({ ...editingQuiz, allowedTakeRoles: e.currentTarget.value.split(',').map(s => s.trim()).filter(Boolean) })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
+                        {/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property. */}
+                        <input type="text" placeholder="e.g. 123,456" value={(editingQuiz.allowedTakeRoles || []).join(',')} onChange={(e) => setEditingQuiz({ ...editingQuiz, allowedTakeRoles: (e.currentTarget as HTMLInputElement).value.split(',').map(s => s.trim()).filter(Boolean) })} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
                         <p className="text-xs text-gray-400 mt-1">{t('quiz_handler_roles_desc')}</p>
                     </div>
                      <div className="flex items-center gap-4 pt-2">
@@ -253,11 +260,14 @@ const QuizzesPanel: React.FC = () => {
                                         <label className="font-semibold text-gray-300">Question {index + 1}</label>
                                         <button onClick={() => removeQuestion(index)} className="text-red-500 hover:text-red-400"><Trash2 size={18} /></button>
                                     </div>
-                                    <input type="text" placeholder={t('text_en')} value={q.textEn} onChange={(e) => handleQuestionChange(index, 'textEn', e.currentTarget.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
-                                    <input type="text" dir="rtl" placeholder={t('text_ar')} value={q.textAr} onChange={(e) => handleQuestionChange(index, 'textAr', e.currentTarget.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
+                                    {/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property. */}
+                                    <input type="text" placeholder={t('text_en')} value={q.textEn} onChange={(e) => handleQuestionChange(index, 'textEn', (e.currentTarget as HTMLInputElement).value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
+                                    {/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property. */}
+                                    <input type="text" dir="rtl" placeholder={t('text_ar')} value={q.textAr} onChange={(e) => handleQuestionChange(index, 'textAr', (e.currentTarget as HTMLInputElement).value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
                                     <div>
                                         <label className="block text-sm font-semibold text-gray-400">{t('time_limit_seconds')}</label>
-                                        <input type="number" placeholder={t('time_limit_seconds')} value={q.timeLimit} onChange={(e) => handleQuestionChange(index, 'timeLimit', parseInt(e.currentTarget.value) || 0)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
+                                        {/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property. */}
+                                        <input type="number" placeholder={t('time_limit_seconds')} value={q.timeLimit} onChange={(e) => handleQuestionChange(index, 'timeLimit', parseInt((e.currentTarget as HTMLInputElement).value) || 0)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
                                     </div>
                                 </div>
                             ))}

@@ -1,3 +1,4 @@
+
 // src/components/admin/PermissionsPanel.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalization } from '../../hooks/useLocalization';
@@ -5,7 +6,7 @@ import { useToast } from '../../hooks/useToast';
 import { getGuildRoles, getRolePermissions, saveRolePermissions } from '../../lib/api';
 import type { DiscordRole, RolePermission, PermissionKey } from '../../types';
 import { PERMISSIONS } from '../../lib/permissions';
-import { Loader2, ShieldQuestion } from 'lucide-react';
+import { Loader2, ShieldQuestion, AlertTriangle } from 'lucide-react';
 
 const Panel: React.FC<{ children: React.ReactNode; isLoading: boolean, loadingText: string }> = ({ children, isLoading, loadingText }) => {
     if (isLoading) {
@@ -29,6 +30,42 @@ const RoleBadge: React.FC<{ role: DiscordRole }> = ({ role }) => {
     return <span className={`inline-block px-2 py-1 text-xs font-bold rounded-md ${textColor}`} style={{ backgroundColor: color }}>{role.name}</span>;
 };
 
+const FunctionErrorHelp: React.FC<{ error: string }> = ({ error }) => {
+    const isSecretsError = error.includes('non-2xx status code') || error.includes('DISCORD_BOT_TOKEN') || error.includes('DISCORD_GUILD_ID');
+
+    return (
+        <div className="bg-red-500/10 border-2 border-red-500/30 text-red-200 p-6 rounded-lg animate-fade-in-up">
+            <div className="flex items-start gap-4">
+                <AlertTriangle className="h-8 w-8 flex-shrink-0 mt-1" />
+                <div>
+                    <h3 className="text-xl font-bold text-red-300">Failed to Load Discord Roles</h3>
+                    {isSecretsError ? (
+                        <>
+                            <p className="mt-2">This is almost always caused by missing or incorrect **Function Secrets** in your Supabase project.</p>
+                            <ol className="list-decimal list-inside mt-4 space-y-2">
+                                <li>Go to your Supabase Project Dashboard → **Edge Functions**.</li>
+                                <li>Click on any function (like `get-guild-roles`).</li>
+                                <li>Go to the **Secrets** tab.</li>
+                                <li>Ensure you have set **both** of these secrets correctly:
+                                    <ul className="list-disc list-inside ml-6 my-2 font-mono bg-brand-dark p-2 rounded">
+                                        <li>`DISCORD_BOT_TOKEN`</li>
+                                        <li>`DISCORD_GUILD_ID`</li>
+                                    </ul>
+                                </li>
+                                <li>After setting the secrets, you may need to redeploy the functions. Then, refresh this page.</li>
+                            </ol>
+                        </>
+                    ) : (
+                        <p className="mt-2">An unexpected error occurred. Please check the function logs in your Supabase dashboard for more details.</p>
+                    )}
+                    <p className="text-xs text-red-400/70 mt-4">Full Error: {error}</p>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
 const PermissionsPanel: React.FC = () => {
     const { t } = useLocalization();
     const { showToast } = useToast();
@@ -37,10 +74,12 @@ const PermissionsPanel: React.FC = () => {
     const [selectedRoleId, setSelectedRoleId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [fetchError, setFetchError] = useState<string | null>(null);
     
     useEffect(() => {
         const fetchData = async () => {
             setIsLoading(true);
+            setFetchError(null);
             try {
                 const [guildRoles, rolePermissions] = await Promise.all([ getGuildRoles(), getRolePermissions() ]);
                 setRoles(guildRoles);
@@ -49,6 +88,7 @@ const PermissionsPanel: React.FC = () => {
                 console.error("Failed to fetch permissions data:", error);
                 const errorMessage = (error instanceof Error) ? error.message : "An unknown error occurred.";
                 showToast(`${t('permissions_load_error')}: ${errorMessage}`, "error");
+                setFetchError(errorMessage);
             } finally {
                 setIsLoading(false);
             }
@@ -88,6 +128,10 @@ const PermissionsPanel: React.FC = () => {
 
     const selectedRolePermissions = permissions.find(p => p.role_id === selectedRoleId)?.permissions || [];
     const permissionKeys = Object.keys(PERMISSIONS) as PermissionKey[];
+
+    if (fetchError) {
+        return <FunctionErrorHelp error={fetchError} />;
+    }
 
     return (
         <Panel isLoading={isLoading} loadingText="Loading roles & permissions...">
