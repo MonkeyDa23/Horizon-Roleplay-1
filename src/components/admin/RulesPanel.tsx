@@ -1,3 +1,4 @@
+
 // src/components/admin/RulesPanel.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalization } from '../../hooks/useLocalization';
@@ -83,8 +84,7 @@ const RulesPanel: React.FC = () => {
     };
     
     const addCategory = () => {
-        // FIX: Replaced crypto.randomUUID with a more compatible method.
-        const newId = 'id-' + Date.now() + '-' + Math.random().toString(36).substring(2);
+        const newId = crypto.randomUUID();
         const newCategory: EditableRuleCategory = {
             id: newId,
             titleKey: `rule_cat_${newId}_title`,
@@ -101,8 +101,7 @@ const RulesPanel: React.FC = () => {
     };
     
     const addRule = (catIndex: number) => {
-        // FIX: Replaced crypto.randomUUID with a more compatible method.
-        const newId = 'id-' + Date.now() + '-' + Math.random().toString(36).substring(2);
+        const newId = crypto.randomUUID();
         const newRule: EditableRule = { 
             id: newId, 
             textKey: `rule_${newId}_text`,

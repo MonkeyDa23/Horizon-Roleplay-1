@@ -1,3 +1,4 @@
+
 // src/components/admin/StorePanel.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalization } from '../../hooks/useLocalization';
@@ -40,8 +41,7 @@ const StorePanel: React.FC = () => {
     }, [fetchProducts]);
 
     const handleCreateNew = () => {
-        // FIX: Replaced crypto.randomUUID with a more compatible method.
-        const newId = 'id-' + Date.now() + '-' + Math.random().toString(36).substring(2);
+        const newId = crypto.randomUUID();
         setEditingProduct({
             id: newId,
             nameKey: `product_${newId}_name`,

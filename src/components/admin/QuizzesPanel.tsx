@@ -1,3 +1,4 @@
+
 // src/components/admin/QuizzesPanel.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalization } from '../../hooks/useLocalization';
@@ -66,8 +67,7 @@ const QuizzesPanel: React.FC = () => {
     useEffect(() => { fetchQuizzes(); }, [fetchQuizzes]);
 
     const handleCreateNew = () => {
-        // FIX: Replaced crypto.randomUUID with a more compatible method.
-        const newId = 'id-' + Date.now() + '-' + Math.random().toString(36).substring(2);
+        const newId = crypto.randomUUID();
         setEditingQuiz({
             id: newId,
             titleKey: `quiz_${newId}_title`,
@@ -143,8 +143,7 @@ const QuizzesPanel: React.FC = () => {
 
     const addQuestion = () => {
         if (!editingQuiz) return;
-        // FIX: Replaced crypto.randomUUID with a more compatible method.
-        const newQId = 'id-' + Date.now() + '-' + Math.random().toString(36).substring(2);
+        const newQId = crypto.randomUUID();
         const newQuestion: EditableQuestion = { 
             id: newQId, 
             textKey: `quiz_${editingQuiz.id}_q_${newQId}_text`, 

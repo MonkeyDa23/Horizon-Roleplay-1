@@ -1,3 +1,4 @@
+
 // src/components/admin/WidgetsPanel.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalization } from '../../hooks/useLocalization';
@@ -71,8 +72,7 @@ const WidgetsPanel: React.FC = () => {
 
         const newWidgets = editingWidget.id 
             ? widgets.map(w => w.id === (editingWidget as DiscordWidget).id ? { ...w, ...editingWidget } : w)
-            // FIX: Replaced crypto.randomUUID with a more compatible method.
-            : [...widgets, { ...editingWidget, id: 'id-' + Date.now(), position: widgets.length }];
+            : [...widgets, { ...editingWidget, id: crypto.randomUUID(), position: widgets.length }];
         
         setWidgets(newWidgets as DiscordWidget[]);
         setEditingWidget(null);
@@ -136,15 +136,4 @@ const WidgetsPanel: React.FC = () => {
                             {/* FIX: Explicitly cast e.currentTarget to HTMLInputElement to access its 'value' property. */}
                             <input type="text" value={editingWidget.invite_url} onChange={e => setEditingWidget({...editingWidget, invite_url: (e.currentTarget as HTMLInputElement).value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
                         </div>
-                        <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4">
-                             <button onClick={() => setEditingWidget(null)} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button>
-                             <button onClick={handleModalSave} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white">Save</button>
-                        </div>
-                    </div>
-                </Modal>
-            )}
-        </div>
-    );
-};
-
-export default WidgetsPanel;
+                        <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4

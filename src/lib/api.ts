@@ -157,18 +157,39 @@ export const getSubmissionsByUserId = async (userId: string): Promise<QuizSubmis
     return handleResponse(response);
 };
 
-// FIX: Replaced Omit utility type with any for broader compatibility.
 export const addSubmission = async (submission: any): Promise<QuizSubmission> => {
   if (!supabase) throw new Error("Supabase not configured");
-  // The RPC function now handles invoking the notification function.
-  return await handleResponse<QuizSubmission>(await supabase.rpc('add_submission', { submission_data: submission }));
+  
+  const newSubmission = await handleResponse<QuizSubmission>(await supabase.rpc('add_submission', { submission_data: submission }));
+  if (!newSubmission) {
+    throw new Error("Failed to get new submission record from database.");
+  }
+
+  // Fire-and-forget notifications.
+  invokeFunction('discord-proxy', { type: 'new_submission', payload: { submission: newSubmission } }).catch(err => console.warn("Failed to send 'new_submission' notification:", err));
+  invokeFunction('discord-proxy', { type: 'submission_receipt', payload: { submission: newSubmission } }).catch(err => console.warn("Failed to send 'submission_receipt' notification:", err));
+
+  return newSubmission;
 };
 
 export const updateSubmissionStatus = async (submissionId: string, status: 'taken' | 'accepted' | 'refused', reason?: string): Promise<void> => {
   if (!supabase) throw new Error("Supabase not configured");
-  // The RPC function now handles invoking the notification function.
-  const params = { p_submission_id: submissionId, p_new_status: status, p_reason: reason || null };
-  await handleResponse(await supabase.rpc('update_submission_status', params));
+  
+  const rpcResponse = await supabase.rpc('update_submission_status', { p_submission_id: submissionId, p_new_status: status, p_reason: reason || null });
+  const updatedSubmission = handleResponse<QuizSubmission>(rpcResponse);
+  
+  if (!updatedSubmission) {
+      throw new Error("Failed to get updated submission record from database.");
+  }
+
+  if (status === 'accepted' || status === 'refused') {
+    try {
+      await invokeFunction('discord-proxy', { type: 'submission_result', payload: { submission: updatedSubmission } });
+    } catch (notificationError) {
+      console.warn("Submission status updated, but sending notification failed:", notificationError);
+      throw notificationError;
+    }
+  }
 };
 
 export const deleteSubmission = async (submissionId: string): Promise<void> => {

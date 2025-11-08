@@ -2,7 +2,7 @@
 
 export const databaseSchema = `
 /*
--- Vixel Roleplay Website - Full Database Schema (V11.1.0 - Secure Password Hashing)
+-- Vixel Roleplay Website - Full Database Schema (V11.2.0 - Notification & UUID Fix)
 
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -190,38 +190,21 @@ CREATE OR REPLACE FUNCTION public.add_submission(submission_data jsonb) RETURNS 
 AS $$
 DECLARE 
   new_submission public.submissions;
-  request_id bigint;
 BEGIN
   INSERT INTO public.submissions ("quizId", "quizTitle", user_id, username, answers, "cheatAttempts", user_highest_role)
   VALUES (
     (submission_data->>'quizId')::uuid, submission_data->>'quizTitle', public.get_user_id(), submission_data->>'username',
     submission_data->'answers', submission_data->'cheatAttempts', submission_data->>'user_highest_role'
   ) RETURNING * INTO new_submission;
-
-  -- Notify admins of new submission
-  SELECT net.http_post(
-    url:=supabase_url() || '/functions/v1/discord-proxy',
-    headers:='{"Content-Type": "application/json", "Authorization": "Bearer " || supabase_service_role_key()}',
-    body:=jsonb_build_object('type', 'new_submission', 'payload', jsonb_build_object('submission', to_jsonb(new_submission)))
-  ) INTO request_id FROM private.keys;
-  
-  -- Also notify user they submitted
-  SELECT net.http_post(
-    url:=supabase_url() || '/functions/v1/discord-proxy',
-    headers:='{"Content-Type": "application/json", "Authorization": "Bearer " || supabase_service_role_key()}',
-    body:=jsonb_build_object('type', 'submission_receipt', 'payload', jsonb_build_object('submission', to_jsonb(new_submission)))
-  ) INTO request_id FROM private.keys;
-
   RETURN new_submission;
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.update_submission_status(p_submission_id uuid, p_new_status text, p_reason text DEFAULT NULL) RETURNS void LANGUAGE plpgsql
+CREATE OR REPLACE FUNCTION public.update_submission_status(p_submission_id uuid, p_new_status text, p_reason text DEFAULT NULL) RETURNS public.submissions LANGUAGE plpgsql
 AS $$
 DECLARE 
-  submission_record record; 
+  submission_record public.submissions; 
   admin_user record;
-  request_id bigint;
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_submissions') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
   
@@ -241,20 +224,12 @@ BEGIN
 
   IF NOT FOUND THEN RAISE EXCEPTION 'Submission not found.'; END IF;
   
-  -- Log the action internally
   PERFORM public.log_action(
     format('Updated submission for %s (%s) to %s. Admin: %s', submission_record.username, submission_record."quizTitle", p_new_status, admin_user.username),
     'submissions'
   );
   
-  -- Send notification to user if accepted/refused
-  IF p_new_status IN ('accepted', 'refused') THEN
-    SELECT net.http_post(
-        url:=supabase_url() || '/functions/v1/discord-proxy',
-        headers:='{"Content-Type": "application/json", "Authorization": "Bearer " || supabase_service_role_key()}',
-        body:=jsonb_build_object('type', 'submission_result', 'payload', jsonb_build_object('submission', to_jsonb(submission_record)))
-    ) INTO request_id FROM private.keys;
-  END IF;
+  RETURN submission_record;
 END;
 $$;
 
