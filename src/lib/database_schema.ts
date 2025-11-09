@@ -2,7 +2,7 @@
 
 export const databaseSchema = `
 /*
--- Vixel Roleplay Website - Full Database Schema (V12.0.0 - Advanced Logging & Embeds)
+-- Vixel Roleplay Website - Full Database Schema (V13.0.0 - Standalone Bot)
 
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -62,8 +62,6 @@ DROP FUNCTION IF EXISTS public.verify_admin_password(text);
 -- =================================================================
 -- 2. INITIAL SETUP & EXTENSIONS
 -- =================================================================
-CREATE EXTENSION IF NOT EXISTS "http" WITH SCHEMA "extensions";
-CREATE EXTENSION IF NOT EXISTS "pg_net" WITH SCHEMA "extensions";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto" WITH SCHEMA "extensions";
 CREATE SCHEMA private;
 
@@ -90,9 +88,7 @@ CREATE TABLE public.config (
     "mention_role_audit_log_bans" text,
     "mention_role_audit_log_admin" text,
     "mention_role_audit_log_general" text,
-    -- New fields for the webhook-based logging system
-    "DISCORD_PROXY_URL" text,
-    "DISCORD_PROXY_SECRET" text,
+    -- Removed DISCORD_PROXY_URL and DISCORD_PROXY_SECRET as they are no longer needed
     CONSTRAINT id_check CHECK (id = 1)
 );
 INSERT INTO public.config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
@@ -201,7 +197,6 @@ BEGIN
     submission_data->'answers', submission_data->'cheatAttempts', submission_data->>'user_highest_role'
   ) RETURNING * INTO new_submission;
 
-  -- Log the action, which will trigger the notification
   PERFORM public.log_action(
     format('New submission by %s for %s.', new_submission.username, new_submission."quizTitle"),
     'submissions'
@@ -386,13 +381,12 @@ $$;
 
 CREATE OR REPLACE FUNCTION public.update_config(new_config jsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
-    allowed_appearance_keys text[] := ARRAY['COMMUNITY_NAME', 'LOGO_URL', 'DISCORD_GUILD_ID', 'BACKGROUND_IMAGE_URL', 'admin_password', 'DISCORD_PROXY_URL', 'DISCORD_PROXY_SECRET'];
+    allowed_appearance_keys text[] := ARRAY['COMMUNITY_NAME', 'LOGO_URL', 'DISCORD_GUILD_ID', 'BACKGROUND_IMAGE_URL', 'admin_password'];
     allowed_notif_keys text[] := ARRAY['submissions_channel_id', 'log_channel_submissions', 'log_channel_bans', 'log_channel_admin', 'audit_log_channel_id', 'mention_role_submissions', 'mention_role_audit_log_submissions', 'mention_role_audit_log_bans', 'mention_role_audit_log_admin', 'mention_role_audit_log_general'];
     key text;
     sql_query text := 'UPDATE public.config SET ';
     updates text[] := '{}';
 BEGIN
-    -- Handle Appearance Settings
     IF public.has_permission(public.get_user_id(), 'admin_appearance') THEN
         FOR key IN SELECT jsonb_object_keys(new_config) LOOP
             IF key = ANY(allowed_appearance_keys) THEN
@@ -408,22 +402,15 @@ BEGIN
             END IF;
         END LOOP;
     END IF;
-
-    -- Handle Notifications Settings
     IF public.has_permission(public.get_user_id(), 'admin_notifications') THEN
         FOR key IN SELECT jsonb_object_keys(new_config) LOOP
-            IF key = ANY(allowed_notif_keys) THEN
-                IF NOT (format('"%s" = %L', key, new_config->>key) = ANY(updates)) THEN
-                    updates := array_append(updates, format('"%s" = %L', key, new_config->>key));
-                END IF;
+            IF key = ANY(allowed_notif_keys) AND NOT (format('"%s" = %L', key, new_config->>key) = ANY(updates)) THEN
+                updates := array_append(updates, format('"%s" = %L', key, new_config->>key));
             END IF;
         END LOOP;
     END IF;
 
-    IF array_length(updates, 1) IS NULL THEN
-        RAISE EXCEPTION 'Insufficient permissions or no valid fields provided.';
-    END IF;
-
+    IF array_length(updates, 1) IS NULL THEN RAISE EXCEPTION 'Insufficient permissions or no valid fields.'; END IF;
     sql_query := sql_query || array_to_string(updates, ', ') || ' WHERE id = 1;';
     EXECUTE sql_query;
     PERFORM public.log_action('Updated system configuration.', 'admin');
@@ -487,79 +474,14 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
   stored_hash text;
 BEGIN
-  IF NOT public.has_permission(public.get_user_id(), 'admin_panel') THEN
-    RETURN false;
-  END IF;
+  IF NOT public.has_permission(public.get_user_id(), 'admin_panel') THEN RETURN false; END IF;
   SELECT admin_password INTO stored_hash FROM public.config WHERE id = 1;
-  IF stored_hash IS NULL THEN
-    RETURN false;
-  END IF;
+  IF stored_hash IS NULL THEN RETURN false; END IF;
   RETURN (stored_hash = crypt(p_password, stored_hash));
 END;
 $$;
 
--- =================================================================
--- 7. NOTIFICATION TRIGGER (NEW!)
--- =================================================================
-CREATE OR REPLACE FUNCTION public.handle_audit_log_notification()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER SET search_path = public, extensions
-AS $$
-DECLARE
-  log_payload jsonb;
-  proxy_url text;
-  proxy_secret text;
-BEGIN
-  -- Build the payload from the new log entry
-  log_payload := jsonb_build_object(
-    'type', 'audit_log',
-    'payload', row_to_json(NEW)
-  );
-
-  -- Get the webhook URL and secret from the config table
-  SELECT "DISCORD_PROXY_URL", "DISCORD_PROXY_SECRET" INTO proxy_url, proxy_secret FROM public.config WHERE id = 1;
-
-  -- If a URL and secret are configured, invoke the edge function
-  IF proxy_url IS NOT NULL AND proxy_secret IS NOT NULL THEN
-    PERFORM net.http_post(
-      url:=proxy_url,
-      headers:=jsonb_build_object(
-        'Content-Type', 'application/json',
-        'Authorization', 'Bearer ' || current_setting('request.jwt.claim', true), -- Pass along the user's JWT
-        'X-Internal-Secret', proxy_secret
-      ),
-      body:=log_payload
-    );
-  END IF;
-  
-  RETURN NEW;
-END;
-$$;
-
-CREATE TRIGGER on_audit_log_insert
-  AFTER INSERT ON public.audit_log
-  FOR EACH ROW
-  EXECUTE FUNCTION public.handle_audit_log_notification();
-
--- =================================================================
--- 8. HEALTH CHECK FUNCTIONS
--- =================================================================
-CREATE OR REPLACE FUNCTION public.test_http_request() RETURNS jsonb
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
-DECLARE
-  response http_response;
-BEGIN
-  SELECT * INTO response FROM http_get('https://httpbin.org/get');
-  RETURN jsonb_build_object(
-    'status', response.status,
-    'content_type', response.content_type
-  );
-EXCEPTION WHEN OTHERS THEN
-  RETURN jsonb_build_object('error', SQLERRM);
-END;
-$$;
 
 -- Commit the transaction
 COMMIT;
-`
+`;

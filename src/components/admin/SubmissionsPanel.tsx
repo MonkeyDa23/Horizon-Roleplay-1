@@ -1,6 +1,3 @@
-
-
-
 // src/components/admin/SubmissionsPanel.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalization } from '../../hooks/useLocalization';
@@ -10,7 +7,7 @@ import { getSubmissions, updateSubmissionStatus, getQuizzes, deleteSubmission, c
 import type { QuizSubmission, SubmissionStatus, Quiz } from '../../types';
 import Modal from '../Modal';
 import { Eye, Loader2, Check, X, ListChecks, Trash2, AlertTriangle } from 'lucide-react';
-import * as ReactRouterDOM from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 
 const Panel: React.FC<{ children: React.ReactNode; isLoading: boolean, loadingText: string }> = ({ children, isLoading, loadingText }) => {
@@ -71,26 +68,22 @@ const SubmissionsPanel: React.FC = () => {
     const handleDecision = async (submissionId: string, status: DecisionStatus) => {
         try {
             await checkDiscordApiHealth();
-            // If health check passes, proceed directly
             await proceedWithUpdate(submissionId, status, decisionReason);
         } catch (error) {
-            // If health check fails, show the warning modal
             setNotificationWarning({ submissionId, status, reason: decisionReason });
         }
     };
     
     const handleTakeOrder = async (id: string) => {
-        // No notification is sent when taking an order, so no health check needed.
         await proceedWithUpdate(id, 'taken');
     };
 
     const handleDelete = async (submission: QuizSubmission) => {
-        // FIX: Guard against window access in non-browser environments.
-        if (typeof window !== 'undefined' && (window as any).confirm(t('delete_submission_confirm', { username: submission.username, quizTitle: submission.quizTitle }))) {
+        if (window.confirm(t('delete_submission_confirm', { username: submission.username, quizTitle: submission.quizTitle }))) {
             try {
                 await deleteSubmission(submission.id);
                 showToast(t('submission_deleted_success'), 'success');
-                fetchData(); // Refresh the list
+                fetchData();
             } catch (e) {
                 showToast((e as Error).message, 'error');
             }
@@ -98,10 +91,7 @@ const SubmissionsPanel: React.FC = () => {
     };
     
     useEffect(() => {
-        // Clear reason when modal is closed
-        if (!viewingSubmission) {
-            setDecisionReason('');
-        }
+        if (!viewingSubmission) setDecisionReason('');
     }, [viewingSubmission]);
 
     const renderStatusBadge = (status: SubmissionStatus) => {
@@ -212,7 +202,6 @@ const SubmissionsPanel: React.FC = () => {
                                 <label className="block mb-1 font-semibold text-gray-300">{t('reason')} (Optional)</label>
                                 <textarea 
                                     value={decisionReason}
-                                    // FIX: Use e.currentTarget.value to correctly access the textarea's value.
                                     onChange={(e) => setDecisionReason(e.currentTarget.value)}
                                     placeholder="Provide a reason for acceptance or refusal..."
                                     className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan"
@@ -233,7 +222,7 @@ const SubmissionsPanel: React.FC = () => {
                      <div className="text-center">
                         <AlertTriangle className="mx-auto text-yellow-400" size={48} />
                         <p className="text-gray-300 mt-4 mb-6">{t('notification_check_failed_body')}</p>
-                        <ReactRouterDOM.Link to="/health-check" className="text-brand-cyan underline hover:text-white mb-6 block">{t('go_to_health_check')}</ReactRouterDOM.Link>
+                        <Link to="/health-check" className="text-brand-cyan underline hover:text-white mb-6 block">{t('go_to_health_check')}</Link>
 
                         <div className="flex justify-center gap-4">
                             <button onClick={() => setNotificationWarning(null)} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">{t('cancel')}</button>

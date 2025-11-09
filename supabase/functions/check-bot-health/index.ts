@@ -1,6 +1,6 @@
 // supabase/functions/check-bot-health/index.ts
-// FIX: Update the Supabase function type reference to a versioned URL to ensure it can be found.
-/// <reference types="https://esm.sh/v135/@supabase/functions-js@2.4.1/src/edge-runtime.d.ts" />
+// FIX: Update the Supabase function type reference to a more stable URL to resolve Deno environment type errors.
+/// <reference types="https://esm.sh/@supabase/functions-js@2/src/edge-runtime.d.ts" />
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 

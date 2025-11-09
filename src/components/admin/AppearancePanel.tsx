@@ -52,7 +52,6 @@ const AppearancePanel: React.FC = () => {
             <input 
                 type={type}
                 value={value || ''}
-                // FIX: Use e.currentTarget.value to correctly access the input's value.
                 onChange={(e) => onChange(e.currentTarget.value)}
                 placeholder={placeholder}
                 className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan"
@@ -81,22 +80,6 @@ const AppearancePanel: React.FC = () => {
                     <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">Core Integration</h3>
                      <div className="space-y-6">
                         <InputField labelKey="discord_guild_id" descKey="discord_guild_id_desc" value={settings.DISCORD_GUILD_ID || ''} onChange={val => handleChange('DISCORD_GUILD_ID', val)} />
-                        
-                        <InputField 
-                            labelKey="discord_proxy_url" 
-                            descKey="discord_proxy_url_desc"
-                            value={settings.DISCORD_PROXY_URL || ''} 
-                            onChange={val => handleChange('DISCORD_PROXY_URL', val)} 
-                            placeholder="e.g., https://<project-ref>.supabase.co/functions/v1/discord-proxy"
-                        />
-                         <InputField 
-                            labelKey="discord_proxy_secret" 
-                            descKey="discord_proxy_secret_desc"
-                            value={settings.DISCORD_PROXY_SECRET || ''} 
-                            onChange={val => handleChange('DISCORD_PROXY_SECRET', val)} 
-                            type="password"
-                            placeholder="A strong, randomly generated secret key"
-                        />
                     </div>
                 </div>
 
