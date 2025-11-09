@@ -1,6 +1,3 @@
-
-
-
 // src/components/admin/PermissionsPanel.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalization } from '../../hooks/useLocalization';
@@ -32,34 +29,24 @@ const RoleBadge: React.FC<{ role: DiscordRole }> = ({ role }) => {
     return <span className={`inline-block px-2 py-1 text-xs font-bold rounded-md ${textColor}`} style={{ backgroundColor: color }}>{role.name}</span>;
 };
 
-const FunctionErrorHelp: React.FC<{ error: string }> = ({ error }) => {
-    const isSecretsError = error.includes('non-2xx status code') || error.includes('DISCORD_BOT_TOKEN') || error.includes('DISCORD_GUILD_ID');
-
+const BotConnectionErrorHelp: React.FC<{ error: string }> = ({ error }) => {
     return (
         <div className="bg-red-500/10 border-2 border-red-500/30 text-red-200 p-6 rounded-lg animate-fade-in-up">
             <div className="flex items-start gap-4">
                 <AlertTriangle className="h-8 w-8 flex-shrink-0 mt-1" />
                 <div>
                     <h3 className="text-xl font-bold text-red-300">Failed to Load Discord Roles</h3>
-                    {isSecretsError ? (
-                        <>
-                            <p className="mt-2">This is almost always caused by missing or incorrect **Function Secrets** in your Supabase project.</p>
-                            <ol className="list-decimal list-inside mt-4 space-y-2">
-                                <li>Go to your Supabase Project Dashboard → **Edge Functions**.</li>
-                                <li>Click on any function (like `get-guild-roles`).</li>
-                                <li>Go to the **Secrets** tab.</li>
-                                <li>Ensure you have set **both** of these secrets correctly:
-                                    <ul className="list-disc list-inside ml-6 my-2 font-mono bg-brand-dark p-2 rounded">
-                                        <li>`DISCORD_BOT_TOKEN`</li>
-                                        <li>`DISCORD_GUILD_ID`</li>
-                                    </ul>
-                                </li>
-                                <li>After setting the secrets, you may need to redeploy the functions. Then, refresh this page.</li>
-                            </ol>
-                        </>
-                    ) : (
-                        <p className="mt-2">An unexpected error occurred. Please check the function logs in your Supabase dashboard for more details.</p>
-                    )}
+                    <p className="mt-2">This error indicates the website could not communicate with your standalone Discord bot to fetch the server's roles. Please check the following:</p>
+                    <ol className="list-decimal list-inside mt-4 space-y-2">
+                        <li><strong>Is the bot running?</strong> Make sure you have started your bot (e.g., with `node index.js` in the `bot` directory) and that it is online.</li>
+                        <li><strong>Are the frontend `.env` variables correct?</strong>
+                            <ul className="list-disc list-inside ml-6 my-2 font-mono bg-brand-dark p-2 rounded">
+                                <li>`VITE_DISCORD_BOT_URL` must point to where your bot is hosted (e.g., `http://localhost:3001`).</li>
+                                <li>`VITE_DISCORD_BOT_API_KEY` must match the `API_SECRET_KEY` in your bot's `.env` file.</li>
+                            </ul>
+                        </li>
+                        <li><strong>Check the bot's console logs</strong> for any startup errors or specific error messages when the request was made.</li>
+                    </ol>
                     <p className="text-xs text-red-400/70 mt-4">Full Error: {error}</p>
                 </div>
             </div>
@@ -132,7 +119,7 @@ const PermissionsPanel: React.FC = () => {
     const permissionKeys = Object.keys(PERMISSIONS) as PermissionKey[];
 
     if (fetchError) {
-        return <FunctionErrorHelp error={fetchError} />;
+        return <BotConnectionErrorHelp error={fetchError} />;
     }
 
     return (
@@ -172,7 +159,6 @@ const PermissionsPanel: React.FC = () => {
                                        type="checkbox"
                                        className="mt-1 h-5 w-5 rounded bg-brand-dark border-gray-500 text-brand-cyan focus:ring-brand-cyan"
                                        checked={selectedRolePermissions.includes(key)}
-                                       // FIX: Use e.currentTarget.checked to correctly access the checkbox state.
                                        onChange={(e) => handlePermissionChange(key, e.currentTarget.checked)}
                                    />
                                    <div>

@@ -156,10 +156,10 @@ export const addSubmission = async (submission: any): Promise<QuizSubmission> =>
     const { submissions_channel_id, mention_role_submissions, COMMUNITY_NAME, LOGO_URL } = await getConfig();
     if (submissions_channel_id) {
         const embed = {
-            author: { name: "تم استلام تقديم جديد", icon_url: "https://i.imgur.com/gJt1kUD.png" },
-            description: `تقديم من **${newSubmission.username}** لوظيفة **${newSubmission.quizTitle}** في انتظار المراجعة.`,
+            author: { name: "New Submission Received", icon_url: "https://i.imgur.com/gJt1kUD.png" },
+            description: `A submission from **${newSubmission.username}** for **${newSubmission.quizTitle}** is awaiting review.`,
             color: 0x00F2EA,
-            fields: [{ name: "المتقدم", value: newSubmission.username, inline: true }, { name: "نوع التقديم", value: newSubmission.quizTitle, inline: true }],
+            fields: [{ name: "Applicant", value: newSubmission.username, inline: true }, { name: "Application", value: newSubmission.quizTitle, inline: true }],
             footer: { text: COMMUNITY_NAME, icon_url: LOGO_URL },
             timestamp: new Date(newSubmission.submittedAt).toISOString(),
         };
@@ -167,9 +167,13 @@ export const addSubmission = async (submission: any): Promise<QuizSubmission> =>
     }
     
     // Send DM receipt
+    const { data: translations } = await supabase.from('translations').select('key, en, ar').in('key', ['notification_submission_receipt_title', 'notification_submission_receipt_body']);
+    const receiptTitle = translations?.find(t => t.key === 'notification_submission_receipt_title')?.en ?? 'Application Submitted Successfully! ✅';
+    const receiptBody = translations?.find(t => t.key === 'notification_submission_receipt_body')?.en ?? 'Hey {username},\n\nWe have successfully received your application for **{quizTitle}**. Our team will review it as soon as possible.';
+    
     const receiptEmbed = {
-        title: 'تم استلام تقديمك بنجاح! ✅',
-        description: `أهلاً ${newSubmission.username},\n\nلقد استلمنا بنجاح تقديمك لوظيفة **${newSubmission.quizTitle}**. سيقوم فريقنا بمراجعته في أقرب وقت ممكن.`,
+        title: receiptTitle,
+        description: receiptBody.replace('{username}', newSubmission.username).replace('{quizTitle}', newSubmission.quizTitle),
         color: 0x00B2FF,
         footer: { text: COMMUNITY_NAME, icon_url: LOGO_URL },
         timestamp: new Date().toISOString()
@@ -189,8 +193,8 @@ export const updateSubmissionStatus = async (submissionId: string, status: 'take
     const { log_channel_submissions, COMMUNITY_NAME, LOGO_URL } = await getConfig();
     if (log_channel_submissions) {
         const logEmbed = {
-            title: `تحديث حالة تقديم`,
-            description: `تم تحديث حالة تقديم **${updatedSubmission.username}** إلى **${status.toUpperCase()}** بواسطة **${updatedSubmission.adminUsername}**.`,
+            title: `Submission Status Updated`,
+            description: `Submission for **${updatedSubmission.username}** was updated to **${status.toUpperCase()}** by **${updatedSubmission.adminUsername}**.`,
             color: 0x00B2FF,
             footer: { text: COMMUNITY_NAME, icon_url: LOGO_URL },
             timestamp: new Date().toISOString()
@@ -200,9 +204,21 @@ export const updateSubmissionStatus = async (submissionId: string, status: 'take
 
     if (status === 'accepted' || status === 'refused') {
         const isAccepted = status === 'accepted';
+        const titleKey = isAccepted ? 'notification_submission_accepted_title' : 'notification_submission_refused_title';
+        const bodyKey = isAccepted ? 'notification_submission_accepted_body' : 'notification_submission_refused_body';
+
+        const { data: translations } = await supabase.from('translations').select('key, en, ar').in('key', [titleKey, bodyKey]);
+        const resultTitle = translations?.find(t => t.key === titleKey)?.en ?? (isAccepted ? 'Congratulations! Your Application was Accepted! 🎉' : 'Update on Your Application');
+        const resultBodyTemplate = translations?.find(t => t.key === bodyKey)?.en ?? 'There was an update on your application for {quizTitle}.';
+        const resultBody = resultBodyTemplate
+            .replace('{username}', updatedSubmission.username)
+            .replace('{quizTitle}', updatedSubmission.quizTitle)
+            .replace('{adminUsername}', updatedSubmission.adminUsername || 'Admin')
+            .replace('{reason}', updatedSubmission.reason || 'No reason provided.');
+
         const resultEmbed = {
-            title: isAccepted ? 'تهانينا! تم قبول تقديمك! 🎉' : 'تحديث بخصوص تقديمك',
-            description: `أهلاً ${updatedSubmission.username},\n\nبعد المراجعة، تم **${isAccepted ? 'قبول' : 'رفض'}** تقديمك لوظيفة **${updatedSubmission.quizTitle}** من قبل ${updatedSubmission.adminUsername}.\n\nالسبب: ${updatedSubmission.reason || 'لا يوجد سبب.'}`,
+            title: resultTitle,
+            description: resultBody,
             color: isAccepted ? 0x22C55E : 0xEF4444,
             footer: { text: COMMUNITY_NAME, icon_url: LOGO_URL },
             timestamp: new Date().toISOString()
@@ -229,8 +245,6 @@ export const banUser = async (targetUserId: string, reason: string, durationHour
 export const unbanUser = async (targetUserId: string): Promise<void> => handleResponse(await supabase.rpc('unban_user', { p_target_user_id: targetUserId }));
 
 export const testNotification = async (type: string, targetId: string): Promise<any> => {
-    // This now just calls the bot's general notification endpoint with a pre-formatted test payload.
-    // The bot doesn't need to know it's a "test".
     const { COMMUNITY_NAME, LOGO_URL } = await getConfig();
     const embed = {
         title: `Test Notification: ${type}`,
@@ -241,7 +255,7 @@ export const testNotification = async (type: string, targetId: string): Promise<
     };
     
     const body: { embed: any, dmToUserId?: string, channelId?: string } = { embed };
-    if (type === 'test_submission_result') {
+    if (type === 'submission_result') { // Special case for DM test
         body.dmToUserId = targetId;
     } else {
         body.channelId = targetId;

@@ -36,7 +36,6 @@ DROP TABLE IF EXISTS public.profiles CASCADE;
 DROP TABLE IF EXISTS public.config CASCADE;
 DROP TABLE IF EXISTS public.translations CASCADE;
 
-DROP FUNCTION IF EXISTS public.handle_audit_log_notification();
 DROP FUNCTION IF EXISTS public.get_config();
 DROP FUNCTION IF EXISTS public.get_all_submissions();
 DROP FUNCTION IF EXISTS public.add_submission(jsonb);
@@ -56,7 +55,6 @@ DROP FUNCTION IF EXISTS public.save_role_permissions(text, text[]);
 DROP FUNCTION IF EXISTS public.get_user_id();
 DROP FUNCTION IF EXISTS public.delete_quiz(uuid);
 DROP FUNCTION IF EXISTS public.delete_product(uuid);
-DROP FUNCTION IF EXISTS public.test_http_request();
 DROP FUNCTION IF EXISTS public.verify_admin_password(text);
 
 -- =================================================================
@@ -88,7 +86,6 @@ CREATE TABLE public.config (
     "mention_role_audit_log_bans" text,
     "mention_role_audit_log_admin" text,
     "mention_role_audit_log_general" text,
-    -- Removed DISCORD_PROXY_URL and DISCORD_PROXY_SECRET as they are no longer needed
     CONSTRAINT id_check CHECK (id = 1)
 );
 INSERT INTO public.config (id) VALUES (1) ON CONFLICT (id) DO NOTHING;

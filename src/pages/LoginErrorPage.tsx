@@ -1,8 +1,6 @@
 // src/pages/LoginErrorPage.tsx
 import React from 'react';
-import { AlertTriangle, RefreshCw, LogOut, Wrench } from 'lucide-react';
-import { ApiError } from '../lib/api';
-import * as ReactRouterDOM from 'react-router-dom';
+import { AlertTriangle, RefreshCw, LogOut } from 'lucide-react';
 
 interface LoginErrorPageProps {
   error: Error;
@@ -11,29 +9,22 @@ interface LoginErrorPageProps {
 }
 
 const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogout }) => {
-    const navigate = ReactRouterDOM.useNavigate();
     
     const getTroubleshootingSteps = () => {
         const steps: React.ReactNode[] = [];
-        const errorMessage = (error && typeof error.message === 'string') ? error.message.toLowerCase() : '';
+        const errorMessage = (error && typeof error.message === 'string') ? error.message : '';
 
-        // FIX: Replaced .includes with .indexOf for broader environment compatibility.
-        if (errorMessage.indexOf('discord api error (403)') !== -1) {
-             steps.push(<>The Discord API rejected the request. This is almost always caused by the <strong>"Server Members Intent" being disabled</strong>. Go to your bot's settings in the Discord Developer Portal, enable it, and then invite the bot to your server again.</>);
-        // FIX: Replaced .includes with .indexOf for broader environment compatibility.
-        } else if (errorMessage.indexOf('invalid or has been reset') !== -1) {
-            steps.push(<>The Discord API rejected the request because the token is invalid. Please ensure the <code>DISCORD_BOT_TOKEN</code> secret in your Supabase project is correct and has not been reset.</>);
-        // FIX: Replaced .includes with .indexOf for broader environment compatibility.
-        } else if (errorMessage.indexOf('not found') !== -1 || (error instanceof ApiError && error.status === 404)) {
-            steps.push(<>The bot reported that your Discord user was <strong>not found in the server</strong>. If you recently joined, please wait a few minutes and try again. Ensure you are a member of the correct Discord server specified in the website's configuration.</>);
-        // FIX: Replaced .includes with .indexOf for broader environment compatibility.
-        } else if (errorMessage.indexOf('discord_guild_id is not configured') !== -1) {
-            steps.push(<>The website doesn't know which Discord server to check. Please go to the <strong>Admin Panel {'>'} Appearance</strong> page and set the correct <strong>Discord Guild ID</strong>.</>);
-        // FIX: Replaced .includes with .indexOf for broader environment compatibility.
-        } else if (errorMessage.indexOf('failed to fetch') !== -1 || errorMessage.indexOf('connection refused') !== -1) {
-             steps.push(<>The Supabase function failed to connect to the Discord API. This could be a temporary network issue with Supabase or Discord. Please try again in a moment.</>);
+        if (errorMessage.includes('Failed to fetch')) {
+            steps.push(<>The website could not connect to the bot's API. <strong>Is the bot running?</strong> Check your bot's console for errors.</>);
+            steps.push(<>Ensure the <code>VITE_DISCORD_BOT_URL</code> in your website's <code>.env</code> file is correct (e.g., <code>http://localhost:3001</code>).</>);
+        } else if (errorMessage.includes('Invalid API Key')) {
+            steps.push(<>The API key is incorrect. Ensure <code>VITE_DISCORD_BOT_API_KEY</code> in the website's <code>.env</code> file <strong>exactly matches</strong> <code>API_SECRET_KEY</code> in the bot's <code>.env</code> file.</>);
+        } else if (errorMessage.includes('"Server Members Intent" is likely not enabled')) {
+             steps.push(<>The Discord API rejected the request. This is almost always caused by the <strong>"Server Members Intent" being disabled</strong>. Go to your bot's settings in the Discord Developer Portal and enable it.</>);
+        } else if (errorMessage.includes('User not found in this server')) {
+            steps.push(<>The bot reported that your Discord user was <strong>not found in the server</strong>. Ensure you are a member of the correct Discord server specified by <code>DISCORD_GUILD_ID</code> in the bot's <code>.env</code> file.</>);
         } else {
-            steps.push(<>An unexpected error occurred. The full error message is: <code className="text-xs bg-brand-dark p-1 rounded">{(error && error.message) ? error.message : 'No error message available'}</code>. Please check the browser console and your Supabase Edge Function logs for more details.</>);
+            steps.push(<>An unexpected error occurred. The full error message is: <code className="text-xs bg-brand-dark p-1 rounded">{errorMessage || 'No error message available'}</code>. Please check the browser console and your bot's console logs for more details.</>);
         }
         return steps;
     };
@@ -48,7 +39,7 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
                 </div>
                 <h1 className="text-3xl md:text-4xl font-extrabold text-red-400 mb-4">Login Synchronization Failed</h1>
                 <p className="text-md text-gray-300 mb-8">
-                    We couldn't synchronize your profile with Discord after you logged in. This usually happens because of a configuration issue between the website and the Discord API.
+                    We couldn't synchronize your profile with Discord after you logged in. This usually happens because of a configuration issue between the website and the Discord bot.
                 </p>
 
                 <div className="bg-brand-dark p-6 rounded-lg text-left space-y-4 border border-brand-light-blue">
