@@ -348,4 +348,17 @@ export const translations: Translations = {
   quiz_medic_desc: { ar: 'مطلوب منك الهدوء والاحترافية في جميع الأوقات.', en: 'You are required to be calm and professional at all times.' },
   q_medic_1: { ar: 'ما هي أولويتك القصوى عند الوصول إلى مكان الحادث؟', en: 'What is your top priority when arriving at an accident scene?' },
   widgets_management: { en: 'Widgets Management', ar: 'إدارة الويدجتات' },
+
+  // Login Error Page
+  login_sync_failed_title: { en: 'Login Synchronization Failed', ar: 'فشل مزامنة تسجيل الدخول' },
+  login_sync_failed_desc: { en: "We couldn't synchronize your profile with Discord after you logged in. This usually happens because of a configuration issue between the website and the Discord bot.", ar: 'لم نتمكن من مزامنة ملفك الشخصي مع ديسكورد بعد تسجيل دخولك. يحدث هذا عادةً بسبب مشكلة في الإعدادات بين الموقع وبوت الديسكورد.' },
+  troubleshooting_steps: { en: 'Troubleshooting Steps:', ar: 'خطوات استكشاف الأخطاء وإصلاحها:' },
+  login_error_step_fetch: { en: "The website could not connect to the bot's API. <strong>Is the bot running?</strong> Check your bot's console for errors.", ar: 'لم يتمكن الموقع من الاتصال بواجهة برمجة تطبيقات البوت. <strong>هل البوت يعمل؟</strong> تحقق من وحدة التحكم الخاصة بالبوت بحثاً عن أخطاء.' },
+  login_error_step_url: { en: "Ensure the <code>VITE_DISCORD_BOT_URL</code> in your website's <code>.env</code> file is correct (e.g., <code>http://localhost:3001</code>).", ar: 'تأكد من أن <code>VITE_DISCORD_BOT_URL</code> في ملف <code>.env</code> الخاص بموقعك صحيح (على سبيل المثال، <code>http://localhost:3001</code>).' },
+  login_error_step_api_key: { en: "The API key is incorrect. Ensure <code>VITE_DISCORD_BOT_API_KEY</code> in the website's <code>.env</code> file <strong>exactly matches</strong> <code>API_SECRET_KEY</code> in the bot's <code>.env</code> file.", ar: 'مفتاح API غير صحيح. تأكد من أن <code>VITE_DISCORD_BOT_API_KEY</code> في ملف <code>.env</code> الخاص بالموقع <strong>يطابق تماماً</strong> <code>API_SECRET_KEY</code> في ملف <code>.env</code> الخاص بالبوت.' },
+  login_error_step_intent: { en: 'The Discord API rejected the request. This is almost always caused by the <strong>"Server Members Intent" being disabled</strong>. Go to your bot\'s settings in the Discord Developer Portal and enable it.', ar: 'رفضت واجهة برمجة تطبيقات ديسكورد الطلب. يحدث هذا دائماً تقريباً بسبب <strong>تعطيل "Server Members Intent"</strong>. اذهب إلى إعدادات البوت الخاص بك في بوابة مطوري ديسكورد وقم بتفعيله.' },
+  login_error_step_not_found: { en: "The bot reported that your Discord user was <strong>not found in the server</strong>. Ensure you are a member of the correct Discord server specified by <code>DISCORD_GUILD_ID</code> in the bot's <code>.env</code> file.", ar: 'أبلغ البوت أنه <strong>لم يتم العثور على مستخدم ديسكورد الخاص بك في السيرفر</strong>. تأكد من أنك عضو في سيرفر ديسكورد الصحيح المحدد بواسطة <code>DISCORD_GUILD_ID</code> في ملف <code>.env</code> الخاص بالبوت.' },
+  login_error_step_unknown: { en: 'An unexpected error occurred. The full error message is: <code class="text-xs bg-brand-dark p-1 rounded">{errorMessage}</code>. Please check the browser console and your bot\'s console logs for more details.', ar: 'حدث خطأ غير متوقع. رسالة الخطأ الكاملة هي: <code class="text-xs bg-brand-dark p-1 rounded" dir="ltr">{errorMessage}</code>. يرجى التحقق من وحدة تحكم المتصفح وسجلات وحدة تحكم البوت لمزيد من التفاصيل.' },
+  retry_connection: { en: 'Retry Connection', ar: 'إعادة محاولة الاتصال' },
+  go_to_health_check_page: { en: 'Health Check', ar: 'فحص النظام' },
 };
