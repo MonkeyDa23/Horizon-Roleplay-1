@@ -7,7 +7,8 @@ import type { Product } from '../types';
 import { ShoppingCart, PlusCircle } from 'lucide-react';
 import { useToast } from '../hooks/useToast';
 import SEO from '../components/SEO';
-import * as ReactRouterDOM from 'react-router-dom';
+// FIX: Switched to named import for react-router-dom components as per standard usage.
+import { Link } from 'react-router-dom';
 
 const StorePage: React.FC = () => {
   const { t } = useLocalization();
@@ -75,7 +76,8 @@ const StorePage: React.FC = () => {
             [...Array(4)].map((_, i) => <SkeletonCard key={i} />)
           ) : (
             products.map((product) => (
-              <ReactRouterDOM.Link 
+              // FIX: Use named import 'Link' instead of 'ReactRouterDOM.Link'.
+              <Link 
                 to={`/store/${product.id}`}
                 key={product.id} 
                 className="block bg-brand-dark-blue border border-brand-light-blue/50 rounded-lg overflow-hidden group transition-all duration-300 hover:shadow-glow-cyan hover:-translate-y-1"
@@ -100,7 +102,7 @@ const StorePage: React.FC = () => {
                         </div>
                     </div>
                 </div>
-              </ReactRouterDOM.Link>
+              </Link>
             ))
           )}
         </div>

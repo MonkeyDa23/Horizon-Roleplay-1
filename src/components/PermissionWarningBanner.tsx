@@ -1,7 +1,7 @@
 // src/components/PermissionWarningBanner.tsx
 import React from 'react';
-// FIX: Fix "no exported member" errors from 'react-router-dom' by switching to a namespace import.
-import * as ReactRouterDOM from 'react-router-dom';
+// FIX: Switched to named import for react-router-dom components as per standard usage.
+import { Link } from 'react-router-dom';
 import { AlertTriangle } from 'lucide-react';
 import { useLocalization } from '../hooks/useLocalization';
 
@@ -18,9 +18,10 @@ const PermissionWarningBanner: React.FC<PermissionWarningBannerProps> = ({ messa
         <AlertTriangle className="h-8 w-8 flex-shrink-0" />
         <div className="text-sm font-semibold">
           <p>{message}</p>
-          <ReactRouterDOM.Link to="/health-check" className="underline hover:text-white font-bold">
+          {/* FIX: Use named import 'Link' instead of 'ReactRouterDOM.Link'. */}
+          <Link to="/health-check" className="underline hover:text-white font-bold">
             {t('health_check_banner_link')}
-          </ReactRouterDOM.Link>
+          </Link>
         </div>
       </div>
     </div>
