@@ -28,10 +28,10 @@ module.exports = async (req, res) => {
 
     // --- 2. Prepare the request for the bot ---
     try {
-        // The original req.url from Vercel is '/api/proxy/some/path'.
-        // We must remove the '/api/proxy' prefix before forwarding it to the bot,
+        // The original req.url from Vercel is '/api/gateway/some/path'.
+        // We must remove the '/api/gateway' prefix before forwarding it to the bot,
         // so the bot receives the expected '/some/path'.
-        const rewrittenUrl = req.url.replace(/^\/api\/proxy/, '');
+        const rewrittenUrl = req.url.replace(/^\/api\/gateway/, '');
         
         // Construct the full target URL to the bot.
         const targetUrl = new URL(rewrittenUrl, BOT_URL);
