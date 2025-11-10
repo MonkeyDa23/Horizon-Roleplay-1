@@ -12,7 +12,10 @@ const {
     API_SECRET_KEY 
 } = process.env;
 
-if (!TOKEN || !GUILD_ID || !PORT || !API_SECRET_KEY) {
+// FIX: Trim API key to prevent whitespace issues from .env file.
+const trimmedApiKey = API_SECRET_KEY ? API_SECRET_KEY.trim() : undefined;
+
+if (!TOKEN || !GUILD_ID || !PORT || !trimmedApiKey) {
     console.error('CRITICAL ERROR: Missing required environment variables. Please check your .env file or hosting configuration.');
     process.exit(1);
 }
@@ -50,7 +53,7 @@ app.use((req, res, next) => {
 // --- API Authentication Middleware ---
 const authMiddleware = (req, res, next) => {
     const authHeader = req.headers['authorization'];
-    if (authHeader !== `Bearer ${API_SECRET_KEY}`) {
+    if (authHeader !== `Bearer ${trimmedApiKey}`) {
         console.warn(`[API] Forbidden access attempt from IP ${req.ip} to ${req.url}`);
         return res.status(403).json({ error: 'Forbidden: Invalid API Key' });
     }

@@ -9,7 +9,8 @@ import type {
 
 // --- BOT API HELPERS ---
 const BOT_URL = env.VITE_DISCORD_BOT_URL;
-const BOT_KEY = env.VITE_DISCORD_BOT_API_KEY;
+// FIX: Trim API key to prevent whitespace issues from .env file.
+const BOT_KEY = env.VITE_DISCORD_BOT_API_KEY ? env.VITE_DISCORD_BOT_API_KEY.trim() : undefined;
 
 export class ApiError extends Error {
   status: number;
