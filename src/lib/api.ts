@@ -1,5 +1,7 @@
 // src/lib/api.ts
 import { supabase } from './supabaseClient';
+// The 'env' import is intentionally removed from API calls to prevent accidental direct-to-bot requests.
+// It is still used by diagnostic pages, but not for core functionality.
 import { env } from '../env';
 import type { 
   AppConfig, Product, Quiz, QuizSubmission, RuleCategory, Translations, 
@@ -8,7 +10,12 @@ import type {
 } from '../types';
 
 // --- BOT API HELPERS ---
-const BOT_URL = '/api/proxy'; // Use the relative path to our proxy function
+
+// THIS IS THE ONLY PATH THE WEBSITE FRONTEND WILL EVER USE.
+// All bot-related requests are sent to our own serverless function at this path.
+// This function then securely forwards the request to the actual bot, solving all
+// Mixed Content (http/https) browser security issues.
+const PROXY_PATH = '/api/proxy';
 
 export class ApiError extends Error {
   status: number;
@@ -20,10 +27,12 @@ export class ApiError extends Error {
 }
 
 async function callBotApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const url = `${BOT_URL}${endpoint}`;
+    // The final URL will be something like '/api/proxy/sync-user/12345'
+    const url = `${PROXY_PATH}${endpoint}`;
+    
     const headers = {
         'Content-Type': 'application/json',
-        // Authorization is now handled by the server-side proxy for better security
+        // Authorization is now handled by the server-side proxy for better security.
         ...options.headers,
     };
     
@@ -31,8 +40,9 @@ async function callBotApi<T>(endpoint: string, options: RequestInit = {}): Promi
         const response = await fetch(url, { ...options, headers });
 
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response from bot.' }));
-            throw new ApiError(errorData.error || `Bot API request failed with status ${response.status}`, response.status);
+            const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response from proxy.' }));
+            // Provide a clearer error message for debugging.
+            throw new ApiError(errorData.error || `The proxy function returned an error (status ${response.status}). Check the Vercel function logs.`, response.status);
         }
         if (response.status === 204) {
             return null as T;
@@ -42,9 +52,9 @@ async function callBotApi<T>(endpoint: string, options: RequestInit = {}): Promi
         if (error instanceof ApiError) {
             throw error; // Re-throw ApiError instances from the !response.ok block
         }
-        // This will catch network errors (e.g., bot is offline, CORS issues, DNS problems)
-        console.error(`[API Client] Network or other fetch error calling bot endpoint ${endpoint}:`, error);
-        throw new ApiError(`Failed to fetch from the bot API via proxy. The bot might be offline, the URL (${env.VITE_DISCORD_BOT_URL}) could be incorrect, or there might be a network issue.`, 503);
+        // This will catch network errors (e.g., Vercel proxy is down, DNS problems)
+        console.error(`[API Client] Network or other fetch error calling proxy endpoint ${endpoint}:`, error);
+        throw new ApiError("Failed to communicate with the website's proxy function. This could be a deployment issue on Vercel or a network problem.", 503);
     }
 }
 
