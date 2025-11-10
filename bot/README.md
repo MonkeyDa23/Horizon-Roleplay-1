@@ -59,3 +59,28 @@ You should see console output indicating that the bot has logged into Discord an
 Make sure the `.env` file in the **root directory** of your project has the correct values for:
 - `VITE_DISCORD_BOT_URL`: The full URL where your bot is accessible (e.g., `http://your-server-ip:3001`).
 - `VITE_DISCORD_BOT_API_KEY`: The same secret key you set in the bot's `.env` file.
+
+---
+
+## Production Deployment & HTTPS
+
+**IMPORTANT:** When you deploy your website to a service like Vercel or Netlify, it will be served over **`https`**. If your bot is running on a server with a simple `http` URL, browsers will block the website from communicating with it due to a **"Mixed Content" security policy**.
+
+**To fix this, your bot's API must also be accessible over `https`.**
+
+### Recommended Method: Reverse Proxy (Cloudflare)
+
+The easiest and most robust way to secure your bot is to use a domain name and a free service like Cloudflare.
+
+1.  **Get a domain name** and point it to your server's IP address.
+2.  **Add your domain to Cloudflare** and enable its proxy service (the orange cloud). Cloudflare will automatically provide a free SSL certificate and handle all `https` traffic for you.
+3.  Update your frontend's `VITE_DISCORD_BOT_URL` to your new `https` domain (e.g., `https://bot.yourdomain.com`).
+
+### Alternative: Native HTTPS
+
+This bot script now supports running an `https` server directly if you provide your own SSL certificate files. This is for advanced users who are managing their own certificates (e.g., from Let's Encrypt).
+
+1.  Add the following variables to your bot's `.env` file:
+    -   `HTTPS_KEY_PATH`: The full server path to your private key file (e.g., `/etc/letsencrypt/live/yourdomain.com/privkey.pem`).
+    -   `HTTPS_CERT_PATH`: The full server path to your full chain certificate file (e.g., `/etc/letsencrypt/live/yourdomain.com/fullchain.pem`).
+2.  Restart the bot. It will automatically detect these files and start an `https` server instead of an `http` server.

@@ -1,3 +1,4 @@
+
 // In environments where Vite's client types aren't automatically resolved,
 // this manual declaration provides the necessary type information to TypeScript,
 // resolving errors about 'env' not existing on 'import.meta'.
@@ -7,6 +8,7 @@ declare global {
     readonly VITE_SUPABASE_ANON_KEY: string;
     // New variables for the standalone bot
     readonly VITE_DISCORD_BOT_URL: string;
+    // FIX: This key is exposed to the client for use in diagnostic pages.
     readonly VITE_DISCORD_BOT_API_KEY: string;
   }
 
@@ -30,11 +32,13 @@ export const env = {
   
   /**
    * The public URL where your Discord Bot API is hosted.
+   * This is used by the local dev server proxy.
    */
   VITE_DISCORD_BOT_URL: import.meta.env.VITE_DISCORD_BOT_URL,
 
   /**
-   * The secret API key to authenticate with your bot's API.
+   * The secret API key to communicate with the bot.
+   * Exposed on the client ONLY for diagnostic pages.
    */
   VITE_DISCORD_BOT_API_KEY: import.meta.env.VITE_DISCORD_BOT_API_KEY,
 };

@@ -8,9 +8,7 @@ import type {
 } from '../types';
 
 // --- BOT API HELPERS ---
-const BOT_URL = env.VITE_DISCORD_BOT_URL;
-// FIX: Trim API key to prevent whitespace issues from .env file.
-const BOT_KEY = env.VITE_DISCORD_BOT_API_KEY ? env.VITE_DISCORD_BOT_API_KEY.trim() : undefined;
+const BOT_URL = '/api/proxy'; // Use the relative path to our proxy function
 
 export class ApiError extends Error {
   status: number;
@@ -22,13 +20,10 @@ export class ApiError extends Error {
 }
 
 async function callBotApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    if (!BOT_URL || !BOT_KEY) {
-        throw new ApiError("Bot URL or API Key is not configured in the frontend environment.", 500);
-    }
     const url = `${BOT_URL}${endpoint}`;
     const headers = {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${BOT_KEY}`,
+        // Authorization is now handled by the server-side proxy for better security
         ...options.headers,
     };
     
@@ -49,7 +44,7 @@ async function callBotApi<T>(endpoint: string, options: RequestInit = {}): Promi
         }
         // This will catch network errors (e.g., bot is offline, CORS issues, DNS problems)
         console.error(`[API Client] Network or other fetch error calling bot endpoint ${endpoint}:`, error);
-        throw new ApiError(`Failed to fetch from the bot API. The bot might be offline, the URL (${BOT_URL}) could be incorrect, or there might be a network issue like CORS.`, 503);
+        throw new ApiError(`Failed to fetch from the bot API via proxy. The bot might be offline, the URL (${env.VITE_DISCORD_BOT_URL}) could be incorrect, or there might be a network issue.`, 503);
     }
 }
 
@@ -71,7 +66,7 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
   if (sessionError || !session) throw new ApiError(sessionError?.message || "No active session", 401);
   
-  // 1. Get Discord profile from our bot
+  // 1. Get Discord profile from our bot via the proxy
   const discordProfile = await callBotApi<any>(`/sync-user/${session.user.user_metadata.provider_id}`, { method: 'POST' });
 
   // 2. Get permissions and ban status from Supabase (as bot can't access this directly)

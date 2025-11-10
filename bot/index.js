@@ -2,6 +2,8 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const https = require('https');
+const fs = require('fs');
 const { Client, GatewayIntentBits, Partials, EmbedBuilder } = require('discord.js');
 
 // --- Configuration ---
@@ -169,6 +171,26 @@ app.post('/notify', async (req, res) => {
 
 
 // Start the server
-app.listen(PORT, () => {
-    console.log(`🚀 API server is online and listening on http://localhost:${PORT}`);
-});
+const { HTTPS_KEY_PATH, HTTPS_CERT_PATH } = process.env;
+
+if (HTTPS_KEY_PATH && HTTPS_CERT_PATH) {
+    try {
+        const options = {
+            key: fs.readFileSync(HTTPS_KEY_PATH),
+            cert: fs.readFileSync(HTTPS_CERT_PATH),
+        };
+        https.createServer(options, app).listen(PORT, () => {
+            console.log(`🚀 HTTPS API server is online and listening on https://localhost:${PORT}`);
+        });
+    } catch (error) {
+        console.error('CRITICAL ERROR: Could not start HTTPS server. Check your certificate paths in .env.', error);
+        console.log('Falling back to HTTP server...');
+        app.listen(PORT, () => {
+            console.log(`🚀 HTTP API server is online and listening on http://localhost:${PORT}`);
+        });
+    }
+} else {
+    app.listen(PORT, () => {
+        console.log(`🚀 HTTP API server is online and listening on http://localhost:${PORT}`);
+    });
+}
