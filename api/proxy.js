@@ -3,11 +3,13 @@
 // It uses the modern `fetch` API for improved reliability in the serverless environment.
 
 // These MUST be set in your Vercel Project's Environment Variables settings.
+// Vercel -> Your Project -> Settings -> Environment Variables
+// DISCORD_BOT_URL should be the public URL of your bot (e.g., https://your-bot.on-render.com)
+// API_SECRET_KEY must match the key in your bot's .env file.
 const BOT_URL = process.env.DISCORD_BOT_URL;
 const API_SECRET_KEY = process.env.API_SECRET_KEY;
 
-// Helper function to read the request body into a buffer.
-// Vercel's request object is a stream.
+// Helper function to read the request body into a buffer, as Vercel's request object is a stream.
 async function buffer(readable) {
     const chunks = [];
     for await (const chunk of readable) {
@@ -26,45 +28,49 @@ module.exports = async (req, res) => {
 
     // --- 2. Prepare the request for the bot ---
     try {
-        // --- FIX: This is the critical change. ---
-        // The original req.url is '/api/proxy/some/path'.
-        // We must remove the '/api/proxy' prefix before forwarding it to the bot.
+        // The original req.url from Vercel is '/api/proxy/some/path'.
+        // We must remove the '/api/proxy' prefix before forwarding it to the bot,
+        // so the bot receives the expected '/some/path'.
         const rewrittenUrl = req.url.replace(/^\/api\/proxy/, '');
         
-        // Construct the full target URL with the CORRECT path
+        // Construct the full target URL to the bot.
         const targetUrl = new URL(rewrittenUrl, BOT_URL);
 
-        // Buffer the incoming request body
+        // Buffer the incoming request body to be able to send it with fetch.
         const body = await buffer(req);
 
-        // Copy original headers, but overwrite/add what's needed for the proxy
+        // Copy original headers from the client's request.
         const headers = { ...req.headers };
+        // Add the secret authorization key for the bot.
         headers.authorization = `Bearer ${API_SECRET_KEY}`;
+        // Set the host header to match the bot's URL.
         headers.host = targetUrl.host;
-        // Let `fetch` automatically set the content-length based on the buffered body
+        // Let `fetch` automatically set the correct content-length.
         delete headers['content-length'];
 
         // --- 3. Make the proxied request using fetch ---
+        console.log(`[PROXY] Forwarding ${req.method} request to ${targetUrl.toString()}`);
         const botResponse = await fetch(targetUrl.toString(), {
             method: req.method,
             headers: headers,
-            // Only include a body for methods that support it
+            // Only include a body for methods that support it (e.g., POST, PUT).
             body: (req.method !== 'GET' && req.method !== 'HEAD' && body.length > 0) ? body : undefined,
             redirect: 'follow'
         });
+        console.log(`[PROXY] Received ${botResponse.status} from bot.`);
 
-        // --- 4. Send the bot's response back to the client ---
+        // --- 4. Send the bot's response back to the original client ---
         
-        // Copy status code and headers from the bot's response
+        // Copy status code and headers from the bot's response.
         res.statusCode = botResponse.status;
         botResponse.headers.forEach((value, name) => {
-            // Vercel handles content-encoding automatically, so we skip this header
+            // Vercel handles content-encoding automatically, so we skip this header to avoid conflicts.
             if (name.toLowerCase() !== 'content-encoding') {
                 res.setHeader(name, value);
             }
         });
 
-        // Stream the response body from the bot back to the original client
+        // Stream the response body from the bot back to the original client.
         const responseBody = await botResponse.arrayBuffer();
         res.end(Buffer.from(responseBody));
 
