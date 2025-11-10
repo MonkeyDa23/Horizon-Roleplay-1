@@ -1,6 +1,6 @@
 // src/pages/ProductDetailPage.tsx
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 import { useLocalization } from '../hooks/useLocalization';
 import { useCart } from '../hooks/useCart';
 import { getProductById } from '../lib/api';
@@ -11,8 +11,8 @@ import SEO from '../components/SEO';
 import { useConfig } from '../hooks/useConfig';
 
 const ProductDetailPage: React.FC = () => {
-    const { productId } = useParams<{ productId: string }>();
-    const navigate = useNavigate();
+    const { productId } = ReactRouterDOM.useParams<{ productId: string }>();
+    const navigate = ReactRouterDOM.useNavigate();
     const { t } = useLocalization();
     const { addToCart } = useCart();
     const { showToast } = useToast();

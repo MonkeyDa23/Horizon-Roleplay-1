@@ -1,7 +1,7 @@
 // src/components/admin/AdminLayout.tsx
 import React from 'react';
-// FIX: Switched to named import for react-router-dom components as per standard usage.
-import { Link } from 'react-router-dom';
+// FIX: Switched to namespace import for react-router-dom to resolve module resolution issues.
+import * as ReactRouterDOM from 'react-router-dom';
 import { AlertTriangle } from 'lucide-react';
 import { useLocalization } from '../../hooks/useLocalization';
 import { useConfig } from '../../hooks/useConfig';
@@ -29,10 +29,10 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, tabs, activeTab, se
                     <AlertTriangle className="h-10 w-10 flex-shrink-0" />
                     <div className="text-sm font-semibold">
                       <p>{t('admin_health_check_promo')}</p>
-                      {/* FIX: Use named import 'Link' instead of 'ReactRouterDOM.Link'. */}
-                      <Link to="/health-check" className="underline hover:text-white font-bold text-base">
+                      {/* FIX: Use namespace import 'ReactRouterDOM.Link'. */}
+                      <ReactRouterDOM.Link to="/health-check" className="underline hover:text-white font-bold text-base">
                         {t('admin_health_check_promo_link')}
-                      </Link>
+                      </ReactRouterDOM.Link>
                     </div>
                   </div>
                 </div>

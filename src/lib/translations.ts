@@ -207,6 +207,7 @@ export const translations: Translations = {
   login_error_step_unknown: { ar: '<strong>خطأ غير معروف:</strong> حدث خطأ غير متوقع. تفاصيل الخطأ: {errorMessage}', en: '**Unknown Error:** An unexpected error occurred. Error details: {errorMessage}' },
   go_to_health_check_page: { ar: 'فحص حالة النظام', en: 'System Health Check' },
   retry_connection: { ar: 'إعادة المحاولة', en: 'Retry Connection' },
+  current_configuration: { ar: 'الإعدادات الحالية', en: 'Current Configuration' },
   
   // Banned Page
   you_are_banned: { ar: 'أنت محظور', en: 'You Are Banned' },
@@ -237,6 +238,7 @@ export const translations: Translations = {
   health_check_banner_link: { ar: 'اذهب إلى صفحة فحص حالة النظام لاستكشاف الأخطاء وإصلاحها.', en: 'Go to the System Health Check page to troubleshoot.' },
   admin_health_check_promo: { ar: 'هل تواجه مشاكل في الاتصال؟ صفحة فحص حالة النظام الجديدة يمكن أن تساعدك في تشخيص الأخطاء بسرعة.', en: 'Experiencing connection issues? The new System Health Check page can help you diagnose errors quickly.' },
   admin_health_check_promo_link: { ar: 'افتح صفحة فحص حالة النظام', en: 'Open System Health Check' },
+  not_set: { ar: 'غير محدد', en: 'Not Set' },
   
   // Admin - Audit Log
   log_timestamp: { ar: 'الوقت', en: 'Timestamp' },

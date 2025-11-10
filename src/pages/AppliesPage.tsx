@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-// FIX: Switched to named import for react-router-dom components as per standard usage.
-import { Link } from 'react-router-dom';
+// FIX: Switched to namespace import for react-router-dom to resolve module resolution issues.
+import * as ReactRouterDOM from 'react-router-dom';
 import { useLocalization } from '../hooks/useLocalization';
 import { useAuth } from '../hooks/useAuth';
 import { getQuizzes, getSubmissionsByUserId } from '../lib/api';
@@ -92,13 +92,13 @@ const AppliesPage: React.FC = () => {
       }
 
       return (
-        // FIX: Use named import 'Link' instead of 'ReactRouterDOM.Link'.
-        <Link 
+        // FIX: Use namespace import 'ReactRouterDOM.Link'.
+        <ReactRouterDOM.Link 
           to={`/applies/${quiz.id}`}
           className="w-full text-center bg-brand-cyan text-brand-dark font-bold py-3 px-8 rounded-md hover:bg-white hover:shadow-glow-cyan transition-all duration-300 flex items-center justify-center gap-2"
         >
           {t('apply_now')}
-        </Link>
+        </ReactRouterDOM.Link>
       );
   };
 

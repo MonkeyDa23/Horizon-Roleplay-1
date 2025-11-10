@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-// FIX: Switched to named imports for react-router-dom hooks as per standard usage.
-import { useParams, useNavigate } from 'react-router-dom';
+// FIX: Switched to namespace import for react-router-dom to resolve module resolution issues.
+import * as ReactRouterDOM from 'react-router-dom';
 import { useLocalization } from '../hooks/useLocalization';
 import { useAuth } from '../hooks/useAuth';
 import { useToast } from '../hooks/useToast';
@@ -50,10 +50,10 @@ const CircularTimer: React.FC<{ timeLeft: number; timeLimit: number }> = ({ time
 
 
 const QuizPage: React.FC = () => {
-  // FIX: Use named import 'useParams' instead of 'ReactRouterDOM.useParams'.
-  const { quizId } = useParams<{ quizId: string }>();
-  // FIX: Use named import 'useNavigate' instead of 'ReactRouterDOM.useNavigate'.
-  const navigate = useNavigate();
+  // FIX: Use namespace import 'ReactRouterDOM.useParams'.
+  const { quizId } = ReactRouterDOM.useParams<{ quizId: string }>();
+  // FIX: Use namespace import 'ReactRouterDOM.useNavigate'.
+  const navigate = ReactRouterDOM.useNavigate();
   const { t } = useLocalization();
   const { user } = useAuth();
   const { showToast } = useToast();

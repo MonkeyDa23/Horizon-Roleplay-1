@@ -7,7 +7,7 @@ import { getSubmissions, updateSubmissionStatus, getQuizzes, deleteSubmission, c
 import type { QuizSubmission, SubmissionStatus, Quiz } from '../../types';
 import Modal from '../Modal';
 import { Eye, Loader2, Check, X, ListChecks, Trash2, AlertTriangle } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 
 
 const Panel: React.FC<{ children: React.ReactNode; isLoading: boolean, loadingText: string }> = ({ children, isLoading, loadingText }) => {
@@ -222,7 +222,7 @@ const SubmissionsPanel: React.FC = () => {
                      <div className="text-center">
                         <AlertTriangle className="mx-auto text-yellow-400" size={48} />
                         <p className="text-gray-300 mt-4 mb-6">{t('notification_check_failed_body')}</p>
-                        <Link to="/health-check" className="text-brand-cyan underline hover:text-white mb-6 block">{t('go_to_health_check')}</Link>
+                        <ReactRouterDOM.Link to="/health-check" className="text-brand-cyan underline hover:text-white mb-6 block">{t('go_to_health_check')}</ReactRouterDOM.Link>
 
                         <div className="flex justify-center gap-4">
                             <button onClick={() => setNotificationWarning(null)} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">{t('cancel')}</button>

@@ -1,10 +1,11 @@
 // src/pages/LoginErrorPage.tsx
 import React from 'react';
-import { AlertTriangle, RefreshCw, LogOut, Wrench, ChevronsRight } from 'lucide-react';
-// FIX: Switched to named import for react-router-dom components as per standard usage.
-import { Link } from 'react-router-dom';
+import { AlertTriangle, RefreshCw, LogOut, Wrench, ChevronsRight, Info } from 'lucide-react';
+// FIX: Switched to namespace import for react-router-dom to resolve module resolution issues.
+import * as ReactRouterDOM from 'react-router-dom';
 import { useLocalization } from '../hooks/useLocalization';
 import { useConfig } from '../hooks/useConfig';
+import { env } from '../env';
 
 interface LoginErrorPageProps {
   error: Error;
@@ -65,6 +66,12 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
     const { t } = useLocalization();
     const { config } = useConfig();
     
+    const botUrl = env.VITE_DISCORD_BOT_URL;
+    const apiKey = env.VITE_DISCORD_BOT_API_KEY;
+    const maskedApiKey = apiKey && apiKey.length > 0 
+        ? (apiKey.length > 8 ? `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}` : '********') 
+        : t('not_set');
+
     const getTroubleshootingContent = () => {
         const errorMessage = (error && typeof error.message === 'string') ? error.message : '';
 
@@ -86,7 +93,7 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
         }
 
         return (
-             <div className="bg-brand-dark p-6 rounded-lg text-left space-y-4 border border-brand-light-blue">
+             <div className="bg-brand-dark p-6 rounded-lg text-left space-y-4 border border-brand-light-blue mt-6">
                 <h2 className="font-bold text-yellow-300 text-lg">{t('troubleshooting_steps')}</h2>
                 <div className="text-gray-200 mt-1 space-y-3">
                    {steps.map((item, index) => (
@@ -113,6 +120,21 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
                     {t('login_sync_failed_desc')}
                 </p>
 
+                <div className="bg-brand-dark p-6 rounded-lg text-left border border-brand-light-blue">
+                    <h2 className="font-bold text-cyan-300 text-lg mb-2 flex items-center gap-2"><Wrench size={20}/> {t('current_configuration')}</h2>
+                    <p className="text-sm text-gray-400 mb-4">The website is currently trying to connect using these settings from your <code>.env</code> file. Please verify they are correct.</p>
+                    <div className="space-y-2">
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="font-semibold text-gray-300">Bot URL:</span>
+                            <code className="font-mono px-2 py-1 rounded bg-brand-dark-blue text-white">{botUrl || t('not_set')}</code>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                            <span className="font-semibold text-gray-300">API Key (Masked):</span>
+                            <code className="font-mono px-2 py-1 rounded bg-brand-dark-blue text-white">{maskedApiKey}</code>
+                        </div>
+                    </div>
+                </div>
+
                 {troubleshootingContent}
 
                 <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -124,14 +146,14 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
                         {t('logout')}
                     </button>
                     {config.SHOW_HEALTH_CHECK && (
-                         // FIX: Use named import 'Link' instead of 'ReactRouterDOM.Link'.
-                         <Link
+                         // FIX: Use namespace import 'ReactRouterDOM.Link'.
+                         <ReactRouterDOM.Link
                             to="/health-check"
                             className="w-full sm:w-auto px-8 py-3 bg-yellow-600 text-white font-bold text-lg rounded-lg hover:bg-yellow-500 transform transition-all duration-300 ease-in-out flex items-center justify-center gap-3 sm:order-2 order-2"
                         >
                             <Wrench size={22}/>
                             {t('go_to_health_check_page')}
-                        </Link>
+                        </ReactRouterDOM.Link>
                     )}
                      <button
                         onClick={onRetry}

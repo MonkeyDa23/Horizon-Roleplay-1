@@ -4,8 +4,8 @@ import { useAuth } from '../hooks/useAuth';
 import { useLocalization } from '../hooks/useLocalization';
 import { getSubmissionsByUserId, forceRefreshUserProfile } from '../lib/api';
 import type { QuizSubmission, SubmissionStatus, DiscordRole } from '../types';
-// FIX: Switched to named import for react-router-dom hooks as per standard usage.
-import { useNavigate } from 'react-router-dom';
+// FIX: Switched to namespace import for react-router-dom to resolve module resolution issues.
+import * as ReactRouterDOM from 'react-router-dom';
 import { User as UserIcon, Loader2, FileText, ExternalLink, Shield, RefreshCw } from 'lucide-react';
 import { useConfig } from '../hooks/useConfig';
 import SEO from '../components/SEO';
@@ -14,8 +14,8 @@ import { useToast } from '../hooks/useToast';
 const ProfilePage: React.FC = () => {
   const { user, loading: authLoading, updateUser } = useAuth();
   const { t } = useLocalization();
-  // FIX: Use named import 'useNavigate' instead of 'ReactRouterDOM.useNavigate'.
-  const navigate = useNavigate();
+  // FIX: Use namespace import 'ReactRouterDOM.useNavigate'.
+  const navigate = ReactRouterDOM.useNavigate();
   const { config } = useConfig();
   const { showToast } = useToast();
   const communityName = config.COMMUNITY_NAME;

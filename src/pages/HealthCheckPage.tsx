@@ -6,12 +6,12 @@ import { env } from '../env';
 import { checkDiscordApiHealth, lookupUser, ApiError } from '../lib/api';
 import SEO from '../components/SEO';
 import { useAuth } from '../hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
+import * as ReactRouterDOM from 'react-router-dom';
 
 const HealthCheckPage: React.FC = () => {
     const { t } = useLocalization();
     const { hasPermission } = useAuth();
-    const navigate = useNavigate();
+    const navigate = ReactRouterDOM.useNavigate();
     
     const [botHealth, setBotHealth] = useState<any>(null);
     const [isTestingBot, setIsTestingBot] = useState(false);

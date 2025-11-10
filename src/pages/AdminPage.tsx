@@ -2,8 +2,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useLocalization } from '../hooks/useLocalization';
-// FIX: Switched to named imports for react-router-dom hooks as per standard usage.
-import { useNavigate } from 'react-router-dom';
+// FIX: Switched to namespace import for react-router-dom to resolve module resolution issues.
+import * as ReactRouterDOM from 'react-router-dom';
 import type { PermissionKey } from '../types';
 import SEO from '../components/SEO';
 import { UserCog, FileText, Server, BookCopy, Store, Languages, Palette, Search, ShieldCheck, ShieldQuestion, Bell, LayoutGrid } from 'lucide-react';
@@ -45,8 +45,8 @@ export const TABS: { id: AdminTab; labelKey: string; icon: React.ElementType; pe
 const AdminPage: React.FC = () => {
     const { t } = useLocalization();
     const { hasPermission, user, loading } = useAuth();
-    // FIX: Use named import 'useNavigate' instead of 'ReactRouterDOM.useNavigate'.
-    const navigate = useNavigate();
+    // FIX: Use namespace import 'ReactRouterDOM.useNavigate'.
+    const navigate = ReactRouterDOM.useNavigate();
     const hasLoggedVisit = useRef(false);
 
     const accessibleTabs = TABS.filter(tab => hasPermission(tab.permission));
