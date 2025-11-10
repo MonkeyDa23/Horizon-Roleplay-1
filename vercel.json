@@ -1,8 +1,9 @@
 {
-  "routes": [
-    { "src": "/api/proxy/(.*)", "dest": "/api/proxy.js" }
-  ],
   "rewrites": [
+    {
+      "source": "/api/gateway/(.*)",
+      "destination": "/api/proxy.js"
+    },
     {
       "source": "/((?!api/).*)",
       "destination": "/index.html"

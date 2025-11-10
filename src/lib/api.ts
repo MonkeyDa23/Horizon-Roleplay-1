@@ -15,7 +15,7 @@ import type {
 // All bot-related requests are sent to our own serverless function at this path.
 // This function then securely forwards the request to the actual bot, solving all
 // Mixed Content (http/https) browser security issues.
-const PROXY_PATH = '/api/proxy';
+const PROXY_PATH = '/api/gateway';
 
 export class ApiError extends Error {
   status: number;
@@ -27,7 +27,7 @@ export class ApiError extends Error {
 }
 
 async function callBotApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    // The final URL will be something like '/api/proxy/sync-user/12345'
+    // The final URL will be something like '/api/gateway/sync-user/12345'
     const url = `${PROXY_PATH}${endpoint}`;
     
     const headers = {

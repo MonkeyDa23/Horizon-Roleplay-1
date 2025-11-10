@@ -11,13 +11,13 @@ export default defineConfig(({ mode }) => {
     plugins: [react()],
     server: {
       proxy: {
-        // Proxy requests from /api/proxy to the bot during development
-        // This avoids CORS and Mixed Content errors locally.
-        '/api/proxy': {
+        // Renamed the proxy route to /api/gateway to avoid potential conflicts with the "proxy" keyword.
+        // This now matches the production rewrite rule in vercel.json.
+        '/api/gateway': {
           target: env.VITE_DISCORD_BOT_URL,
           changeOrigin: true,
           // FIX: Corrected the invalid regular expression. It was causing a TypeScript error.
-          rewrite: (path) => path.replace(/^\/api\/proxy/, ''),
+          rewrite: (path) => path.replace(/^\/api\/gateway/, ''),
         },
       },
     },
