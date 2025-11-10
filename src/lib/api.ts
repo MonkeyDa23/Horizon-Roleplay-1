@@ -31,18 +31,28 @@ async function callBotApi<T>(endpoint: string, options: RequestInit = {}): Promi
         'Authorization': `Bearer ${BOT_KEY}`,
         ...options.headers,
     };
+    
+    try {
+        const response = await fetch(url, { ...options, headers });
 
-    const response = await fetch(url, { ...options, headers });
-
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response from bot.' }));
-        throw new ApiError(errorData.error || `Bot API request failed with status ${response.status}`, response.status);
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response from bot.' }));
+            throw new ApiError(errorData.error || `Bot API request failed with status ${response.status}`, response.status);
+        }
+        if (response.status === 204) {
+            return null as T;
+        }
+        return response.json();
+    } catch (error) {
+        if (error instanceof ApiError) {
+            throw error; // Re-throw ApiError instances from the !response.ok block
+        }
+        // This will catch network errors (e.g., bot is offline, CORS issues, DNS problems)
+        console.error(`[API Client] Network or other fetch error calling bot endpoint ${endpoint}:`, error);
+        throw new ApiError(`Failed to fetch from the bot API. The bot might be offline, the URL (${BOT_URL}) could be incorrect, or there might be a network issue like CORS.`, 503);
     }
-    if (response.status === 204) {
-        return null as T;
-    }
-    return response.json();
 }
+
 
 // --- SUPABASE HELPER ---
 const handleResponse = <T>(response: { data: T | null; error: any; status: number; statusText: string }): T => {

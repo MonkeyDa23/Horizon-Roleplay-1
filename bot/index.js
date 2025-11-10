@@ -21,6 +21,7 @@ if (!TOKEN || !GUILD_ID || !PORT || !trimmedApiKey) {
 }
 
 // --- Discord Client Setup ---
+console.log("Bot is attempting to log in to Discord...");
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -46,7 +47,7 @@ app.use(cors());
 
 // --- API Logging Middleware ---
 app.use((req, res, next) => {
-    console.log(`[API] ${new Date().toISOString()} - Received ${req.method} request for ${req.url}`);
+    console.log(`[API] ${new Date().toISOString()} - ${req.ip} - ${req.method} ${req.url}`);
     next();
 });
 
@@ -54,9 +55,10 @@ app.use((req, res, next) => {
 const authMiddleware = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     if (authHeader !== `Bearer ${trimmedApiKey}`) {
-        console.warn(`[API] Forbidden access attempt from IP ${req.ip} to ${req.url}`);
+        console.warn(`[AUTH] 403 Forbidden - Invalid API Key from ${req.ip} to ${req.url}`);
         return res.status(403).json({ error: 'Forbidden: Invalid API Key' });
     }
+    console.log(`[AUTH] Authenticated successfully for ${req.url}`);
     next();
 };
 
@@ -95,6 +97,7 @@ app.post('/sync-user/:discordId', async (req, res) => {
     console.log(`[API /sync-user] Attempting to sync profile for Discord ID: ${discordId}`);
     try {
         const guild = await client.guilds.fetch(GUILD_ID);
+        console.log(`[API /sync-user] Guild found. Fetching member...`);
         const member = await guild.members.fetch(discordId);
         console.log(`[API /sync-user] Found member: ${member.user.tag}`);
 
@@ -137,8 +140,10 @@ app.post('/notify', async (req, res) => {
     try {
         let target;
         if (dmToUserId) {
+            console.log(`[API /notify] Fetching user ${dmToUserId}...`);
             target = await client.users.fetch(dmToUserId);
         } else {
+            console.log(`[API /notify] Fetching channel ${channelId}...`);
             target = await client.channels.fetch(channelId);
         }
 
@@ -146,7 +151,8 @@ app.post('/notify', async (req, res) => {
             console.error(`[API /notify] Target not found: ${targetLog}`);
             return res.status(404).json({ error: 'Target channel or user not found.' });
         }
-
+        
+        console.log(`[API /notify] Target found. Preparing to send message.`);
         const messageOptions = {};
         if (content) messageOptions.content = content;
         if (embed) messageOptions.embeds = [new EmbedBuilder(embed)];

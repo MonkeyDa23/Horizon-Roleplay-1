@@ -186,6 +186,122 @@ export const translations: Translations = {
 
   // Admin Page - Password Gate
   admin_gate_title: { ar: 'التحقق الأمني', en: 'Security Check' },
-  // FIX: Corrected a corrupted translation entry and added the missing 'en' property.
   admin_gate_prompt: { ar: 'الرجاء إدخال كلمة مرور المشرف للمتابعة.', en: 'Please enter the admin password to continue.' },
+  admin_gate_incorrect: { ar: 'كلمة المرور غير صحيحة.', en: 'Incorrect password.' },
+  admin_gate_password: { ar: 'كلمة مرور المشرف', en: 'Admin Password' },
+  admin_gate_enter: { ar: 'دخول', en: 'Enter' },
+  
+  // Login Error Page
+  login_sync_failed_title: { ar: 'فشل مزامنة تسجيل الدخول', en: 'Login Sync Failed' },
+  login_sync_failed_desc: { ar: 'لم نتمكن من مزامنة ملفك الشخصي مع الخادم. يحدث هذا عادةً بسبب مشكلة في الإعدادات أو الاتصال بين الموقع وبوت الديسكورد.', en: 'We were unable to synchronize your profile with our server. This typically indicates a communication or configuration issue between the website and the Discord bot.' },
+  troubleshooting_steps: { ar: 'خطوات استكشاف الأخطاء وإصلاحها', en: 'Troubleshooting Steps' },
+  login_error_step_fetch: { ar: '<strong>مشكلة في الاتصال بالبوت:</strong> قد يكون البوت غير متصل، أو أن `VITE_DISCORD_BOT_URL` في ملف `.env` الخاص بالموقع غير صحيح أو محظور بواسطة جدار حماية.', en: '**Bot Offline or Unreachable:** The bot might be offline, or the `VITE_DISCORD_BOT_URL` in the website\'s `.env` file is incorrect or blocked by a firewall.' },
+  login_error_step_url: { ar: '<strong>معرف السيرفر غير صحيح:</strong> قد يكون `DISCORD_GUILD_ID` في ملف `.env` الخاص بالبوت غير صحيح، مما يمنعه من العثور على السيرفر.', en: '**Incorrect Guild ID:** The `DISCORD_GUILD_ID` in the bot\'s `.env` file might be incorrect, preventing it from finding the server.' },
+  login_error_api_key_title: { ar: 'خطأ: عدم تطابق مفتاح الـ API', en: 'Error: API Key Mismatch' },
+  login_error_api_key_intro: { ar: 'فشل الاتصال لأن مفتاح الـ API السري بين الموقع والبوت غير متطابق. يجب أن تكون القيمة <strong>متطابقة تمامًا</strong> في كلا ملفي `.env`.', en: 'The connection failed because the secret API key does not match between the website and the bot. The value must be <strong>exactly the same</strong> in both `.env` files.' },
+  login_error_website_env: { ar: 'ملف .env الخاص بالموقع', en: 'Website .env File' },
+  login_error_bot_env: { ar: 'ملف .env الخاص بالبوت', en: 'Bot .env File' },
+  login_error_must_match: { ar: 'يجب أن يتطابق', en: 'Must Match' },
+  login_error_step_intent: { ar: '<strong>صلاحية أعضاء السيرفر (Server Members Intent) غير مفعلة:</strong> يجب تفعيل هذا الخيار في بوابة مطوري ديسكورد الخاصة ببوتك.', en: '**Server Members Intent Not Enabled:** You must enable this option in your bot\'s settings in the Discord Developer Portal.' },
+  login_error_step_not_found: { ar: '<strong>المستخدم غير موجود في السيرفر:</strong> تأكد من أن الحساب الذي تحاول تسجيل الدخول به موجود في سيرفر الديسكورد المستهدف.', en: '**User Not Found in Server:** Make sure the account you are logging in with is a member of the target Discord server.' },
+  login_error_step_unknown: { ar: '<strong>خطأ غير معروف:</strong> حدث خطأ غير متوقع. تفاصيل الخطأ: {errorMessage}', en: '**Unknown Error:** An unexpected error occurred. Error details: {errorMessage}' },
+  go_to_health_check_page: { ar: 'فحص حالة النظام', en: 'System Health Check' },
+  retry_connection: { ar: 'إعادة المحاولة', en: 'Retry Connection' },
+  
+  // Banned Page
+  you_are_banned: { ar: 'أنت محظور', en: 'You Are Banned' },
+  banned_page_message: { ar: 'تم حظرك من الوصول إلى هذا الموقع. لا يمكنك المتابعة حتى انتهاء مدة الحظر.', en: 'You have been banned from accessing this site. You cannot proceed until your ban expires.' },
+  ban_reason: { ar: 'سبب الحظر', en: 'Ban Reason' },
+  ban_expires: { ar: 'ينتهي الحظر في', en: 'Ban Expires' },
+  ban_permanent: { ar: 'دائم', en: 'Permanent' },
+  
+  // Profile Page
+  profile_synced_success: { ar: 'تم تحديث ملفك الشخصي بنجاح!', en: 'Profile synced successfully!' },
+  profile_synced_error: { ar: 'فشل تحديث ملفك الشخصي.', en: 'Failed to sync profile.' },
+  refresh_profile_tooltip: { ar: 'تحديث بياناتي من ديسكورد', en: 'Refresh my data from Discord' },
+  user_id: { ar: 'معرف المستخدم', en: 'User ID' },
+  recent_applications: { ar: 'آخر التقديمات', en: 'Recent Applications' },
+  application_type: { ar: 'نوع التقديم', en: 'Application Type' },
+  no_applications_submitted: { ar: 'لم تقم بتقديم أي طلبات بعد.', en: 'You have not submitted any applications yet.' },
+  
+  // Statuses
+  status_pending: { ar: 'قيد المراجعة', en: 'Pending' },
+  status_taken: { ar: 'تحت الإجراء', en: 'Taken' },
+  status_accepted: { ar: 'مقبول', en: 'Accepted' },
+  status_refused: { ar: 'مرفوض', en: 'Refused' },
+
+  // Misc
+  community_announcements: { ar: 'إعلانات المجتمع', en: 'Community Announcements' },
+  product_not_found: { ar: 'المنتج غير موجود.', en: 'Product not found.' },
+  session_expired_not_in_guild: { ar: 'انتهت صلاحية الجلسة أو لم تعد عضواً في السيرفر. تم تسجيل خروجك.', en: 'Session expired or you are no longer in the server. You have been logged out.' },
+  health_check_banner_link: { ar: 'اذهب إلى صفحة فحص حالة النظام لاستكشاف الأخطاء وإصلاحها.', en: 'Go to the System Health Check page to troubleshoot.' },
+  admin_health_check_promo: { ar: 'هل تواجه مشاكل في الاتصال؟ صفحة فحص حالة النظام الجديدة يمكن أن تساعدك في تشخيص الأخطاء بسرعة.', en: 'Experiencing connection issues? The new System Health Check page can help you diagnose errors quickly.' },
+  admin_health_check_promo_link: { ar: 'افتح صفحة فحص حالة النظام', en: 'Open System Health Check' },
+  
+  // Admin - Audit Log
+  log_timestamp: { ar: 'الوقت', en: 'Timestamp' },
+  log_admin: { ar: 'المشرف', en: 'Admin' },
+  log_action: { ar: 'الإجراء', en: 'Action' },
+  no_logs_found: { ar: 'لا توجد سجلات.', en: 'No logs found.' },
+  
+  // Admin - Permissions
+  discord_roles: { ar: 'رتب الديسكورد', en: 'Discord Roles' },
+  available_permissions: { ar: 'الصلاحيات المتاحة', en: 'Available Permissions' },
+  admin_permissions_instructions: { ar: 'حدد رتبة من اليسار، ثم اختر الصلاحيات التي ترغب في منحها لهذه الرتبة. المستخدمون الذين يمتلكون صلاحية <code class="bg-brand-dark px-1 rounded text-xs">_super_admin</code> يتجاوزون كل هذه الفحوصات.', en: 'Select a role from the left, then check the permissions you want to grant to it. Users with the <code class="bg-brand-dark px-1 rounded text-xs">_super_admin</code> permission bypass all checks.' },
+  select_role_to_manage: { ar: 'اختر رتبة لإدارتها', en: 'Select a Role to Manage' },
+  admin_permissions_bootstrap_instructions_body: { ar: 'للبدء، قم أولاً بإنشاء رتبة في ديسكورد (مثلاً "Website Admin"). ثم، اذهب إلى Supabase -> Table Editor -> role_permissions وأضف صفًا جديدًا. في `role_id`، الصق معرف الرتبة. في `permissions`، اكتب `_super_admin` داخل الأقواس المعقوفة `{}`, ثم اضغط حفظ. قم بتحديث هذه الصفحة.', en: 'To get started, first create a role in Discord (e.g., "Website Admin"). Then, go to Supabase -> Table Editor -> role_permissions and add a new row. For `role_id`, paste the Role ID. For `permissions`, type `_super_admin` inside the curly braces `{}`, then Save. Refresh this page.' },
+
+  // Admin - Widgets
+  widgets_management: { ar: 'إدارة الودجتات', en: 'Widgets Management' },
+  
+  // Admin - Notifications
+  notifications_desc: { ar: 'قم بتخصيص محتوى الإشعارات التلقائية التي يرسلها البوت إلى المستخدمين أو القنوات.', en: 'Customize the content of automated notifications sent by the bot to users or channels.'},
+  target_id: { ar: 'معرف الهدف', en: 'Target ID' },
+  available_placeholders: { ar: 'المتغيرات المتاحة', en: 'Available Placeholders' },
+  notification_group_submission_user: { ar: 'رسائل حالة التقديم (للمستخدم)', en: 'Submission Status Messages (DM to User)' },
+  channel_id_desc: { ar: 'للحصول على معرف قناة أو رتبة، انقر بزر الماوس الأيمن عليها في ديسكورد واختر "Copy ID". يجب تفعيل وضع المطور في إعدادات ديسكورد.', en: 'To get a Channel or Role ID, right-click it in Discord and select "Copy ID". You must have Developer Mode enabled in your Discord settings.' },
+  submissions_channel_id: { ar: 'معرف قناة التقديمات الجديدة', en: 'New Submissions Channel ID'},
+  submissions_channel_id_desc: { ar: 'القناة التي يتم فيها نشر إشعارات التقديمات الجديدة للمشرفين.', en: 'The channel where new application notifications for admins are posted.'},
+  log_channel_submissions: { ar: 'معرف قناة سجل التقديمات', en: 'Submissions Log Channel ID'},
+  log_channel_submissions_desc: { ar: 'القناة التي يتم فيها تسجيل تحديثات حالة التقديمات (مقبول/مرفوض).', en: 'The channel where submission status updates (accepted/refused) are logged.'},
+  log_channel_bans: { ar: 'معرف قناة سجل الحظر', en: 'Bans Log Channel ID'},
+  log_channel_bans_desc: { ar: 'القناة التي يتم فيها تسجيل عمليات الحظر وفك الحظر.', en: 'The channel where bans and unbans are logged.'},
+  log_channel_admin: { ar: 'معرف قناة سجل الإدارة', en: 'Admin Log Channel ID'},
+  log_channel_admin_desc: { ar: 'القناة التي يتم فيها تسجيل إجراءات لوحة التحكم (مثل تغيير الإعدادات).', en: 'The channel where admin panel actions (like changing settings) are logged.'},
+  audit_log_channel_id: { ar: 'معرف قناة السجل العام (الاحتياطي)', en: 'General Audit Log Channel ID (Fallback)'},
+  audit_log_channel_id_desc: { ar: 'قناة احتياطية لجميع سجلات التدقيق الهامة إذا لم يتم تحديد القنوات الأخرى.', en: 'A fallback channel for all important audit logs if other specific channels are not set.'},
+  mention_role_submissions: { ar: 'معرف رتبة منشن التقديمات', en: 'Submissions Mention Role ID'},
+  mention_role_submissions_desc: { ar: 'الرتبة التي يتم عمل منشن لها في إشعارات التقديمات الجديدة.', en: 'The role to mention in new submission notifications.'},
+  mention_role_audit_log_submissions: { ar: 'معرف رتبة منشن سجل التقديمات', en: 'Submissions Log Mention Role ID'},
+  mention_role_audit_log_submissions_desc: { ar: 'الرتبة التي يتم عمل منشن لها في سجلات تحديث التقديمات.', en: 'The role to mention in submission update logs.'},
+  mention_role_audit_log_bans: { ar: 'معرف رتبة منشن سجل الحظر', en: 'Bans Log Mention Role ID'},
+  mention_role_audit_log_bans_desc: { ar: 'الرتبة التي يتم عمل منشن لها في سجلات الحظر.', en: 'The role to mention in ban logs.'},
+  mention_role_audit_log_admin: { ar: 'معرف رتبة منشن سجل الإدارة', en: 'Admin Log Mention Role ID'},
+  mention_role_audit_log_admin_desc: { ar: 'الرتبة التي يتم عمل منشن لها في سجلات إجراءات الإدارة.', en: 'The role to mention in admin action logs.'},
+  mention_role_audit_log_general: { ar: 'معرف رتبة منشن السجل العام', en: 'General Log Mention Role ID'},
+  mention_role_audit_log_general_desc: { ar: 'الرتبة التي يتم عمل منشن لها في السجل العام الاحتياطي.', en: 'The role to mention in the fallback general log.'},
+  notification_submission_receipt_title: { ar: 'تم استلام تقديمك بنجاح! ✅', en: 'Application Submitted Successfully! ✅' },
+  notification_submission_receipt_body: { ar: 'أهلاً {username}،\n\nلقد استلمنا بنجاح تقديمك لمنصب **{quizTitle}**. سيقوم فريقنا بمراجعته في أقرب وقت ممكن.', en: 'Hey {username},\n\nWe have successfully received your application for **{quizTitle}**. Our team will review it as soon as possible.'},
+  notification_submission_accepted_title: { ar: 'تهانينا! تم قبول تقديمك! 🎉', en: 'Congratulations! Your Application was Accepted! 🎉' },
+  notification_submission_accepted_body: { ar: 'مرحباً {username}،\n\nيسعدنا إخبارك بأنه تم قبول تقديمك لمنصب **{quizTitle}** من قبل المشرف **{adminUsername}**.\n\n**السبب:** {reason}', en: 'Hello {username},\n\nWe are pleased to inform you that your application for **{quizTitle}** has been accepted by admin **{adminUsername}**.\n\n**Reason:** {reason}'},
+  notification_submission_refused_title: { ar: 'تحديث بخصوص تقديمك', en: 'Update on Your Application' },
+  notification_submission_refused_body: { ar: 'مرحباً {username}،\n\nنأسف لإبلاغك بأنه تم رفض تقديمك لمنصب **{quizTitle}** من قبل المشرف **{adminUsername}**.\n\n**السبب:** {reason}', en: 'Hello {username},\n\nWe regret to inform you that your application for **{quizTitle}** has been refused by admin **{adminUsername}**.\n\n**Reason:** {reason}'},
+
+  // Health Check
+  health_check_title: { ar: 'فحص حالة النظام', en: 'System Health Check' },
+  health_check_desc: { ar: 'تساعدك هذه الصفحة على تشخيص مشاكل الاتصال بين الموقع وبوت الديسكورد.', en: 'This page helps you diagnose connection issues between the website and the Discord bot.'},
+  health_check_test_running: { ar: 'جاري الاختبار...', en: 'Running test...' },
+  health_check_run_test: { ar: 'تشغيل اختبار الاتصال', en: 'Run Connection Test' },
+  health_check_test_result: { ar: 'نتيجة الاختبار', en: 'Test Result' },
+  health_check_step4_desc: { ar: 'يختبر هذا الإجراء عملية مزامنة بيانات مستخدم معين من ديسكورد. وهو نفس الإجراء الذي يتم استدعاؤه عند تسجيل دخول المستخدم.', en: 'This tests the full data sync process for a specific Discord user, which is the same process called when a user logs in.'},
+  health_check_get_discord_id: { ar: 'كيفية الحصول على معرف مستخدم ديسكورد', en: 'How to get a Discord User ID'},
+  health_check_get_discord_id_steps: { ar: 'في ديسكورد، اذهب إلى الإعدادات > متقدم وقم بتفعيل "وضع المطور". ثم، انقر بزر الماوس الأيمن على اسم المستخدم واختر "نسخ معرف المستخدم".', en: 'In Discord, go to Settings > Advanced and enable "Developer Mode". Then, right-click on a user\'s name and select "Copy User ID".'},
+  health_check_discord_id_input: { ar: 'أدخل معرف مستخدم ديسكورد هنا...', en: 'Enter Discord User ID here...'},
+  health_check_run_sync_test: { ar: 'تشغيل اختبار المزامنة', en: 'Run Sync Test' },
+  health_check_result_interpretation: { ar: 'تفسير النتيجة', en: 'Result Interpretation'},
+  health_check_result_404: { ar: '<strong>السبب المحتمل:</strong> المستخدم صاحب هذا المعرف ليس عضواً في السيرفر المحدد في `DISCORD_GUILD_ID` في ملف `.env` الخاص بالبوت.', en: '<strong>Likely Cause:</strong> The user with this ID is not a member of the server specified by `DISCORD_GUILD_ID` in the bot\'s `.env` file.'},
+  health_check_result_503: { ar: '<strong>السبب المحتمل:</strong> لم تقم بتفعيل "Server Members Intent" في بوابة مطوري ديسكورد الخاصة ببوتك. هذه الصلاحية ضرورية لجلب قائمة أعضاء السيرفر.', en: '<strong>Likely Cause:</strong> You have not enabled the "Server Members Intent" in your bot\'s settings in the Discord Developer Portal. This is required to fetch the member list.'},
+  health_check_result_other: { ar: '<strong>خطأ غير متوقع.</strong> يرجى مراجعة سجلات الكونسول الخاصة بالبوت للحصول على مزيد من التفاصيل حول الخطأ.', en: '<strong>An unexpected error occurred.</strong> Please check your bot\'s console logs for more detailed error information.'},
+  health_check_arch_title: { ar: 'نظرة عامة على البنية', en: 'Architecture Overview'},
+  health_check_arch_desc: { ar: 'يفشل تسجيل الدخول عادةً عندما تنقطع السلسلة بين الموقع والبوت. هذا المخطط يوضح كيفية تدفق البيانات.', en: 'Login failures usually occur when the chain between the Website and the Bot is broken. This diagram shows how data flows.'}
 };
