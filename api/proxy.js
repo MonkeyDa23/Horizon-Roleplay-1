@@ -26,8 +26,13 @@ module.exports = async (req, res) => {
 
     // --- 2. Prepare the request for the bot ---
     try {
-        // Construct the full target URL
-        const targetUrl = new URL(req.url, BOT_URL);
+        // --- FIX: This is the critical change. ---
+        // The original req.url is '/api/proxy/some/path'.
+        // We must remove the '/api/proxy' prefix before forwarding it to the bot.
+        const rewrittenUrl = req.url.replace(/^\/api\/proxy/, '');
+        
+        // Construct the full target URL with the CORRECT path
+        const targetUrl = new URL(rewrittenUrl, BOT_URL);
 
         // Buffer the incoming request body
         const body = await buffer(req);
