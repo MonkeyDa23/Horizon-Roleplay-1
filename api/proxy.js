@@ -1,63 +1,73 @@
 // api/proxy.js
 // This is a Vercel Serverless Function that acts as a proxy to the bot.
-const http = require('http');
-const https = require('https');
+// It uses the modern `fetch` API for improved reliability in the serverless environment.
 
 // These MUST be set in your Vercel Project's Environment Variables settings.
-// DO NOT hardcode them here.
-const BOT_URL = process.env.DISCORD_BOT_URL;     // e.g., 'http://217.160.125.125:14686'
-const API_SECRET_KEY = process.env.API_SECRET_KEY; // The secret key
+const BOT_URL = process.env.DISCORD_BOT_URL;
+const API_SECRET_KEY = process.env.API_SECRET_KEY;
 
-module.exports = (req, res) => {
-    // --- Configuration Check ---
+// Helper function to read the request body into a buffer.
+// Vercel's request object is a stream.
+async function buffer(readable) {
+    const chunks = [];
+    for await (const chunk of readable) {
+        chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+    }
+    return Buffer.concat(chunks);
+}
+
+module.exports = async (req, res) => {
+    // --- 1. Configuration Check ---
     if (!BOT_URL || !API_SECRET_KEY) {
         console.error('[PROXY ERROR] DISCORD_BOT_URL or API_SECRET_KEY is not configured in Vercel environment variables.');
-        res.statusCode = 500;
-        res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({ error: "Proxy configuration error on server. Admin must set environment variables." }));
+        res.status(500).json({ error: "Proxy configuration error on server. Admin must set environment variables." });
         return;
     }
 
-    const botUrl = new URL(BOT_URL);
-    
-    // --- Prepare options for the proxied request ---
-    const options = {
-        hostname: botUrl.hostname,
-        port: botUrl.port,
-        path: req.url, // Vercel automatically provides the path after /api/proxy
-        method: req.method,
-        headers: {
-            // Copy essential headers from the original request
-            ...req.headers,
-            // **IMPORTANT**: Overwrite/add headers needed for the bot
-            'Authorization': `Bearer ${API_SECRET_KEY}`,
-            'host': botUrl.hostname, // Rewrite the host to match the bot server
-        },
-    };
+    // --- 2. Prepare the request for the bot ---
+    try {
+        // Construct the full target URL
+        const targetUrl = new URL(req.url, BOT_URL);
 
-    // Vercel handles some headers; remove them to avoid conflicts.
-    delete options.headers['x-vercel-deployment-url'];
-    delete options.headers['x-vercel-forwarded-for'];
-    delete options.headers['x-vercel-id'];
-    delete options.headers['x-real-ip'];
+        // Buffer the incoming request body
+        const body = await buffer(req);
 
-    // --- Create and send the request to the bot ---
-    const proxyModule = botUrl.protocol === 'https:' ? https : http;
+        // Copy original headers, but overwrite/add what's needed for the proxy
+        const headers = { ...req.headers };
+        headers.authorization = `Bearer ${API_SECRET_KEY}`;
+        headers.host = targetUrl.host;
+        // Let `fetch` automatically set the content-length based on the buffered body
+        delete headers['content-length'];
 
-    const proxyReq = proxyModule.request(options, (proxyRes) => {
-        // Pass the bot's response headers and status code back to the original client
-        res.writeHead(proxyRes.statusCode, proxyRes.headers);
-        // Pipe the response body from the bot back to the client
-        proxyRes.pipe(res, { end: true });
-    });
+        // --- 3. Make the proxied request using fetch ---
+        const botResponse = await fetch(targetUrl.toString(), {
+            method: req.method,
+            headers: headers,
+            // Only include a body for methods that support it
+            body: (req.method !== 'GET' && req.method !== 'HEAD' && body.length > 0) ? body : undefined,
+            redirect: 'follow'
+        });
 
-    proxyReq.on('error', (err) => {
-        console.error('[PROXY ERROR] Failed to connect to bot server:', err);
-        res.statusCode = 502; // Bad Gateway
-        res.setHeader('Content-Type', 'application/json');
-        res.end(JSON.stringify({ error: "Proxy Error: Could not connect to the bot server." }));
-    });
+        // --- 4. Send the bot's response back to the client ---
+        
+        // Copy status code and headers from the bot's response
+        res.statusCode = botResponse.status;
+        botResponse.headers.forEach((value, name) => {
+            // Vercel handles content-encoding automatically, so we skip this header
+            if (name.toLowerCase() !== 'content-encoding') {
+                res.setHeader(name, value);
+            }
+        });
 
-    // Pipe the original request body (if any) to the bot
-    req.pipe(proxyReq, { end: true });
+        // Stream the response body from the bot back to the original client
+        const responseBody = await botResponse.arrayBuffer();
+        res.end(Buffer.from(responseBody));
+
+    } catch (error) {
+        console.error('[PROXY FETCH ERROR] Failed to connect or proxy request to bot server:', error);
+        res.status(502).json({ 
+            error: "Proxy Error: Could not connect to the bot server.",
+            details: error.message 
+        });
+    }
 };
