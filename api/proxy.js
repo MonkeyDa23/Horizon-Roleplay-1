@@ -36,10 +36,11 @@ module.exports = async (req, res) => {
         const headers = { ...req.headers };
         headers.authorization = `Bearer ${API_SECRET_KEY.trim()}`;
         
-        // The 'host' header is forbidden to be set programmatically in fetch.
-        // It is automatically set based on the target URL.
-        // Deleting it from the copied headers prevents a TypeError crash.
+        // The 'host' and 'connection' headers are forbidden to be set programmatically in fetch.
+        // They are managed by the HTTP agent. Deleting them from the copied headers
+        // prevents a TypeError crash.
         delete headers.host;
+        delete headers.connection;
         delete headers['content-length'];
 
         console.log(`[PROXY] Sending headers to bot (excluding some): ${JSON.stringify({ host: targetUrl.host, auth: headers.authorization ? 'Bearer ***' : 'None' })}`);
