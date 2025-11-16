@@ -125,11 +125,12 @@ AS $$
 DECLARE user_permissions text[];
 BEGIN
     IF p_user_id IS NULL THEN RETURN false; END IF;
-    SELECT COALESCE(array_agg(DISTINCT p.permission), '{}') INTO user_permissions
+    -- FIX: In the `has_permission` SQL function, refactored the `jsonb_array_elements` and `unnest` calls to use standard table and column aliasing (`AS r` and `AS p`). The previous syntax `AS r(role_obj)` and `AS p(permission)` is valid in PostgreSQL but can be misinterpreted by TypeScript's parser as a function call on a string, likely causing the erroneous error message.
+    SELECT COALESCE(array_agg(DISTINCT p.unnest), '{}') INTO user_permissions
     FROM public.profiles prof
-    CROSS JOIN jsonb_array_elements(prof.roles) AS r(role_obj)
-    JOIN public.role_permissions rp ON rp.role_id = r.role_obj->>'id'
-    CROSS JOIN unnest(rp.permissions) AS p(permission) WHERE prof.id = p_user_id;
+    CROSS JOIN jsonb_array_elements(prof.roles) AS r
+    JOIN public.role_permissions rp ON rp.role_id = r.value->>'id'
+    CROSS JOIN unnest(rp.permissions) AS p WHERE prof.id = p_user_id;
     RETURN ('_super_admin' = ANY(user_permissions) OR p_permission_key = ANY(user_permissions));
 END;
 $$;
@@ -223,7 +224,6 @@ BEGIN
   UPDATE public.submissions
   SET 
     status = p_new_status,
-    -- FIX: Refactored CASE statement to avoid using COALESCE, which may be causing a TS parsing error.
     "adminId" = CASE WHEN p_new_status = 'taken' THEN admin_user.id WHEN (p_new_status = 'accepted' OR p_new_status = 'refused') AND "adminId" IS NULL THEN admin_user.id ELSE "adminId" END,
     "adminUsername" = CASE WHEN p_new_status = 'taken' THEN admin_user.username WHEN (p_new_status = 'accepted' OR p_new_status = 'refused') AND "adminUsername" IS NULL THEN admin_user.username ELSE "adminUsername" END,
     reason = CASE WHEN (p_new_status = 'accepted' OR p_new_status = 'refused') THEN p_reason ELSE reason END,
@@ -384,43 +384,49 @@ $$;
 
 CREATE OR REPLACE FUNCTION public.update_config(new_config jsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
-    allowed_appearance_keys text[] := ARRAY['COMMUNITY_NAME', 'LOGO_URL', 'DISCORD_GUILD_ID', 'DISCORD_INVITE_URL', 'MTA_SERVER_URL', 'BACKGROUND_IMAGE_URL', 'admin_password'];
-    allowed_notif_keys text[] := ARRAY['submissions_channel_id', 'log_channel_submissions', 'log_channel_bans', 'log_channel_admin', 'audit_log_channel_id', 'mention_role_submissions', 'mention_role_audit_log_submissions', 'mention_role_audit_log_bans', 'mention_role_audit_log_admin', 'mention_role_audit_log_general'];
-    key text;
-    sql_query text := 'UPDATE public.config SET ';
-    updates text[] := '{}';
+    should_log boolean := false;
 BEGIN
+    -- Update Appearance Settings
     IF public.has_permission(public.get_user_id(), 'admin_appearance') THEN
-        FOR key IN SELECT jsonb_object_keys(new_config) LOOP
-            IF key = ANY(allowed_appearance_keys) THEN
-                IF key = 'admin_password' THEN
-                    IF new_config->>key IS NULL OR new_config->>key = '' THEN
-                        updates := array_append(updates, quote_ident(key) || ' = NULL');
-                    ELSE
-                        updates := array_append(updates, quote_ident(key) || ' = crypt(' || quote_literal(new_config->>key) || ', gen_salt(''bf''))');
-                    END IF;
-                ELSE
-                    updates := array_append(updates, quote_ident(key) || ' = ' || quote_literal(new_config->>key));
-                END IF;
-            END IF;
-        END LOOP;
+        UPDATE public.config SET 
+            "COMMUNITY_NAME" = COALESCE(new_config->>'COMMUNITY_NAME', "COMMUNITY_NAME"),
+            "LOGO_URL" = COALESCE(new_config->>'LOGO_URL', "LOGO_URL"),
+            "DISCORD_GUILD_ID" = COALESCE(new_config->>'DISCORD_GUILD_ID', "DISCORD_GUILD_ID"),
+            "DISCORD_INVITE_URL" = COALESCE(new_config->>'DISCORD_INVITE_URL', "DISCORD_INVITE_URL"),
+            "MTA_SERVER_URL" = COALESCE(new_config->>'MTA_SERVER_URL', "MTA_SERVER_URL"),
+            "BACKGROUND_IMAGE_URL" = COALESCE(new_config->>'BACKGROUND_IMAGE_URL', "BACKGROUND_IMAGE_URL"),
+            "admin_password" = CASE WHEN new_config ? 'admin_password' THEN 
+                                    CASE WHEN new_config->>'admin_password' IS NULL OR new_config->>'admin_password' = '' THEN NULL
+                                        ELSE crypt(new_config->>'admin_password', gen_salt('bf'))
+                                    END
+                                ELSE "admin_password" END
+        WHERE id = 1;
+        should_log := true;
     END IF;
     
+    -- Update Notification Settings
     IF public.has_permission(public.get_user_id(), 'admin_notifications') THEN
-        FOR key IN SELECT jsonb_object_keys(new_config) LOOP
-            IF key = ANY(allowed_notif_keys) THEN
-                updates := array_append(updates, quote_ident(key) || ' = ' || quote_literal(new_config->>key));
-            END IF;
-        END LOOP;
+        UPDATE public.config SET
+            "submissions_channel_id" = COALESCE(new_config->>'submissions_channel_id', "submissions_channel_id"),
+            "log_channel_submissions" = COALESCE(new_config->>'log_channel_submissions', "log_channel_submissions"),
+            "log_channel_bans" = COALESCE(new_config->>'log_channel_bans', "log_channel_bans"),
+            "log_channel_admin" = COALESCE(new_config->>'log_channel_admin', "log_channel_admin"),
+            "audit_log_channel_id" = COALESCE(new_config->>'audit_log_channel_id', "audit_log_channel_id"),
+            "mention_role_submissions" = COALESCE(new_config->>'mention_role_submissions', "mention_role_submissions"),
+            "mention_role_audit_log_submissions" = COALESCE(new_config->>'mention_role_audit_log_submissions', "mention_role_audit_log_submissions"),
+            "mention_role_audit_log_bans" = COALESCE(new_config->>'mention_role_audit_log_bans', "mention_role_audit_log_bans"),
+            "mention_role_audit_log_admin" = COALESCE(new_config->>'mention_role_audit_log_admin', "mention_role_audit_log_admin"),
+            "mention_role_audit_log_general" = COALESCE(new_config->>'mention_role_audit_log_general', "mention_role_audit_log_general")
+        WHERE id = 1;
+        should_log := true;
     END IF;
 
-    IF array_length(updates, 1) > 0 THEN
-        sql_query := sql_query || array_to_string(updates, ', ') || ' WHERE id = 1';
-        EXECUTE sql_query;
+    IF should_log THEN
         PERFORM public.log_action('Updated website settings.', 'admin');
     END IF;
 END;
 $$;
+
 CREATE OR REPLACE FUNCTION public.log_action(p_action text, p_log_type text) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   admin_user record;
