@@ -3,8 +3,8 @@ import React from 'react';
 import { AlertTriangle, RefreshCw, LogOut, Wrench, ChevronsRight, Info } from 'lucide-react';
 // FIX: Switched to namespace import for react-router-dom to resolve module resolution issues.
 import * as ReactRouterDOM from 'react-router-dom';
-import { useLocalization } from '../hooks/useLocalization';
-import { useConfig } from '../hooks/useConfig';
+import { useLocalization } from '../contexts/LocalizationContext';
+import { useConfig } from '../contexts/ConfigContext';
 import { env } from '../env';
 
 interface LoginErrorPageProps {

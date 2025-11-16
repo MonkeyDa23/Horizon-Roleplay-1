@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocalization } from '../hooks/useLocalization';
+import { useLocalization } from '../contexts/LocalizationContext';
 // FIX: Added 'getDiscordAnnouncements' to imports.
 import { getDiscordAnnouncements } from '../lib/api';
 import type { DiscordAnnouncement } from '../types';

@@ -1,7 +1,7 @@
 // src/components/admin/AdminDashboard.tsx
 import React from 'react';
-import { useAuth } from '../../hooks/useAuth';
-import { useLocalization } from '../../hooks/useLocalization';
+import { useAuth } from '../../contexts/AuthContext';
+import { useLocalization } from '../../contexts/LocalizationContext';
 
 const AdminDashboard: React.FC = () => {
     const { user } = useAuth();

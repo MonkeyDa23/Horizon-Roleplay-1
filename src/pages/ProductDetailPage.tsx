@@ -1,14 +1,14 @@
 // src/pages/ProductDetailPage.tsx
 import React, { useState, useEffect } from 'react';
 import * as ReactRouterDOM from 'react-router-dom';
-import { useLocalization } from '../hooks/useLocalization';
-import { useCart } from '../hooks/useCart';
+import { useLocalization } from '../contexts/LocalizationContext';
+import { useCart } from '../contexts/CartContext';
 import { getProductById } from '../lib/api';
 import type { Product } from '../types';
 import { Loader2, PlusCircle, ArrowLeft } from 'lucide-react';
-import { useToast } from '../hooks/useToast';
+import { useToast } from '../contexts/ToastContext';
 import SEO from '../components/SEO';
-import { useConfig } from '../hooks/useConfig';
+import { useConfig } from '../contexts/ConfigContext';
 
 const ProductDetailPage: React.FC = () => {
     const { productId } = ReactRouterDOM.useParams<{ productId: string }>();

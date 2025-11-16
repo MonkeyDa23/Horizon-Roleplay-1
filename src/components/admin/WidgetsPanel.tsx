@@ -1,7 +1,7 @@
 // src/components/admin/WidgetsPanel.tsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { useLocalization } from '../../hooks/useLocalization';
-import { useToast } from '../../hooks/useToast';
+import { useLocalization } from '../../contexts/LocalizationContext';
+import { useToast } from '../../contexts/ToastContext';
 import { getDiscordWidgets, saveDiscordWidgets } from '../../lib/api';
 import type { DiscordWidget } from '../../types';
 import { Loader2, Plus, GripVertical, Trash2 } from 'lucide-react';

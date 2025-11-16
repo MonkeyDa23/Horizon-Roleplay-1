@@ -1,6 +1,6 @@
 // src/pages/BannedPage.tsx
 import React from 'react';
-import { useLocalization } from '../hooks/useLocalization';
+import { useLocalization } from '../contexts/LocalizationContext';
 import { Ban, LogOut } from 'lucide-react';
 
 interface BannedPageProps {

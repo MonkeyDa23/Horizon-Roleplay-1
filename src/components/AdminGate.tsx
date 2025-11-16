@@ -1,10 +1,11 @@
 
+
 // src/components/AdminGate.tsx
 import React, { useState } from 'react';
 import { useAdminGate } from '../contexts/AdminGateContext';
-import { useConfig } from '../hooks/useConfig';
-import { useLocalization } from '../hooks/useLocalization';
-import { useToast } from '../hooks/useToast';
+import { useConfig } from '../contexts/ConfigContext';
+import { useLocalization } from '../contexts/LocalizationContext';
+import { useToast } from '../contexts/ToastContext';
 import { verifyAdminPassword } from '../lib/api';
 import Modal from './Modal';
 import { Loader2, KeyRound } from 'lucide-react';

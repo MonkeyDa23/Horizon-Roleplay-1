@@ -5,8 +5,9 @@
 
 
 
+
 import React, { useEffect } from 'react';
-import { useConfig } from '../hooks/useConfig';
+import { useConfig } from '../contexts/ConfigContext';
 
 interface SEOProps {
   title: string;
