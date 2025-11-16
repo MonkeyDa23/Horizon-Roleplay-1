@@ -200,9 +200,9 @@ BEGIN
     submission_data->'answers', submission_data->'cheatAttempts', submission_data->>'user_highest_role'
   ) RETURNING * INTO new_submission;
   
-  -- FIX: The invalid comment that commented out the first argument has been removed.
+  -- FIX: Escaped '%' in format specifiers to prevent TypeScript parser errors.
   PERFORM public.log_action(
-    format('New submission by **%s** (`%s`) for **%s**.', new_submission.username, discord_id_val, new_submission."quizTitle"),
+    format('New submission by **${'%'}s** (`%${'%'}s`) for **${'%'}s**.', new_submission.username, discord_id_val, new_submission."quizTitle"),
     'submissions'
   );
 
@@ -234,8 +234,9 @@ BEGIN
 
   IF NOT FOUND THEN RAISE EXCEPTION 'Submission not found.'; END IF;
   
+  -- FIX: Escaped '%' in format specifiers to prevent TypeScript parser errors.
   PERFORM public.log_action(
-    format('Submission for **%s** (%s) was updated to **%s** by admin %s.', submission_record.username, submission_record."quizTitle", upper(p_new_status), submission_record."adminUsername"),
+    format('Submission for **${'%'}s** (${'%'}s) was updated to **${'%'}s** by admin ${'%'}s.', submission_record.username, submission_record."quizTitle", upper(p_new_status), submission_record."adminUsername"),
     'submissions'
   );
   
@@ -251,8 +252,9 @@ BEGIN
   
   DELETE FROM public.submissions WHERE id = p_submission_id RETURNING username, "quizTitle" INTO deleted_submission;
 
+  -- FIX: Escaped '%' in format specifiers to prevent TypeScript parser errors.
   PERFORM public.log_action(
-    format('Deleted submission from %s for %s.', deleted_submission.username, deleted_submission."quizTitle"),
+    format('Deleted submission from ${'%'}s for ${'%'}s.', deleted_submission.username, deleted_submission."quizTitle"),
     'admin'
   );
 END;
@@ -299,7 +301,8 @@ BEGIN
     "lastOpenedAt" = CASE WHEN EXCLUDED."isOpen" AND public.quizzes."isOpen" = false THEN current_timestamp ELSE public.quizzes."lastOpenedAt" END
   RETURNING * INTO quiz_record;
 
-  PERFORM public.log_action(format('Saved quiz: %s', p_quiz_data->>'titleEn'), 'admin');
+  -- FIX: Escaped '%' in format specifiers to prevent TypeScript parser errors.
+  PERFORM public.log_action(format('Saved quiz: ${'%'}s', p_quiz_data->>'titleEn'), 'admin');
   RETURN quiz_record;
 END;
 $$;
@@ -329,7 +332,8 @@ BEGIN
     price = EXCLUDED.price, "imageUrl" = EXCLUDED."imageUrl"
   RETURNING * INTO product_record;
   
-  PERFORM public.log_action(format('Saved product: %s', p_product_data->>'nameEn'), 'admin');
+  -- FIX: Escaped '%' in format specifiers to prevent TypeScript parser errors.
+  PERFORM public.log_action(format('Saved product: ${'%'}s', p_product_data->>'nameEn'), 'admin');
   RETURN product_record;
 END;
 $$;
@@ -382,7 +386,7 @@ BEGIN
     PERFORM public.log_action('Updated Discord widgets', 'admin');
 END;
 $$;
--- FIX: This function was incomplete and contained a syntax error. It has been replaced with the full, correct implementation.
+
 CREATE OR REPLACE FUNCTION public.update_config(new_config jsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
     allowed_appearance_keys text[] := ARRAY['COMMUNITY_NAME', 'LOGO_URL', 'DISCORD_GUILD_ID', 'DISCORD_INVITE_URL', 'MTA_SERVER_URL', 'BACKGROUND_IMAGE_URL', 'admin_password'];
@@ -396,12 +400,15 @@ BEGIN
             IF key = ANY(allowed_appearance_keys) THEN
                 IF key = 'admin_password' THEN
                     IF new_config->>key IS NULL OR new_config->>key = '' THEN
-                        updates := updates || format('%I = NULL', key);
+                        -- FIX: Escaped '%' in format specifiers to prevent TypeScript parser errors. Also switched to array_cat for safety.
+                        updates := array_cat(updates, ARRAY[format('${'%'}I = NULL', key)]);
                     ELSE
-                        updates := updates || format('%I = crypt(%L, gen_salt(''bf''))', key, new_config->>key);
+                        -- FIX: Escaped '%' in format specifiers to prevent TypeScript parser errors. Also switched to array_cat for safety.
+                        updates := array_cat(updates, ARRAY[format('${'%'}I = crypt(${'%'}L, gen_salt(''bf''))', key, new_config->>key)]);
                     END IF;
                 ELSE
-                    updates := updates || format('%I = %L', key, new_config->>key);
+                    -- FIX: Escaped '%' in format specifiers to prevent TypeScript parser errors. Also switched to array_cat for safety.
+                    updates := array_cat(updates, ARRAY[format('${'%'}I = ${'%'}L', key, new_config->>key)]);
                 END IF;
             END IF;
         END LOOP;
@@ -410,7 +417,8 @@ BEGIN
     IF public.has_permission(public.get_user_id(), 'admin_notifications') THEN
         FOR key IN SELECT jsonb_object_keys(new_config) LOOP
             IF key = ANY(allowed_notif_keys) THEN
-                updates := updates || format('%I = %L', key, new_config->>key);
+                -- FIX: Escaped '%' in format specifiers to prevent TypeScript parser errors. Also switched to array_cat for safety.
+                updates := array_cat(updates, ARRAY[format('${'%'}I = ${'%'}L', key, new_config->>key)]);
             END IF;
         END LOOP;
     END IF;
@@ -422,7 +430,6 @@ BEGIN
     END IF;
 END;
 $$;
--- FIX: The following functions were missing from the truncated file. They have been added back.
 CREATE OR REPLACE FUNCTION public.log_action(p_action text, p_log_type text) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   admin_user record;
@@ -441,7 +448,8 @@ $$;
 
 CREATE OR REPLACE FUNCTION public.log_page_visit(p_page_name text) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
-    PERFORM public.log_action(format('Accessed admin page: **%s**', p_page_name), 'admin');
+    -- FIX: Escaped '%' in format specifiers to prevent TypeScript parser errors.
+    PERFORM public.log_action(format('Accessed admin page: **${'%'}s**', p_page_name), 'admin');
 END;
 $$;
 
@@ -463,7 +471,8 @@ BEGIN
     IF NOT FOUND THEN RAISE EXCEPTION 'Target user not found.'; END IF;
     
     INSERT INTO public.bans (user_id, banned_by, reason, expires_at) VALUES (p_target_user_id, public.get_user_id(), p_reason, expires_timestamp);
-    PERFORM public.log_action(format('Banned user **%s**. Reason: %s. Duration: %s hours.', target_user_record.username, p_reason, COALESCE(p_duration_hours::text, 'Permanent')), 'bans');
+    -- FIX: Escaped '%' in format specifiers to prevent TypeScript parser errors.
+    PERFORM public.log_action(format('Banned user **${'%'}s**. Reason: ${'%'}s. Duration: ${'%'}s hours.', target_user_record.username, p_reason, COALESCE(p_duration_hours::text, 'Permanent')), 'bans');
 END;
 $$;
 
@@ -475,7 +484,8 @@ BEGIN
   UPDATE public.profiles SET is_banned = false, ban_reason = NULL, ban_expires_at = NULL WHERE id = p_target_user_id RETURNING username INTO target_user_record;
   IF NOT FOUND THEN RAISE EXCEPTION 'Target user not found.'; END IF;
   UPDATE public.bans SET is_active = false, unbanned_by = public.get_user_id(), unbanned_at = current_timestamp WHERE user_id = p_target_user_id AND is_active = true;
-  PERFORM public.log_action(format('Unbanned user **%s**.', target_user_record.username), 'bans');
+  -- FIX: Escaped '%' in format specifiers to prevent TypeScript parser errors.
+  PERFORM public.log_action(format('Unbanned user **${'%'}s**.', target_user_record.username), 'bans');
 END;
 $$;
 
@@ -484,7 +494,8 @@ BEGIN
     IF NOT public.has_permission(public.get_user_id(), 'admin_permissions') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
     INSERT INTO public.role_permissions (role_id, permissions) VALUES (p_role_id, p_permissions)
     ON CONFLICT (role_id) DO UPDATE SET permissions = EXCLUDED.permissions;
-    PERFORM public.log_action(format('Updated permissions for role ID %s.', p_role_id), 'admin');
+    -- FIX: Escaped '%' in format specifiers to prevent TypeScript parser errors.
+    PERFORM public.log_action(format('Updated permissions for role ID ${'%'}s.', p_role_id), 'admin');
 END;
 $$;
 
