@@ -19,15 +19,15 @@ export class ApiError extends Error {
 }
 
 async function callBotApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    if (!env.VITE_DISCORD_BOT_URL || !env.VITE_DISCORD_BOT_API_KEY) {
-        throw new ApiError("Bot URL or API Key is not configured in the website's .env file.", 500);
-    }
-    
-    const url = `${env.VITE_DISCORD_BOT_URL}${endpoint}`;
+    // All bot API calls are now routed through the server-side proxy
+    // to handle HTTPS, CORS, and keep the API key secure.
+    const url = `/api/proxy${endpoint}`;
     
     const headers = {
         'Content-Type': 'application/json',
-        'Authorization': env.VITE_DISCORD_BOT_API_KEY,
+        // The 'Authorization' header with the secret API key is now added
+        // by the proxy (Vite dev server or Vercel serverless function),
+        // not by the client.
         ...options.headers,
     };
     
@@ -35,8 +35,8 @@ async function callBotApi<T>(endpoint: string, options: RequestInit = {}): Promi
         const response = await fetch(url, { ...options, headers });
 
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response from bot.' }));
-            throw new ApiError(errorData.error || `The bot returned an error (status ${response.status}). Check the bot's console logs.`, response.status);
+            const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response from proxy.' }));
+            throw new ApiError(errorData.error || `The application proxy returned an error (status ${response.status}). Check the bot and proxy function logs.`, response.status);
         }
         if (response.status === 204) {
             return null as T;
@@ -46,8 +46,8 @@ async function callBotApi<T>(endpoint: string, options: RequestInit = {}): Promi
         if (error instanceof ApiError) {
             throw error;
         }
-        console.error(`[API Client] Network or other fetch error calling bot at ${url}:`, error);
-        throw new ApiError("Failed to communicate with the Discord bot. It may be offline or the VITE_DISCORD_BOT_URL is incorrect.", 503);
+        console.error(`[API Client] Network or other fetch error calling proxy at ${url}:`, error);
+        throw new ApiError("Failed to communicate with the application server proxy. It may be offline or misconfigured.", 503);
     }
 }
 

@@ -1,4 +1,5 @@
 
+
 // In environments where Vite's client types aren't automatically resolved,
 // this manual declaration provides the necessary type information to TypeScript,
 // resolving errors about 'env' not existing on 'import.meta'.
@@ -8,7 +9,8 @@ declare global {
     readonly VITE_SUPABASE_ANON_KEY: string;
     // New variables for the standalone bot
     readonly VITE_DISCORD_BOT_URL: string;
-    // FIX: This key is exposed to the client for use in diagnostic pages.
+    // FIX: This key is still needed for server-side processes (Vite proxy, Vercel functions)
+    // but it will not be exposed to the client bundle.
     readonly VITE_DISCORD_BOT_API_KEY: string;
   }
 
@@ -38,7 +40,8 @@ export const env = {
 
   /**
    * The secret API key to communicate with the bot.
-   * Exposed on the client ONLY for diagnostic pages.
+   * REMOVED: This is now a server-side only variable and must not be exposed to the client.
+   * It's used by the /api/proxy function on Vercel and the vite.config.ts proxy.
    */
-  VITE_DISCORD_BOT_API_KEY: import.meta.env.VITE_DISCORD_BOT_API_KEY,
+  // VITE_DISCORD_BOT_API_KEY: import.meta.env.VITE_DISCORD_BOT_API_KEY,
 };

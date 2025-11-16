@@ -1,7 +1,6 @@
 // src/pages/LoginErrorPage.tsx
 import React from 'react';
-import { AlertTriangle, RefreshCw, LogOut, Wrench, ChevronsRight, Info } from 'lucide-react';
-// FIX: Switched to namespace import for react-router-dom to resolve module resolution issues.
+import { AlertTriangle, RefreshCw, LogOut, Wrench, ChevronsRight } from 'lucide-react';
 import * as ReactRouterDOM from 'react-router-dom';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { useConfig } from '../contexts/ConfigContext';
@@ -14,48 +13,13 @@ interface LoginErrorPageProps {
 }
 
 const ApiKeyMismatchHelp: React.FC = () => {
-    const { t, dir } = useLocalization();
+    const { t } = useLocalization();
     return (
         <div className="bg-brand-dark p-6 rounded-lg text-left border border-brand-light-blue">
             <h2 className="font-bold text-yellow-300 text-lg">{t('login_error_api_key_title')}</h2>
-            <p className="text-gray-300 mt-2 mb-4" dangerouslySetInnerHTML={{ __html: t('login_error_api_key_intro') }}></p>
-            
-            <div className="grid grid-cols-1 md:grid-cols-11 gap-4 items-center">
-                {/* Website .env */}
-                <div className="md:col-span-5">
-                    <p className="font-semibold text-center mb-2">{t('login_error_website_env')}</p>
-                    <pre className="bg-brand-dark-blue p-3 rounded-md text-sm text-gray-300" dir="ltr">
-                        <code>
-                            VITE_SUPABASE_URL=...<br/>
-                            VITE_SUPABASE_ANON_KEY=...<br/>
-                            VITE_DISCORD_BOT_URL=...<br/>
-                            <span className="bg-yellow-500/20 text-yellow-300 px-1 rounded">VITE_DISCORD_BOT_API_KEY="YourSecretKey"</span>
-                        </code>
-                    </pre>
-                </div>
-                
-                {/* Arrow */}
-                <div className="hidden md:flex flex-col items-center justify-center text-brand-cyan md:col-span-1">
-                    <ChevronsRight size={32} className={`my-2 ${dir === 'rtl' ? 'rotate-180' : ''}`}/>
-                </div>
-                
-                {/* Text for mobile */}
-                <div className="md:hidden text-center font-bold text-brand-cyan my-2 text-lg">
-                    ↓ {t('login_error_must_match')} ↓
-                </div>
-
-                {/* Bot .env */}
-                <div className="md:col-span-5">
-                    <p className="font-semibold text-center mb-2">{t('login_error_bot_env')}</p>
-                    <pre className="bg-brand-dark-blue p-3 rounded-md text-sm text-gray-300" dir="ltr">
-                        <code>
-                            DISCORD_BOT_TOKEN=...<br/>
-                            DISCORD_GUILD_ID=...<br/>
-                            PORT=3001<br/>
-                            <span className="bg-yellow-500/20 text-yellow-300 px-1 rounded">API_SECRET_KEY="YourSecretKey"</span>
-                        </code>
-                    </pre>
-                </div>
+            <p className="text-gray-300 mt-2 mb-4" dangerouslySetInnerHTML={{ __html: t('login_error_api_key_intro').replace('in both `.env` files', 'in your website and bot environment variables') }}></p>
+            <div className="bg-brand-dark-blue p-4 rounded-md text-sm text-center">
+                The value for <code className="text-yellow-300">VITE_DISCORD_BOT_API_KEY</code> in your website's environment (e.g., Vercel settings) must exactly match <code className="text-yellow-300">API_SECRET_KEY</code> in your bot's <code>.env</code> file.
             </div>
         </div>
     );
@@ -67,10 +31,6 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
     const { config } = useConfig();
     
     const botUrl = env.VITE_DISCORD_BOT_URL;
-    const apiKey = env.VITE_DISCORD_BOT_API_KEY;
-    const maskedApiKey = apiKey && apiKey.length > 0 
-        ? (apiKey.length > 8 ? `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}` : '********') 
-        : t('not_set');
 
     const getTroubleshootingContent = () => {
         const errorMessage = (error && typeof error.message === 'string') ? error.message : '';
@@ -79,9 +39,8 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
             return <ApiKeyMismatchHelp />;
         }
         
-        // Fallback for other errors
         const steps: React.ReactNode[] = [];
-        if (errorMessage.includes('Failed to fetch')) {
+        if (errorMessage.includes('proxy')) {
             steps.push(<div dangerouslySetInnerHTML={{ __html: t('login_error_step_fetch') }} />);
             steps.push(<div dangerouslySetInnerHTML={{ __html: t('login_error_step_url') }} />);
         } else if (errorMessage.includes('"Server Members Intent" is likely not enabled')) {
@@ -125,12 +84,12 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
                     <p className="text-sm text-gray-400 mb-4">The website is currently trying to connect using these settings from your <code>.env</code> file. Please verify they are correct.</p>
                     <div className="space-y-2">
                         <div className="flex justify-between items-center text-sm">
-                            <span className="font-semibold text-gray-300">Bot URL:</span>
+                            <span className="font-semibold text-gray-300">Bot URL Proxy Target:</span>
                             <code className="font-mono px-2 py-1 rounded bg-brand-dark-blue text-white">{botUrl || t('not_set')}</code>
                         </div>
                         <div className="flex justify-between items-center text-sm">
-                            <span className="font-semibold text-gray-300">API Key (Masked):</span>
-                            <code className="font-mono px-2 py-1 rounded bg-brand-dark-blue text-white">{maskedApiKey}</code>
+                            <span className="font-semibold text-gray-300">API Key Status:</span>
+                            <code className="font-mono px-2 py-1 rounded bg-brand-dark-blue text-white">Handled by Server Proxy</code>
                         </div>
                     </div>
                 </div>
@@ -146,7 +105,6 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
                         {t('logout')}
                     </button>
                     {config.SHOW_HEALTH_CHECK && (
-                         // FIX: Use namespace import 'ReactRouterDOM.Link'.
                          <ReactRouterDOM.Link
                             to="/health-check"
                             className="w-full sm:w-auto px-8 py-3 bg-yellow-600 text-white font-bold text-lg rounded-lg hover:bg-yellow-500 transform transition-all duration-300 ease-in-out flex items-center justify-center gap-3 sm:order-2 order-2"

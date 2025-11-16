@@ -96,18 +96,18 @@ const HealthCheckPage: React.FC = () => {
                     <div className="space-y-8">
                         <div className="bg-brand-dark-blue p-6 rounded-lg border-2 border-brand-light-blue shadow-lg">
                             <h2 className="text-2xl font-bold text-brand-cyan mb-3">Step 1: Frontend Environment</h2>
-                            <p className="text-gray-300 mb-4">Checks if the frontend has the necessary variables from your `.env` file to connect to Supabase and the bot.</p>
+                            <p className="text-gray-300 mb-4">Checks if the frontend has the necessary variables from your `.env` file to connect to Supabase and for the proxy to function.</p>
                             <div className="space-y-2">
                                 <ResultItem label="VITE_SUPABASE_URL" value={env.VITE_SUPABASE_URL} good={!!env.VITE_SUPABASE_URL && env.VITE_SUPABASE_URL !== 'YOUR_SUPABASE_URL'} />
                                 <ResultItem label="VITE_SUPABASE_ANON_KEY" value={env.VITE_SUPABASE_ANON_KEY} good={!!env.VITE_SUPABASE_ANON_KEY && env.VITE_SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY'} />
                                 <ResultItem label="VITE_DISCORD_BOT_URL" value={env.VITE_DISCORD_BOT_URL} good={!!env.VITE_DISCORD_BOT_URL} />
-                                <ResultItem label="VITE_DISCORD_BOT_API_KEY" value={env.VITE_DISCORD_BOT_API_KEY} good={!!env.VITE_DISCORD_BOT_API_KEY && env.VITE_DISCORD_BOT_API_KEY !== 'YOUR_SECRET_API_KEY'} />
+                                <ResultItem label="VITE_DISCORD_BOT_API_KEY" value={"Managed by Server Proxy"} good={true} />
                             </div>
                         </div>
 
                         <div className="bg-brand-dark-blue p-6 rounded-lg border-2 border-brand-light-blue shadow-lg">
                             <h2 className="text-2xl font-bold text-brand-cyan mb-3">Step 2: Bot API Connection</h2>
-                            <p className="text-gray-300 mb-4">Tests if the frontend can successfully connect to your running bot's API using the URL and API key.</p>
+                            <p className="text-gray-300 mb-4">Tests if the frontend can successfully connect to your running bot's API using the proxy.</p>
                             <button onClick={handleRunBotTest} disabled={isTestingBot} className="w-full bg-brand-cyan text-brand-dark font-bold py-3 px-6 rounded-md hover:bg-white transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-wait">
                                 {isTestingBot ? <Loader2 className="animate-spin" /> : null}
                                 <span>{isTestingBot ? t('health_check_test_running') : t('health_check_run_test')}</span>
@@ -160,7 +160,7 @@ const HealthCheckPage: React.FC = () => {
                             <div className="flex items-center justify-center gap-1 md:gap-2 flex-wrap p-4 bg-brand-dark rounded-lg text-center">
                                 <div className="flex flex-col items-center p-2"><User size={28} /><span className="text-xs mt-1">User</span></div>
                                 <ArrowRight className="text-gray-500" />
-                                <div className="flex flex-col items-center p-2"><Server size={28} /><span className="text-xs mt-1">Website<br/>(React)</span></div>
+                                <div className="flex flex-col items-center p-2"><Server size={28} /><span className="text-xs mt-1">Website<br/>(React/Proxy)</span></div>
                                 <ArrowRight className="text-gray-500" />
                                 <div className="flex flex-col items-center p-2"><Bot size={28} /><span className="text-xs mt-1">Your Bot<br/>(Node.js)</span></div>
                                 <ArrowRight className="text-gray-500" />
