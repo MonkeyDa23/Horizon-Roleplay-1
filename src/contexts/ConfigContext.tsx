@@ -1,5 +1,5 @@
 // src/contexts/ConfigContext.tsx
-import React, { createContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
 import { getConfig } from '../lib/api';
 import type { AppConfig } from '../types';
 import { supabase } from '../lib/supabaseClient';
@@ -85,4 +85,13 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       {children}
     </ConfigContext.Provider>
   );
+};
+
+// Merged Hook
+export const useConfig = () => {
+  const context = useContext(ConfigContext);
+  if (context === undefined) {
+    throw new Error('useConfig must be used within a ConfigProvider');
+  }
+  return context;
 };

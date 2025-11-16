@@ -1,5 +1,5 @@
 import React from 'react';
-import { useConfig } from '../hooks/useConfig';
+import { useConfig } from '../contexts/ConfigContext';
 
 const Logo: React.FC<{ className?: string }> = ({ className }) => {
   const { config, configLoading } = useConfig();

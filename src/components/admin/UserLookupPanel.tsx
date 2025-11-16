@@ -1,10 +1,7 @@
-
-
-
 // src/components/admin/UserLookupPanel.tsx
 import React, { useState } from 'react';
-import { useLocalization } from '../../hooks/useLocalization';
-import { useToast } from '../../hooks/useToast';
+import { useLocalization } from '../../contexts/LocalizationContext';
+import { useToast } from '../../contexts/ToastContext';
 import { lookupUser, banUser, unbanUser } from '../../lib/api';
 import type { UserLookupResult, DiscordRole } from '../../types';
 import Modal from '../Modal';

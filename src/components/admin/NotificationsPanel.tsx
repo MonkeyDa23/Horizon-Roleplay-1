@@ -1,9 +1,9 @@
 // src/components/admin/NotificationsPanel.tsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { useLocalization } from '../../hooks/useLocalization';
-import { useToast } from '../../hooks/useToast';
+import { useLocalization } from '../../contexts/LocalizationContext';
+import { useToast } from '../../contexts/ToastContext';
 import { getTranslations, saveTranslations, testNotification, saveConfig } from '../../lib/api';
-import { useConfig } from '../../hooks/useConfig';
+import { useConfig } from '../../contexts/ConfigContext';
 import type { Translations, AppConfig } from '../../types';
 import { Loader2, HelpCircle, Send } from 'lucide-react';
 
@@ -118,7 +118,8 @@ const NotificationsPanel: React.FC = () => {
                     <input 
                         type="text" 
                         value={targetId}
-                        onChange={e => setTargetId(e.target.value)}
+                        // FIX: Use `e.currentTarget.value` for better React event handling.
+                        onChange={e => setTargetId(e.currentTarget.value)}
                         placeholder={configuredChannelId || `${t('target_id')}...`}
                         className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 font-mono text-sm"
                     />
@@ -138,36 +139,9 @@ const NotificationsPanel: React.FC = () => {
         <div>
             <label className="block text-md font-semibold text-white mb-1">{t(labelKey)}</label>
             <p className="text-sm text-gray-400 mb-2">{t(descKey)}</p>
-            <input type="text" value={value || ''} onChange={e => onChange(e.currentTarget.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 font-mono text-sm"/>
+            <input type="text" value={value || ''} onChange={(e) => onChange(e.currentTarget.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan font-mono text-sm" />
         </div>
     );
-
-    const MessageEditor: React.FC<{ type: string; title: string; placeholders: string[] }> = ({ type, title, placeholders }) => {
-        const titleKey = `notification_${type}_title`;
-        const bodyKey = `notification_${type}_body`;
-
-        return (
-            <div className="bg-brand-dark p-4 rounded-lg border border-gray-700">
-                <h4 className="text-lg font-bold text-white mb-3">{title}</h4>
-                <div className="space-y-3">
-                     <div>
-                        <label className="block text-sm font-semibold text-gray-400">{t('title_ar')}</label>
-                        <input type="text" dir="rtl" value={allTranslations[titleKey]?.ar || ''} onChange={e => handleTranslationChange(titleKey, 'ar', e.currentTarget.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
-                    </div>
-                     <div>
-                        <label className="block text-sm font-semibold text-gray-400">{t('description_ar')}</label>
-                        <textarea dir="rtl" value={allTranslations[bodyKey]?.ar || ''} onChange={e => handleTranslationChange(bodyKey, 'ar', e.currentTarget.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 h-24" />
-                    </div>
-                </div>
-                <div className="mt-3 p-2 bg-brand-dark rounded-md">
-                    <p className="text-xs font-semibold text-gray-400 flex items-center gap-1"><HelpCircle size={14}/> {t('available_placeholders')}:</p>
-                    <div className="flex flex-wrap gap-x-2 gap-y-1 mt-1">
-                        {placeholders.map(p => <code key={p} className="text-xs text-brand-cyan bg-brand-light-blue px-1 rounded">{p}</code>)}
-                    </div>
-                </div>
-            </div>
-        );
-    };
 
     return (
         <div className="animate-fade-in-up">
@@ -177,46 +151,67 @@ const NotificationsPanel: React.FC = () => {
                     {isSaving ? <Loader2 className="animate-spin" /> : t('save_settings')}
                 </button>
             </div>
-            
-            <div className="space-y-8">
 
-                 <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
-                    <h3 className="text-2xl font-bold text-brand-cyan mb-2">اختبار توصيل الإشعارات</h3>
-                    <p className="text-gray-400 mb-6">استخدم هذه الأداة لإرسال رسائل اختبار إلى قنواتك المحددة أو إلى مستخدم معين للتأكد من أن الإشعارات تصل بشكل صحيح.</p>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {notificationTests.map(test => <TestItem key={test.key} {...test} />)}
-                    </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="lg:col-span-1 space-y-6">
+                    {/* Message Templates */}
+                    {Object.values(notificationTemplates).map(group => (
+                        <div key={group.title} className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
+                            <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-4">{t(group.title)}</h3>
+                            <div className="space-y-4">
+                                {group.messages.map(msg => (
+                                    <div key={msg.type}>
+                                        <h4 className="font-semibold text-white text-lg">{msg.title}</h4>
+                                        <div className="p-2 bg-brand-dark rounded text-xs text-gray-400 mb-2 font-mono">
+                                            {t('available_placeholders')}: {msg.placeholders.join(' ')}
+                                        </div>
+                                        <input
+                                            type="text"
+                                            value={allTranslations[`notification_${msg.type}_title`]?.en || ''}
+                                            onChange={(e) => handleTranslationChange(`notification_${msg.type}_title`, 'en', e.target.value)}
+                                            placeholder="Title (English)"
+                                            className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 mb-2"
+                                        />
+                                        <textarea
+                                            value={allTranslations[`notification_${msg.type}_body`]?.en || ''}
+                                            onChange={(e) => handleTranslationChange(`notification_${msg.type}_body`, 'en', e.target.value)}
+                                            placeholder="Body (English)"
+                                            rows={3}
+                                            className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ))}
                 </div>
-                
-                {Object.values(notificationTemplates).map(group => (
-                    <div key={group.title} className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
-                        <h3 className="text-2xl font-bold text-brand-cyan mb-1">{t(group.title)}</h3>
-                        <p className="text-gray-400 mb-4">{group.description}</p>
+
+                <div className="lg:col-span-1 space-y-6">
+                    {/* Channel & Role IDs */}
+                    <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
+                        <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-4">Channel & Role IDs</h3>
+                        <div className="p-3 rounded-md bg-blue-500/10 border border-blue-500/30 mb-4 flex items-start gap-3">
+                            <HelpCircle size={20} className="text-blue-300 mt-0.5 flex-shrink-0" />
+                            <p className="text-sm text-blue-200">{t('channel_id_desc')}</p>
+                        </div>
                         <div className="space-y-4">
-                            {group.messages.map(msg => <MessageEditor key={msg.type} {...msg} />)}
+                            <IdField labelKey="submissions_channel_id" descKey="submissions_channel_id_desc" value={settings.submissions_channel_id} onChange={e => handleConfigChange('submissions_channel_id', e)} />
+                            <IdField labelKey="log_channel_submissions" descKey="log_channel_submissions_desc" value={settings.log_channel_submissions} onChange={e => handleConfigChange('log_channel_submissions', e)} />
+                            <IdField labelKey="log_channel_bans" descKey="log_channel_bans_desc" value={settings.log_channel_bans} onChange={e => handleConfigChange('log_channel_bans', e)} />
+                            <IdField labelKey="log_channel_admin" descKey="log_channel_admin_desc" value={settings.log_channel_admin} onChange={e => handleConfigChange('log_channel_admin', e)} />
+                            <IdField labelKey="audit_log_channel_id" descKey="audit_log_channel_id_desc" value={settings.audit_log_channel_id} onChange={e => handleConfigChange('audit_log_channel_id', e)} />
+                            <IdField labelKey="mention_role_submissions" descKey="mention_role_submissions_desc" value={settings.mention_role_submissions} onChange={e => handleConfigChange('mention_role_submissions', e)} />
+                            <IdField labelKey="mention_role_audit_log_submissions" descKey="mention_role_audit_log_submissions_desc" value={settings.mention_role_audit_log_submissions} onChange={e => handleConfigChange('mention_role_audit_log_submissions', e)} />
+                            <IdField labelKey="mention_role_audit_log_bans" descKey="mention_role_audit_log_bans_desc" value={settings.mention_role_audit_log_bans} onChange={e => handleConfigChange('mention_role_audit_log_bans', e)} />
+                            <IdField labelKey="mention_role_audit_log_admin" descKey="mention_role_audit_log_admin_desc" value={settings.mention_role_audit_log_admin} onChange={e => handleConfigChange('mention_role_audit_log_admin', e)} />
+                            <IdField labelKey="mention_role_audit_log_general" descKey="mention_role_audit_log_general_desc" value={settings.mention_role_audit_log_general} onChange={e => handleConfigChange('mention_role_audit_log_general', e)} />
                         </div>
                     </div>
-                ))}
-                
-                <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
-                    <h3 className="text-2xl font-bold text-brand-cyan mb-4">إعدادات القنوات والرتب</h3>
-                    <div className="p-3 rounded-md bg-blue-500/10 border border-blue-500/30 mb-6">
-                        <p className="text-sm text-blue-200 mt-1">{t('channel_id_desc')}</p>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div className="space-y-6">
-                             <IdField labelKey="submissions_channel_id" descKey="submissions_channel_id_desc" value={settings.submissions_channel_id} onChange={v => handleConfigChange('submissions_channel_id', v)} />
-                             <IdField labelKey="log_channel_submissions" descKey="log_channel_submissions_desc" value={settings.log_channel_submissions} onChange={v => handleConfigChange('log_channel_submissions', v)} />
-                             <IdField labelKey="log_channel_bans" descKey="log_channel_bans_desc" value={settings.log_channel_bans} onChange={v => handleConfigChange('log_channel_bans', v)} />
-                             <IdField labelKey="log_channel_admin" descKey="log_channel_admin_desc" value={settings.log_channel_admin} onChange={v => handleConfigChange('log_channel_admin', v)} />
-                             <IdField labelKey="audit_log_channel_id" descKey="audit_log_channel_id_desc" value={settings.audit_log_channel_id} onChange={v => handleConfigChange('audit_log_channel_id', v)} />
-                        </div>
-                        <div className="space-y-6">
-                             <IdField labelKey="mention_role_submissions" descKey="mention_role_submissions_desc" value={settings.mention_role_submissions} onChange={v => handleConfigChange('mention_role_submissions', v)} />
-                             <IdField labelKey="mention_role_audit_log_submissions" descKey="mention_role_audit_log_submissions_desc" value={settings.mention_role_audit_log_submissions} onChange={v => handleConfigChange('mention_role_audit_log_submissions', v)} />
-                             <IdField labelKey="mention_role_audit_log_bans" descKey="mention_role_audit_log_bans_desc" value={settings.mention_role_audit_log_bans} onChange={v => handleConfigChange('mention_role_audit_log_bans', v)} />
-                             <IdField labelKey="mention_role_audit_log_admin" descKey="mention_role_audit_log_admin_desc" value={settings.mention_role_audit_log_admin} onChange={v => handleConfigChange('mention_role_audit_log_admin', v)} />
-                             <IdField labelKey="mention_role_audit_log_general" descKey="mention_role_audit_log_general_desc" value={settings.mention_role_audit_log_general} onChange={v => handleConfigChange('mention_role_audit_log_general', v)} />
+                     {/* Testing */}
+                    <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50">
+                        <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-4">اختبار الإشعارات</h3>
+                        <div className="space-y-3">
+                            {notificationTests.map(item => <TestItem key={item.key} {...item} />)}
                         </div>
                     </div>
                 </div>

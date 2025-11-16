@@ -1,5 +1,5 @@
 // src/contexts/TranslationsContext.tsx
-import React, { createContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
 import { getTranslations } from '../lib/api';
 import { translations as fallbackTranslations } from '../lib/translations';
 import type { Translations } from '../types';
@@ -74,4 +74,13 @@ export const TranslationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       {children}
     </TranslationsContext.Provider>
   );
+};
+
+// Merged Hook
+export const useTranslations = () => {
+  const context = useContext(TranslationsContext);
+  if (context === undefined) {
+    throw new Error('useTranslations must be used within a TranslationsProvider');
+  }
+  return context;
 };

@@ -1,12 +1,6 @@
-
-
-
-
-
-
-
-import React, { createContext, useState, useEffect, useCallback } from 'react';
-import { useTranslations } from '../hooks/useTranslations';
+// src/contexts/LocalizationContext.tsx
+import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
+import { useTranslations } from './TranslationsContext';
 import type { Language, LocalizationContextType } from '../types';
 
 export const LocalizationContext = createContext<LocalizationContextType | undefined>(undefined);
@@ -52,4 +46,13 @@ export const LocalizationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       {children}
     </LocalizationContext.Provider>
   );
+};
+
+// Merged Hook
+export const useLocalization = (): LocalizationContextType => {
+  const context = useContext(LocalizationContext);
+  if (context === undefined) {
+    throw new Error('useLocalization must be used within a LocalizationProvider');
+  }
+  return context;
 };

@@ -1,7 +1,7 @@
 // src/pages/AboutUsPage.tsx
 import React, { useState, useEffect } from 'react';
-import { useLocalization } from '../hooks/useLocalization';
-import { useConfig } from '../hooks/useConfig';
+import { useLocalization } from '../contexts/LocalizationContext';
+import { useConfig } from '../contexts/ConfigContext';
 import { Info, Loader2 } from 'lucide-react';
 import DiscordEmbed from '../components/DiscordEmbed';
 import SEO from '../components/SEO';
@@ -38,43 +38,46 @@ const AboutUsPage: React.FC = () => {
         keywords={`about, about us, community, mission, history, roleplay, ${communityName.toLowerCase()}`}
       />
       <div className="container mx-auto px-6 py-16">
-        <div className="text-center mb-12">
-          <div className="inline-block p-4 bg-brand-light-blue rounded-full mb-4">
-            <Info className="text-brand-cyan" size={48} />
+        <div className="text-center mb-16 animate-fade-in-up">
+          <div className="inline-block p-4 bg-background-light rounded-full mb-4 border-2 border-border-color shadow-lg">
+            <Info className="text-primary-blue" size={48} />
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">{t('page_title_about', { communityName: config.COMMUNITY_NAME })}</h1>
-          <p className="text-lg text-gray-300 max-w-3xl mx-auto">{t('about_intro', { communityName: config.COMMUNITY_NAME })}</p>
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">{t('page_title_about', { communityName: config.COMMUNITY_NAME })}</h1>
+          <p className="text-lg text-text-secondary max-w-3xl mx-auto">{t('about_intro', { communityName: config.COMMUNITY_NAME })}</p>
         </div>
 
-        <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-12 items-start">
-          <div className="bg-brand-dark-blue p-8 rounded-lg border border-brand-light-blue h-full">
-            <h2 className="text-3xl font-bold text-brand-cyan mb-4">{t('our_mission')}</h2>
-            <p className="text-gray-300 leading-relaxed">
+        <div className="max-w-6xl mx-auto grid lg:grid-cols-5 gap-12 items-start">
+          <div className="lg:col-span-3 glass-panel p-10 rounded-lg h-full animate-stagger" style={{ animationDelay: '100ms', opacity: 0 }}>
+            <h2 className="text-3xl font-bold text-primary-blue mb-6">{t('our_mission')}</h2>
+            <p className="text-text-primary leading-relaxed text-lg">
               {t('mission_text')}
             </p>
           </div>
           
-          <div className="space-y-8">
+          <div className="lg:col-span-2 space-y-8">
              {isLoading ? (
                 <div className="flex justify-center items-center h-48">
-                    <Loader2 size={40} className="text-brand-cyan animate-spin" />
+                    <Loader2 size={40} className="text-primary-blue animate-spin" />
                 </div>
              ) : widgets.length > 0 ? (
-                widgets.map(widget => (
-                    <DiscordEmbed 
-                        key={widget.id}
-                        serverName={widget.server_name}
-                        serverId={widget.server_id}
-                        inviteUrl={widget.invite_url}
-                    />
+                widgets.map((widget, index) => (
+                    <div className="animate-stagger" style={{ animationDelay: `${200 + index * 100}ms`, opacity: 0 }} key={widget.id}>
+                        <DiscordEmbed 
+                            serverName={widget.server_name}
+                            serverId={widget.server_id}
+                            inviteUrl={widget.invite_url}
+                        />
+                    </div>
                 ))
              ) : (
                 // Fallback to main community discord if no widgets are configured
-                <DiscordEmbed 
-                    serverName={config.COMMUNITY_NAME}
-                    serverId={config.DISCORD_GUILD_ID}
-                    inviteUrl={config.DISCORD_INVITE_URL}
-                />
+                <div className="animate-stagger" style={{ animationDelay: '200ms', opacity: 0 }}>
+                  <DiscordEmbed 
+                      serverName={config.COMMUNITY_NAME}
+                      serverId={config.DISCORD_GUILD_ID}
+                      inviteUrl={config.DISCORD_INVITE_URL}
+                  />
+                </div>
              )}
           </div>
         </div>

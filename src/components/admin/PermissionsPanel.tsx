@@ -1,7 +1,7 @@
 // src/components/admin/PermissionsPanel.tsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { useLocalization } from '../../hooks/useLocalization';
-import { useToast } from '../../hooks/useToast';
+import { useLocalization } from '../../contexts/LocalizationContext';
+import { useToast } from '../../contexts/ToastContext';
 import { getGuildRoles, getRolePermissions, saveRolePermissions } from '../../lib/api';
 import type { DiscordRole, RolePermission, PermissionKey } from '../../types';
 import { PERMISSIONS } from '../../lib/permissions';

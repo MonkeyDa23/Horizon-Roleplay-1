@@ -1,15 +1,15 @@
 // src/pages/ProfilePage.tsx
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../hooks/useAuth';
-import { useLocalization } from '../hooks/useLocalization';
+import { useAuth } from '../contexts/AuthContext';
+import { useLocalization } from '../contexts/LocalizationContext';
 import { getSubmissionsByUserId, forceRefreshUserProfile } from '../lib/api';
 import type { QuizSubmission, SubmissionStatus, DiscordRole } from '../types';
 // FIX: Switched to namespace import for react-router-dom to resolve module resolution issues.
 import * as ReactRouterDOM from 'react-router-dom';
 import { User as UserIcon, Loader2, FileText, ExternalLink, Shield, RefreshCw } from 'lucide-react';
-import { useConfig } from '../hooks/useConfig';
+import { useConfig } from '../contexts/ConfigContext';
 import SEO from '../components/SEO';
-import { useToast } from '../hooks/useToast';
+import { useToast } from '../contexts/ToastContext';
 
 const ProfilePage: React.FC = () => {
   const { user, loading: authLoading, updateUser } = useAuth();

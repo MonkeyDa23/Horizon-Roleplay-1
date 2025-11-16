@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 // FIX: Switched to namespace import for react-router-dom to resolve module resolution issues.
 import * as ReactRouterDOM from 'react-router-dom';
-import { useLocalization } from '../hooks/useLocalization';
-import { useAuth } from '../hooks/useAuth';
+import { useLocalization } from '../contexts/LocalizationContext';
+import { useAuth } from '../contexts/AuthContext';
 import { getQuizzes, getSubmissionsByUserId } from '../lib/api';
 import type { Quiz, QuizSubmission } from '../types';
 import { FileText, Lock, Check, Image as ImageIcon } from 'lucide-react';
-import { useConfig } from '../hooks/useConfig';
+import { useConfig } from '../contexts/ConfigContext';
 import SEO from '../components/SEO';
 
 const AppliesPage: React.FC = () => {
@@ -39,17 +39,17 @@ const AppliesPage: React.FC = () => {
   }, [user]);
   
   const SkeletonCard: React.FC = () => (
-    <div className="bg-brand-dark-blue border border-brand-light-blue/50 rounded-lg p-6 animate-pulse">
+    <div className="glass-panel p-6 animate-pulse">
        <div className="flex items-center gap-4 mb-4">
-          <div className="w-16 h-16 bg-brand-light-blue rounded-lg"></div>
+          <div className="w-20 h-20 bg-background-light rounded-lg"></div>
           <div className="w-full">
-            <div className="h-8 bg-brand-light-blue rounded w-3/4 mb-2"></div>
-             <div className="h-4 bg-brand-light-blue rounded w-1/2"></div>
+            <div className="h-8 bg-background-light rounded w-3/4 mb-2"></div>
+             <div className="h-4 bg-background-light rounded w-1/2"></div>
           </div>
        </div>
-        <div className="h-4 bg-brand-light-blue rounded w-full mb-2"></div>
-        <div className="h-4 bg-brand-light-blue rounded w-5/6 mb-6"></div>
-        <div className="h-12 bg-brand-light-blue rounded-md mt-auto"></div>
+        <div className="h-4 bg-background-light rounded w-full mb-2"></div>
+        <div className="h-4 bg-background-light rounded w-5/6 mb-6"></div>
+        <div className="h-12 bg-background-light rounded-md mt-auto"></div>
     </div>
   );
 
@@ -66,7 +66,7 @@ const AppliesPage: React.FC = () => {
 
       if (hasAppliedInCurrentSeason) {
         return (
-          <button disabled className="w-full bg-green-500/20 text-green-300 font-bold py-3 px-8 rounded-md flex items-center justify-center gap-2 cursor-not-allowed">
+          <button disabled className="w-full bg-green-500/20 text-green-300 font-bold py-3 px-8 rounded-lg flex items-center justify-center gap-2 cursor-not-allowed">
             <Check size={20} />
             {t('already_applied')}
           </button>
@@ -75,7 +75,7 @@ const AppliesPage: React.FC = () => {
       
       if (!quiz.isOpen) {
         return (
-          <button disabled className="w-full bg-gray-700/80 text-gray-400 font-bold py-3 px-8 rounded-md flex items-center justify-center gap-2 cursor-not-allowed">
+          <button disabled className="w-full bg-text-secondary/20 text-text-secondary font-bold py-3 px-8 rounded-lg flex items-center justify-center gap-2 cursor-not-allowed">
             <Lock size={20} />
             {t('application_closed')}
           </button>
@@ -84,7 +84,7 @@ const AppliesPage: React.FC = () => {
 
       if (!user) {
         return (
-          <button disabled className="w-full bg-gray-600 text-gray-300 font-bold py-3 px-8 rounded-md flex items-center justify-center gap-2 cursor-not-allowed" title="Please log in to apply">
+          <button disabled className="w-full bg-text-secondary/20 text-text-secondary font-bold py-3 px-8 rounded-lg flex items-center justify-center gap-2 cursor-not-allowed" title="Please log in to apply">
             <Lock size={20} />
             {t('apply_now')}
           </button>
@@ -95,7 +95,7 @@ const AppliesPage: React.FC = () => {
         // FIX: Use namespace import 'ReactRouterDOM.Link'.
         <ReactRouterDOM.Link 
           to={`/applies/${quiz.id}`}
-          className="w-full text-center bg-brand-cyan text-brand-dark font-bold py-3 px-8 rounded-md hover:bg-white hover:shadow-glow-cyan transition-all duration-300 flex items-center justify-center gap-2"
+          className="w-full text-center bg-gradient-to-r from-primary-blue to-accent-cyan text-background-dark font-bold py-3 px-8 rounded-lg hover:opacity-90 transition-all duration-300 flex items-center justify-center gap-2 transform hover:scale-105"
         >
           {t('apply_now')}
         </ReactRouterDOM.Link>
@@ -110,11 +110,11 @@ const AppliesPage: React.FC = () => {
         keywords={`apply, applications, jobs, police, ems, medic, faction, ${communityName.toLowerCase()}`}
       />
       <div className="container mx-auto px-6 py-16">
-        <div className="text-center mb-12">
-          <div className="inline-block p-4 bg-brand-light-blue rounded-full mb-4">
-            <FileText className="text-brand-cyan" size={48} />
+        <div className="text-center mb-16 animate-fade-in-up">
+          <div className="inline-block p-4 bg-background-light rounded-full mb-4 border-2 border-border-color shadow-lg">
+            <FileText className="text-primary-blue" size={48} />
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">{t('page_title_applies')}</h1>
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">{t('page_title_applies')}</h1>
         </div>
 
         <div className="max-w-5xl mx-auto">
@@ -125,40 +125,40 @@ const AppliesPage: React.FC = () => {
               </div>
           ) : quizzes.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {quizzes.map(quiz => (
-                  <div key={quiz.id} className={`relative bg-brand-dark-blue border border-brand-light-blue/50 rounded-lg p-6 flex flex-col transition-all duration-300 ${quiz.isOpen ? 'hover:shadow-glow-cyan hover:-translate-y-1' : 'opacity-70'}`}>
+              {quizzes.map((quiz, index) => (
+                  <div key={quiz.id} className={`relative glass-panel p-8 flex flex-col transition-all duration-300 group ${quiz.isOpen ? 'hover:shadow-glow-blue hover:-translate-y-2' : 'opacity-70'} animate-stagger`} style={{ animationDelay: `${index * 150}ms`, opacity: 0 }}>
                     {!quiz.isOpen && (
-                      <div className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center">
-                        <span className="text-2xl font-bold text-white tracking-widest uppercase border-2 border-white px-4 py-2 rounded-md -rotate-12">
+                      <div className="absolute inset-0 bg-black/60 rounded-2xl flex items-center justify-center z-10">
+                        <span className="text-2xl font-bold text-white tracking-widest uppercase border-4 border-white px-6 py-3 rounded-lg -rotate-12 bg-black/30">
                           {t('closed')}
                         </span>
                       </div>
                     )}
                     <div className="flex-grow">
-                          <div className="flex items-center gap-4 mb-4">
-                              <div className="p-2 bg-brand-light-blue rounded-lg w-16 h-16 flex items-center justify-center flex-shrink-0">
+                          <div className="flex items-center gap-5 mb-5">
+                              <div className="p-2 glass-panel rounded-xl w-24 h-24 flex items-center justify-center flex-shrink-0 group-hover:bg-primary-blue/10 transition-colors">
                                   {quiz.logoUrl ? (
                                       <img src={quiz.logoUrl} alt={`${t(quiz.titleKey)} Logo`} className="w-full h-full object-contain" />
                                   ) : (
-                                      <ImageIcon className="w-8 h-8 text-brand-cyan" />
+                                      <ImageIcon className="w-10 h-10 text-primary-blue" />
                                   )}
                               </div>
                               <div>
-                                  <h2 className="text-2xl font-bold text-white">{t(quiz.titleKey)}</h2>
-                                  <p className="text-sm text-gray-400">{(quiz.questions || []).length} {t('questions')}</p>
+                                  <h2 className="text-3xl font-bold text-white">{t(quiz.titleKey)}</h2>
+                                  <p className="text-sm text-text-secondary">{(quiz.questions || []).length} {t('questions')}</p>
                               </div>
                           </div>
-                          <p className="text-gray-300 mb-6 min-h-[40px]">{t(quiz.descriptionKey)}</p>
+                          <p className="text-text-secondary mb-6 min-h-[40px] text-base">{t(quiz.descriptionKey)}</p>
                     </div>
-                    <div className="mt-auto">
+                    <div className="mt-auto pt-6 border-t border-border-color">
                           {getApplyButton(quiz)}
                     </div>
                   </div>
               ))}
               </div>
           ) : (
-            <div className="text-center bg-brand-dark-blue border border-brand-light-blue/50 rounded-lg p-10">
-              <p className="text-2xl text-gray-400">{t('no_applies_open')}</p>
+            <div className="text-center glass-panel p-10">
+              <p className="text-2xl text-text-secondary">{t('no_applies_open')}</p>
             </div>
           )}
         </div>

@@ -1,8 +1,8 @@
 // src/components/admin/AppearancePanel.tsx
 import React, { useState, useEffect } from 'react';
-import { useLocalization } from '../../hooks/useLocalization';
-import { useToast } from '../../hooks/useToast';
-import { useConfig } from '../../hooks/useConfig';
+import { useLocalization } from '../../contexts/LocalizationContext';
+import { useToast } from '../../contexts/ToastContext';
+import { useConfig } from '../../contexts/ConfigContext';
 import { saveConfig } from '../../lib/api';
 import type { AppConfig } from '../../types';
 import { Loader2 } from 'lucide-react';

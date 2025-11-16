@@ -1,11 +1,11 @@
 // src/pages/HealthCheckPage.tsx
 import React, { useState } from 'react';
 import { Loader2, CheckCircle, XCircle, AlertTriangle, HelpCircle, Server, Bot, ArrowRight, User } from 'lucide-react';
-import { useLocalization } from '../hooks/useLocalization';
+import { useLocalization } from '../contexts/LocalizationContext';
 import { env } from '../env';
 import { checkDiscordApiHealth, lookupUser, ApiError } from '../lib/api';
 import SEO from '../components/SEO';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../contexts/AuthContext';
 import * as ReactRouterDOM from 'react-router-dom';
 
 const HealthCheckPage: React.FC = () => {

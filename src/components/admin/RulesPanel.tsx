@@ -1,13 +1,10 @@
-
-
-
 // src/components/admin/RulesPanel.tsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { useLocalization } from '../../hooks/useLocalization';
-import { useToast } from '../../hooks/useToast';
+import { useLocalization } from '../../contexts/LocalizationContext';
+import { useToast } from '../../contexts/ToastContext';
 import { getRules, saveRules } from '../../lib/api';
 import type { RuleCategory, Rule } from '../../types';
-import { useTranslations } from '../../hooks/useTranslations';
+import { useTranslations } from '../../contexts/TranslationsContext';
 import { Loader2, Plus, GripVertical, Trash2 } from 'lucide-react';
 
 interface EditableRule extends Rule {

@@ -1,7 +1,5 @@
 // src/lib/api.ts
 import { supabase } from './supabaseClient';
-// The 'env' import is intentionally removed from API calls to prevent accidental direct-to-bot requests.
-// It is still used by diagnostic pages, but not for core functionality.
 import { env } from '../env';
 import type { 
   AppConfig, Product, Quiz, QuizSubmission, RuleCategory, Translations, 
@@ -10,12 +8,6 @@ import type {
 } from '../types';
 
 // --- BOT API HELPERS ---
-
-// THIS IS THE ONLY PATH THE WEBSITE FRONTEND WILL EVER USE.
-// All bot-related requests are sent to our own serverless function at this path.
-// This function then securely forwards the request to the actual bot, solving all
-// Mixed Content (http/https) browser security issues.
-const PROXY_PATH = '/api/gateway';
 
 export class ApiError extends Error {
   status: number;
@@ -27,12 +19,15 @@ export class ApiError extends Error {
 }
 
 async function callBotApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    // The final URL will be something like '/api/gateway/sync-user/12345'
-    const url = `${PROXY_PATH}${endpoint}`;
+    if (!env.VITE_DISCORD_BOT_URL || !env.VITE_DISCORD_BOT_API_KEY) {
+        throw new ApiError("Bot URL or API Key is not configured in the website's .env file.", 500);
+    }
+    
+    const url = `${env.VITE_DISCORD_BOT_URL}${endpoint}`;
     
     const headers = {
         'Content-Type': 'application/json',
-        // Authorization is now handled by the server-side proxy for better security.
+        'Authorization': env.VITE_DISCORD_BOT_API_KEY,
         ...options.headers,
     };
     
@@ -40,9 +35,8 @@ async function callBotApi<T>(endpoint: string, options: RequestInit = {}): Promi
         const response = await fetch(url, { ...options, headers });
 
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response from proxy.' }));
-            // Provide a clearer error message for debugging.
-            throw new ApiError(errorData.error || `The proxy function returned an error (status ${response.status}). Check the Vercel function logs.`, response.status);
+            const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response from bot.' }));
+            throw new ApiError(errorData.error || `The bot returned an error (status ${response.status}). Check the bot's console logs.`, response.status);
         }
         if (response.status === 204) {
             return null as T;
@@ -50,11 +44,10 @@ async function callBotApi<T>(endpoint: string, options: RequestInit = {}): Promi
         return response.json();
     } catch (error) {
         if (error instanceof ApiError) {
-            throw error; // Re-throw ApiError instances from the !response.ok block
+            throw error;
         }
-        // This will catch network errors (e.g., Vercel proxy is down, DNS problems)
-        console.error(`[API Client] Network or other fetch error calling proxy endpoint ${endpoint}:`, error);
-        throw new ApiError("Failed to communicate with the website's proxy function. This could be a deployment issue on Vercel or a network problem.", 503);
+        console.error(`[API Client] Network or other fetch error calling bot at ${url}:`, error);
+        throw new ApiError("Failed to communicate with the Discord bot. It may be offline or the VITE_DISCORD_BOT_URL is incorrect.", 503);
     }
 }
 
@@ -75,11 +68,15 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
   if (!supabase) throw new Error("Supabase client is not initialized.");
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
   if (sessionError || !session) throw new ApiError(sessionError?.message || "No active session", 401);
+
+  // Check if it's a new user before doing anything else
+  const { data: dbProfileCheck } = await supabase.from('profiles').select('id').eq('id', session.user.id).single();
+  const isNewUser = !dbProfileCheck;
   
-  // 1. Get Discord profile from our bot via the proxy
+  // 1. Get Discord profile from our bot
   const discordProfile = await callBotApi<any>(`/sync-user/${session.user.user_metadata.provider_id}`, { method: 'POST' });
 
-  // 2. Get permissions and ban status from Supabase (as bot can't access this directly)
+  // 2. Get permissions and ban status from Supabase
   const { data: dbProfile, error: dbError } = await supabase.from('profiles').select('id, is_banned, ban_reason, ban_expires_at').eq('id', session.user.id).single();
   const { data: permsData, error: permsError } = await supabase.from('role_permissions').select('permissions').in('role_id', discordProfile.roles.map((r: any) => r.id));
 
@@ -101,13 +98,42 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
       ban_expires_at: dbProfile?.ban_expires_at ?? null,
   };
 
-  // 4. Upsert the latest profile info back to the DB (fire-and-forget)
-  supabase.from('profiles').upsert({
+  // 4. Upsert the latest profile info back to the DB
+  const { error: upsertError } = await supabase.from('profiles').upsert({
       id: finalUser.id, discord_id: finalUser.discordId, username: finalUser.username, avatar_url: finalUser.avatar,
       roles: finalUser.roles, highest_role: finalUser.highestRole, last_synced_at: new Date().toISOString()
-  }, { onConflict: 'id' }).then(({ error }) => {
-      if (error) console.error("Profile upsert failed:", error.message);
-  });
+  }, { onConflict: 'id' });
+
+  if (upsertError) {
+      console.error("Profile upsert failed:", upsertError.message);
+      // Don't block login for this, but it's a problem to be aware of.
+  }
+  
+  // 5. If it was a new user, send welcome DM and log it
+  if (isNewUser && !upsertError) {
+      const { COMMUNITY_NAME, LOGO_URL } = await getConfig();
+      const { data: translations } = await supabase.from('translations').select('key, en, ar').in('key', ['notification_welcome_title', 'notification_welcome_body']);
+      const welcomeTitle = translations?.find(t => t.key === 'notification_welcome_title')?.en.replace('{communityName}', COMMUNITY_NAME) ?? `Welcome to ${COMMUNITY_NAME}!`;
+      const welcomeBody = translations?.find(t => t.key === 'notification_welcome_body')?.en.replace('{username}', finalUser.username) ?? `We're happy to have you, ${finalUser.username}!`;
+
+      const welcomeEmbed = {
+          title: welcomeTitle,
+          description: welcomeBody,
+          color: 0x00F2EA,
+          thumbnail: { url: LOGO_URL },
+          footer: { text: COMMUNITY_NAME, icon_url: LOGO_URL },
+          timestamp: new Date().toISOString()
+      };
+      
+      callBotApi('/notify', { method: 'POST', body: JSON.stringify({ dmToUserId: finalUser.discordId, embed: welcomeEmbed }) })
+        .catch(e => console.error("Failed to send welcome DM:", e));
+      
+      // Log this event
+      supabase.rpc('log_action', { 
+          p_action: `New user logged in: **${finalUser.username}** (\`${finalUser.discordId}\`)`,
+          p_log_type: 'auth'
+      }).catch(e => console.error("Failed to log new user event:", e));
+  }
 
   return { user: finalUser, syncError: null };
 };
@@ -172,10 +198,10 @@ export const addSubmission = async (submission: any): Promise<QuizSubmission> =>
     const { submissions_channel_id, mention_role_submissions, COMMUNITY_NAME, LOGO_URL } = await getConfig();
     if (submissions_channel_id) {
         const embed = {
-            author: { name: "New Submission Received", icon_url: "https://i.imgur.com/gJt1kUD.png" },
+            author: { name: "New Submission Received", icon_url: LOGO_URL },
             description: `A submission from **${newSubmission.username}** for **${newSubmission.quizTitle}** is awaiting review.`,
             color: 0x00F2EA,
-            fields: [{ name: "Applicant", value: newSubmission.username, inline: true }, { name: "Application", value: newSubmission.quizTitle, inline: true }],
+            fields: [{ name: "Applicant", value: `<@${submission.discord_id}>`, inline: true }, { name: "Application", value: newSubmission.quizTitle, inline: true }],
             footer: { text: COMMUNITY_NAME, icon_url: LOGO_URL },
             timestamp: new Date(newSubmission.submittedAt).toISOString(),
         };
@@ -205,17 +231,32 @@ export const updateSubmissionStatus = async (submissionId: string, status: 'take
     const updatedSubmission = await handleResponse<QuizSubmission>(await supabase.rpc('update_submission_status', { p_submission_id: submissionId, p_new_status: status, p_reason: reason || null }));
     if (!updatedSubmission) throw new Error("Failed to get updated submission record from database.");
     
+    const { data: profile } = await supabase.from('profiles').select('discord_id').eq('id', updatedSubmission.user_id).single();
+    if (!profile) {
+        console.error("Could not find Discord ID for user to send notification.");
+        return; // Early exit if we can't notify the user
+    }
+    const discordId = profile.discord_id;
+
     // 2. Trigger notifications via Bot
-    const { log_channel_submissions, COMMUNITY_NAME, LOGO_URL } = await getConfig();
+    const { log_channel_submissions, COMMUNITY_NAME, LOGO_URL, mention_role_audit_log_submissions } = await getConfig();
     if (log_channel_submissions) {
         const logEmbed = {
-            title: `Submission Status Updated`,
-            description: `Submission for **${updatedSubmission.username}** was updated to **${status.toUpperCase()}** by **${updatedSubmission.adminUsername}**.`,
-            color: 0x00B2FF,
+            title: `Submission Status Updated: ${status.toUpperCase()}`,
+            description: `Submission from **${updatedSubmission.username}** for **${updatedSubmission.quizTitle}** was updated by admin **${updatedSubmission.adminUsername}**.`,
+            color: status === 'accepted' ? 0x22C55E : status === 'refused' ? 0xEF4444 : 0x3B82F6,
+            fields: [
+                { name: "Applicant", value: `<@${discordId}>`, inline: true },
+                { name: "Status", value: status, inline: true },
+                { name: "Admin", value: updatedSubmission.adminUsername || 'N/A', inline: true },
+            ],
             footer: { text: COMMUNITY_NAME, icon_url: LOGO_URL },
             timestamp: new Date().toISOString()
         };
-        callBotApi('/notify', { method: 'POST', body: JSON.stringify({ channelId: log_channel_submissions, embed: logEmbed }) }).catch(e => console.error("Bot log notification failed:", e));
+        if (reason) {
+            logEmbed.fields.push({ name: "Reason", value: reason, inline: false });
+        }
+        callBotApi('/notify', { method: 'POST', body: JSON.stringify({ channelId: log_channel_submissions, content: mention_role_audit_log_submissions ? `<@&${mention_role_audit_log_submissions}>` : '', embed: logEmbed }) }).catch(e => console.error("Bot log notification failed:", e));
     }
 
     if (status === 'accepted' || status === 'refused') {
@@ -239,8 +280,7 @@ export const updateSubmissionStatus = async (submissionId: string, status: 'take
             footer: { text: COMMUNITY_NAME, icon_url: LOGO_URL },
             timestamp: new Date().toISOString()
         };
-         const { data: profile } = await supabase.from('profiles').select('discord_id').eq('id', updatedSubmission.user_id).single();
-        if(profile) await callBotApi('/notify', { method: 'POST', body: JSON.stringify({ dmToUserId: profile.discord_id, embed: resultEmbed }) });
+        await callBotApi('/notify', { method: 'POST', body: JSON.stringify({ dmToUserId: discordId, embed: resultEmbed }) });
     }
 };
 

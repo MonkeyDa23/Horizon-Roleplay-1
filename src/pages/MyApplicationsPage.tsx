@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../hooks/useAuth';
-import { useLocalization } from '../hooks/useLocalization';
+import { useAuth } from '../contexts/AuthContext';
+import { useLocalization } from '../contexts/LocalizationContext';
 import { getSubmissionsByUserId } from '../lib/api';
 import type { QuizSubmission, SubmissionStatus } from '../types';
 // FIX: Switched to namespace import for react-router-dom to resolve module resolution issues.
 import * as ReactRouterDOM from 'react-router-dom';
 import { FileText, Loader2 } from 'lucide-react';
-import { useConfig } from '../hooks/useConfig';
+import { useConfig } from '../contexts/ConfigContext';
 import SEO from '../components/SEO';
 
 const MyApplicationsPage: React.FC = () => {

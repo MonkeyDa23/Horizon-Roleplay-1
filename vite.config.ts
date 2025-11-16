@@ -9,17 +9,5 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
-    server: {
-      proxy: {
-        // Renamed the proxy route to /api/gateway to avoid potential conflicts with the "proxy" keyword.
-        // This now matches the production rewrite rule in vercel.json.
-        '/api/gateway': {
-          target: env.VITE_DISCORD_BOT_URL,
-          changeOrigin: true,
-          // FIX: Corrected the invalid regular expression. It was causing a TypeScript error.
-          rewrite: (path) => path.replace(/^\/api\/gateway/, ''),
-        },
-      },
-    },
   }
 })

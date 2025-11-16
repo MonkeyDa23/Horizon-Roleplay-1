@@ -1,4 +1,3 @@
-
 // src/components/Modal.tsx
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
@@ -38,37 +37,26 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidt
 
   return (
     <div 
-      className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-start justify-center p-4 pt-32"
+      className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
       onClick={onClose}
     >
       <div
-        className={`bg-brand-dark-blue border border-brand-light-blue rounded-lg shadow-2xl shadow-black/50 w-full ${maxWidthClass} relative animate-slide-in-down flex flex-col max-h-[90vh]`}
+        className={`glass-panel w-full ${maxWidthClass} relative animate-slide-in-up flex flex-col max-h-[90vh]`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-6 border-b border-brand-light-blue flex justify-between items-center flex-shrink-0">
-          <h2 className="text-2xl font-bold text-brand-cyan">{title}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
-            <X size={28} />
+        <div className="p-6 border-b border-border-color flex justify-between items-center flex-shrink-0">
+          <h2 className="text-2xl font-bold text-primary-blue tracking-wide">{title}</h2>
+          <button onClick={onClose} className="p-2 rounded-full text-text-secondary hover:text-white hover:bg-white/10 transition-colors">
+            <X size={24} />
           </button>
         </div>
         <div className="flex-1 p-8 overflow-y-auto">
           {children}
         </div>
       </div>
-      <style>{`
-        @keyframes slide-in-down {
-          from { 
-            opacity: 0; 
-            transform: translateY(-30px); 
-          }
-          to { 
-            opacity: 1; 
-            transform: translateY(0); 
-          }
-        }
-        .animate-slide-in-down {
-          animation: slide-in-down 0.3s ease-out forwards;
-        }
+       <style>{`
+        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+        .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
       `}</style>
     </div>
   );

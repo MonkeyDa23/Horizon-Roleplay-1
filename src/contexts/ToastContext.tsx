@@ -1,5 +1,5 @@
 // src/contexts/ToastContext.tsx
-import React, { createContext, useState, useCallback } from 'react';
+import React, { createContext, useState, useCallback, useContext } from 'react';
 import { ToastContainer } from '../components/Toast';
 import type { ToastType } from '../components/Toast';
 
@@ -34,4 +34,13 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       <ToastContainer toasts={toasts} onClose={removeToast} />
     </ToastContext.Provider>
   );
+};
+
+// Merged Hook
+export const useToast = (): ToastContextType => {
+  const context = useContext(ToastContext);
+  if (!context) {
+    throw new Error('useToast must be used within a ToastProvider');
+  }
+  return context;
 };

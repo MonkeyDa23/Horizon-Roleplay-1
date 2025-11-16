@@ -1,7 +1,7 @@
 // src/pages/AdminPage.tsx
 import React, { useState, useEffect, useRef } from 'react';
-import { useAuth } from '../hooks/useAuth';
-import { useLocalization } from '../hooks/useLocalization';
+import { useAuth } from '../contexts/AuthContext';
+import { useLocalization } from '../contexts/LocalizationContext';
 // FIX: Switched to namespace import for react-router-dom to resolve module resolution issues.
 import * as ReactRouterDOM from 'react-router-dom';
 import type { PermissionKey } from '../types';

@@ -1,15 +1,27 @@
 {
   "name": "vixel-bot",
   "version": "1.0.0",
-  "description": "Discord bot for the Vixel Roleplay website",
-  "main": "index.js",
+  "description": "Standalone Discord bot for the Vixel Roleplay website.",
+  "main": "src/index.js",
+  "type": "module",
   "scripts": {
-    "start": "node index.js"
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
   },
+  "keywords": [
+    "discord",
+    "bot",
+    "vixel"
+  ],
+  "author": "Vixel Development",
+  "license": "ISC",
   "dependencies": {
     "cors": "^2.8.5",
-    "discord.js": "^14.15.2",
+    "discord.js": "^14.15.3",
     "dotenv": "^16.4.5",
     "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
   }
 }

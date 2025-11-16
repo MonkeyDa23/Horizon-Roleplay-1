@@ -1,13 +1,10 @@
-
-
-
 // src/components/admin/StorePanel.tsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { useLocalization } from '../../hooks/useLocalization';
-import { useToast } from '../../hooks/useToast';
+import { useLocalization } from '../../contexts/LocalizationContext';
+import { useToast } from '../../contexts/ToastContext';
 import { getProducts, saveProduct, deleteProduct } from '../../lib/api';
 import type { Product } from '../../types';
-import { useTranslations } from '../../hooks/useTranslations';
+import { useTranslations } from '../../contexts/TranslationsContext';
 import Modal from '../Modal';
 import { Loader2, Plus, Edit, Trash2 } from 'lucide-react';
 

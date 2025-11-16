@@ -245,6 +245,7 @@ export const translations: Translations = {
   log_admin: { ar: 'المشرف', en: 'Admin' },
   log_action: { ar: 'الإجراء', en: 'Action' },
   no_logs_found: { ar: 'لا توجد سجلات.', en: 'No logs found.' },
+  log_auth_new_user: { ar: 'المستخدم {username} ({discordId}) سجل دخوله للمرة الأولى.', en: 'User {username} ({discordId}) logged in for the first time.' },
   
   // Admin - Permissions
   discord_roles: { ar: 'رتب الديسكورد', en: 'Discord Roles' },
@@ -282,6 +283,8 @@ export const translations: Translations = {
   mention_role_audit_log_admin_desc: { ar: 'الرتبة التي يتم عمل منشن لها في سجلات إجراءات الإدارة.', en: 'The role to mention in admin action logs.'},
   mention_role_audit_log_general: { ar: 'معرف رتبة منشن السجل العام', en: 'General Log Mention Role ID'},
   mention_role_audit_log_general_desc: { ar: 'الرتبة التي يتم عمل منشن لها في السجل العام الاحتياطي.', en: 'The role to mention in the fallback general log.'},
+  notification_welcome_title: { ar: 'أهلاً بك في {communityName}!', en: 'Welcome to {communityName}!' },
+  notification_welcome_body: { ar: 'مرحباً {username}، يسعدنا انضمامك إلينا! لقد قمت بربط حسابك بنجاح بموقعنا. يمكنك الآن الاستمتاع بجميع ميزات المجتمع.', en: 'Hey {username}, we are thrilled to have you! You have successfully linked your account to our website. You can now enjoy all community features.'},
   notification_submission_receipt_title: { ar: 'تم استلام تقديمك بنجاح! ✅', en: 'Application Submitted Successfully! ✅' },
   notification_submission_receipt_body: { ar: 'أهلاً {username}،\n\nلقد استلمنا بنجاح تقديمك لمنصب **{quizTitle}**. سيقوم فريقنا بمراجعته في أقرب وقت ممكن.', en: 'Hey {username},\n\nWe have successfully received your application for **{quizTitle}**. Our team will review it as soon as possible.'},
   notification_submission_accepted_title: { ar: 'تهانينا! تم قبول تقديمك! 🎉', en: 'Congratulations! Your Application was Accepted! 🎉' },

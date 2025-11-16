@@ -2,16 +2,10 @@
 import React from 'react';
 // FIX: Switched to namespace import for react-router-dom to resolve module resolution issues.
 import * as ReactRouterDOM from 'react-router-dom';
-import { LocalizationProvider } from './contexts/LocalizationContext';
-import { AuthProvider } from './contexts/AuthContext';
-import { CartProvider } from './contexts/CartContext';
-import { ConfigProvider } from './contexts/ConfigContext';
-import { ToastProvider } from './contexts/ToastContext';
-import { useConfig } from './hooks/useConfig';
-import { useAuth } from './hooks/useAuth';
-import { TranslationsProvider } from './contexts/TranslationsContext';
-import { AdminGateProvider } from './contexts/AdminGateContext'; // New
-import AdminGate from './components/AdminGate'; // New
+import { AppProviders } from './contexts/AppProviders';
+import { useConfig } from './contexts/ConfigContext';
+import { useAuth } from './contexts/AuthContext';
+
 
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -32,6 +26,7 @@ import HealthCheckPage from './pages/HealthCheckPage';
 import AdminPage from './pages/AdminPage';
 import BannedPage from './pages/BannedPage';
 import LoginErrorPage from './pages/LoginErrorPage';
+import AdminGate from './components/AdminGate';
 
 
 import { Loader2, AlertTriangle } from 'lucide-react';
@@ -65,14 +60,14 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; permission?: Permiss
   
 const AppContent: React.FC = () => {
   const { config, configLoading, configError } = useConfig();
-  const { user, loading: authLoading, permissionWarning, syncError, logout, retrySync } = useAuth();
+  const { user, isInitialLoading, loading, permissionWarning, syncError, logout, retrySync } = useAuth();
   
-  if (authLoading || configLoading) {
+  if (isInitialLoading || configLoading) {
     return (
       <div className="flex flex-col gap-4 justify-center items-center h-screen w-screen bg-brand-dark">
         <Loader2 size={48} className="text-brand-cyan animate-spin" />
         <p className="text-xl text-gray-300">
-            {authLoading ? 'Connecting...' : 'Loading Community Hub...'}
+            {isInitialLoading ? 'Connecting...' : 'Loading Community Hub...'}
         </p>
       </div>
     )
@@ -106,19 +101,11 @@ const AppContent: React.FC = () => {
               </ol>
             </div>
           ) : (
-            <div className="bg-brand-dark-blue p-4 rounded-lg mt-4 max-w-2xl w-full">
-              <p className="font-semibold text-brand-cyan mb-2">How to fix:</p>
-              <ol className="list-decimal list-inside text-gray-300 space-y-1">
-                  <li>Go to your Supabase project's SQL Editor.</li>
-                  <li>Copy the SQL code from the <code className="bg-brand-dark px-1 rounded">src/lib/database_schema.ts</code> file.</li>
-                  <li>Paste the code into a new query and click "RUN".</li>
-              </ol>
-            </div>
+            <p className="text-gray-400 mt-4">Please run the database schema script in your Supabase SQL Editor to initialize the required tables and functions.</p>
           )}
-          
-          <p className="text-gray-500 mt-4 text-sm">Error details: {configError.message}</p>
-      </div>
-    )
+
+       </div>
+    );
   }
 
   if (syncError) {
@@ -126,94 +113,56 @@ const AppContent: React.FC = () => {
   }
 
   if (user?.is_banned) {
-    return <BannedPage reason={user.ban_reason || 'No reason specified'} expires_at={user.ban_expires_at} onLogout={logout} />;
+    return <BannedPage reason={user.ban_reason || 'No reason provided.'} expires_at={user.ban_expires_at} onLogout={logout} />;
   }
-
+  
   return (
-      <div 
-        className="flex flex-col min-h-screen text-white font-sans"
-        style={{ 
-          backgroundImage: config.BACKGROUND_IMAGE_URL ? `url(${config.BACKGROUND_IMAGE_URL})` : 'none',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundAttachment: 'fixed',
-        }}
-      >
-        <CosmicBackground />
-        <div className="flex flex-col min-h-screen relative z-10 bg-brand-dark/90">
-          <Navbar />
-          {permissionWarning && <PermissionWarningBanner message={permissionWarning} />}
-          <main className="flex-grow">
-            {/* FIX: Use namespace imports for 'Routes' and 'Route'. */}
-            <ReactRouterDOM.Routes>
-              <ReactRouterDOM.Route path="/" element={<HomePage />} />
-              <ReactRouterDOM.Route path="/store" element={<ProtectedRoute permission="page_store"><StorePage /></ProtectedRoute>} />
-              <ReactRouterDOM.Route path="/store/:productId" element={<ProtectedRoute permission="page_store"><ProductDetailPage /></ProtectedRoute>} />
-              <ReactRouterDOM.Route path="/rules" element={<ProtectedRoute permission="page_rules"><RulesPage /></ProtectedRoute>} />
-              <ReactRouterDOM.Route path="/applies" element={<ProtectedRoute permission="page_applies"><AppliesPage /></ProtectedRoute>} />
-              <ReactRouterDOM.Route path="/applies/:quizId" element={<ProtectedRoute permission="page_applies"><QuizPage /></ProtectedRoute>} />
-              <ReactRouterDOM.Route path="/about" element={<AboutUsPage />} />
-              <ReactRouterDOM.Route path="/admin" element={
-                <ProtectedRoute permission="admin_panel">
-                  <AdminGate>
-                    <AdminPage />
-                  </AdminGate>
-                </ProtectedRoute>
-              } />
-              <ReactRouterDOM.Route path="/my-applications" element={
-                <ProtectedRoute>
-                  <MyApplicationsPage />
-                </ProtectedRoute>
-              }/>
-              <ReactRouterDOM.Route path="/profile" element={
-                 <ProtectedRoute>
-                  <ProfilePage />
-                </ProtectedRoute>
-              } />
-              
-              {config.SHOW_HEALTH_CHECK && (
-                <ReactRouterDOM.Route 
-                  path="/health-check" 
-                  element={
-                     <ProtectedRoute permission="_super_admin">
-                        <HealthCheckPage />
-                     </ProtectedRoute>
-                  }
-                />
-              )}
-              {/* Fallback route for any undefined paths */}
-              <ReactRouterDOM.Route path="*" element={<ReactRouterDOM.Navigate to="/" replace />} />
-            </ReactRouterDOM.Routes>
-          </main>
-          <Footer />
-        </div>
-      </div>
+    <div className="flex flex-col min-h-screen bg-brand-dark text-white font-sans relative z-10">
+      <Navbar />
+      {permissionWarning && <PermissionWarningBanner message={permissionWarning} />}
+      <main className="flex-grow">
+        {/* FIX: Use namespace import 'ReactRouterDOM.Routes'. */}
+        <ReactRouterDOM.Routes>
+          {/* FIX: Use namespace import 'ReactRouterDOM.Route'. */}
+          <ReactRouterDOM.Route path="/" element={<HomePage />} />
+          {/* FIX: Use namespace import 'ReactRouterDOM.Route'. */}
+          <ReactRouterDOM.Route path="/store" element={<StorePage />} />
+          {/* FIX: Use namespace import 'ReactRouterDOM.Route'. */}
+          <ReactRouterDOM.Route path="/store/:productId" element={<ProductDetailPage />} />
+          {/* FIX: Use namespace import 'ReactRouterDOM.Route'. */}
+          <ReactRouterDOM.Route path="/rules" element={<RulesPage />} />
+          {/* FIX: Use namespace import 'ReactRouterDOM.Route'. */}
+          <ReactRouterDOM.Route path="/applies" element={<AppliesPage />} />
+          {/* FIX: Use namespace import 'ReactRouterDOM.Route'. */}
+          <ReactRouterDOM.Route path="/about" element={<AboutUsPage />} />
+          {/* FIX: Use namespace import 'ReactRouterDOM.Route'. */}
+          <ReactRouterDOM.Route path="/applies/:quizId" element={<ProtectedRoute><QuizPage /></ProtectedRoute>} />
+          {/* FIX: Use namespace import 'ReactRouterDOM.Route'. */}
+          <ReactRouterDOM.Route path="/my-applications" element={<ProtectedRoute><MyApplicationsPage /></ProtectedRoute>} />
+          {/* FIX: Use namespace import 'ReactRouterDOM.Route'. */}
+          <ReactRouterDOM.Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+          {/* FIX: Use namespace import 'ReactRouterDOM.Route'. */}
+          <ReactRouterDOM.Route path="/admin" element={<ProtectedRoute permission="admin_panel"><AdminGate><AdminPage /></AdminGate></ProtectedRoute>} />
+          {/* FIX: Use namespace import 'ReactRouterDOM.Route'. */}
+          <ReactRouterDOM.Route path="/health-check" element={<ProtectedRoute permission="_super_admin"><HealthCheckPage /></ProtectedRoute>} />
+        </ReactRouterDOM.Routes>
+      </main>
+      <Footer />
+    </div>
   );
-};
+}
 
-
-function App() {
+const App: React.FC = () => {
   return (
     // FIX: Use namespace import 'ReactRouterDOM.BrowserRouter'.
     <ReactRouterDOM.BrowserRouter>
-      <TranslationsProvider>
-        <LocalizationProvider>
-          <ToastProvider>
-            <ConfigProvider>
-              <AuthProvider>
-                <AdminGateProvider>
-                  <CartProvider>
-                    <AppContent />
-                    <SessionWatcher />
-                  </CartProvider>
-                </AdminGateProvider>
-              </AuthProvider>
-            </ConfigProvider>
-          </ToastProvider>
-        </LocalizationProvider>
-      </TranslationsProvider>
+        <AppProviders>
+            <SessionWatcher />
+            <CosmicBackground />
+            <AppContent />
+        </AppProviders>
     </ReactRouterDOM.BrowserRouter>
   );
-}
+};
 
 export default App;

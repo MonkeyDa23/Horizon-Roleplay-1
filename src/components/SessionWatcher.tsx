@@ -1,8 +1,8 @@
-
+// src/components/SessionWatcher.tsx
 import { useEffect, useRef } from 'react';
-import { useAuth } from '../hooks/useAuth';
-import { useToast } from '../hooks/useToast';
-import { useLocalization } from '../hooks/useLocalization';
+import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
+import { useLocalization } from '../contexts/LocalizationContext';
 import { revalidateSession, ApiError } from '../lib/api';
 
 const SessionWatcher = () => {

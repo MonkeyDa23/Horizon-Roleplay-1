@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { useLocalization } from '../hooks/useLocalization';
-import { useConfig } from '../hooks/useConfig';
+import { useLocalization } from '../contexts/LocalizationContext';
+import { useConfig } from '../contexts/ConfigContext';
 import Modal from '../components/Modal';
-import Logo from '../components/Logo';
 import { Disc3, Gamepad2 } from 'lucide-react';
 import DiscordAnnouncements from '../components/DiscordAnnouncements';
 import SEO from '../components/SEO';
@@ -21,24 +20,24 @@ const HomePage: React.FC = () => {
       <SEO 
         title={`${communityName} - ${t('home')}`}
         description={description}
-        keywords={`roleplay, community, ${communityName.toLowerCase()}, mta, gta, gaming, horizon`}
+        keywords={`roleplay, community, ${communityName.toLowerCase()}, mta, gta, gaming, vixel`}
         image={config.BACKGROUND_IMAGE_URL || config.LOGO_URL}
       />
-      <div className="relative h-[calc(100vh-68px)] flex items-center justify-center overflow-hidden">
+      <div className="relative h-[calc(90vh)] min-h-[600px] flex items-center justify-center overflow-hidden">
         <div 
-          className="absolute inset-0 bg-gradient-to-t from-brand-dark via-brand-dark/80 to-transparent z-10"
+          className="absolute inset-0 bg-gradient-to-t from-background-dark via-background-dark/80 to-transparent z-10"
         ></div>
         
-        <div className="text-center z-20 p-6 animate-slide-up">
-          <h1 className="text-5xl md:text-7xl font-extrabold text-white" style={{ textShadow: '0 0 20px rgba(0, 242, 234, 0.4)' }}>
+        <div className="text-center z-20 p-6 animate-fade-in-up">
+          <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold text-white tracking-tighter" style={{ textShadow: '0 0 40px rgba(0, 169, 255, 0.6), 0 0 15px rgba(0, 242, 234, 0.6)' }}>
             {t('hero_title', { communityName })}
           </h1>
-          <p className="mt-6 text-lg md:text-xl text-gray-300 max-w-3xl mx-auto">
+          <p className="mt-6 text-lg md:text-xl text-text-secondary max-w-3xl mx-auto">
             {t('hero_subtitle')}
           </p>
           <button
             onClick={() => setIsModalOpen(true)}
-            className="mt-10 px-10 py-4 bg-brand-cyan text-brand-dark font-bold text-lg rounded-lg shadow-glow-cyan hover:bg-white hover:scale-105 transform transition-all duration-300 ease-in-out"
+            className="mt-12 px-10 py-4 bg-gradient-to-r from-primary-blue to-accent-cyan text-background-dark font-bold text-lg rounded-xl shadow-glow-blue hover:opacity-90 hover:scale-105 transform transition-all duration-300 ease-in-out"
           >
             {t('join_us')}
           </button>
@@ -55,29 +54,20 @@ const HomePage: React.FC = () => {
             href={config.DISCORD_INVITE_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-4 w-full p-4 bg-blue-500/80 text-white font-bold rounded-lg hover:bg-blue-500 transition-colors duration-300"
+            className="group flex items-center justify-center gap-4 w-full p-4 bg-[#5865F2] text-white font-bold rounded-lg hover:bg-[#4f5bda] transition-all duration-300 transform hover:scale-105"
           >
-            <Disc3 size={24} />
+            <Disc3 size={24} className="transition-transform duration-300 group-hover:rotate-180" />
             <span>{t('join_discord')}</span>
           </a>
           <a
             href={config.MTA_SERVER_URL}
-            className="flex items-center justify-center gap-4 w-full p-4 bg-gray-700 text-white font-bold rounded-lg hover:bg-gray-600 transition-colors duration-300"
+            className="group flex items-center justify-center gap-4 w-full p-4 bg-background-light text-white font-bold rounded-lg hover:bg-border-color transition-all duration-300 transform hover:scale-105"
           >
-            <Gamepad2 size={24} />
+            <Gamepad2 size={24} className="transition-transform duration-300 group-hover:translate-x-1" />
             <span>{t('connect_mta')}</span>
           </a>
         </div>
       </Modal>
-      <style>{`
-        @keyframes slide-up {
-          from { opacity: 0; transform: translateY(30px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-slide-up {
-          animation: slide-up 0.8s ease-out forwards;
-        }
-      `}</style>
     </>
   );
 };

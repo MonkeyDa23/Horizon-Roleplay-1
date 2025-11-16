@@ -65,6 +65,7 @@ export interface AuthContextType {
   login: () => void;
   logout: () => void;
   loading: boolean;
+  isInitialLoading: boolean; // New: For the very first load
   updateUser: (user: User) => void;
   hasPermission: (key: PermissionKey) => boolean;
   permissionWarning: string | null;

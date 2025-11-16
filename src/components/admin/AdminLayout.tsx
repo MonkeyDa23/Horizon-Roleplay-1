@@ -3,8 +3,8 @@ import React from 'react';
 // FIX: Switched to namespace import for react-router-dom to resolve module resolution issues.
 import * as ReactRouterDOM from 'react-router-dom';
 import { AlertTriangle } from 'lucide-react';
-import { useLocalization } from '../../hooks/useLocalization';
-import { useConfig } from '../../hooks/useConfig';
+import { useLocalization } from '../../contexts/LocalizationContext';
+import { useConfig } from '../../contexts/ConfigContext';
 import type { AdminTab } from '../../pages/AdminPage';
 import type { PermissionKey } from '../../types';
 

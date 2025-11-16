@@ -1,7 +1,7 @@
 // src/components/admin/AuditLogPanel.tsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { useLocalization } from '../../hooks/useLocalization';
-import { useToast } from '../../hooks/useToast';
+import { useLocalization } from '../../contexts/LocalizationContext';
+import { useToast } from '../../contexts/ToastContext';
 import { getAuditLogs } from '../../lib/api';
 import type { AuditLogEntry } from '../../types';
 import { Loader2 } from 'lucide-react';

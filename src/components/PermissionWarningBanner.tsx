@@ -3,7 +3,7 @@ import React from 'react';
 // FIX: Switched to namespace import for react-router-dom to resolve module resolution issues.
 import * as ReactRouterDOM from 'react-router-dom';
 import { AlertTriangle } from 'lucide-react';
-import { useLocalization } from '../hooks/useLocalization';
+import { useLocalization } from '../contexts/LocalizationContext';
 
 interface PermissionWarningBannerProps {
     message: string;

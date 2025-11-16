@@ -1,8 +1,8 @@
 // src/components/admin/SubmissionsPanel.tsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { useLocalization } from '../../hooks/useLocalization';
-import { useAuth } from '../../hooks/useAuth';
-import { useToast } from '../../hooks/useToast';
+import { useLocalization } from '../../contexts/LocalizationContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { useToast } from '../../contexts/ToastContext';
 import { getSubmissions, updateSubmissionStatus, getQuizzes, deleteSubmission, checkDiscordApiHealth } from '../../lib/api';
 import type { QuizSubmission, SubmissionStatus, Quiz } from '../../types';
 import Modal from '../Modal';

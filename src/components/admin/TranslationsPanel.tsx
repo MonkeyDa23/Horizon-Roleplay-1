@@ -1,10 +1,7 @@
-
-
-
 // src/components/admin/TranslationsPanel.tsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useLocalization } from '../../hooks/useLocalization';
-import { useToast } from '../../hooks/useToast';
+import { useLocalization } from '../../contexts/LocalizationContext';
+import { useToast } from '../../contexts/ToastContext';
 import { getTranslations, saveTranslations } from '../../lib/api';
 import { translations as fallbackTranslations } from '../../lib/translations';
 import type { Translations } from '../../types';

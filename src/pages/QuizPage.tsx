@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 // FIX: Switched to namespace import for react-router-dom to resolve module resolution issues.
 import * as ReactRouterDOM from 'react-router-dom';
-import { useLocalization } from '../hooks/useLocalization';
-import { useAuth } from '../hooks/useAuth';
-import { useToast } from '../hooks/useToast';
+import { useLocalization } from '../contexts/LocalizationContext';
+import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { getQuizById, addSubmission } from '../lib/api';
 import type { Quiz, Answer, CheatAttempt } from '../types';
 import { CheckCircle, Loader2, ListChecks } from 'lucide-react';
-import { useConfig } from '../hooks/useConfig';
+import { useConfig } from '../contexts/ConfigContext';
 import SEO from '../components/SEO';
 
 const CircularTimer: React.FC<{ timeLeft: number; timeLimit: number }> = ({ timeLeft, timeLimit }) => {
