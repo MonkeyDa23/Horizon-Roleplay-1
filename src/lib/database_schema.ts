@@ -1,4 +1,3 @@
-
 // src/lib/database_schema.ts
 
 export const databaseSchema = `
@@ -200,7 +199,6 @@ BEGIN
     submission_data->'answers', submission_data->'cheatAttempts', submission_data->>'user_highest_role'
   ) RETURNING * INTO new_submission;
   
-  -- FIX: Replaced format() with standard string concatenation to avoid linter/parser errors with '%s'.
   PERFORM public.log_action(
     'New submission by **' || new_submission.username || '** (`' || discord_id_val || '`) for **' || new_submission."quizTitle" || '**.',
     'submissions'
@@ -225,8 +223,9 @@ BEGIN
   UPDATE public.submissions
   SET 
     status = p_new_status,
-    "adminId" = CASE WHEN p_new_status = 'taken' THEN admin_user.id WHEN (p_new_status = 'accepted' OR p_new_status = 'refused') THEN COALESCE("adminId", admin_user.id) ELSE "adminId" END,
-    "adminUsername" = CASE WHEN p_new_status = 'taken' THEN admin_user.username WHEN (p_new_status = 'accepted' OR p_new_status = 'refused') THEN COALESCE("adminUsername", admin_user.username) ELSE "adminUsername" END,
+    -- FIX: Refactored CASE statement to avoid using COALESCE, which may be causing a TS parsing error.
+    "adminId" = CASE WHEN p_new_status = 'taken' THEN admin_user.id WHEN (p_new_status = 'accepted' OR p_new_status = 'refused') AND "adminId" IS NULL THEN admin_user.id ELSE "adminId" END,
+    "adminUsername" = CASE WHEN p_new_status = 'taken' THEN admin_user.username WHEN (p_new_status = 'accepted' OR p_new_status = 'refused') AND "adminUsername" IS NULL THEN admin_user.username ELSE "adminUsername" END,
     reason = CASE WHEN (p_new_status = 'accepted' OR p_new_status = 'refused') THEN p_reason ELSE reason END,
     "updatedAt" = current_timestamp
   WHERE id = p_submission_id
@@ -234,9 +233,8 @@ BEGIN
 
   IF NOT FOUND THEN RAISE EXCEPTION 'Submission not found.'; END IF;
   
-  -- FIX: Replaced format() with standard string concatenation to avoid linter/parser errors with '%s'.
   PERFORM public.log_action(
-    'Submission for **' || submission_record.username || '** (' || submission_record."quizTitle" || ') was updated to **' || upper(p_new_status) || '** by admin ' || submission_record."adminUsername" || '.',
+    'Submission for **' || submission_record.username || '** (' || submission_record."quizTitle" || ') was updated to **' || UPPER(p_new_status) || '** by admin ' || submission_record."adminUsername" || '.',
     'submissions'
   );
   
@@ -252,7 +250,6 @@ BEGIN
   
   DELETE FROM public.submissions WHERE id = p_submission_id RETURNING username, "quizTitle" INTO deleted_submission;
 
-  -- FIX: Replaced format() with standard string concatenation to avoid linter/parser errors with '%s'.
   PERFORM public.log_action(
     'Deleted submission from ' || deleted_submission.username || ' for ' || deleted_submission."quizTitle" || '.',
     'admin'
@@ -301,7 +298,6 @@ BEGIN
     "lastOpenedAt" = CASE WHEN EXCLUDED."isOpen" AND public.quizzes."isOpen" = false THEN current_timestamp ELSE public.quizzes."lastOpenedAt" END
   RETURNING * INTO quiz_record;
 
-  -- FIX: Replaced format() with standard string concatenation to avoid linter/parser errors with '%s'.
   PERFORM public.log_action('Saved quiz: ' || p_quiz_data->>'titleEn', 'admin');
   RETURN quiz_record;
 END;
@@ -332,7 +328,6 @@ BEGIN
     price = EXCLUDED.price, "imageUrl" = EXCLUDED."imageUrl"
   RETURNING * INTO product_record;
   
-  -- FIX: Replaced format() with standard string concatenation to avoid linter/parser errors with '%s'.
   PERFORM public.log_action('Saved product: ' || p_product_data->>'nameEn', 'admin');
   RETURN product_record;
 END;
@@ -400,15 +395,12 @@ BEGIN
             IF key = ANY(allowed_appearance_keys) THEN
                 IF key = 'admin_password' THEN
                     IF new_config->>key IS NULL OR new_config->>key = '' THEN
-                        -- FIX: Correctly use percent signs for format specifiers. Also switched to array_cat for safety.
-                        updates := array_cat(updates, ARRAY[format('%I = NULL', key)]);
+                        updates := array_append(updates, quote_ident(key) || ' = NULL');
                     ELSE
-                        -- FIX: Correctly use percent signs for format specifiers. Also switched to array_cat for safety.
-                        updates := array_cat(updates, ARRAY[format('%I = crypt(%L, gen_salt(''bf''))', key, new_config->>key)]);
+                        updates := array_append(updates, quote_ident(key) || ' = crypt(' || quote_literal(new_config->>key) || ', gen_salt(''bf''))');
                     END IF;
                 ELSE
-                    -- FIX: Correctly use percent signs for format specifiers. Also switched to array_cat for safety.
-                    updates := array_cat(updates, ARRAY[format('%I = %L', key, new_config->>key)]);
+                    updates := array_append(updates, quote_ident(key) || ' = ' || quote_literal(new_config->>key));
                 END IF;
             END IF;
         END LOOP;
@@ -417,8 +409,7 @@ BEGIN
     IF public.has_permission(public.get_user_id(), 'admin_notifications') THEN
         FOR key IN SELECT jsonb_object_keys(new_config) LOOP
             IF key = ANY(allowed_notif_keys) THEN
-                -- FIX: Correctly use percent signs for format specifiers. Also switched to array_cat for safety.
-                updates := array_cat(updates, ARRAY[format('%I = %L', key, new_config->>key)]);
+                updates := array_append(updates, quote_ident(key) || ' = ' || quote_literal(new_config->>key));
             END IF;
         END LOOP;
     END IF;
@@ -448,7 +439,6 @@ $$;
 
 CREATE OR REPLACE FUNCTION public.log_page_visit(p_page_name text) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
-    -- FIX: Replaced format() with standard string concatenation to avoid linter/parser errors with '%s'.
     PERFORM public.log_action('Accessed admin page: **' || p_page_name || '**', 'admin');
 END;
 $$;
@@ -471,7 +461,6 @@ BEGIN
     IF NOT FOUND THEN RAISE EXCEPTION 'Target user not found.'; END IF;
     
     INSERT INTO public.bans (user_id, banned_by, reason, expires_at) VALUES (p_target_user_id, public.get_user_id(), p_reason, expires_timestamp);
-    -- FIX: Replaced format() with standard string concatenation to avoid linter/parser errors with '%s'.
     PERFORM public.log_action('Banned user **' || target_user_record.username || '**. Reason: ' || p_reason || '. Duration: ' || COALESCE(p_duration_hours::text, 'Permanent') || ' hours.', 'bans');
 END;
 $$;
@@ -484,7 +473,6 @@ BEGIN
   UPDATE public.profiles SET is_banned = false, ban_reason = NULL, ban_expires_at = NULL WHERE id = p_target_user_id RETURNING username INTO target_user_record;
   IF NOT FOUND THEN RAISE EXCEPTION 'Target user not found.'; END IF;
   UPDATE public.bans SET is_active = false, unbanned_by = public.get_user_id(), unbanned_at = current_timestamp WHERE user_id = p_target_user_id AND is_active = true;
-  -- FIX: Replaced format() with standard string concatenation to avoid linter/parser errors with '%s'.
   PERFORM public.log_action('Unbanned user **' || target_user_record.username || '**.', 'bans');
 END;
 $$;
@@ -494,7 +482,6 @@ BEGIN
     IF NOT public.has_permission(public.get_user_id(), 'admin_permissions') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
     INSERT INTO public.role_permissions (role_id, permissions) VALUES (p_role_id, p_permissions)
     ON CONFLICT (role_id) DO UPDATE SET permissions = EXCLUDED.permissions;
-    -- FIX: Replaced format() with standard string concatenation to avoid linter/parser errors with '%s'.
     PERFORM public.log_action('Updated permissions for role ID ' || p_role_id || '.', 'admin');
 END;
 $$;
@@ -518,4 +505,4 @@ $$;
 
 
 COMMIT;
-`;
+`
