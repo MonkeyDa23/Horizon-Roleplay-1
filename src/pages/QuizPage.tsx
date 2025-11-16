@@ -301,7 +301,7 @@ const QuizPage: React.FC = () => {
                   value={currentAnswer}
                   // FIX: Use e.currentTarget.value to correctly access the textarea's value.
                   onChange={(e) => setCurrentAnswer(e.currentTarget.value)}
-                  className="w-full bg-brand-light-blue text-white p-4 rounded-md border border-gray-600 focus:ring-2 focus:ring-brand-cyan focus:border-brand-cyan transition-colors"
+                  className="w-full bg-background-light text-text-primary p-4 rounded-md border border-gray-600 focus:ring-2 focus:ring-brand-cyan focus:border-brand-cyan transition-colors"
                   rows={6}
                   placeholder="Type your answer here..."
                 />

@@ -44,6 +44,9 @@ export const translations: Translations = {
   our_mission: { ar: 'مهمتنا', en: 'Our Mission' },
   mission_text: { ar: 'مهمتنا هي توفير بيئة لعب أدوار غامرة وعالية الجودة حيث يمكن للاعبين إنشاء قصصهم وشخصياتهم الفريدة.', en: 'Our mission is to provide an immersive, high-quality roleplaying environment where players can create their own unique stories and characters.' },
   join_community: { ar: 'انضم لمجتمعنا على ديسكورد', en: 'Join Our Discord Community' },
+  server_management: { ar: 'إدارة السيرفر', en: 'Server Management' },
+  our_servers: { ar: 'سيرفراتنا', en: 'Our Servers' },
+  meet_the_team: { ar: 'تعرف على فريق العمل', en: 'Meet The Team' },
   
   // Discord Embed
   discord_online: { ar: 'متصل', en: 'Online' },
@@ -97,6 +100,7 @@ export const translations: Translations = {
   submission_management: { ar: 'إدارة طلبات التقديم', en: 'Application Submissions' },
   rules_management: { ar: 'إدارة القوانين', en: 'Rules Management' },
   store_management: { ar: 'إدارة المتجر', en: 'Store Management' },
+  staff_management: { ar: 'إدارة الفريق', en: 'Staff Management' },
   notifications_management: { ar: 'إدارة الإشعارات', en: 'Notifications Management' },
   appearance_settings: { ar: 'إعدادات المظهر', en: 'Appearance Settings' },
   translations_management: { ar: 'إدارة الترجمات', en: 'Translations Management' },
@@ -183,6 +187,16 @@ export const translations: Translations = {
   confirm_ban: { ar: 'تأكيد الحظر', en: 'Confirm Ban' },
   banned_indefinitely: {ar: 'محظور بشكل دائم', en: 'Banned indefinitely'},
   banned_until: {ar: 'محظور حتى {date}', en: 'Banned until {date}'},
+  
+  // Admin Page - Staff Management
+  add_staff_member: { ar: 'إضافة عضو فريق', en: 'Add Staff Member' },
+  staff_role_en: { ar: 'الرتبة (انجليزي)', en: 'Role (English)' },
+  staff_role_ar: { ar: 'الرتبة (عربي)', en: 'Role (Arabic)' },
+  discord_id_to_add: { ar: 'معرف ديسكورد للعضو', en: 'Member\'s Discord ID' },
+  find_user: { ar: 'ابحث عن المستخدم', en: 'Find User' },
+  user_not_registered: { ar: 'المستخدم غير موجود أو لم يسجل دخوله للموقع بعد.', en: 'User not found or has not logged into the site yet.' },
+  add_to_staff: { ar: 'أضف للفريق', en: 'Add to Staff' },
+  drag_to_reorder: { ar: 'اسحب وأفلت لإعادة الترتيب', en: 'Drag and drop to reorder' },
 
   // Admin Page - Password Gate
   admin_gate_title: { ar: 'التحقق الأمني', en: 'Security Check' },

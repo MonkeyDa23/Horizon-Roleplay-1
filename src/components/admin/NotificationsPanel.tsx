@@ -121,7 +121,7 @@ const NotificationsPanel: React.FC = () => {
                         // FIX: Use `e.currentTarget.value` for better React event handling.
                         onChange={e => setTargetId(e.currentTarget.value)}
                         placeholder={configuredChannelId || `${t('target_id')}...`}
-                        className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 font-mono text-sm"
+                        className="w-full bg-background-light text-text-primary p-2 rounded border border-gray-600 font-mono text-sm"
                     />
                     <button onClick={handleSendTest} disabled={isTesting} className="bg-blue-600 text-white font-bold p-2 rounded-md hover:bg-blue-500 w-28 flex justify-center items-center">
                         {isTesting ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
@@ -139,7 +139,7 @@ const NotificationsPanel: React.FC = () => {
         <div>
             <label className="block text-md font-semibold text-white mb-1">{t(labelKey)}</label>
             <p className="text-sm text-gray-400 mb-2">{t(descKey)}</p>
-            <input type="text" value={value || ''} onChange={(e) => onChange(e.currentTarget.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan font-mono text-sm" />
+            <input type="text" value={value || ''} onChange={(e) => onChange(e.currentTarget.value)} className="w-full bg-background-light text-text-primary p-2 rounded border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan font-mono text-sm" />
         </div>
     );
 
@@ -170,14 +170,14 @@ const NotificationsPanel: React.FC = () => {
                                             value={allTranslations[`notification_${msg.type}_title`]?.en || ''}
                                             onChange={(e) => handleTranslationChange(`notification_${msg.type}_title`, 'en', e.target.value)}
                                             placeholder="Title (English)"
-                                            className="w-full bg-brand-light-blue p-2 rounded border border-gray-600 mb-2"
+                                            className="w-full bg-background-light text-text-primary p-2 rounded border border-gray-600 mb-2"
                                         />
                                         <textarea
                                             value={allTranslations[`notification_${msg.type}_body`]?.en || ''}
                                             onChange={(e) => handleTranslationChange(`notification_${msg.type}_body`, 'en', e.target.value)}
                                             placeholder="Body (English)"
                                             rows={3}
-                                            className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"
+                                            className="w-full bg-background-light text-text-primary p-2 rounded border border-gray-600"
                                         />
                                     </div>
                                 ))}

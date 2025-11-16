@@ -4,7 +4,7 @@ import { env } from '../env';
 import type { 
   AppConfig, Product, Quiz, QuizSubmission, RuleCategory, Translations, 
   User, DiscordRole, UserLookupResult,
-  MtaServerStatus, AuditLogEntry, DiscordAnnouncement, RolePermission, DiscordWidget
+  MtaServerStatus, AuditLogEntry, DiscordAnnouncement, RolePermission, DiscordWidget, StaffMember
 } from '../types';
 
 // --- BOT API HELPERS ---
@@ -290,6 +290,13 @@ export const updateSubmissionStatus = async (submissionId: string, status: 'take
 export const getGuildRoles = async (): Promise<DiscordRole[]> => callBotApi<DiscordRole[]>('/guild-roles');
 export const getRolePermissions = async (): Promise<RolePermission[]> => handleResponse(await supabase.from('role_permissions').select('*'));
 export const saveRolePermissions = async (rolePermission: RolePermission): Promise<void> => handleResponse(await supabase.rpc('save_role_permissions', { p_role_id: rolePermission.role_id, p_permissions: rolePermission.permissions }));
+
+// =============================================
+// STAFF API (NEW)
+// =============================================
+export const getStaff = async (): Promise<StaffMember[]> => handleResponse(await supabase.rpc('get_staff'));
+export const saveStaff = async (staff: any[]): Promise<void> => handleResponse(await supabase.rpc('save_staff', { p_staff_data: staff }));
+
 
 // =============================================
 // ADMIN & AUDIT LOG API

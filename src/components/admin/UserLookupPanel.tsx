@@ -82,7 +82,7 @@ const UserLookupPanel: React.FC = () => {
                         // FIX: Use e.currentTarget.value to correctly access the input's value.
                         onChange={(e) => setDiscordId(e.currentTarget.value)}
                         placeholder={t('discord_id_placeholder')}
-                        className="w-full bg-brand-light-blue p-3 rounded-md border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan"
+                        className="w-full bg-background-light text-text-primary p-3 rounded-md border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan"
                     />
                     <button onClick={handleSearch} disabled={isLoading || !discordId} className="bg-brand-cyan text-brand-dark font-bold py-3 px-6 rounded-md hover:bg-white transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-wait">
                         {isLoading ? <Loader2 className="animate-spin" /> : <Search />}
@@ -129,12 +129,12 @@ const UserLookupPanel: React.FC = () => {
                     <div>
                         <label className="block font-semibold mb-1">{t('reason')}</label>
                         {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
-                        <input type="text" value={banReason} onChange={e => setBanReason(e.currentTarget.value)} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
+                        <input type="text" value={banReason} onChange={e => setBanReason(e.currentTarget.value)} className="w-full bg-background-light text-text-primary p-2 rounded border border-gray-600" />
                     </div>
                     <div>
                         <label className="block font-semibold mb-1">{t('duration')} (in hours)</label>
                         {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
-                        <input type="number" onChange={e => setBanDuration(parseInt(e.currentTarget.value) || null)} placeholder="Leave empty for permanent" className="w-full bg-brand-light-blue p-2 rounded border border-gray-600" />
+                        <input type="number" onChange={e => setBanDuration(parseInt(e.currentTarget.value) || null)} placeholder="Leave empty for permanent" className="w-full bg-background-light text-text-primary p-2 rounded border border-gray-600" />
                     </div>
                      <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4">
                         <button onClick={() => setBanModalOpen(false)} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button>

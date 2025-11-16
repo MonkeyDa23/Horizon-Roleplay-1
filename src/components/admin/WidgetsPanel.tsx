@@ -123,17 +123,17 @@ const WidgetsPanel: React.FC = () => {
                         <div>
                             <label className="block font-semibold mb-1">Server Name</label>
                             {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
-                            <input type="text" value={editingWidget.server_name} onChange={e => setEditingWidget({...editingWidget, server_name: e.currentTarget.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
+                            <input type="text" value={editingWidget.server_name} onChange={e => setEditingWidget({...editingWidget, server_name: e.currentTarget.value})} className="w-full bg-background-light text-text-primary p-2 rounded border border-gray-600"/>
                         </div>
                          <div>
                             <label className="block font-semibold mb-1">Server ID</label>
                             {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
-                            <input type="text" value={editingWidget.server_id} onChange={e => setEditingWidget({...editingWidget, server_id: e.currentTarget.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
+                            <input type="text" value={editingWidget.server_id} onChange={e => setEditingWidget({...editingWidget, server_id: e.currentTarget.value})} className="w-full bg-background-light text-text-primary p-2 rounded border border-gray-600"/>
                         </div>
                          <div>
                             <label className="block font-semibold mb-1">Invite URL</label>
                             {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
-                            <input type="text" value={editingWidget.invite_url} onChange={e => setEditingWidget({...editingWidget, invite_url: e.currentTarget.value})} className="w-full bg-brand-light-blue p-2 rounded border border-gray-600"/>
+                            <input type="text" value={editingWidget.invite_url} onChange={e => setEditingWidget({...editingWidget, invite_url: e.currentTarget.value})} className="w-full bg-background-light text-text-primary p-2 rounded border border-gray-600"/>
                         </div>
                         <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4">
                             <button onClick={() => setEditingWidget(null)} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button>

@@ -32,6 +32,7 @@ export type PermissionKey =
   | 'admin_quizzes'
   | 'admin_rules'
   | 'admin_store'
+  | 'admin_staff'
   | 'admin_translations'
   | 'admin_appearance'
   | 'admin_audit_log'
@@ -190,6 +191,17 @@ export interface DiscordWidget {
     invite_url: string;
     position: number;
 }
+
+export interface StaffMember {
+  id: string; // staff table id
+  user_id: string; // profiles table id
+  role_key: string;
+  position: number;
+  username: string;
+  avatar_url: string;
+  discord_id: string;
+}
+
 
 export interface AppConfig {
     COMMUNITY_NAME: string;

@@ -23,6 +23,7 @@ export const PERMISSIONS: { [key in PermissionKey]: string } = {
   admin_quizzes: 'Allow user to create, edit, and delete application forms (quizzes).',
   admin_rules: 'Allow user to edit the server rules.',
   admin_store: 'Allow user to manage items in the store.',
+  admin_staff: 'Allow user to add, remove, and reorder staff members on the "About Us" page.',
   admin_translations: 'Allow user to edit all website text and translations.',
   admin_notifications: 'Allow user to manage automated Discord notifications and messages.',
   admin_appearance: 'Allow user to change site-wide settings like name, logo, and theme.',
