@@ -57,6 +57,8 @@ DROP FUNCTION IF EXISTS public.get_user_id();
 DROP FUNCTION IF EXISTS public.delete_quiz(uuid);
 DROP FUNCTION IF EXISTS public.delete_product(uuid);
 DROP FUNCTION IF EXISTS public.verify_admin_password(text);
+DROP VIEW IF EXISTS private.user_roles_view;
+
 
 -- =================================================================
 -- 2. INITIAL SETUP & EXTENSIONS
@@ -115,29 +117,40 @@ CREATE TABLE public.bans ( id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_i
 CREATE TABLE public.discord_widgets ( id uuid PRIMARY KEY DEFAULT gen_random_uuid(), server_name text NOT NULL, server_id text NOT NULL, invite_url text NOT NULL, position int NOT NULL );
 
 -- =================================================================
--- 4. HELPER & RPC FUNCTIONS (DEFINED BEFORE RLS)
+-- 4. RLS-BYPASS VIEW (CRITICAL FIX FOR RECURSION)
+-- =================================================================
+CREATE VIEW private.user_roles_view AS
+  SELECT id, roles FROM public.profiles;
+
+-- =================================================================
+-- 5. HELPER & RPC FUNCTIONS (DEFINED BEFORE RLS)
 -- =================================================================
 CREATE OR REPLACE FUNCTION public.get_user_id() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT auth.uid(); $$;
 
 CREATE OR REPLACE FUNCTION public.has_permission(p_user_id uuid, p_permission_key text)
-RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public
+RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, private
 AS $$
-DECLARE user_permissions text[];
+DECLARE
+    user_permissions text[];
 BEGIN
     IF p_user_id IS NULL THEN RETURN false; END IF;
-    -- FIX: In the `has_permission` SQL function, refactored the `jsonb_array_elements` and `unnest` calls to use standard table and column aliasing (`AS r` and `AS p`). The previous syntax `AS r(role_obj)` and `AS p(permission)` is valid in PostgreSQL but can be misinterpreted by TypeScript's parser as a function call on a string, likely causing the erroneous error message.
-    SELECT COALESCE(array_agg(DISTINCT p.unnest), '{}') INTO user_permissions
-    FROM public.profiles prof
-    CROSS JOIN jsonb_array_elements(prof.roles) AS r
-    JOIN public.role_permissions rp ON rp.role_id = r.value->>'id'
-    CROSS JOIN unnest(rp.permissions) AS p WHERE prof.id = p_user_id;
+
+    -- Query the private view which bypasses RLS on the profiles table, preventing recursion.
+    SELECT COALESCE(array_agg(DISTINCT p.permission), '{}')
+    INTO user_permissions
+    FROM private.user_roles_view prof
+    CROSS JOIN jsonb_array_elements(prof.roles) AS r(role_obj)
+    JOIN public.role_permissions rp ON rp.role_id = r.role_obj->>'id'
+    CROSS JOIN unnest(rp.permissions) AS p(permission)
+    WHERE prof.id = p_user_id;
+
     RETURN ('_super_admin' = ANY(user_permissions) OR p_permission_key = ANY(user_permissions));
 END;
 $$;
 
 
 -- =================================================================
--- 5. ROW LEVEL SECURITY (RLS)
+-- 6. ROW LEVEL SECURITY (RLS)
 -- =================================================================
 ALTER TABLE public.config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
@@ -157,7 +170,15 @@ CREATE POLICY "Allow public read access" ON public.quizzes FOR SELECT USING (tru
 CREATE POLICY "Allow public read access" ON public.rules FOR SELECT USING (true);
 CREATE POLICY "Allow public read access" ON public.translations FOR SELECT USING (true);
 CREATE POLICY "Allow public read access" ON public.discord_widgets FOR SELECT USING (true);
-CREATE POLICY "Users can read their own profile" ON public.profiles FOR SELECT USING (id = public.get_user_id());
+
+-- Profiles Policies (REFINED to prevent recursion)
+CREATE POLICY "Allow individual user full access to their own profile" ON public.profiles FOR ALL
+  USING (id = auth.uid())
+  WITH CHECK (id = auth.uid());
+CREATE POLICY "Allow admins full access to all profiles" ON public.profiles FOR ALL
+  USING (public.has_permission(auth.uid(), '_super_admin'))
+  WITH CHECK (public.has_permission(auth.uid(), '_super_admin'));
+
 CREATE POLICY "Users can access their own submissions" ON public.submissions FOR ALL USING (user_id = public.get_user_id());
 
 CREATE POLICY "Admins can manage config" ON public.config FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_appearance') OR public.has_permission(public.get_user_id(), 'admin_notifications'));
@@ -169,11 +190,10 @@ CREATE POLICY "Admins can manage bans" ON public.bans FOR ALL USING (public.has_
 CREATE POLICY "Admins can manage role permissions" ON public.role_permissions FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_permissions'));
 CREATE POLICY "Admins can manage discord widgets" ON public.discord_widgets FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_widgets'));
 CREATE POLICY "Admins can read audit log" ON public.audit_log FOR SELECT USING (public.has_permission(public.get_user_id(), 'admin_audit_log'));
-CREATE POLICY "Admins can manage all profiles" ON public.profiles FOR ALL USING (public.has_permission(public.get_user_id(), '_super_admin'));
 CREATE POLICY "Admins can manage submissions" ON public.submissions FOR ALL USING (public.has_permission(public.get_user_id(), 'admin_submissions'));
 
 -- =================================================================
--- 6. RPC FUNCTIONS
+-- 7. RPC FUNCTIONS
 -- =================================================================
 CREATE OR REPLACE FUNCTION public.get_config() RETURNS json LANGUAGE sql STABLE AS $$ SELECT row_to_json(c) FROM public.config c WHERE id = 1; $$;
 
@@ -234,7 +254,7 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'Submission not found.'; END IF;
   
   PERFORM public.log_action(
-    'Submission for **' || submission_record.username || '** (' || submission_record."quizTitle" || ') was updated to **' || UPPER(p_new_status) || '** by admin ' || submission_record."adminUsername" || '.',
+    'Submission for **' || submission_record.username || '** (' || submission_record."quizTitle" || ') was updated to **' || upper(p_new_status) || '** by admin ' || submission_record."adminUsername" || '.',
     'submissions'
   );
   
