@@ -38,6 +38,9 @@ interface EditingQuizData {
     descriptionKey: string;
     descriptionEn: string;
     descriptionAr: string;
+    instructionsKey: string;
+    instructionsEn: string;
+    instructionsAr: string;
     isOpen: boolean;
     allowedTakeRoles: string[];
     logoUrl?: string;
@@ -75,6 +78,9 @@ const QuizzesPanel: React.FC = () => {
             descriptionKey: `quiz_${newId}_desc`,
             descriptionEn: '',
             descriptionAr: '',
+            instructionsKey: `quiz_${newId}_instructions`,
+            instructionsEn: t('quiz_default_instructions', {}),
+            instructionsAr: t('quiz_default_instructions', {}),
             isOpen: false,
             questions: [],
             allowedTakeRoles: [],
@@ -92,6 +98,9 @@ const QuizzesPanel: React.FC = () => {
             descriptionKey: quiz.descriptionKey,
             descriptionEn: translations[quiz.descriptionKey]?.en || '',
             descriptionAr: translations[quiz.descriptionKey]?.ar || '',
+            instructionsKey: quiz.instructionsKey || `quiz_${quiz.id}_instructions`,
+            instructionsEn: translations[quiz.instructionsKey]?.en || t('quiz_default_instructions', {}),
+            instructionsAr: translations[quiz.instructionsKey]?.ar || t('quiz_default_instructions', {}),
             isOpen: quiz.isOpen,
             allowedTakeRoles: quiz.allowedTakeRoles || [],
             logoUrl: quiz.logoUrl,
@@ -222,6 +231,13 @@ const QuizzesPanel: React.FC = () => {
                         <label className="block mb-1 font-semibold text-gray-300">{t('description_ar')}</label>
                         {/* FIX: Use e.currentTarget.value to correctly access the textarea's value. */}
                         <textarea dir="rtl" value={editingQuiz.descriptionAr} onChange={(e) => setEditingQuiz({ ...editingQuiz, descriptionAr: e.currentTarget.value })} className="vixel-input h-24" />
+                    </div>
+                    <div className="border-t border-brand-light-blue/50 pt-4">
+                        <label className="block mb-1 font-semibold text-gray-300">{t('quiz_instructions')}</label>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <textarea placeholder={t('text_en')} value={editingQuiz.instructionsEn} onChange={(e) => setEditingQuiz({ ...editingQuiz, instructionsEn: e.currentTarget.value })} className="vixel-input h-32" />
+                            <textarea dir="rtl" placeholder={t('text_ar')} value={editingQuiz.instructionsAr} onChange={(e) => setEditingQuiz({ ...editingQuiz, instructionsAr: e.currentTarget.value })} className="vixel-input h-32" />
+                        </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>

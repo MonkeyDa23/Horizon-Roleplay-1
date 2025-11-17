@@ -257,12 +257,9 @@ const QuizPage: React.FC = () => {
                     <p className="text-lg text-text-secondary mb-8">{t(quiz.descriptionKey)}</p>
                     <div className="bg-brand-dark p-6 rounded-lg border border-border-color text-start mb-8">
                         <h2 className="text-2xl font-bold text-primary-blue mb-4">{t('quiz_rules')}</h2>
-                        <ul className="list-disc list-inside space-y-2 text-text-primary">
-                            <li>You must answer all questions.</li>
-                            <li>Each question has a time limit.</li>
-                            <li>Switching tabs or leaving the page will be logged as a cheat attempt.</li>
-                            <li>Ensure you have enough time before starting.</li>
-                        </ul>
+                        <div className="whitespace-pre-wrap text-text-primary leading-relaxed">
+                            {t(quiz.instructionsKey)}
+                        </div>
                     </div>
                     <div className="flex justify-center mb-8">
                         {env.VITE_HCAPTCHA_SITE_KEY ? (

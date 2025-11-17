@@ -1,6 +1,9 @@
 // supabase/functions/verify-captcha/index.ts
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 
+// FIX: Declare 'Deno' to inform TypeScript of its existence in the Supabase Edge Function environment.
+declare const Deno: any;
+
 // FIX: Cast Deno to 'any' to resolve TypeScript error about missing 'env' property.
 // This can happen in environments where Deno types are not automatically recognized.
 const HCAPTCHA_SECRET_KEY = (Deno as any).env.get('HCAPTCHA_SECRET_KEY')

@@ -75,7 +75,7 @@ export interface AuthContextType {
 }
 
 export interface UserLookupResult {
-    id: string;
+    id: string | null; // Can be null if user hasn't logged in yet
     // FIX: Added missing `discordId` property. The lookupUser API returns this field.
     discordId: string;
     username: string;
@@ -96,12 +96,20 @@ export interface RolePermission {
 // =============================================
 // STORE & CART
 // =============================================
+export interface ProductCategory {
+  id: string;
+  nameKey: string;
+  position: number;
+  products: Product[];
+}
+
 export interface Product {
   id: string;
   nameKey: string;
   descriptionKey: string;
   price: number;
   imageUrl: string;
+  category_id: string | null;
 }
 
 export interface CartItem extends Product {
@@ -162,6 +170,7 @@ export interface Quiz {
   id: string;
   titleKey: string;
   descriptionKey: string;
+  instructionsKey: string;
   questions: QuizQuestion[];
   isOpen: boolean;
   allowedTakeRoles?: string[];

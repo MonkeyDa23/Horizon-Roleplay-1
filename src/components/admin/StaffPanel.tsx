@@ -5,7 +5,7 @@ import { useToast } from '../../contexts/ToastContext';
 import { getStaff, saveStaff, lookupUser } from '../../lib/api';
 import { useTranslations } from '../../contexts/TranslationsContext';
 import type { StaffMember, UserLookupResult } from '../../types';
-import { Loader2, Plus, GripVertical, Trash2, Search, ChevronUp, ChevronDown } from 'lucide-react';
+import { Loader2, Plus, GripVertical, Trash2, Search, ChevronUp, ChevronDown, Info } from 'lucide-react';
 import Modal from '../Modal';
 
 // Type for the staff member being edited/created in the local state
@@ -83,11 +83,7 @@ const StaffPanel: React.FC = () => {
         setLookupError(null);
         try {
             const result = await lookupUser(lookupDiscordId);
-            if (!result.id) {
-                setLookupError(t('user_not_registered'));
-            } else {
-                setLookupResult(result);
-            }
+            setLookupResult(result);
         } catch (error) {
             setLookupError((error as Error).message);
         } finally {
@@ -205,18 +201,26 @@ const StaffPanel: React.FC = () => {
                             </div>
                         </div>
                         {lookupResult ? (
-                            <div className="p-4 bg-brand-dark rounded-lg border border-brand-light-blue flex items-center gap-4">
-                                <img src={lookupResult.avatar} alt={lookupResult.username} className="w-16 h-16 rounded-full" />
-                                <div>
-                                    <p className="text-xl font-bold text-white">{lookupResult.username}</p>
-                                    <p className="text-sm text-gray-400">ID: {lookupResult.id}</p>
+                            <>
+                                <div className="p-4 bg-brand-dark rounded-lg border border-brand-light-blue flex items-center gap-4">
+                                    <img src={lookupResult.avatar} alt={lookupResult.username} className="w-16 h-16 rounded-full" />
+                                    <div>
+                                        <p className="text-xl font-bold text-white">{lookupResult.username}</p>
+                                        <p className="text-sm text-gray-400">ID: {lookupResult.discordId}</p>
+                                    </div>
                                 </div>
-                            </div>
+                                {!lookupResult.id && (
+                                     <div className="p-3 bg-yellow-500/10 text-yellow-300 text-sm rounded-md flex items-start gap-3">
+                                        <Info size={20} className="flex-shrink-0 mt-0.5" />
+                                        <span>{t('user_found_but_not_registered')}</span>
+                                    </div>
+                                )}
+                            </>
                         ) : lookupError && (
                              <p className="text-yellow-400 text-sm p-2 bg-yellow-500/10 rounded-md">{lookupError}</p>
                         )}
                         
-                        {lookupResult && (
+                        {lookupResult && lookupResult.id && (
                             <div className="pt-4 border-t border-brand-light-blue/50 space-y-4">
                                  <div>
                                     <label className="block font-semibold mb-1">{t('staff_role_en')}</label>
@@ -231,7 +235,7 @@ const StaffPanel: React.FC = () => {
 
                         <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4">
                             <button onClick={closeAddModal} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button>
-                            <button onClick={handleAddToStaff} disabled={!lookupResult || !newStaffRoleEn} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white disabled:opacity-50">
+                            <button onClick={handleAddToStaff} disabled={!lookupResult || !newStaffRoleEn || !lookupResult.id} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white disabled:opacity-50">
                                 {t('add_to_staff')}
                             </button>
                         </div>

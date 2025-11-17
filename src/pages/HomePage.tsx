@@ -3,7 +3,6 @@ import { useLocalization } from '../contexts/LocalizationContext';
 import { useConfig } from '../contexts/ConfigContext';
 import Modal from '../components/Modal';
 import { Disc3, Gamepad2 } from 'lucide-react';
-import DiscordAnnouncements from '../components/DiscordAnnouncements';
 import SEO from '../components/SEO';
 
 const HomePage: React.FC = () => {
@@ -42,10 +41,6 @@ const HomePage: React.FC = () => {
             {t('join_us')}
           </button>
         </div>
-      </div>
-
-      <div className="container mx-auto px-6 py-16 z-10 relative">
-        <DiscordAnnouncements />
       </div>
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={t('join_modal_title')}>

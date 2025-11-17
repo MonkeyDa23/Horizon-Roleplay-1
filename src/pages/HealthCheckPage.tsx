@@ -94,14 +94,31 @@ const HealthCheckPage: React.FC = () => {
                     <p className="text-center text-gray-400 mb-12">{t('health_check_desc')}</p>
                     
                     <div className="space-y-8">
+                         <div className="bg-brand-dark-blue p-6 rounded-lg border-2 border-brand-light-blue shadow-lg">
+                            <h2 className="text-2xl font-bold text-brand-cyan mb-3">Architecture Overview</h2>
+                            <p className="text-gray-300 mb-6">{t('health_check_arch_desc')}</p>
+                            <div className="flex items-center justify-center gap-1 md:gap-2 flex-wrap p-4 bg-brand-dark rounded-lg text-center">
+                                <div className="flex flex-col items-center p-2"><User size={28} /><span className="text-xs mt-1">User</span></div>
+                                <ArrowRight className="text-gray-500" />
+                                <div className="flex flex-col items-center p-2"><Server size={28} /><span className="text-xs mt-1">Website<br/>(React/Proxy)</span></div>
+                                <ArrowRight className="text-gray-500" />
+                                <div className="flex flex-col items-center p-2"><Bot size={28} /><span className="text-xs mt-1">Your Bot<br/>(Node.js)</span></div>
+                                <ArrowRight className="text-gray-500" />
+                                <div className="flex flex-col items-center p-2"><svg className="w-7 h-7" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>Discord</title><path fill="currentColor" d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4464.8257-.698 1.3328a18.384 18.384 0 00-8.6248 0 15.3423 15.3423 0 00-.6979-1.3328.0741.0741 0 00-.0785-.0371A19.7913 19.7913 0 003.683 4.3698a.0741.0741 0 00-.0371.1075 19.9456 19.9456 0 00-1.6368 7.5561.0741.0741 0 00.043.0842 21.054 21.054 0 005.1883 2.532.0741.0741 0 00.0882-.0276 16.592 16.592 0 00.9592-2.1558.0741.0741 0 00-.0276-.0882 17.0182 17.0182 0 01-2.4795-1.1292.0741.0741 0 01-.0148-.1011 16.3233 16.3233 0 01.2384-2.2643.0741.0741 0 01.0829-.0494 1.7431 1.7431 0 01.1011.0288 17.4363 17.4363 0 004.9123 1.6368.0741.0741 0 00.0882-.0057 18.4913 18.4913 0 008.6191 0 .0741.0741 0 00.0882.0057 17.3986 17.3986 0 004.918-.1.0741.0741 0 01.0785.0494 16.5413 16.5413 0 01.2384 2.2643.0741.0741 0 01-.0148.1011 17.032 17.032 0 01-2.4795 1.1292.0741.0741 0 00-.0276.0882 16.4571 16.4571 0 00.9592 2.1558.0741.0741 0 00.0882.0276 21.054 21.054 0 005.1883-2.532.0741.0741 0 00.043-.0842 19.9456 19.9456 0 00-1.6368-7.5561.0741.0741 0 00-.0371-.1075zM8.02 15.3312c-1.7259 0-3.1212-1.6368-3.1212-3.6484s1.3953-3.6484 3.1212-3.6484c1.7259 0 3.1212 1.6368 3.1212 3.6484s-1.3953 3.6484-3.1212 3.6484zm7.95-3.6484c0-2.0116 1.3953-3.6484 3.1212-3.6484c1.7259 0 3.1212 1.6368 3.1212 3.6484s-1.3953 3.6484-3.1212 3.6484c-1.7259 0-3.1212-1.6368-3.1212-3.6484z"/></svg><span className="text-xs mt-1">Discord<br/>API</span></div>
+                            </div>
+                        </div>
+
                         <div className="bg-brand-dark-blue p-6 rounded-lg border-2 border-brand-light-blue shadow-lg">
-                            <h2 className="text-2xl font-bold text-brand-cyan mb-3">Step 1: Frontend Environment</h2>
-                            <p className="text-gray-300 mb-4">Checks if the frontend has the necessary variables from your `.env` file to connect to Supabase and for the proxy to function.</p>
+                            <h2 className="text-2xl font-bold text-brand-cyan mb-3">Step 1: Frontend & hCaptcha Setup</h2>
+                            <p className="text-gray-300 mb-4">Checks if the frontend has the necessary variables from your `.env` file to connect to Supabase and show the captcha.</p>
                             <div className="space-y-2">
                                 <ResultItem label="VITE_SUPABASE_URL" value={env.VITE_SUPABASE_URL} good={!!env.VITE_SUPABASE_URL && env.VITE_SUPABASE_URL !== 'YOUR_SUPABASE_URL'} />
                                 <ResultItem label="VITE_SUPABASE_ANON_KEY" value={env.VITE_SUPABASE_ANON_KEY} good={!!env.VITE_SUPABASE_ANON_KEY && env.VITE_SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY'} />
-                                <ResultItem label="VITE_DISCORD_BOT_URL" value={env.VITE_DISCORD_BOT_URL} good={!!env.VITE_DISCORD_BOT_URL} />
-                                <ResultItem label="VITE_DISCORD_BOT_API_KEY" value={"Managed by Server Proxy"} good={true} />
+                                <ResultItem label="VITE_HCAPTCHA_SITE_KEY" value={env.VITE_HCAPTCHA_SITE_KEY} good={!!env.VITE_HCAPTCHA_SITE_KEY} />
+                            </div>
+                             <div className="mt-4 p-3 rounded-md bg-blue-500/10 border border-blue-500/30">
+                                <h4 className="font-bold text-blue-300 flex items-center gap-2"><HelpCircle size={18} /> Important: hCaptcha Secret Key</h4>
+                                <p className="text-sm text-blue-200 mt-1">For captcha verification to work on submissions, you must add your <strong className="text-white">hCaptcha Secret Key</strong> to your Supabase project. Go to Project Settings &gt; Functions, and add a new secret named <code className="bg-brand-dark px-1.5 py-0.5 rounded">HCAPTCHA_SECRET_KEY</code> with your secret key as the value.</p>
                             </div>
                         </div>
 
@@ -152,20 +169,6 @@ const HealthCheckPage: React.FC = () => {
                                     {renderSyncResultInterpretation()}
                                 </>
                             )}
-                        </div>
-
-                         <div className="bg-brand-dark-blue p-6 rounded-lg border-2 border-brand-light-blue shadow-lg">
-                            <h2 className="text-2xl font-bold text-brand-cyan mb-3">{t('health_check_arch_title')}</h2>
-                            <p className="text-gray-300 mb-6">{t('health_check_arch_desc')}</p>
-                            <div className="flex items-center justify-center gap-1 md:gap-2 flex-wrap p-4 bg-brand-dark rounded-lg text-center">
-                                <div className="flex flex-col items-center p-2"><User size={28} /><span className="text-xs mt-1">User</span></div>
-                                <ArrowRight className="text-gray-500" />
-                                <div className="flex flex-col items-center p-2"><Server size={28} /><span className="text-xs mt-1">Website<br/>(React/Proxy)</span></div>
-                                <ArrowRight className="text-gray-500" />
-                                <div className="flex flex-col items-center p-2"><Bot size={28} /><span className="text-xs mt-1">Your Bot<br/>(Node.js)</span></div>
-                                <ArrowRight className="text-gray-500" />
-                                <div className="flex flex-col items-center p-2"><svg className="w-7 h-7" role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>Discord</title><path fill="currentColor" d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4464.8257-.698 1.3328a18.384 18.384 0 00-8.6248 0 15.3423 15.3423 0 00-.6979-1.3328.0741.0741 0 00-.0785-.0371A19.7913 19.7913 0 003.683 4.3698a.0741.0741 0 00-.0371.1075 19.9456 19.9456 0 00-1.6368 7.5561.0741.0741 0 00.043.0842 21.054 21.054 0 005.1883 2.532.0741.0741 0 00.0882-.0276 16.592 16.592 0 00.9592-2.1558.0741.0741 0 00-.0276-.0882 17.0182 17.0182 0 01-2.4795-1.1292.0741.0741 0 01-.0148-.1011 16.3233 16.3233 0 01.2384-2.2643.0741.0741 0 01.0829-.0494 1.7431 1.7431 0 01.1011.0288 17.4363 17.4363 0 004.9123 1.6368.0741.0741 0 00.0882-.0057 18.4913 18.4913 0 008.6191 0 .0741.0741 0 00.0882.0057 17.3986 17.3986 0 004.918-.1.0741.0741 0 01.0785.0494 16.5413 16.5413 0 01.2384 2.2643.0741.0741 0 01-.0148.1011 17.032 17.032 0 01-2.4795 1.1292.0741.0741 0 00-.0276.0882 16.4571 16.4571 0 00.9592 2.1558.0741.0741 0 00.0882.0276 21.054 21.054 0 005.1883-2.532.0741.0741 0 00.043-.0842 19.9456 19.9456 0 00-1.6368-7.5561.0741.0741 0 00-.0371-.1075zM8.02 15.3312c-1.7259 0-3.1212-1.6368-3.1212-3.6484s1.3953-3.6484 3.1212-3.6484c1.7259 0 3.1212 1.6368 3.1212 3.6484s-1.3953 3.6484-3.1212 3.6484zm7.95-3.6484c0-2.0116 1.3953-3.6484 3.1212-3.6484c1.7259 0 3.1212 1.6368 3.1212 3.6484s-1.3953 3.6484-3.1212 3.6484c-1.7259 0-3.1212-1.6368-3.1212-3.6484z"/></svg><span className="text-xs mt-1">Discord<br/>API</span></div>
-                            </div>
                         </div>
                     </div>
                 </div>

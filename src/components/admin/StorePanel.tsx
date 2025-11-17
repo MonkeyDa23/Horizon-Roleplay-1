@@ -50,7 +50,9 @@ const StorePanel: React.FC = () => {
             descriptionEn: '',
             descriptionAr: '',
             price: 0,
-            imageUrl: ''
+            imageUrl: '',
+            // FIX: Added missing 'category_id' property required by the Product type.
+            category_id: null,
         });
     };
 

@@ -74,6 +74,7 @@ export const translations: Translations = {
   no_applies_open: { ar: 'لا يوجد تقديمات مفتوحة حالياً.', en: 'No applications are open at this time.'},
   no_rules_yet: { ar: 'سيتم إضافة القوانين قريباً.', en: 'Rules will be added soon.'},
   quiz_rules: { ar: 'تعليمات التقديم', en: 'Application Instructions' },
+  quiz_default_instructions: { ar: '- يجب عليك الإجابة على جميع الأسئلة.\n- لكل سؤال وقت محدد.\n- سيتم تسجيل أي محاولة لفتح صفحة أخرى أو الخروج من الصفحة كمحاولة غش.\n- تأكد من وجود وقت كافٍ لديك قبل البدء.', en: '- You must answer all questions.\n- Each question has a time limit.\n- Switching tabs or leaving the page will be logged as a cheat attempt.\n- Ensure you have enough time before starting.'},
   begin_quiz: { ar: 'ابدأ الاختبار', en: 'Begin Quiz' },
   question: { ar: 'سؤال', en: 'Question' },
   of: { ar: 'من', en: 'of' },
@@ -111,6 +112,7 @@ export const translations: Translations = {
   edit_quiz: { ar: 'تعديل التقديم', en: 'Edit Quiz' },
   quiz_title: { ar: 'عنوان التقديم (مفتاح الترجمة)', en: 'Quiz Title (Translation Key)' },
   quiz_description: { ar: 'وصف التقديم (مفتاح الترجمة)', en: 'Quiz Description (Translation Key)' },
+  quiz_instructions: { ar: 'تعليمات التقديم', en: 'Quiz Instructions' },
   quiz_questions: { ar: 'أسئلة التقديم', en: 'Quiz Questions' },
   add_question: { ar: 'إضافة سؤال', en: 'Add Question' },
   question_text: { ar: 'نص السؤال (مفتاح الترجمة)', en: 'Question Text (Translation Key)' },
@@ -195,6 +197,7 @@ export const translations: Translations = {
   discord_id_to_add: { ar: 'معرف ديسكورد للعضو', en: 'Member\'s Discord ID' },
   find_user: { ar: 'ابحث عن المستخدم', en: 'Find User' },
   user_not_registered: { ar: 'المستخدم غير موجود أو لم يسجل دخوله للموقع بعد.', en: 'User not found or has not logged into the site yet.' },
+  user_found_but_not_registered: {ar: 'تم العثور على المستخدم في ديسكورد، ولكنه لم يقم بتسجيل الدخول إلى الموقع مطلقًا. يجب عليه تسجيل الدخول مرة واحدة على الأقل ليتمكن من إضافته.', en: 'User found on Discord, but they have never logged into the website. They must log in at least once to be added.'},
   add_to_staff: { ar: 'أضف للفريق', en: 'Add to Staff' },
   drag_to_reorder: { ar: 'اسحب وأفلت لإعادة الترتيب', en: 'Drag and drop to reorder' },
 

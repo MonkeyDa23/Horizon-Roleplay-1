@@ -8,12 +8,12 @@ import SEO from '../components/SEO';
 import { getDiscordWidgets, getStaff } from '../lib/api';
 import type { DiscordWidget, StaffMember } from '../types';
 
-const StaffCard: React.FC<{ member: StaffMember, index: number }> = ({ member, index }) => {
+const StaffCard: React.FC<{ member: StaffMember, index: number }> = React.memo(({ member, index }) => {
     const { t } = useLocalization();
     return (
         <div 
             className="glass-panel p-6 text-center group flex flex-col items-center animate-stagger" 
-            style={{ animationDelay: `${index * 100}ms`, opacity: 0 }}
+            style={{ animationDelay: `${index * 100}ms` }}
         >
             <div className="relative mb-4">
                 <img 
@@ -26,7 +26,7 @@ const StaffCard: React.FC<{ member: StaffMember, index: number }> = ({ member, i
             <p className="text-primary-blue font-semibold">{t(member.role_key)}</p>
         </div>
     );
-};
+});
 
 
 const AboutUsPage: React.FC = () => {
@@ -84,7 +84,7 @@ const AboutUsPage: React.FC = () => {
                      <div className="flex flex-wrap justify-center gap-8">
                          {widgets.length > 0 ? (
                             widgets.map((widget, index) => (
-                                <div className="animate-stagger" style={{ animationDelay: `${index * 100}ms`, opacity: 0 }} key={widget.id}>
+                                <div className="animate-stagger" style={{ animationDelay: `${index * 100}ms` }} key={widget.id}>
                                     <DiscordEmbed 
                                         serverName={widget.server_name}
                                         serverId={widget.server_id}

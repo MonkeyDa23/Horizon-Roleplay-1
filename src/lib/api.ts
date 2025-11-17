@@ -4,7 +4,7 @@ import { env } from '../env';
 import type { 
   AppConfig, Product, Quiz, QuizSubmission, RuleCategory, Translations, 
   User, DiscordRole, UserLookupResult,
-  MtaServerStatus, AuditLogEntry, DiscordAnnouncement, RolePermission, DiscordWidget, StaffMember
+  MtaServerStatus, AuditLogEntry, DiscordAnnouncement, RolePermission, DiscordWidget, StaffMember, ProductCategory
 } from '../types';
 
 // --- BOT API HELPERS ---
@@ -197,6 +197,8 @@ export const saveTranslations = async (translations: Translations): Promise<void
 // =============================================
 export const getProducts = async (): Promise<Product[]> => handleResponse(await supabase.from('products').select('*'));
 export const getProductById = async (id: string): Promise<Product | null> => handleResponse(await supabase.from('products').select('*').eq('id', id).single());
+export const getProductsWithCategories = async (): Promise<ProductCategory[]> => handleResponse(await supabase.rpc('get_products_with_categories'));
+export const saveProductCategories = async (categories: any[]): Promise<void> => handleResponse(await supabase.rpc('save_product_categories', { p_categories_data: categories }));
 export const saveProduct = async (data: any): Promise<Product> => handleResponse(await supabase.rpc('save_product_with_translations', { p_product_data: data }));
 export const deleteProduct = async (id: string): Promise<void> => handleResponse(await supabase.rpc('delete_product', { p_product_id: id }));
 export const getQuizzes = async (): Promise<Quiz[]> => handleResponse(await supabase.from('quizzes').select('*').order('created_at', { ascending: true }));
@@ -358,7 +360,28 @@ export const testNotification = async (type: string, targetId: string): Promise<
 // =============================================
 // MISC & HEALTH CHECK API
 // =============================================
-export const lookupUser = async (discordId: string): Promise<UserLookupResult> => callBotApi<UserLookupResult>(`/sync-user/${discordId}`, { method: 'POST' });
+export const lookupUser = async (discordId: string): Promise<UserLookupResult> => {
+    if (!supabase) throw new Error("Supabase client is not initialized.");
+    
+    // 1. Get discord info from bot
+    const discordProfile = await callBotApi<any>(`/sync-user/${discordId}`, { method: 'POST' });
+
+    // 2. Try to find the user in our DB to get their website-specific data
+    const { data: profile, error } = await supabase.from('profiles').select('id, is_banned, ban_reason, ban_expires_at').eq('discord_id', discordId).single();
+    
+    // error.code 'PGRST116' means "exact one row not found", which is expected for users who haven't logged in.
+    if (error && error.code !== 'PGRST116') {
+        throw error;
+    }
+
+    return {
+        ...discordProfile, // from bot
+        id: profile?.id || null, // from supabase, can be null
+        is_banned: profile?.is_banned ?? false,
+        ban_reason: profile?.ban_reason ?? null,
+        ban_expires_at: profile?.ban_expires_at ?? null,
+    };
+};
 export const checkDiscordApiHealth = async (): Promise<any> => callBotApi('/health');
 export const getMtaServerStatus = async (): Promise<MtaServerStatus> => {
     return new Promise(resolve => setTimeout(() => resolve({ name: "Vixel Roleplay", players: Math.floor(Math.random() * 100), maxPlayers: 150, version: "1.6" }), 1000));

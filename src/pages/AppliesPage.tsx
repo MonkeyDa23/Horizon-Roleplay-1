@@ -126,7 +126,7 @@ const AppliesPage: React.FC = () => {
           ) : quizzes.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {quizzes.map((quiz, index) => (
-                  <div key={quiz.id} className={`relative glass-panel p-8 flex flex-col transition-all duration-300 group ${quiz.isOpen ? 'hover:shadow-glow-blue hover:-translate-y-2' : 'opacity-70'} animate-stagger`} style={{ animationDelay: `${index * 150}ms`, opacity: 0 }}>
+                  <div key={quiz.id} className={`relative glass-panel p-8 flex flex-col transition-all duration-300 group ${quiz.isOpen ? 'hover:shadow-glow-blue hover:-translate-y-2' : 'opacity-70'} animate-stagger`} style={{ animationDelay: `${index * 150}ms` }}>
                     {!quiz.isOpen && (
                       <div className="absolute inset-0 bg-black/60 rounded-2xl flex items-center justify-center z-10">
                         <span className="text-2xl font-bold text-white tracking-widest uppercase border-4 border-white px-6 py-3 rounded-lg -rotate-12 bg-black/30">
