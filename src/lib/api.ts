@@ -51,8 +51,6 @@ async function callBotApi<T>(endpoint: string, options: RequestInit = {}): Promi
     }
 }
 
-// FIX: Replaced bot-based hCaptcha verification with a direct call to a Supabase Edge Function.
-// This centralizes backend logic within Supabase and removes dependency on the separate bot for this task.
 export const verifyCaptcha = async (token: string): Promise<any> => {
     if (!supabase) throw new Error("Supabase client is not initialized.");
     
@@ -61,12 +59,12 @@ export const verifyCaptcha = async (token: string): Promise<any> => {
     });
 
     if (error) {
-        console.error("Supabase function 'verify-captcha' error:", error);
+        console.error("Supabase function 'verify-captcha' invocation error:", error);
         throw new Error(error.message);
     }
     
-    if (data.error) {
-         throw new Error(data.error);
+    if (!data.success) {
+         throw new Error(data.error || 'Unknown captcha verification error.');
     }
     
     return data;
@@ -327,7 +325,12 @@ export const saveTranslations = async (translations: Translations): Promise<void
 // =============================================
 // ADMIN & MODERATION API
 // =============================================
-export const lookupUser = (discordId: string): Promise<UserLookupResult> => callBotApi(`/sync-user/${discordId}`, { method: 'POST' });
+export const lookupUser = async (discordId: string): Promise<UserLookupResult> => {
+  if (!supabase) throw new Error("Supabase client not initialized.");
+  const { data, error } = await supabase.rpc('lookup_user_by_discord_id', { p_discord_id: discordId });
+  if (error) throw new ApiError(error.message, 500);
+  return data as UserLookupResult;
+};
 export const banUser = async (targetUserId: string, reason: string, durationHours: number | null): Promise<void> => {
     if (!supabase) return;
     const { error } = await supabase.rpc('ban_user', { p_target_user_id: targetUserId, p_reason: reason, p_duration_hours: durationHours });

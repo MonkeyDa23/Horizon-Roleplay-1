@@ -63,6 +63,7 @@ DROP FUNCTION IF EXISTS public.get_user_id();
 DROP FUNCTION IF EXISTS public.delete_quiz(uuid);
 DROP FUNCTION IF EXISTS public.delete_product(uuid);
 DROP FUNCTION IF EXISTS public.verify_admin_password(text);
+DROP FUNCTION IF EXISTS public.lookup_user_by_discord_id(text);
 DROP VIEW IF EXISTS private.user_roles_view;
 
 
@@ -601,6 +602,41 @@ $$;
 
 CREATE OR REPLACE FUNCTION public.verify_admin_password(p_password text) RETURNS boolean LANGUAGE sql STABLE SECURITY INVOKER AS $$
   SELECT EXISTS (SELECT 1 FROM public.config WHERE id = 1 AND admin_password = p_password);
+$$;
+
+CREATE OR REPLACE FUNCTION public.lookup_user_by_discord_id(p_discord_id text)
+RETURNS json
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+    profile_record record;
+BEGIN
+    IF NOT public.has_permission(public.get_user_id(), 'admin_lookup') THEN
+        RAISE EXCEPTION 'Insufficient permissions.';
+    END IF;
+
+    SELECT id, discord_id, username, avatar_url, roles, highest_role, is_banned, ban_reason, ban_expires_at
+    INTO profile_record
+    FROM public.profiles
+    WHERE discord_id = p_discord_id;
+
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'User with Discord ID % not found. They may need to log in to the website once to register.', p_discord_id;
+    END IF;
+
+    RETURN json_build_object(
+        'id', profile_record.id,
+        'discordId', profile_record.discord_id,
+        'username', profile_record.username,
+        'avatar', profile_record.avatar_url,
+        'roles', profile_record.roles,
+        'highestRole', profile_record.highest_role,
+        'is_banned', profile_record.is_banned,
+        'ban_reason', profile_record.ban_reason,
+        'ban_expires_at', profile_record.ban_expires_at
+    );
+END;
 $$;
 
 -- =================================================================

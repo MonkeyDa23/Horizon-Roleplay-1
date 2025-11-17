@@ -85,6 +85,7 @@ const StaffPanel: React.FC = () => {
             const result = await lookupUser(lookupDiscordId);
             setLookupResult(result);
         } catch (error) {
+            // The new RPC function provides a clear error message.
             setLookupError((error as Error).message);
         } finally {
             setIsLookingUp(false);
@@ -201,23 +202,15 @@ const StaffPanel: React.FC = () => {
                             </div>
                         </div>
                         {lookupResult ? (
-                            <>
-                                <div className="p-4 bg-brand-dark rounded-lg border border-brand-light-blue flex items-center gap-4">
-                                    <img src={lookupResult.avatar} alt={lookupResult.username} className="w-16 h-16 rounded-full" />
-                                    <div>
-                                        <p className="text-xl font-bold text-white">{lookupResult.username}</p>
-                                        <p className="text-sm text-gray-400">ID: {lookupResult.discordId}</p>
-                                    </div>
+                            <div className="p-4 bg-brand-dark rounded-lg border border-brand-light-blue flex items-center gap-4">
+                                <img src={lookupResult.avatar} alt={lookupResult.username} className="w-16 h-16 rounded-full" />
+                                <div>
+                                    <p className="text-xl font-bold text-white">{lookupResult.username}</p>
+                                    <p className="text-sm text-gray-400">ID: {lookupResult.discordId}</p>
                                 </div>
-                                {!lookupResult.id && (
-                                     <div className="p-3 bg-yellow-500/10 text-yellow-300 text-sm rounded-md flex items-start gap-3">
-                                        <Info size={20} className="flex-shrink-0 mt-0.5" />
-                                        <span>{t('user_found_but_not_registered')}</span>
-                                    </div>
-                                )}
-                            </>
+                            </div>
                         ) : lookupError && (
-                             <p className="text-yellow-400 text-sm p-2 bg-yellow-500/10 rounded-md">{lookupError}</p>
+                             <p className="text-yellow-400 text-sm p-2 bg-yellow-500/10 rounded-md">{lookupError.replace('Exception: ', '')}</p>
                         )}
                         
                         {lookupResult && lookupResult.id && (

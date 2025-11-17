@@ -1,39 +1,35 @@
 // supabase/functions/verify-captcha/index.ts
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts'
 
-// FIX: Declare 'Deno' to inform TypeScript of its existence in the Supabase Edge Function environment.
 declare const Deno: any;
 
-// FIX: Cast Deno to 'any' to resolve TypeScript error about missing 'env' property.
-// This can happen in environments where Deno types are not automatically recognized.
-const HCAPTCHA_SECRET_KEY = (Deno as any).env.get('HCAPTCHA_SECRET_KEY')
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
 serve(async (req) => {
-  // This is needed if you're planning to invoke your function from a browser.
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { 
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-      } 
-    })
+    return new Response('ok', { headers: CORS_HEADERS });
   }
 
   try {
+    const HCAPTCHA_SECRET_KEY = Deno.env.get('HCAPTCHA_SECRET_KEY');
     if (!HCAPTCHA_SECRET_KEY) {
-      throw new Error('HCAPTCHA_SECRET_KEY is not set in Supabase secrets.');
+      console.error('[HCAPTCHA Function] Error: HCAPTCHA_SECRET_KEY is not set in Supabase secrets.');
+      // Return a 200 with an error payload for easier client-side handling
+      return new Response(
+        JSON.stringify({ success: false, error: 'Captcha service is not configured on the server. The HCaptcha secret key is missing.' }),
+        { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+      );
     }
 
     const { token } = await req.json();
     if (!token) {
-      return new Response(JSON.stringify({ error: 'Captcha token is required.' }), {
-        status: 400,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-        },
-      });
+      return new Response(
+        JSON.stringify({ success: false, error: 'Captcha token is required.' }),
+        { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+      );
     }
 
     const params = new URLSearchParams();
@@ -48,34 +44,22 @@ serve(async (req) => {
     const data = await response.json();
 
     if (data.success) {
-      return new Response(JSON.stringify({ success: true, message: 'Captcha verified.' }), {
-        status: 200,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-        },
-      });
+      return new Response(
+        JSON.stringify({ success: true, message: 'Captcha verified.' }),
+        { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+      );
     } else {
       console.warn('[HCAPTCHA] Verification failed:', data['error-codes']);
-      return new Response(JSON.stringify({ success: false, error: 'Captcha verification failed.', details: data['error-codes'] }), {
-        status: 400,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-        },
-      });
+      return new Response(
+        JSON.stringify({ success: false, error: 'Captcha verification failed.', details: data['error-codes'] }),
+        { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+      );
     }
   } catch (error) {
-    console.error('[HCAPTCHA Function] Error:', error.message);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { 
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-      },
-    });
+    console.error('[HCAPTCHA Function] Uncaught Error:', error.message);
+    return new Response(
+      JSON.stringify({ success: false, error: error.message }),
+      { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
+    );
   }
 })
