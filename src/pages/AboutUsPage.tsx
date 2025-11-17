@@ -119,7 +119,7 @@ const AboutUsPage: React.FC = () => {
                     <p className="text-lg text-text-secondary max-w-3xl mx-auto">{t('about_intro', { communityName: config.COMMUNITY_NAME })}</p>
                 </div>
                 
-                <div className="flex justify-center items-center gap-6 mb-16 animate-fade-in-up" style={{ animationDelay: '200ms', opacity: 0 }}>
+                <div className="flex justify-center items-center gap-6 mb-16 animate-fade-in-up" style={{ animationDelay: '200ms' }}>
                     <button 
                         onClick={() => setActiveView('staff')}
                         className={`flex items-center gap-3 px-8 py-4 rounded-xl text-lg font-bold transition-all duration-300 transform hover:scale-105 ${activeView === 'staff' ? 'bg-primary-blue text-background-dark shadow-glow-blue' : 'glass-panel text-white hover:bg-primary-blue/30'}`}
