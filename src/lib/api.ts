@@ -69,18 +69,18 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
   if (sessionError || !session) throw new ApiError(sessionError?.message || "No active session", 401);
 
-  // Check if it's a new user before doing anything else
-  const { data: dbProfileCheck } = await supabase.from('profiles').select('id').eq('id', session.user.id).single();
-  const isNewUser = !dbProfileCheck;
-  
-  // 1. Get Discord profile from our bot
+  // 1. Get Discord profile from our bot. This is the primary source of truth for user details.
   const discordProfile = await callBotApi<any>(`/sync-user/${session.user.user_metadata.provider_id}`, { method: 'POST' });
 
-  // 2. Get permissions and ban status from Supabase
-  const { data: dbProfile, error: dbError } = await supabase.from('profiles').select('id, is_banned, ban_reason, ban_expires_at').eq('id', session.user.id).single();
-  const { data: permsData, error: permsError } = await supabase.from('role_permissions').select('permissions').in('role_id', discordProfile.roles.map((r: any) => r.id));
+  // 2. Fetch existing profile from DB (ban status, etc.). This might not exist for a new user.
+  // We query without .single() to avoid the 406 error for new users.
+  const { data: existingProfiles, error: dbError } = await supabase.from('profiles').select('id, is_banned, ban_reason, ban_expires_at').eq('id', session.user.id);
+  if (dbError) throw new ApiError(dbError.message, 500);
+  const existingProfile = existingProfiles?.[0] || null;
+  const isNewUser = !existingProfile;
 
-  if (dbError && dbError.code !== 'PGRST116') throw new ApiError(dbError.message, 500);
+  // 3. Get permissions from Supabase based on roles from Discord profile
+  const { data: permsData, error: permsError } = await supabase.from('role_permissions').select('permissions').in('role_id', discordProfile.roles.map((r: any) => r.id));
   if (permsError) throw new ApiError(permsError.message, 500);
 
   const userPermissions = new Set<string>();
@@ -88,17 +88,18 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
       permsData.forEach(p => (p.permissions || []).forEach(perm => userPermissions.add(perm)));
   }
 
-  // 3. Combine into the final user object
+  // 4. Combine into the final user object
   const finalUser: User = {
       id: session.user.id,
       ...discordProfile,
       permissions: Array.from(userPermissions),
-      is_banned: dbProfile?.is_banned ?? false,
-      ban_reason: dbProfile?.ban_reason ?? null,
-      ban_expires_at: dbProfile?.ban_expires_at ?? null,
+      is_banned: existingProfile?.is_banned ?? false,
+      ban_reason: existingProfile?.ban_reason ?? null,
+      ban_expires_at: existingProfile?.ban_expires_at ?? null,
   };
 
-  // 4. Upsert the latest profile info back to the DB
+  // 5. Upsert the latest profile info back to the DB
+  // This will create the profile for a new user, or update it for an existing one.
   const { error: upsertError } = await supabase.from('profiles').upsert({
       id: finalUser.id, discord_id: finalUser.discordId, username: finalUser.username, avatar_url: finalUser.avatar,
       roles: finalUser.roles, highest_role: finalUser.highestRole, last_synced_at: new Date().toISOString()
@@ -106,10 +107,9 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
 
   if (upsertError) {
       console.error("Profile upsert failed:", upsertError.message);
-      // Don't block login for this, but it's a problem to be aware of.
   }
   
-  // 5. If it was a new user, send welcome DM and log it
+  // 6. If it was a new user, send welcome DM and log it
   if (isNewUser && !upsertError) {
       const { COMMUNITY_NAME, LOGO_URL } = await getConfig();
       const { data: translations } = await supabase.from('translations').select('key, en, ar').in('key', ['notification_welcome_title', 'notification_welcome_body']);
