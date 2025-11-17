@@ -1,5 +1,6 @@
 
 
+
 // In environments where Vite's client types aren't automatically resolved,
 // this manual declaration provides the necessary type information to TypeScript,
 // resolving errors about 'env' not existing on 'import.meta'.
@@ -12,6 +13,8 @@ declare global {
     // FIX: This key is still needed for server-side processes (Vite proxy, Vercel functions)
     // but it will not be exposed to the client bundle.
     readonly VITE_DISCORD_BOT_API_KEY: string;
+    // New variable for hCaptcha integration
+    readonly VITE_HCAPTCHA_SITE_KEY: string;
   }
 
   interface ImportMeta {
@@ -37,6 +40,11 @@ export const env = {
    * This is used by the local dev server proxy.
    */
   VITE_DISCORD_BOT_URL: import.meta.env.VITE_DISCORD_BOT_URL,
+
+  /**
+   * The public site key for hCaptcha.
+   */
+  VITE_HCAPTCHA_SITE_KEY: import.meta.env.VITE_HCAPTCHA_SITE_KEY,
 
   /**
    * The secret API key to communicate with the bot.

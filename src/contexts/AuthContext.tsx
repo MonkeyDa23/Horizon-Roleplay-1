@@ -14,8 +14,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [permissionWarning, setPermissionWarning] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<Error | null>(null);
 
-  const handleSession = useCallback(async (session: Session | null) => {
-    setLoading(true);
+  const handleSession = useCallback(async (session: Session | null, isInitial: boolean = false) => {
+    if (isInitial) {
+        setIsInitialLoading(true);
+    } else {
+        setLoading(true);
+    }
     setSyncError(null); // Clear previous errors on new session attempt
 
     if (session) {
@@ -42,7 +46,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setPermissionWarning(null);
     }
     setLoading(false);
-    setIsInitialLoading(false); // Mark initial load as complete
+    if (isInitial) {
+        setIsInitialLoading(false); // Mark initial load as complete
+    }
   }, []);
 
   useEffect(() => {
@@ -53,7 +59,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-        handleSession(session);
+        handleSession(session, true); // This is the initial session handling
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -61,7 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // A new sign-in should show a loader, but not the initial full-screen one
           setLoading(true); 
         }
-        handleSession(session);
+        handleSession(session, false); // Subsequent changes are not initial
     });
 
     return () => {
@@ -69,17 +75,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, [handleSession]);
   
-  const login = useCallback(async () => {
+  const login = useCallback(async (captchaToken: string) => {
     if (!supabase) {
         if (typeof window !== 'undefined') (window as any).alert("Login is not configured. Please add Supabase environment variables.");
         return;
     }
     setLoading(true);
+    // Pass the hCaptcha token to Supabase Auth, which will verify it server-side.
+    // FIX: Moved `captchaToken` to the top level of the `signInWithOAuth` options, as required by Supabase Auth, to resolve a TypeScript error.
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'discord',
       options: {
         scopes: 'identify guilds.members.read',
       },
+      captchaToken: captchaToken,
     });
     if (error) {
         console.error("Error logging in:", error.message);

@@ -51,6 +51,27 @@ async function callBotApi<T>(endpoint: string, options: RequestInit = {}): Promi
     }
 }
 
+// FIX: Replaced bot-based hCaptcha verification with a direct call to a Supabase Edge Function.
+// This centralizes backend logic within Supabase and removes dependency on the separate bot for this task.
+export const verifyCaptcha = async (token: string): Promise<any> => {
+    if (!supabase) throw new Error("Supabase client is not initialized.");
+    
+    const { data, error } = await supabase.functions.invoke('verify-captcha', {
+        body: { token },
+    });
+
+    if (error) {
+        console.error("Supabase function 'verify-captcha' error:", error);
+        throw new Error(error.message);
+    }
+    
+    if (data.error) {
+         throw new Error(data.error);
+    }
+    
+    return data;
+};
+
 
 // --- SUPABASE HELPER ---
 const handleResponse = <T>(response: { data: T | null; error: any; status: number; statusText: string }): T => {
@@ -129,10 +150,16 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
         .catch(e => console.error("Failed to send welcome DM:", e));
       
       // Log this event
+      // FIX: The supabase rpc call is thenable but does not have a .catch method.
+      // Used .then() to handle potential errors in this fire-and-forget logging action.
       supabase.rpc('log_action', { 
           p_action: `New user logged in: **${finalUser.username}** (\`${finalUser.discordId}\`)`,
           p_log_type: 'auth'
-      }).catch(e => console.error("Failed to log new user event:", e));
+      }).then(({ error: logError }) => {
+        if (logError) {
+            console.error("Failed to log new user event:", logError);
+        }
+      });
   }
 
   return { user: finalUser, syncError: null };

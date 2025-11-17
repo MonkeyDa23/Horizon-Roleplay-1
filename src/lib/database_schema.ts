@@ -182,8 +182,8 @@ CREATE POLICY "Allow individual user full access to their own profile" ON public
   USING (id = auth.uid())
   WITH CHECK (id = auth.uid());
 CREATE POLICY "Allow admins full access to all profiles" ON public.profiles FOR ALL
-  USING (public.has_permission(auth.uid(), '_super_admin'))
-  WITH CHECK (public.has_permission(auth.uid(), '_super_admin'));
+  USING (public.has_permission(auth.uid(), '_super_admin') OR public.has_permission(auth.uid(), 'admin_lookup'))
+  WITH CHECK (public.has_permission(auth.uid(), '_super_admin') OR public.has_permission(auth.uid(), 'admin_lookup'));
 
 CREATE POLICY "Users can access their own submissions" ON public.submissions FOR ALL USING (user_id = public.get_user_id());
 
@@ -245,7 +245,6 @@ BEGIN
             (staff_member->>'position')::int
         );
     END LOOP;
-    PERFORM public.log_action('Updated the staff list.', 'admin');
 END;
 $$;
 
@@ -261,22 +260,15 @@ CREATE OR REPLACE FUNCTION public.add_submission(submission_data jsonb) RETURNS 
 AS $$
 DECLARE 
   new_submission public.submissions;
-  discord_id_val text;
 BEGIN
-  -- We need the discord_id for the log, which is in the profiles table.
-  SELECT p.discord_id INTO discord_id_val FROM public.profiles p WHERE p.id = public.get_user_id();
-
+  -- This function is now only responsible for inserting the data.
+  -- Logging and notifications are handled by the frontend via the bot API.
   INSERT INTO public.submissions ("quizId", "quizTitle", user_id, username, answers, "cheatAttempts", user_highest_role)
   VALUES (
     (submission_data->>'quizId')::uuid, submission_data->>'quizTitle', public.get_user_id(), submission_data->>'username',
     submission_data->'answers', submission_data->'cheatAttempts', submission_data->>'user_highest_role'
   ) RETURNING * INTO new_submission;
   
-  PERFORM public.log_action(
-    'New submission by **' || new_submission.username || '** (`' || discord_id_val || '`) for **' || new_submission."quizTitle" || '**.',
-    'submissions'
-  );
-
   RETURN new_submission;
 END;
 $$;
@@ -305,27 +297,17 @@ BEGIN
 
   IF NOT FOUND THEN RAISE EXCEPTION 'Submission not found.'; END IF;
   
-  PERFORM public.log_action(
-    'Submission for **' || submission_record.username || '** (' || submission_record."quizTitle" || ') was updated to **' || UPPER(p_new_status) || '** by admin ' || submission_record."adminUsername" || '.',
-    'submissions'
-  );
+  -- Logging is now handled by the frontend.
   
   RETURN submission_record;
 END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.delete_submission(p_submission_id uuid) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE
-  deleted_submission record;
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), '_super_admin') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
-  
-  DELETE FROM public.submissions WHERE id = p_submission_id RETURNING username, "quizTitle" INTO deleted_submission;
-
-  PERFORM public.log_action(
-    'Deleted submission from ' || deleted_submission.username || ' for ' || deleted_submission."quizTitle" || '.',
-    'admin'
-  );
+  DELETE FROM public.submissions WHERE id = p_submission_id;
+  -- Logging is handled by the frontend.
 END;
 $$;
 
@@ -370,23 +352,16 @@ BEGIN
     "lastOpenedAt" = CASE WHEN EXCLUDED."isOpen" AND public.quizzes."isOpen" = false THEN current_timestamp ELSE public.quizzes."lastOpenedAt" END
   RETURNING * INTO quiz_record;
 
-  PERFORM public.log_action('Saved quiz: ' || p_quiz_data->>'titleEn', 'admin');
+  -- Logging is now handled by the frontend.
   RETURN quiz_record;
 END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.delete_quiz(p_quiz_id uuid) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE
-  deleted_quiz record;
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_quizzes') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
-  
-  SELECT "titleKey" INTO deleted_quiz FROM public.quizzes WHERE id = p_quiz_id;
   DELETE FROM public.quizzes WHERE id = p_quiz_id;
-
-  IF FOUND THEN
-    PERFORM public.log_action('Deleted quiz with title key: ' || deleted_quiz."titleKey", 'admin');
-  END IF;
+  -- Logging is handled by the frontend.
 END;
 $$;
 
@@ -408,23 +383,16 @@ BEGIN
     price = EXCLUDED.price, "imageUrl" = EXCLUDED."imageUrl"
   RETURNING * INTO product_record;
   
-  PERFORM public.log_action('Saved product: ' || p_product_data->>'nameEn', 'admin');
+  -- Logging is now handled by the frontend.
   RETURN product_record;
 END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.delete_product(p_product_id uuid) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE
-  deleted_product record;
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_store') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
-  
-  SELECT "nameKey" INTO deleted_product FROM public.products WHERE id = p_product_id;
   DELETE FROM public.products WHERE id = p_product_id;
-
-  IF FOUND THEN
-      PERFORM public.log_action('Deleted product with name key: ' || deleted_product."nameKey", 'admin');
-  END IF;
+  -- Logging is handled by the frontend.
 END;
 $$;
 
@@ -455,7 +423,7 @@ BEGIN
             (SELECT jsonb_agg(jsonb_build_object('id', r->>'id', 'textKey', r->>'textKey')) FROM jsonb_array_elements(category->'rules') as r)
         );
     END LOOP;
-    PERFORM public.log_action('Updated server rules', 'admin');
+    -- Logging is handled by the frontend.
 END;
 $$;
 
@@ -466,16 +434,15 @@ BEGIN
     INSERT INTO public.discord_widgets (server_name, server_id, invite_url, "position")
     SELECT value->>'server_name', value->>'server_id', value->>'invite_url', (value->>'position')::int
     FROM jsonb_array_elements(p_widgets_data);
-    PERFORM public.log_action('Updated Discord widgets', 'admin');
+    -- Logging is handled by the frontend.
 END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.update_config(new_config jsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE
-    should_log boolean := false;
 BEGIN
-    -- Update Appearance Settings
-    IF public.has_permission(public.get_user_id(), 'admin_appearance') THEN
+    -- This function is now only responsible for updating the config.
+    -- The frontend will determine which permission group is saving and log accordingly.
+    IF public.has_permission(public.get_user_id(), 'admin_appearance') OR public.has_permission(public.get_user_id(), 'admin_notifications') THEN
         UPDATE public.config SET 
             "COMMUNITY_NAME" = COALESCE(new_config->>'COMMUNITY_NAME', "COMMUNITY_NAME"),
             "LOGO_URL" = COALESCE(new_config->>'LOGO_URL', "LOGO_URL"),
@@ -487,14 +454,7 @@ BEGIN
                                     CASE WHEN new_config->>'admin_password' IS NULL OR new_config->>'admin_password' = '' THEN NULL
                                         ELSE crypt(new_config->>'admin_password', gen_salt('bf'))
                                     END
-                                ELSE "admin_password" END
-        WHERE id = 1;
-        should_log := true;
-    END IF;
-    
-    -- Update Notification Settings
-    IF public.has_permission(public.get_user_id(), 'admin_notifications') THEN
-        UPDATE public.config SET
+                                ELSE "admin_password" END,
             "submissions_channel_id" = COALESCE(new_config->>'submissions_channel_id', "submissions_channel_id"),
             "log_channel_submissions" = COALESCE(new_config->>'log_channel_submissions', "log_channel_submissions"),
             "log_channel_bans" = COALESCE(new_config->>'log_channel_bans', "log_channel_bans"),
@@ -506,11 +466,8 @@ BEGIN
             "mention_role_audit_log_admin" = COALESCE(new_config->>'mention_role_audit_log_admin', "mention_role_audit_log_admin"),
             "mention_role_audit_log_general" = COALESCE(new_config->>'mention_role_audit_log_general', "mention_role_audit_log_general")
         WHERE id = 1;
-        should_log := true;
-    END IF;
-
-    IF should_log THEN
-        PERFORM public.log_action('Updated website settings.', 'admin');
+    ELSE
+        RAISE EXCEPTION 'Insufficient permissions.';
     END IF;
 END;
 $$;
@@ -540,7 +497,6 @@ $$;
 CREATE OR REPLACE FUNCTION public.ban_user(p_target_user_id uuid, p_reason text, p_duration_hours int DEFAULT NULL) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
     expires_timestamp timestamptz;
-    target_user_record record;
 BEGIN
     IF NOT public.has_permission(public.get_user_id(), 'admin_lookup') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
 
@@ -550,25 +506,21 @@ BEGIN
         expires_timestamp := NULL; -- Permanent ban
     END IF;
 
-    UPDATE public.profiles SET is_banned = true, ban_reason = p_reason, ban_expires_at = expires_timestamp WHERE id = p_target_user_id RETURNING username INTO target_user_record;
-
+    UPDATE public.profiles SET is_banned = true, ban_reason = p_reason, ban_expires_at = expires_timestamp WHERE id = p_target_user_id;
     IF NOT FOUND THEN RAISE EXCEPTION 'Target user not found.'; END IF;
     
     INSERT INTO public.bans (user_id, banned_by, reason, expires_at) VALUES (p_target_user_id, public.get_user_id(), p_reason, expires_timestamp);
-    -- FIX: Replaced PostgreSQL-specific `::text` cast with standard `CAST()` for better compatibility with TS parsers.
-    PERFORM public.log_action('Banned user **' || target_user_record.username || '**. Reason: ' || p_reason || '. Duration: ' || COALESCE(CAST(p_duration_hours AS text), 'Permanent') || ' hours.', 'bans');
+    -- Logging is now handled by the frontend.
 END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.unban_user(p_target_user_id uuid) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE
-  target_user_record record;
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_lookup') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
-  UPDATE public.profiles SET is_banned = false, ban_reason = NULL, ban_expires_at = NULL WHERE id = p_target_user_id RETURNING username INTO target_user_record;
+  UPDATE public.profiles SET is_banned = false, ban_reason = NULL, ban_expires_at = NULL WHERE id = p_target_user_id;
   IF NOT FOUND THEN RAISE EXCEPTION 'Target user not found.'; END IF;
   UPDATE public.bans SET is_active = false, unbanned_by = public.get_user_id(), unbanned_at = current_timestamp WHERE user_id = p_target_user_id AND is_active = true;
-  PERFORM public.log_action('Unbanned user **' || target_user_record.username || '**.', 'bans');
+  -- Logging is now handled by the frontend.
 END;
 $$;
 
@@ -577,7 +529,7 @@ BEGIN
     IF NOT public.has_permission(public.get_user_id(), 'admin_permissions') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
     INSERT INTO public.role_permissions (role_id, permissions) VALUES (p_role_id, p_permissions)
     ON CONFLICT (role_id) DO UPDATE SET permissions = EXCLUDED.permissions;
-    PERFORM public.log_action('Updated permissions for role ID ' || p_role_id || '.', 'admin');
+    -- Logging is now handled by the frontend.
 END;
 $$;
 
@@ -586,7 +538,7 @@ RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = publi
 DECLARE
     hashed_password text;
 BEGIN
-    IF NOT public.has_permission(public.get_user_id(), '_super_admin') THEN RETURN false; END IF;
+    -- Permission check is handled by API layer before calling this.
     
     SELECT admin_password INTO hashed_password FROM public.config WHERE id = 1;
     

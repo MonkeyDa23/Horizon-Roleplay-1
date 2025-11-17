@@ -89,7 +89,7 @@ const TranslationsPanel: React.FC = () => {
                         value={searchTerm}
                         // FIX: Use e.currentTarget.value to correctly access the input's value.
                         onChange={(e) => setSearchTerm(e.currentTarget.value)}
-                        className="w-full bg-brand-light-blue p-2 pl-10 rounded-md border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan"
+                        className="vixel-input !pl-10"
                     />
                 </div>
                 <button onClick={handleSave} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white transition-colors min-w-[9rem] flex justify-center">
@@ -116,7 +116,7 @@ const TranslationsPanel: React.FC = () => {
                                             value={editableTranslations[key]?.en || ''}
                                             // FIX: Use e.currentTarget.value to correctly access the textarea's value.
                                             onChange={(e) => handleTranslationChange(key, 'en', e.currentTarget.value)}
-                                            className="w-full bg-brand-dark p-2 rounded-md border border-gray-600 h-24 focus:ring-brand-cyan focus:border-brand-cyan"
+                                            className="vixel-input h-24"
                                         />
                                     </td>
                                     <td className="p-4">
@@ -124,7 +124,7 @@ const TranslationsPanel: React.FC = () => {
                                             value={editableTranslations[key]?.ar || ''}
                                             // FIX: Use e.currentTarget.value to correctly access the textarea's value.
                                             onChange={(e) => handleTranslationChange(key, 'ar', e.currentTarget.value)}
-                                            className="w-full bg-brand-dark p-2 rounded-md border border-gray-600 h-24 focus:ring-brand-cyan focus:border-brand-cyan"
+                                            className="vixel-input h-24"
                                             dir="rtl"
                                         />
                                     </td>

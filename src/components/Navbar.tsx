@@ -7,6 +7,7 @@ import { useCart } from '../contexts/CartContext';
 import { useConfig } from '../contexts/ConfigContext';
 import Logo from './Logo';
 import CartModal from './CartModal';
+import LoginCaptchaModal from './LoginCaptchaModal';
 import { Globe, ChevronDown, LogIn, LogOut, Loader2, ShoppingCart, UserCog, FileText, User, Menu, X } from 'lucide-react';
 
 const NavLink: React.FC<{ to: string; children: React.ReactNode; onClick?: () => void }> = ({ to, children, onClick }) => (
@@ -39,6 +40,8 @@ const Navbar: React.FC = () => {
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isCartOpen, setCartOpen] = useState(false);
+  const [isLoginCaptchaOpen, setLoginCaptchaOpen] = useState(false);
+
 
   const navLinks = [
     { to: '/', text: t('home') },
@@ -132,7 +135,7 @@ const Navbar: React.FC = () => {
                   </div>
                 ) : (
                   <button
-                    onClick={login}
+                    onClick={() => setLoginCaptchaOpen(true)}
                     disabled={loading}
                     className="bg-gradient-to-r from-primary-blue to-accent-cyan text-background-dark font-bold py-2 px-5 rounded-lg hover:opacity-90 hover:shadow-glow-blue transition-all duration-300 flex items-center gap-2 disabled:opacity-50 disabled:cursor-wait"
                   >
@@ -178,6 +181,7 @@ const Navbar: React.FC = () => {
       </div>
 
       <CartModal isOpen={isCartOpen} onClose={() => setCartOpen(false)} />
+      <LoginCaptchaModal isOpen={isLoginCaptchaOpen} onClose={() => setLoginCaptchaOpen(false)} />
     </>
   );
 };

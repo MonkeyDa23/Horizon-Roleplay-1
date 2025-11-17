@@ -29,6 +29,7 @@ const StaffPanel: React.FC = () => {
     const [lookupDiscordId, setLookupDiscordId] = useState('');
     const [isLookingUp, setIsLookingUp] = useState(false);
     const [lookupResult, setLookupResult] = useState<UserLookupResult | null>(null);
+    const [lookupError, setLookupError] = useState<string | null>(null);
     const [newStaffRoleEn, setNewStaffRoleEn] = useState('');
     const [newStaffRoleAr, setNewStaffRoleAr] = useState('');
 
@@ -79,18 +80,23 @@ const StaffPanel: React.FC = () => {
         if (!lookupDiscordId) return;
         setIsLookingUp(true);
         setLookupResult(null);
+        setLookupError(null);
         try {
             const result = await lookupUser(lookupDiscordId);
-            setLookupResult(result);
+            if (!result.id) {
+                setLookupError(t('user_not_registered'));
+            } else {
+                setLookupResult(result);
+            }
         } catch (error) {
-            showToast((error as Error).message, 'error');
+            setLookupError((error as Error).message);
         } finally {
             setIsLookingUp(false);
         }
     };
 
     const handleAddToStaff = () => {
-        if (!lookupResult || !newStaffRoleEn) {
+        if (!lookupResult || !newStaffRoleEn || !lookupResult.id) {
             showToast('User and Role (English) are required.', 'warning');
             return;
         }
@@ -98,7 +104,7 @@ const StaffPanel: React.FC = () => {
             showToast('This user is already on the staff list.', 'warning');
             return;
         }
-        const roleKey = `staff_role_${lookupResult.id.substring(0, 8)}`;
+        const roleKey = `staff_role_${lookupResult.discordId}`;
         const newMember: EditingStaffMember = {
             user_id: lookupResult.id,
             username: lookupResult.username,
@@ -117,6 +123,7 @@ const StaffPanel: React.FC = () => {
         setIsAddModalOpen(false);
         setLookupDiscordId('');
         setLookupResult(null);
+        setLookupError(null);
         setNewStaffRoleEn('');
         setNewStaffRoleAr('');
     };
@@ -170,8 +177,8 @@ const StaffPanel: React.FC = () => {
                         <div className="flex-grow">
                             <p className="font-bold text-white">{member.username}</p>
                             <div className="flex gap-2 mt-1">
-                                <input type="text" value={member.role_en} onChange={(e) => handleRoleChange(index, 'en', e.target.value)} placeholder={t('staff_role_en')} className="w-full bg-brand-dark p-1 rounded-md border border-gray-600 text-sm" />
-                                <input type="text" value={member.role_ar} onChange={(e) => handleRoleChange(index, 'ar', e.target.value)} placeholder={t('staff_role_ar')} className="w-full bg-brand-dark p-1 rounded-md border border-gray-600 text-sm" dir="rtl" />
+                                <input type="text" value={member.role_en} onChange={(e) => handleRoleChange(index, 'en', e.target.value)} placeholder={t('staff_role_en')} className="vixel-input !p-1 !text-sm" />
+                                <input type="text" value={member.role_ar} onChange={(e) => handleRoleChange(index, 'ar', e.target.value)} placeholder={t('staff_role_ar')} className="vixel-input !p-1 !text-sm" dir="rtl" />
                             </div>
                         </div>
                         <div className="flex flex-col gap-1">
@@ -191,7 +198,7 @@ const StaffPanel: React.FC = () => {
                         <div>
                             <label className="block font-semibold mb-1">{t('discord_id_to_add')}</label>
                             <div className="flex gap-2">
-                                <input type="text" value={lookupDiscordId} onChange={e => setLookupDiscordId(e.target.value)} className="w-full bg-background-light text-text-primary p-2 rounded border border-gray-600"/>
+                                <input type="text" value={lookupDiscordId} onChange={e => setLookupDiscordId(e.target.value)} className="vixel-input !p-2"/>
                                 <button onClick={handleLookupUser} disabled={isLookingUp || !lookupDiscordId} className="bg-brand-cyan text-brand-dark font-bold py-2 px-4 rounded-md hover:bg-white w-32 flex justify-center">
                                     {isLookingUp ? <Loader2 className="animate-spin" /> : t('find_user')}
                                 </button>
@@ -205,19 +212,19 @@ const StaffPanel: React.FC = () => {
                                     <p className="text-sm text-gray-400">ID: {lookupResult.id}</p>
                                 </div>
                             </div>
-                        ) : isLookingUp ? null : lookupDiscordId && (
-                             <p className="text-yellow-400 text-sm">{t('user_not_registered')}</p>
+                        ) : lookupError && (
+                             <p className="text-yellow-400 text-sm p-2 bg-yellow-500/10 rounded-md">{lookupError}</p>
                         )}
                         
                         {lookupResult && (
                             <div className="pt-4 border-t border-brand-light-blue/50 space-y-4">
                                  <div>
                                     <label className="block font-semibold mb-1">{t('staff_role_en')}</label>
-                                    <input type="text" value={newStaffRoleEn} onChange={e => setNewStaffRoleEn(e.target.value)} className="w-full bg-background-light text-text-primary p-2 rounded border border-gray-600"/>
+                                    <input type="text" value={newStaffRoleEn} onChange={e => setNewStaffRoleEn(e.target.value)} className="vixel-input !p-2"/>
                                 </div>
                                  <div>
                                     <label className="block font-semibold mb-1">{t('staff_role_ar')}</label>
-                                    <input type="text" value={newStaffRoleAr} onChange={e => setNewStaffRoleAr(e.target.value)} className="w-full bg-background-light text-text-primary p-2 rounded border border-gray-600" dir="rtl"/>
+                                    <input type="text" value={newStaffRoleAr} onChange={e => setNewStaffRoleAr(e.target.value)} className="vixel-input !p-2" dir="rtl"/>
                                 </div>
                             </div>
                         )}

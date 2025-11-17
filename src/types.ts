@@ -63,7 +63,7 @@ export interface User {
 
 export interface AuthContextType {
   user: User | null;
-  login: () => void;
+  login: (captchaToken: string) => void;
   logout: () => void;
   loading: boolean;
   isInitialLoading: boolean; // New: For the very first load
@@ -76,6 +76,8 @@ export interface AuthContextType {
 
 export interface UserLookupResult {
     id: string;
+    // FIX: Added missing `discordId` property. The lookupUser API returns this field.
+    discordId: string;
     username: string;
     avatar: string;
     roles: DiscordRole[];

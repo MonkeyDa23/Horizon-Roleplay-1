@@ -36,7 +36,7 @@ const AboutUsPage: React.FC = () => {
     const [widgets, setWidgets] = useState<DiscordWidget[]>([]);
     const [staff, setStaff] = useState<StaffMember[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [activeView, setActiveView] = useState<'staff' | 'servers' | null>(null);
+    const [activeView, setActiveView] = useState<'staff' | 'servers'>('staff'); // Default to 'staff'
 
     useEffect(() => {
         const fetchData = async () => {
@@ -66,9 +66,13 @@ const AboutUsPage: React.FC = () => {
             return (
                 <div>
                     <h2 className="text-3xl md:text-4xl font-bold text-center mb-10">{t('meet_the_team')}</h2>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                        {staff.map((member, index) => <StaffCard key={member.id} member={member} index={index} />)}
-                    </div>
+                    {staff.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                            {staff.map((member, index) => <StaffCard key={member.id} member={member} index={index} />)}
+                        </div>
+                    ) : (
+                        <p className="text-center text-text-secondary">{t('staff_not_added_yet')}</p>
+                    )}
                 </div>
             );
         }
@@ -89,13 +93,7 @@ const AboutUsPage: React.FC = () => {
                                 </div>
                             ))
                          ) : (
-                            <div className="animate-stagger" style={{ opacity: 0 }}>
-                              <DiscordEmbed 
-                                  serverName={config.COMMUNITY_NAME}
-                                  serverId={config.DISCORD_GUILD_ID}
-                                  inviteUrl={config.DISCORD_INVITE_URL}
-                              />
-                            </div>
+                            <p className="text-center text-text-secondary">{t('widgets_not_added_yet')}</p>
                          )}
                     </div>
                 </div>

@@ -1,14 +1,52 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 // FIX: Switched to namespace import for react-router-dom to resolve module resolution issues.
 import * as ReactRouterDOM from 'react-router-dom';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { getQuizById, addSubmission } from '../lib/api';
+// FIX: Added 'verifyCaptcha' to imports.
+import { getQuizById, addSubmission, verifyCaptcha } from '../lib/api';
 import type { Quiz, Answer, CheatAttempt } from '../types';
-import { CheckCircle, Loader2, ListChecks } from 'lucide-react';
+import { CheckCircle, Loader2, ListChecks, ShieldCheck } from 'lucide-react';
 import { useConfig } from '../contexts/ConfigContext';
 import SEO from '../components/SEO';
+import { env } from '../env';
+
+// HCaptcha component declaration for TypeScript
+declare global {
+    interface Window {
+        hcaptcha: any;
+    }
+}
+
+const HCaptcha: React.FC<{ onVerify: (token: string) => void }> = ({ onVerify }) => {
+    const captchaRef = useRef<HTMLDivElement>(null);
+    const widgetIdRef = useRef<string | null>(null);
+
+    useEffect(() => {
+        if (window.hcaptcha && captchaRef.current && !widgetIdRef.current) {
+            const id = window.hcaptcha.render(captchaRef.current, {
+                sitekey: env.VITE_HCAPTCHA_SITE_KEY,
+                callback: onVerify,
+            });
+            widgetIdRef.current = id;
+        }
+         // Cleanup function to remove the widget when the component unmounts
+        return () => {
+            if (widgetIdRef.current) {
+                try {
+                    window.hcaptcha.remove(widgetIdRef.current);
+                } catch (e) {
+                     console.warn("hCaptcha remove widget error", e);
+                }
+                widgetIdRef.current = null;
+            }
+        };
+    }, [onVerify]);
+    
+    return <div ref={captchaRef}></div>;
+};
+
 
 const CircularTimer: React.FC<{ timeLeft: number; timeLimit: number }> = ({ timeLeft, timeLimit }) => {
     const radius = 30;
@@ -71,6 +109,8 @@ const QuizPage: React.FC = () => {
   const [showQuestion, setShowQuestion] = useState(true);
   const [cheatLog, setCheatLog] = useState<CheatAttempt[]>([]);
   const [finalCheatLog, setFinalCheatLog] = useState<CheatAttempt[]>([]);
+  const [hcaptchaToken, setHcaptchaToken] = useState<string | null>(null);
+
 
   useEffect(() => {
     if (!user) { navigate('/applies'); return; }
@@ -97,10 +137,13 @@ const QuizPage: React.FC = () => {
   }, [quizId, navigate, user]);
   
   const handleSubmit = useCallback(async (finalAnswers: Answer[]) => {
-    if (!quiz || !user || isSubmitting) return;
+    if (!quiz || !user || isSubmitting || !hcaptchaToken) {
+        if (!hcaptchaToken) showToast('الرجاء إكمال اختبار التحقق.', 'warning');
+        return;
+    };
     setIsSubmitting(true);
     setFinalCheatLog(cheatLog);
-    const submission = { 
+    const submissionData = { 
         quizId: quiz.id, 
         quizTitle: t(quiz.titleKey), 
         user_id: user.id, 
@@ -108,227 +151,186 @@ const QuizPage: React.FC = () => {
         answers: finalAnswers, 
         submittedAt: new Date().toISOString(), 
         cheatAttempts: cheatLog,
-        user_highest_role: user.highestRole?.name ?? t('member')
+        user_highest_role: user.highestRole?.name ?? t('member'),
+        discord_id: user.discordId
     };
     try {
-      await addSubmission(submission);
+      // FIX: Separated captcha verification from submission. First verify captcha, then submit.
+      await verifyCaptcha(hcaptchaToken);
+      await addSubmission(submissionData);
       setQuizState('submitted');
     } catch (error) {
       console.error("Failed to submit application:", error);
-      // FIX: Guard against window access for browser-specific 'alert'.
-      if (typeof window !== 'undefined') {
-        (window as any).alert("An error occurred while submitting your application. Please try again.");
-      }
+      showToast((error as Error).message, 'error');
       setIsSubmitting(false);
+       if (window.hcaptcha) {
+            window.hcaptcha.reset();
+            setHcaptchaToken(null);
+        }
     }
-  }, [quiz, user, t, isSubmitting, cheatLog]);
+  }, [quiz, user, t, isSubmitting, cheatLog, hcaptchaToken, showToast]);
+
 
   const handleNextQuestion = useCallback(() => {
     if (!quiz) return;
-    
     setShowQuestion(false);
+    const timeTaken = quiz.questions[currentQuestionIndex].timeLimit - timeLeft;
+
+    const newAnswers = [...answers, {
+        questionId: quiz.questions[currentQuestionIndex].id,
+        questionText: t(quiz.questions[currentQuestionIndex].textKey),
+        answer: currentAnswer,
+        timeTaken: timeTaken,
+    }];
+    setAnswers(newAnswers);
+    setCurrentAnswer('');
 
     setTimeout(() => {
-        const currentQuestion = quiz.questions[currentQuestionIndex];
-        // FIX: Add missing 'timeTaken' property to the answer object.
-        const timeTaken = currentQuestion.timeLimit - timeLeft;
-        const newAnswers = [...answers, { questionId: currentQuestion.id, questionText: t(currentQuestion.textKey), answer: currentAnswer || 'No answer (time out)', timeTaken }];
-        setAnswers(newAnswers);
-        setCurrentAnswer('');
-
         if (currentQuestionIndex < quiz.questions.length - 1) {
-            const nextQuestionIndex = currentQuestionIndex + 1;
-            setCurrentQuestionIndex(nextQuestionIndex);
-            setTimeLeft(quiz.questions[nextQuestionIndex].timeLimit);
+            setCurrentQuestionIndex(prev => prev + 1);
+            setTimeLeft(quiz.questions[currentQuestionIndex + 1].timeLimit);
             setShowQuestion(true);
         } else {
             handleSubmit(newAnswers);
         }
     }, 500);
-  }, [quiz, currentQuestionIndex, answers, currentAnswer, t, handleSubmit, timeLeft]);
-  
+  }, [quiz, currentQuestionIndex, timeLeft, answers, currentAnswer, t, handleSubmit]);
+
+
   useEffect(() => {
-    if (quizState !== 'taking' || !quiz) return;
+    if (quizState !== 'taking') return;
+    
     if (timeLeft <= 0) {
       handleNextQuestion();
       return;
     }
-    const timerId = setInterval(() => setTimeLeft(prevTime => prevTime - 1), 1000);
-    return () => clearInterval(timerId);
-  }, [timeLeft, quizState, quiz, handleNextQuestion]);
-  
+
+    const timer = setInterval(() => {
+      setTimeLeft(prev => prev - 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [timeLeft, quizState, handleNextQuestion]);
+
   useEffect(() => {
-    // FIX: Guard against document access in non-browser environments.
-    if (quizState !== 'taking' || typeof document === 'undefined') return;
+      if (quizState !== 'taking') return;
+      const logCheat = (method: string) => {
+          showToast(t('cheat_attempt_detected'), 'warning');
+          setCheatLog(prev => [...prev, { method: t(method), timestamp: new Date().toISOString() }]);
+      };
+      
+      const handleVisibilityChange = () => {
+          if (document.hidden) { logCheat('cheat_method_switched_tab'); }
+      };
+      const handleBlur = () => { logCheat('cheat_method_lost_focus'); };
+      
+      window.addEventListener('visibilitychange', handleVisibilityChange);
+      window.addEventListener('blur', handleBlur);
+      return () => {
+          window.removeEventListener('visibilitychange', handleVisibilityChange);
+          window.removeEventListener('blur', handleBlur);
+      };
+  }, [quizState, t, showToast]);
 
-    const handleCheat = (method: string) => {
-        setCheatLog(prev => [...prev, { method, timestamp: new Date().toISOString() }]);
-        showToast(t('cheat_attempt_detected'), 'error');
-        
-        setAnswers([]);
-        setCurrentAnswer('');
-        setCurrentQuestionIndex(0);
-        setQuizState('rules');
-        if (quiz) {
-            setTimeLeft(quiz.questions[0].timeLimit);
-        }
-    };
+  const beginQuiz = () => {
+      if (!hcaptchaToken) {
+          showToast('الرجاء إكمال اختبار التحقق أولاً.', 'warning');
+          return;
+      }
+      setQuizState('taking');
+  };
 
-    const handleVisibilityChange = () => {
-        // FIX: Guard against document access in non-browser environments.
-        if (document.visibilityState === 'hidden') {
-            handleCheat(t('cheat_method_switched_tab'));
-        }
-    };
-
-    // FIX: Add event listener to document.
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-        // FIX: Remove event listener from document on cleanup.
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [quizState, quiz, showToast, t]);
-  
-  const pageTitle = quiz ? t(quiz.titleKey) : t('applies');
-
-  if (isLoading) {
-    return ( <div className="container mx-auto px-6 py-16 flex justify-center items-center h-96"> <Loader2 size={48} className="text-brand-cyan animate-spin" /> </div> );
-  }
-
-  if (!quiz) return null;
-  
-  if (quizState === 'submitted') {
-    return (
-      <>
-        <SEO 
-          title={`${communityName} - ${t('application_submitted')}`}
-          description="Application submitted successfully."
-          noIndex={true}
-        />
-        <div className="container mx-auto px-6 py-16 text-center animate-slide-up">
-          <CheckCircle className="mx-auto text-green-400" size={80} />
-          <h1 className="text-4xl font-bold mt-6 mb-4">{t('application_submitted')}</h1>
-          <p className="text-lg text-gray-300 max-w-2xl mx-auto">{t('application_submitted_desc')}</p>
-          
-          <div className="max-w-md mx-auto bg-brand-dark-blue border border-brand-light-blue/50 rounded-lg p-6 text-left mt-10">
-              <h3 className="text-xl font-bold text-brand-cyan mb-4 flex items-center gap-3"><ListChecks /> {t('cheat_attempts_report')}</h3>
-              {finalCheatLog.length > 0 ? (
-                  <>
-                      <p className="text-gray-300 mb-4">{t('cheat_attempts_count', { count: finalCheatLog.length })}</p>
-                      <ul className="space-y-2 text-sm max-h-40 overflow-y-auto">
-                          {finalCheatLog.map((attempt, index) => (
-                              <li key={index} className="bg-brand-dark p-2 rounded-md">
-                                  <span className="font-semibold text-red-400">{attempt.method}</span>
-                                  <span className="text-gray-400 text-xs ml-2">({new Date(attempt.timestamp).toLocaleString()})</span>
-                              </li>
-                          ))}
-                      </ul>
-                  </>
-              ) : (
-                  <p className="text-green-300">{t('no_cheat_attempts')}</p>
-              )}
-          </div>
-
-          <button onClick={() => navigate('/my-applications')} className="mt-10 px-8 py-3 bg-brand-cyan text-brand-dark font-bold rounded-lg hover:bg-white transition-colors">
-              {t('view_my_applications')}
-          </button>
-        </div>
-      </>
-    )
-  }
-
-  if (quizState === 'rules') {
-    return (
-      <>
-        <SEO 
-          title={`${communityName} - ${pageTitle}`}
-          description={`Application form for ${pageTitle}. Please read the instructions carefully before starting.`}
-          noIndex={true}
-        />
-        <div className="container mx-auto px-6 py-16">
-          <div className="max-w-3xl mx-auto bg-brand-dark-blue border border-brand-light-blue/50 rounded-lg animate-slide-up overflow-hidden">
-            {quiz.bannerUrl && (
-              <div className="relative h-48 bg-cover bg-center" style={{ backgroundImage: `url(${quiz.bannerUrl})` }}>
-                <div className="absolute inset-0 bg-black/60 flex items-center justify-center p-4">
-                  {quiz.logoUrl && (
-                    <img src={quiz.logoUrl} alt="Quiz Logo" className="max-h-24 object-contain" />
-                  )}
-                </div>
-              </div>
-            )}
-            <div className="p-8 text-center">
-                <h1 className="text-3xl font-bold text-brand-cyan mb-4">{t('quiz_rules')}</h1>
-                <h2 className="text-2xl font-semibold mb-6">{t(quiz.titleKey)}</h2>
-                <p className="text-gray-300 mb-8 whitespace-pre-line">{t(quiz.descriptionKey)}</p>
-                <button onClick={() => setQuizState('taking')} className="px-10 py-4 bg-brand-cyan text-brand-dark font-bold text-lg rounded-lg shadow-glow-cyan hover:bg-white hover:scale-105 transform transition-all">
-                  {t('begin_quiz')}
-                </button>
-            </div>
-          </div>
-        </div>
-      </>
-    );
+  if (isLoading || !quiz) {
+    return <div className="flex justify-center items-center h-screen"><Loader2 size={48} className="text-brand-cyan animate-spin" /></div>;
   }
 
   const currentQuestion = quiz.questions[currentQuestionIndex];
-  const progress = ((currentQuestionIndex + 1) / quiz.questions.length) * 100;
   
   return (
     <>
-      <SEO 
-        title={`${communityName} - ${pageTitle}`}
-        description={`Application form for ${pageTitle}. Please read the instructions carefully before starting.`}
-        noIndex={true}
-      />
-      <div className="container mx-auto px-6 py-16">
-        <div className="max-w-3xl mx-auto bg-brand-dark-blue border border-brand-light-blue/50 rounded-lg p-8">
-          <div className="mb-6">
-            <div className="flex justify-between items-center mb-2 text-gray-300">
-              <span>{t('question')} {currentQuestionIndex + 1} {t('of')} {quiz.questions.length}</span>
-              <CircularTimer timeLeft={timeLeft} timeLimit={currentQuestion.timeLimit} />
-            </div>
-            <div className="w-full bg-brand-light-blue rounded-full h-2.5">
-              <div className="bg-brand-cyan h-2.5 rounded-full" style={{ width: `${progress}%`, transition: 'width 0.5s ease-in-out' }}></div>
-            </div>
-          </div>
-          
-          <div className="min-h-[280px]">
-            {showQuestion && (
-              <div className="animate-question-fade-in">
-                <h2 className="text-2xl md:text-3xl font-semibold mb-6 text-white">{t(currentQuestion.textKey)}</h2>
-                <textarea
-                  value={currentAnswer}
-                  // FIX: Use e.currentTarget.value to correctly access the textarea's value.
-                  onChange={(e) => setCurrentAnswer(e.currentTarget.value)}
-                  className="w-full bg-background-light text-text-primary p-4 rounded-md border border-gray-600 focus:ring-2 focus:ring-brand-cyan focus:border-brand-cyan transition-colors"
-                  rows={6}
-                  placeholder="Type your answer here..."
-                />
-              </div>
+      <SEO title={`${communityName} - ${t(quiz.titleKey)}`} noIndex={true} description={t(quiz.descriptionKey)} />
+      <div className="container mx-auto px-6 py-16 flex justify-center items-center min-h-[calc(100vh-136px)]">
+        <div className="glass-panel p-8 md:p-12 w-full max-w-4xl">
+            {quizState === 'rules' && (
+                <div className="text-center animate-fade-in-up">
+                    <h1 className="text-4xl font-bold text-white mb-4">{t(quiz.titleKey)}</h1>
+                    <p className="text-lg text-text-secondary mb-8">{t(quiz.descriptionKey)}</p>
+                    <div className="bg-brand-dark p-6 rounded-lg border border-border-color text-start mb-8">
+                        <h2 className="text-2xl font-bold text-primary-blue mb-4">{t('quiz_rules')}</h2>
+                        <ul className="list-disc list-inside space-y-2 text-text-primary">
+                            <li>You must answer all questions.</li>
+                            <li>Each question has a time limit.</li>
+                            <li>Switching tabs or leaving the page will be logged as a cheat attempt.</li>
+                            <li>Ensure you have enough time before starting.</li>
+                        </ul>
+                    </div>
+                    <div className="flex justify-center mb-8">
+                        {env.VITE_HCAPTCHA_SITE_KEY ? (
+                            <HCaptcha onVerify={setHcaptchaToken} />
+                        ) : (
+                             <p className="text-red-400 text-sm">hCaptcha site key is not configured!</p>
+                        )}
+                    </div>
+                    <button onClick={beginQuiz} disabled={!hcaptchaToken} className="bg-gradient-to-r from-primary-blue to-accent-cyan text-background-dark font-bold py-3 px-8 rounded-lg text-xl shadow-glow-blue hover:opacity-90 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                        {t('begin_quiz')}
+                    </button>
+                </div>
             )}
-          </div>
-          
-          <button 
-            onClick={handleNextQuestion}
-            disabled={!showQuestion || (isSubmitting && currentQuestionIndex === quiz.questions.length - 1)}
-            className="mt-8 w-full bg-brand-cyan text-brand-dark font-bold py-4 rounded-lg shadow-glow-cyan hover:bg-white transition-all text-lg flex justify-center items-center disabled:opacity-70 disabled:cursor-not-allowed"
-          >
-            {isSubmitting && currentQuestionIndex === quiz.questions.length - 1 ? (
-              <Loader2 size={28} className="animate-spin" />
-            ) : currentQuestionIndex < quiz.questions.length - 1 ? (
-              t('next_question')
-            ) : (
-              t('submit_application')
+            
+            {quizState === 'taking' && (
+                 <div className={`transition-opacity duration-500 ${showQuestion ? 'opacity-100' : 'opacity-0'}`}>
+                    <div className="flex flex-col md:flex-row justify-between items-center mb-6">
+                        <h2 className="text-2xl font-bold text-primary-blue mb-4 md:mb-0">
+                            {t('question')} {currentQuestionIndex + 1} {t('of')} {quiz.questions.length}
+                        </h2>
+                        <CircularTimer timeLeft={timeLeft} timeLimit={currentQuestion.timeLimit} />
+                    </div>
+                    <p className="text-xl md:text-2xl text-white mb-8 min-h-[6rem]">{t(currentQuestion.textKey)}</p>
+                    <textarea
+                        value={currentAnswer}
+                        onChange={(e) => setCurrentAnswer(e.target.value)}
+                        className="vixel-input text-lg h-48"
+                        placeholder="اكتب إجابتك هنا..."
+                    />
+                    <div className="mt-8 text-end">
+                        <button onClick={handleNextQuestion} disabled={!currentAnswer} className="bg-gradient-to-r from-primary-blue to-accent-cyan text-background-dark font-bold py-3 px-8 rounded-lg text-lg hover:opacity-90 transition-all duration-300 disabled:opacity-50">
+                             {currentQuestionIndex < quiz.questions.length - 1 ? t('next_question') : t('submit_application')}
+                        </button>
+                    </div>
+                 </div>
             )}
-          </button>
+
+            {isSubmitting && (
+                <div className="text-center animate-fade-in-up flex flex-col items-center">
+                    <Loader2 size={48} className="text-brand-cyan animate-spin mb-4" />
+                    <h2 className="text-2xl font-bold">Submitting...</h2>
+                </div>
+            )}
+
+             {quizState === 'submitted' && (
+                <div className="text-center animate-fade-in-up">
+                    <CheckCircle size={80} className="text-green-400 mx-auto mb-6" />
+                    <h1 className="text-4xl font-bold text-white mb-4">{t('application_submitted')}</h1>
+                    <p className="text-lg text-text-secondary mb-8">{t('application_submitted_desc')}</p>
+
+                    {finalCheatLog.length > 0 && (
+                         <div className="bg-brand-dark p-6 rounded-lg border border-border-color text-start mb-8 max-w-lg mx-auto">
+                            <h2 className="text-xl font-bold text-yellow-400 mb-4 flex items-center gap-3"><ListChecks /> {t('cheat_attempts_report')}</h2>
+                            <p className="text-text-secondary mb-3">{t('cheat_attempts_count', { count: finalCheatLog.length })}</p>
+                             <ul className="list-disc list-inside space-y-1 text-text-primary text-sm">
+                                {finalCheatLog.map((attempt, i) => (
+                                    <li key={i}>{attempt.method} at {new Date(attempt.timestamp).toLocaleTimeString()}</li>
+                                ))}
+                             </ul>
+                        </div>
+                    )}
+
+                    <button onClick={() => navigate('/my-applications')} className="bg-gradient-to-r from-primary-blue to-accent-cyan text-background-dark font-bold py-3 px-8 rounded-lg text-xl hover:opacity-90 transition-all duration-300">
+                        {t('view_my_applications')}
+                    </button>
+                </div>
+            )}
         </div>
-        <style>{`
-          @keyframes slide-up { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-          .animate-slide-up { animation: slide-up 0.8s ease-out forwards; }
-          @keyframes question-fade-in { from { opacity: 0; } to { opacity: 1; } }
-          .animate-question-fade-in { animation: question-fade-in 0.5s ease-out forwards; }
-        `}</style>
       </div>
     </>
   );

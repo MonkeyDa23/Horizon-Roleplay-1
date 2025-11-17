@@ -1,8 +1,9 @@
-import { Client, GatewayIntentBits, REST, Routes } from 'discord.js';
+import { Client, GatewayIntentBits, REST, Routes, DiscordAPIError } from 'discord.js';
 import express from 'express';
 import cors from 'cors';
 import 'dotenv/config';
 import { createWelcomeEmbed, createLogEmbed } from './embeds.js';
+
 
 // --- Environment Variable Validation ---
 const { DISCORD_BOT_TOKEN, DISCORD_GUILD_ID, PORT, API_SECRET_KEY } = process.env;
@@ -55,6 +56,9 @@ app.get('/health', authenticate, (req, res) => {
 app.post('/sync-user/:discordId', authenticate, async (req, res) => {
     try {
         const { discordId } = req.params;
+        if (!/^\d+$/.test(discordId)) {
+            return res.status(400).json({ error: 'Invalid Discord ID format.' });
+        }
         const guild = await client.guilds.fetch(DISCORD_GUILD_ID);
         const member = await guild.members.fetch(discordId);
 
@@ -88,13 +92,15 @@ app.post('/sync-user/:discordId', authenticate, async (req, res) => {
         });
     } catch (error) {
         console.error(`[API /sync-user] Error for ID ${req.params.discordId}:`, error.message);
-        if (error.code === 10007 || error.message.includes('Unknown Member')) { // Unknown Member
-             return res.status(404).json({ error: 'User not found in this server.' });
+        if (error instanceof DiscordAPIError) {
+            if (error.code === 10007 || error.code === 10013) { // Unknown Member, Unknown User
+                 return res.status(404).json({ error: 'User not found in this server.' });
+            }
         }
         if (error.message.includes('Members Intent')) {
             return res.status(503).json({ error: 'Bot is missing required permissions. The "Server Members Intent" is likely not enabled in the Discord Developer Portal.' });
         }
-        res.status(500).json({ error: 'An internal bot error occurred.' });
+        res.status(500).json({ error: 'An internal bot error occurred while syncing user.' });
     }
 });
 
@@ -126,11 +132,14 @@ app.post('/notify', authenticate, async (req, res) => {
     try {
         let target;
         if (dmToUserId) {
-            target = await client.users.fetch(dmToUserId);
-            if (!target) return res.status(404).json({ error: 'DM target user not found.' });
+            if (!/^\d+$/.test(dmToUserId)) return res.status(400).json({ error: 'Invalid dmToUserId format.' });
+            target = await client.users.fetch(dmToUserId).catch(() => null);
+            if (!target) return res.status(404).json({ error: `DM target user with ID ${dmToUserId} not found.` });
         } else if (channelId) {
-            target = await client.channels.fetch(channelId);
-            if (!target || !target.isTextBased()) return res.status(404).json({ error: 'Target channel not found or is not a text channel.' });
+            if (!/^\d+$/.test(channelId)) return res.status(400).json({ error: 'Invalid channelId format.' });
+            target = await client.channels.fetch(channelId).catch(() => null);
+            if (!target) return res.status(404).json({ error: `Target channel with ID ${channelId} not found.` });
+            if (!target.isTextBased()) return res.status(400).json({ error: 'Target channel is not a text-based channel.' });
         } else {
             return res.status(400).json({ error: 'A channelId or dmToUserId must be provided.' });
         }
@@ -138,8 +147,17 @@ app.post('/notify', authenticate, async (req, res) => {
         await target.send({ content: content, embeds: embed ? [embed] : [] });
         res.status(200).json({ success: true });
     } catch (error) {
-        console.error('[API /notify] Error:', error);
-        res.status(500).json({ error: 'Failed to send notification.' });
+        console.error('[API /notify] Error:', error.message);
+        if (error instanceof DiscordAPIError) {
+             if (error.code === 50001) { // Missing Access
+                return res.status(403).json({ error: `Bot is missing permissions to access or send messages in the target channel/DM.` });
+            } else if (error.code === 50007) { // Cannot send messages to this user
+                return res.status(403).json({ error: `Cannot send DMs to this user. They may have DMs disabled or have blocked the bot.` });
+            } else if (error.code === 10003 || error.code === 10013) { // Unknown Channel, Unknown User
+                return res.status(404).json({ error: `Target channel/user not found.` });
+            }
+        }
+        res.status(500).json({ error: 'Failed to send notification due to an internal bot error.' });
     }
 });
 

@@ -141,32 +141,32 @@ const StorePanel: React.FC = () => {
                         <div>
                             <label className="block mb-1 font-semibold text-gray-300">{t('name_en')}</label>
                             {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
-                            <input type="text" value={editingProduct.nameEn} onChange={(e) => setEditingProduct({ ...editingProduct, nameEn: e.currentTarget.value })} className="w-full bg-background-light text-text-primary p-2 rounded border border-gray-600" />
+                            <input type="text" value={editingProduct.nameEn} onChange={(e) => setEditingProduct({ ...editingProduct, nameEn: e.currentTarget.value })} className="vixel-input" />
                         </div>
                         <div>
                             <label className="block mb-1 font-semibold text-gray-300">{t('name_ar')}</label>
                             {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
-                            <input type="text" dir="rtl" value={editingProduct.nameAr} onChange={(e) => setEditingProduct({ ...editingProduct, nameAr: e.currentTarget.value })} className="w-full bg-background-light text-text-primary p-2 rounded border border-gray-600" />
+                            <input type="text" dir="rtl" value={editingProduct.nameAr} onChange={(e) => setEditingProduct({ ...editingProduct, nameAr: e.currentTarget.value })} className="vixel-input" />
                         </div>
                         <div>
                             <label className="block mb-1 font-semibold text-gray-300">{t('description_en')}</label>
                             {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
-                            <input type="text" value={editingProduct.descriptionEn} onChange={(e) => setEditingProduct({ ...editingProduct, descriptionEn: e.currentTarget.value })} className="w-full bg-background-light text-text-primary p-2 rounded border border-gray-600" />
+                            <input type="text" value={editingProduct.descriptionEn} onChange={(e) => setEditingProduct({ ...editingProduct, descriptionEn: e.currentTarget.value })} className="vixel-input" />
                         </div>
                         <div>
                             <label className="block mb-1 font-semibold text-gray-300">{t('description_ar')}</label>
                             {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
-                            <input type="text" dir="rtl" value={editingProduct.descriptionAr} onChange={(e) => setEditingProduct({ ...editingProduct, descriptionAr: e.currentTarget.value })} className="w-full bg-background-light text-text-primary p-2 rounded border border-gray-600" />
+                            <input type="text" dir="rtl" value={editingProduct.descriptionAr} onChange={(e) => setEditingProduct({ ...editingProduct, descriptionAr: e.currentTarget.value })} className="vixel-input" />
                         </div>
                         <div>
                             <label className="block mb-1 font-semibold text-gray-300">{t('price')}</label>
                             {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
-                            <input type="number" value={editingProduct.price} onChange={(e) => setEditingProduct({ ...editingProduct, price: parseFloat(e.currentTarget.value) || 0 })} className="w-full bg-background-light text-text-primary p-2 rounded border border-gray-600" />
+                            <input type="number" value={editingProduct.price} onChange={(e) => setEditingProduct({ ...editingProduct, price: parseFloat(e.currentTarget.value) || 0 })} className="vixel-input" />
                         </div>
                         <div>
                             <label className="block mb-1 font-semibold text-gray-300">{t('image_url')}</label>
                             {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
-                            <input type="text" value={editingProduct.imageUrl} onChange={(e) => setEditingProduct({ ...editingProduct, imageUrl: e.currentTarget.value })} className="w-full bg-background-light text-text-primary p-2 rounded border border-gray-600" />
+                            <input type="text" value={editingProduct.imageUrl} onChange={(e) => setEditingProduct({ ...editingProduct, imageUrl: e.currentTarget.value })} className="vixel-input" />
                         </div>
                         <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4">
                             <button onClick={() => setEditingProduct(null)} disabled={isSaving} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button>
