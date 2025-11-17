@@ -2,11 +2,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalization } from '../../contexts/LocalizationContext';
 import { useToast } from '../../contexts/ToastContext';
-import { getProducts, saveProduct, deleteProduct } from '../../lib/api';
-import type { Product } from '../../types';
+import { getProducts, saveProduct, deleteProduct, getProductCategories, saveProductCategories } from '../../lib/api';
+import type { Product, ProductCategory } from '../../types';
 import { useTranslations } from '../../contexts/TranslationsContext';
 import Modal from '../Modal';
-import { Loader2, Plus, Edit, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Edit, Trash2, GripVertical } from 'lucide-react';
 
 interface EditingProductData extends Product {
     nameEn: string;
@@ -15,48 +15,61 @@ interface EditingProductData extends Product {
     descriptionAr: string;
 }
 
+interface EditableCategory extends ProductCategory {
+    nameEn: string;
+    nameAr: string;
+}
+
 const StorePanel: React.FC = () => {
     const { t } = useLocalization();
     const { showToast } = useToast();
-    const { translations, refreshTranslations } = useTranslations();
+    // FIX: The useTranslations hook returns a 'loading' property, which is aliased to 'translationsLoading' to avoid naming conflicts.
+    const { translations, loading: translationsLoading, refreshTranslations } = useTranslations();
+    
+    const [activeView, setActiveView] = useState<'products' | 'categories'>('products');
     const [products, setProducts] = useState<Product[]>([]);
+    const [categories, setCategories] = useState<EditableCategory[]>([]);
+    
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    
     const [editingProduct, setEditingProduct] = useState<EditingProductData | null>(null);
 
-    const fetchProducts = useCallback(async () => {
+    const fetchData = useCallback(async () => {
+        if (translationsLoading) return;
         setIsLoading(true);
         try {
-            setProducts(await getProducts());
+            const [productsData, categoriesData] = await Promise.all([getProducts(), getProductCategories()]);
+            setProducts(productsData);
+            const editableCategories = categoriesData.map(c => ({
+                ...c,
+                nameEn: translations[c.nameKey]?.en || '',
+                nameAr: translations[c.nameKey]?.ar || '',
+            }));
+            setCategories(editableCategories);
         } catch (error) {
-            showToast('Failed to load products', 'error');
+            showToast('Failed to load store data', 'error');
         } finally {
             setIsLoading(false);
         }
-    }, [showToast]);
+    }, [showToast, translations, translationsLoading]);
 
     useEffect(() => {
-        fetchProducts();
-    }, [fetchProducts]);
+        fetchData();
+    }, [fetchData]);
 
-    const handleCreateNew = () => {
+    // Product Handlers
+    const handleCreateNewProduct = () => {
         const newId = crypto.randomUUID();
         setEditingProduct({
             id: newId,
-            nameKey: `product_${newId}_name`,
-            nameEn: '',
-            nameAr: '',
-            descriptionKey: `product_${newId}_desc`,
-            descriptionEn: '',
-            descriptionAr: '',
-            price: 0,
-            imageUrl: '',
-            // FIX: Added missing 'category_id' property required by the Product type.
-            category_id: null,
+            nameKey: `product_${newId}_name`, nameEn: '', nameAr: '',
+            descriptionKey: `product_${newId}_desc`, descriptionEn: '', descriptionAr: '',
+            price: 0, imageUrl: '', category_id: null,
         });
     };
 
-    const handleEdit = (product: Product) => {
+    const handleEditProduct = (product: Product) => {
         setEditingProduct({
             ...product,
             nameEn: translations[product.nameKey]?.en || '',
@@ -66,7 +79,7 @@ const StorePanel: React.FC = () => {
         });
     };
 
-    const handleSave = async () => {
+    const handleSaveProduct = async () => {
         if (!editingProduct) return;
         setIsSaving(true);
         try {
@@ -74,7 +87,7 @@ const StorePanel: React.FC = () => {
             setEditingProduct(null);
             showToast('Product saved!', 'success');
             await refreshTranslations();
-            fetchProducts();
+            fetchData();
         } catch (error) {
             showToast(`Error: ${(error as Error).message}`, 'error');
         } finally {
@@ -82,97 +95,180 @@ const StorePanel: React.FC = () => {
         }
     };
 
-    const handleDelete = async (product: Product) => {
-        // FIX: Guard against window access in non-browser environments.
-        if (typeof window !== 'undefined' && (window as any).confirm(`Delete "${t(product.nameKey)}"? This is irreversible.`)) {
+    const handleDeleteProduct = async (product: Product) => {
+        if (window.confirm(`Delete "${t(product.nameKey)}"? This is irreversible.`)) {
             try {
                 await deleteProduct(product.id);
                 showToast('Product deleted!', 'success');
-                fetchProducts();
+                fetchData();
             } catch (error) {
                 showToast(`Error: ${(error as Error).message}`, 'error');
             }
         }
     };
 
-    if (isLoading) {
-        return (
-            <div className="flex justify-center items-center py-20">
-                <Loader2 size={40} className="text-brand-cyan animate-spin" />
-            </div>
-        );
+    // Category Handlers
+    const handleSaveCategories = async () => {
+        setIsSaving(true);
+        try {
+            const dataToSave = categories.map((cat, index) => ({
+                id: cat.id,
+                nameKey: cat.nameKey,
+                nameEn: cat.nameEn,
+                nameAr: cat.nameAr,
+                position: index,
+            }));
+            await saveProductCategories(dataToSave);
+            await refreshTranslations();
+            showToast('Categories saved!', 'success');
+            await fetchData();
+        } catch (error) {
+            showToast((error as Error).message, 'error');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+    
+    const handleCategoryChange = (index: number, field: 'nameEn' | 'nameAr', value: string) => {
+        const newCategories = [...categories];
+        newCategories[index] = { ...newCategories[index], [field]: value };
+        setCategories(newCategories);
+    };
+
+    const addCategory = () => {
+        const newId = crypto.randomUUID();
+        const newCategory: EditableCategory = {
+            id: newId,
+            nameKey: `prod_cat_${newId}_name`,
+            nameEn: 'New Category',
+            nameAr: 'قسم جديد',
+            position: categories.length,
+            products: [],
+        };
+        setCategories([...categories, newCategory]);
+    };
+
+    const deleteCategory = (index: number) => {
+        setCategories(categories.filter((_, i) => i !== index));
+    };
+
+    if (isLoading || translationsLoading) {
+        return <div className="flex justify-center items-center py-20"><Loader2 size={40} className="text-brand-cyan animate-spin" /></div>;
     }
 
     return (
         <div className="animate-fade-in-up">
-            <div className="flex justify-end mb-6">
-                <button onClick={handleCreateNew} className="bg-brand-cyan text-brand-dark font-bold py-2 px-4 rounded-md hover:bg-white transition-all flex items-center gap-2">
-                    <Plus size={20} /> {t('add_new_product')}
-                </button>
+            <div className="flex items-center gap-4 mb-6 border-b-2 border-brand-light-blue/50">
+                <button onClick={() => setActiveView('products')} className={`py-3 px-6 font-bold text-lg transition-colors ${activeView === 'products' ? 'text-white border-b-2 border-brand-cyan' : 'text-gray-400 hover:text-white'}`}>{t('products_management')}</button>
+                <button onClick={() => setActiveView('categories')} className={`py-3 px-6 font-bold text-lg transition-colors ${activeView === 'categories' ? 'text-white border-b-2 border-brand-cyan' : 'text-gray-400 hover:text-white'}`}>{t('product_categories_management')}</button>
             </div>
-            <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left min-w-[600px]">
-                        <thead className="border-b border-brand-light-blue/50 text-gray-300 bg-brand-light-blue/30">
-                            <tr>
-                                <th className="p-4">Product Name</th>
-                                <th className="p-4">Price</th>
-                                <th className="p-4 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {products.map((product) => (
-                                <tr key={product.id} className="border-b border-brand-light-blue/50 last:border-none hover:bg-brand-light-blue/20 transition-colors">
-                                    <td className="p-4 font-semibold text-white">{t(product.nameKey)}</td>
-                                    <td className="p-4 text-brand-cyan font-bold">${product.price.toFixed(2)}</td>
-                                    <td className="p-4 text-right">
-                                        <div className="inline-flex gap-4">
-                                            <button onClick={() => handleEdit(product)} className="text-gray-300 hover:text-brand-cyan"><Edit size={20}/></button>
-                                            <button onClick={() => handleDelete(product)} className="text-gray-300 hover:text-red-500"><Trash2 size={20}/></button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
+
+            {activeView === 'products' && (
+                <div>
+                    <div className="flex justify-end mb-6">
+                        <button onClick={handleCreateNewProduct} className="bg-brand-cyan text-brand-dark font-bold py-2 px-4 rounded-md hover:bg-white transition-all flex items-center gap-2">
+                            <Plus size={20} /> {t('add_new_product')}
+                        </button>
+                    </div>
+                    <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50 overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left min-w-[600px]">
+                                <thead className="border-b border-brand-light-blue/50 text-gray-300 bg-brand-light-blue/30">
+                                    <tr>
+                                        <th className="p-4">Product Name</th>
+                                        <th className="p-4">Category</th>
+                                        <th className="p-4">Price</th>
+                                        <th className="p-4 text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {products.map((product) => (
+                                        <tr key={product.id} className="border-b border-brand-light-blue/50 last:border-none hover:bg-brand-light-blue/20 transition-colors">
+                                            <td className="p-4 font-semibold text-white">{t(product.nameKey)}</td>
+                                            <td className="p-4 text-gray-400">{product.category_id ? t(categories.find(c => c.id === product.category_id)?.nameKey || '') : '-'}</td>
+                                            <td className="p-4 text-brand-cyan font-bold">${product.price.toFixed(2)}</td>
+                                            <td className="p-4 text-right">
+                                                <div className="inline-flex gap-4">
+                                                    <button onClick={() => handleEditProduct(product)} className="text-gray-300 hover:text-brand-cyan"><Edit size={20}/></button>
+                                                    <button onClick={() => handleDeleteProduct(product)} className="text-gray-300 hover:text-red-500"><Trash2 size={20}/></button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
-            </div>
+            )}
+            
+            {activeView === 'categories' && (
+                 <div>
+                    <div className="flex justify-between items-center mb-6">
+                        <p className="text-gray-400">Drag and drop to reorder categories.</p>
+                        <div className="flex gap-4">
+                            <button onClick={addCategory} className="bg-blue-500/80 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-500 transition-colors flex items-center gap-2"><Plus size={18} /> {t('add_category')}</button>
+                            <button onClick={handleSaveCategories} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white transition-colors min-w-[9rem] flex justify-center">{isSaving ? <Loader2 className="animate-spin" /> : t('save_settings')}</button>
+                        </div>
+                    </div>
+                     <div className="space-y-4">
+                        {categories.map((cat, index) => (
+                            <div key={cat.id} className="bg-brand-dark-blue p-3 rounded-lg border border-brand-light-blue/50 flex items-center gap-4">
+                                <GripVertical className="cursor-grab text-gray-500" />
+                                <div className="flex-grow grid grid-cols-2 gap-3">
+                                    <input type="text" value={cat.nameEn} onChange={(e) => handleCategoryChange(index, 'nameEn', e.target.value)} placeholder={t('category_name_en')} className="vixel-input" />
+                                    <input type="text" dir="rtl" value={cat.nameAr} onChange={(e) => handleCategoryChange(index, 'nameAr', e.target.value)} placeholder={t('category_name_ar')} className="vixel-input" />
+                                </div>
+                                <button onClick={() => deleteCategory(index)} className="text-red-500 hover:text-red-400"><Trash2 size={20} /></button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {editingProduct && (
                 <Modal isOpen={!!editingProduct} onClose={() => setEditingProduct(null)} title={t(editingProduct.nameEn ? 'edit_product' : 'create_product')} maxWidth="lg">
                     <div className="space-y-4 text-white">
-                        <div>
-                            <label className="block mb-1 font-semibold text-gray-300">{t('name_en')}</label>
-                            {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
-                            <input type="text" value={editingProduct.nameEn} onChange={(e) => setEditingProduct({ ...editingProduct, nameEn: e.currentTarget.value })} className="vixel-input" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block mb-1 font-semibold text-gray-300">{t('name_en')}</label>
+                                <input type="text" value={editingProduct.nameEn} onChange={(e) => setEditingProduct({ ...editingProduct, nameEn: e.currentTarget.value })} className="vixel-input" />
+                            </div>
+                            <div>
+                                <label className="block mb-1 font-semibold text-gray-300">{t('name_ar')}</label>
+                                <input type="text" dir="rtl" value={editingProduct.nameAr} onChange={(e) => setEditingProduct({ ...editingProduct, nameAr: e.currentTarget.value })} className="vixel-input" />
+                            </div>
                         </div>
-                        <div>
-                            <label className="block mb-1 font-semibold text-gray-300">{t('name_ar')}</label>
-                            {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
-                            <input type="text" dir="rtl" value={editingProduct.nameAr} onChange={(e) => setEditingProduct({ ...editingProduct, nameAr: e.currentTarget.value })} className="vixel-input" />
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <div>
+                                <label className="block mb-1 font-semibold text-gray-300">{t('description_en')}</label>
+                                <textarea value={editingProduct.descriptionEn} onChange={(e) => setEditingProduct({ ...editingProduct, descriptionEn: e.currentTarget.value })} className="vixel-input h-24" />
+                            </div>
+                            <div>
+                                <label className="block mb-1 font-semibold text-gray-300">{t('description_ar')}</label>
+                                <textarea dir="rtl" value={editingProduct.descriptionAr} onChange={(e) => setEditingProduct({ ...editingProduct, descriptionAr: e.currentTarget.value })} className="vixel-input h-24" />
+                            </div>
                         </div>
-                        <div>
-                            <label className="block mb-1 font-semibold text-gray-300">{t('description_en')}</label>
-                            {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
-                            <input type="text" value={editingProduct.descriptionEn} onChange={(e) => setEditingProduct({ ...editingProduct, descriptionEn: e.currentTarget.value })} className="vixel-input" />
-                        </div>
-                        <div>
-                            <label className="block mb-1 font-semibold text-gray-300">{t('description_ar')}</label>
-                            {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
-                            <input type="text" dir="rtl" value={editingProduct.descriptionAr} onChange={(e) => setEditingProduct({ ...editingProduct, descriptionAr: e.currentTarget.value })} className="vixel-input" />
-                        </div>
-                        <div>
-                            <label className="block mb-1 font-semibold text-gray-300">{t('price')}</label>
-                            {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
-                            <input type="number" value={editingProduct.price} onChange={(e) => setEditingProduct({ ...editingProduct, price: parseFloat(e.currentTarget.value) || 0 })} className="vixel-input" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block mb-1 font-semibold text-gray-300">{t('price')}</label>
+                                <input type="number" value={editingProduct.price} onChange={(e) => setEditingProduct({ ...editingProduct, price: parseFloat(e.currentTarget.value) || 0 })} className="vixel-input" />
+                            </div>
+                            <div>
+                                <label className="block mb-1 font-semibold text-gray-300">{t('product_category')}</label>
+                                <select value={editingProduct.category_id || ''} onChange={(e) => setEditingProduct({ ...editingProduct, category_id: e.currentTarget.value || null })} className="vixel-input appearance-none">
+                                    <option value="">{t('no_category')}</option>
+                                    {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.nameEn}</option>)}
+                                </select>
+                            </div>
                         </div>
                         <div>
                             <label className="block mb-1 font-semibold text-gray-300">{t('image_url')}</label>
-                            {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
                             <input type="text" value={editingProduct.imageUrl} onChange={(e) => setEditingProduct({ ...editingProduct, imageUrl: e.currentTarget.value })} className="vixel-input" />
                         </div>
                         <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4">
                             <button onClick={() => setEditingProduct(null)} disabled={isSaving} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button>
-                            <button onClick={handleSave} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white min-w-[8rem] flex justify-center">
+                            <button onClick={handleSaveProduct} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white min-w-[8rem] flex justify-center">
                                 {isSaving ? <Loader2 className="animate-spin"/> : t('save_product')}
                             </button>
                         </div>

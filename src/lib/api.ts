@@ -173,217 +173,223 @@ export const revalidateSession = async (): Promise<User> => {
 export const verifyAdminPassword = async (password: string): Promise<boolean> => {
     if (!supabase) return false;
     const { data } = await supabase.rpc('verify_admin_password', { p_password: password });
-    return !!data;
+    return data as boolean;
 };
 
 // =============================================
-// CONFIG & TRANSLATIONS API
+// STORE API
 // =============================================
-export const getConfig = async (): Promise<AppConfig> => handleResponse(await supabase.rpc('get_config'));
-export const saveConfig = async (config: Partial<AppConfig>): Promise<void> => handleResponse(await supabase.rpc('update_config', { new_config: config }));
+export const getProducts = async (): Promise<Product[]> => {
+  if (!supabase) return [];
+  const response = await supabase.from('products').select('*');
+  return handleResponse(response);
+};
+export const getProductById = async (id: string): Promise<Product> => {
+  if (!supabase) throw new Error("Supabase client not initialized.");
+  const response = await supabase.from('products').select('*').eq('id', id).single();
+  return handleResponse(response);
+};
+export const saveProduct = async (productData: any): Promise<Product> => {
+  if (!supabase) throw new Error("Supabase client not initialized.");
+  const { data, error } = await supabase.rpc('save_product_with_translations', { p_product_data: productData });
+  if (error) throw new ApiError(error.message, 500);
+  return data;
+};
+export const deleteProduct = async (id: string): Promise<void> => {
+  if (!supabase) return;
+  const { error } = await supabase.rpc('delete_product', { p_product_id: id });
+  if (error) throw new ApiError(error.message, 500);
+};
+
+export const getProductCategories = async (): Promise<ProductCategory[]> => {
+  if (!supabase) return [];
+  const response = await supabase.from('product_categories').select('*').order('position');
+  return handleResponse(response);
+};
+
+export const getProductsWithCategories = async (): Promise<ProductCategory[]> => {
+    if (!supabase) return [];
+    const { data, error } = await supabase.rpc('get_products_with_categories');
+    if (error) {
+        console.error('Supabase RPC Error (get_products_with_categories):', error);
+        throw new ApiError(error.message, 500);
+    }
+    return data as ProductCategory[];
+};
+
+export const saveProductCategories = async (categories: any[]): Promise<void> => {
+    if (!supabase) return;
+    const { error } = await supabase.rpc('save_product_categories', { p_categories_data: categories });
+    if (error) throw new ApiError(error.message, 500);
+};
+
+
+// =============================================
+// RULES & CONFIG API
+// =============================================
+export const getRules = async (): Promise<RuleCategory[]> => {
+  if (!supabase) return [];
+  const response = await supabase.from('rules').select('*').order('position');
+  return handleResponse(response);
+};
+export const saveRules = async (rules: any[]): Promise<void> => {
+    if (!supabase) return;
+    const { error } = await supabase.rpc('save_rules', { p_rules_data: rules });
+    if (error) throw new ApiError(error.message, 500);
+};
+export const getConfig = async (): Promise<AppConfig> => {
+  if (!supabase) throw new Error("Supabase client is not initialized.");
+  const { data, error } = await supabase.rpc('get_config');
+  if (error) throw new ApiError(error.message, 500);
+  return data as AppConfig;
+};
+export const saveConfig = async (configData: Partial<AppConfig>): Promise<void> => {
+    if (!supabase) return;
+    const { error } = await supabase.rpc('update_config', { new_config: configData });
+    if (error) throw new ApiError(error.message, 500);
+};
+
+// =============================================
+// QUIZ & SUBMISSIONS API
+// =============================================
+export const getQuizzes = async (): Promise<Quiz[]> => {
+  if (!supabase) return [];
+  const response = await supabase.from('quizzes').select('*');
+  return handleResponse(response);
+};
+export const getQuizById = async (id: string): Promise<Quiz> => {
+  if (!supabase) throw new Error("Supabase client not initialized.");
+  const response = await supabase.from('quizzes').select('*').eq('id', id).single();
+  return handleResponse(response);
+};
+export const addSubmission = async (submissionData: any): Promise<QuizSubmission> => {
+  if (!supabase) throw new Error("Supabase client not initialized.");
+  const { data, error } = await supabase.rpc('add_submission', { submission_data: submissionData });
+  if (error) throw new ApiError(error.message, 500);
+  return data;
+};
+export const getSubmissions = async (): Promise<QuizSubmission[]> => {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('get_all_submissions');
+  if (error) throw new ApiError(error.message, 500);
+  return data;
+};
+export const getSubmissionsByUserId = async (userId: string): Promise<QuizSubmission[]> => {
+  if (!supabase) return [];
+  const response = await supabase.from('submissions').select('*').eq('user_id', userId).order('submittedAt', { ascending: false });
+  return handleResponse(response);
+};
+export const updateSubmissionStatus = async (id: string, status: string, reason?: string): Promise<QuizSubmission> => {
+  if (!supabase) throw new Error("Supabase client not initialized.");
+  const { data, error } = await supabase.rpc('update_submission_status', { p_submission_id: id, p_new_status: status, p_reason: reason });
+  if (error) throw new ApiError(error.message, 500);
+  return data;
+};
+export const deleteSubmission = async (id: string): Promise<void> => {
+    if (!supabase) return;
+    const { error } = await supabase.rpc('delete_submission', { p_submission_id: id });
+    if (error) throw new ApiError(error.message, 500);
+};
+export const saveQuiz = async (quizData: any): Promise<Quiz> => {
+  if (!supabase) throw new Error("Supabase client not initialized.");
+  const { data, error } = await supabase.rpc('save_quiz_with_translations', { p_quiz_data: quizData });
+  if (error) throw new ApiError(error.message, 500);
+  return data;
+};
+export const deleteQuiz = async (id: string): Promise<void> => {
+    if (!supabase) return;
+    const { error } = await supabase.rpc('delete_quiz', { p_quiz_id: id });
+    if (error) throw new ApiError(error.message, 500);
+};
+
+// =============================================
+// TRANSLATIONS API
+// =============================================
 export const getTranslations = async (): Promise<Translations> => {
-    const data = await handleResponse<({ key: string; ar: string; en: string })[]>(await supabase.from('translations').select('key, ar, en'));
-    const translations: Translations = {};
-    for (const item of data) { translations[item.key] = { ar: item.ar, en: item.en }; }
-    return translations;
+  if (!supabase) return {};
+  const { data, error } = await supabase.from('translations').select('key, en, ar');
+  if (error) throw new ApiError(error.message, 500);
+  // FIX: Replaced reduce with a for loop for broader compatibility.
+  const translations: Translations = {};
+  for (let i = 0; i < data.length; i++) {
+    const item = data[i];
+    translations[item.key] = { en: item.en, ar: item.ar };
+  }
+  return translations;
 };
 export const saveTranslations = async (translations: Translations): Promise<void> => {
-    const dataToUpsert = Object.entries(translations).map(([key, value]) => ({ key, ...value }));
-    await handleResponse(await supabase.from('translations').upsert(dataToUpsert, { onConflict: 'key' }));
+    if (!supabase) return;
+    const upsertData = Object.entries(translations).map(([key, value]) => ({ key, en: value.en, ar: value.ar }));
+    const { error } = await supabase.from('translations').upsert(upsertData, { onConflict: 'key' });
+    if (error) throw new ApiError(error.message, 500);
 };
 
 // =============================================
-// STORE, QUIZZES, RULES, WIDGETS API
+// ADMIN & MODERATION API
 // =============================================
-export const getProducts = async (): Promise<Product[]> => handleResponse(await supabase.from('products').select('*'));
-export const getProductById = async (id: string): Promise<Product | null> => handleResponse(await supabase.from('products').select('*').eq('id', id).single());
-export const getProductsWithCategories = async (): Promise<ProductCategory[]> => handleResponse(await supabase.rpc('get_products_with_categories'));
-export const saveProductCategories = async (categories: any[]): Promise<void> => handleResponse(await supabase.rpc('save_product_categories', { p_categories_data: categories }));
-export const saveProduct = async (data: any): Promise<Product> => handleResponse(await supabase.rpc('save_product_with_translations', { p_product_data: data }));
-export const deleteProduct = async (id: string): Promise<void> => handleResponse(await supabase.rpc('delete_product', { p_product_id: id }));
-export const getQuizzes = async (): Promise<Quiz[]> => handleResponse(await supabase.from('quizzes').select('*').order('created_at', { ascending: true }));
-export const getQuizById = async (id: string): Promise<Quiz | null> => handleResponse(await supabase.from('quizzes').select('*').eq('id', id).single());
-export const saveQuiz = async (data: any): Promise<Quiz> => handleResponse(await supabase.rpc('save_quiz_with_translations', { p_quiz_data: data }));
-export const deleteQuiz = async (id: string): Promise<void> => handleResponse(await supabase.rpc('delete_quiz', { p_quiz_id: id }));
-export const getRules = async (): Promise<RuleCategory[]> => handleResponse(await supabase.from('rules').select('*').order('position', { ascending: true }));
-export const saveRules = async (data: any[]): Promise<void> => handleResponse(await supabase.rpc('save_rules', { p_rules_data: data }));
-export const getDiscordWidgets = async (): Promise<DiscordWidget[]> => handleResponse(await supabase.from('discord_widgets').select('*').order('position', { ascending: true }));
-export const saveDiscordWidgets = async (widgets: Omit<DiscordWidget, 'id'>[]): Promise<void> => handleResponse(await supabase.rpc('save_discord_widgets', { p_widgets_data: widgets }));
-
-
-// =============================================
-// SUBMISSIONS API (with BOT NOTIFICATIONS)
-// =============================================
-export const getSubmissions = async (): Promise<QuizSubmission[]> => handleResponse(await supabase.rpc('get_all_submissions'));
-export const getSubmissionsByUserId = async (userId: string): Promise<QuizSubmission[]> => handleResponse(await supabase.from('submissions').select('*').eq('user_id', userId).order('submittedAt', { ascending: false }));
-export const deleteSubmission = async (id: string): Promise<void> => handleResponse(await supabase.rpc('delete_submission', { p_submission_id: id }));
-
-export const addSubmission = async (submission: any): Promise<QuizSubmission> => {
-    // 1. Save to DB
-    const newSubmission = await handleResponse<QuizSubmission>(await supabase.rpc('add_submission', { submission_data: submission }));
-    if (!newSubmission) throw new Error("Failed to get new submission record from database.");
-
-    // 2. Trigger notifications via Bot (fire-and-forget)
-    const { submissions_channel_id, mention_role_submissions, COMMUNITY_NAME, LOGO_URL } = await getConfig();
-    if (submissions_channel_id) {
-        const embed = {
-            author: { name: "New Submission Received", icon_url: LOGO_URL },
-            description: `A submission from **${newSubmission.username}** for **${newSubmission.quizTitle}** is awaiting review.`,
-            color: 0x00F2EA,
-            fields: [{ name: "Applicant", value: `<@${submission.discord_id}>`, inline: true }, { name: "Application", value: newSubmission.quizTitle, inline: true }],
-            footer: { text: COMMUNITY_NAME, icon_url: LOGO_URL },
-            timestamp: new Date(newSubmission.submittedAt).toISOString(),
-        };
-        callBotApi('/notify', { method: 'POST', body: JSON.stringify({ channelId: submissions_channel_id, content: mention_role_submissions ? `<@&${mention_role_submissions}>` : '', embed }) }).catch(e => console.error("Bot notification failed:", e));
-    }
-    
-    // Send DM receipt
-    const { data: translations } = await supabase.from('translations').select('key, en, ar').in('key', ['notification_submission_receipt_title', 'notification_submission_receipt_body']);
-    const receiptTitle = translations?.find(t => t.key === 'notification_submission_receipt_title')?.en ?? 'Application Submitted Successfully! ✅';
-    const receiptBody = translations?.find(t => t.key === 'notification_submission_receipt_body')?.en ?? 'Hey {username},\n\nWe have successfully received your application for **{quizTitle}**. Our team will review it as soon as possible.';
-    
-    const receiptEmbed = {
-        title: receiptTitle,
-        description: receiptBody.replace('{username}', newSubmission.username).replace('{quizTitle}', newSubmission.quizTitle),
-        color: 0x00B2FF,
-        footer: { text: COMMUNITY_NAME, icon_url: LOGO_URL },
-        timestamp: new Date().toISOString()
-    };
-    const { data: profile } = await supabase.from('profiles').select('discord_id').eq('id', newSubmission.user_id).single();
-    if(profile) callBotApi('/notify', { method: 'POST', body: JSON.stringify({ dmToUserId: profile.discord_id, embed: receiptEmbed }) }).catch(e => console.error("Bot DM receipt failed:", e));
-    
-    return newSubmission;
+export const lookupUser = (discordId: string): Promise<UserLookupResult> => callBotApi(`/sync-user/${discordId}`, { method: 'POST' });
+export const banUser = async (targetUserId: string, reason: string, durationHours: number | null): Promise<void> => {
+    if (!supabase) return;
+    const { error } = await supabase.rpc('ban_user', { p_target_user_id: targetUserId, p_reason: reason, p_duration_hours: durationHours });
+    if (error) throw new ApiError(error.message, 500);
 };
-
-export const updateSubmissionStatus = async (submissionId: string, status: 'taken' | 'accepted' | 'refused', reason?: string): Promise<void> => {
-    // 1. Update DB
-    const updatedSubmission = await handleResponse<QuizSubmission>(await supabase.rpc('update_submission_status', { p_submission_id: submissionId, p_new_status: status, p_reason: reason || null }));
-    if (!updatedSubmission) throw new Error("Failed to get updated submission record from database.");
-    
-    const { data: profile } = await supabase.from('profiles').select('discord_id').eq('id', updatedSubmission.user_id).single();
-    if (!profile) {
-        console.error("Could not find Discord ID for user to send notification.");
-        return; // Early exit if we can't notify the user
-    }
-    const discordId = profile.discord_id;
-
-    // 2. Trigger notifications via Bot
-    const { log_channel_submissions, COMMUNITY_NAME, LOGO_URL, mention_role_audit_log_submissions } = await getConfig();
-    if (log_channel_submissions) {
-        const logEmbed = {
-            title: `Submission Status Updated: ${status.toUpperCase()}`,
-            description: `Submission from **${updatedSubmission.username}** for **${updatedSubmission.quizTitle}** was updated by admin **${updatedSubmission.adminUsername}**.`,
-            color: status === 'accepted' ? 0x22C55E : status === 'refused' ? 0xEF4444 : 0x3B82F6,
-            fields: [
-                { name: "Applicant", value: `<@${discordId}>`, inline: true },
-                { name: "Status", value: status, inline: true },
-                { name: "Admin", value: updatedSubmission.adminUsername || 'N/A', inline: true },
-            ],
-            footer: { text: COMMUNITY_NAME, icon_url: LOGO_URL },
-            timestamp: new Date().toISOString()
-        };
-        if (reason) {
-            logEmbed.fields.push({ name: "Reason", value: reason, inline: false });
-        }
-        callBotApi('/notify', { method: 'POST', body: JSON.stringify({ channelId: log_channel_submissions, content: mention_role_audit_log_submissions ? `<@&${mention_role_audit_log_submissions}>` : '', embed: logEmbed }) }).catch(e => console.error("Bot log notification failed:", e));
-    }
-
-    if (status === 'accepted' || status === 'refused') {
-        const isAccepted = status === 'accepted';
-        const titleKey = isAccepted ? 'notification_submission_accepted_title' : 'notification_submission_refused_title';
-        const bodyKey = isAccepted ? 'notification_submission_accepted_body' : 'notification_submission_refused_body';
-
-        const { data: translations } = await supabase.from('translations').select('key, en, ar').in('key', [titleKey, bodyKey]);
-        const resultTitle = translations?.find(t => t.key === titleKey)?.en ?? (isAccepted ? 'Congratulations! Your Application was Accepted! 🎉' : 'Update on Your Application');
-        const resultBodyTemplate = translations?.find(t => t.key === bodyKey)?.en ?? 'There was an update on your application for {quizTitle}.';
-        const resultBody = resultBodyTemplate
-            .replace('{username}', updatedSubmission.username)
-            .replace('{quizTitle}', updatedSubmission.quizTitle)
-            .replace('{adminUsername}', updatedSubmission.adminUsername || 'Admin')
-            .replace('{reason}', updatedSubmission.reason || 'No reason provided.');
-
-        const resultEmbed = {
-            title: resultTitle,
-            description: resultBody,
-            color: isAccepted ? 0x22C55E : 0xEF4444,
-            footer: { text: COMMUNITY_NAME, icon_url: LOGO_URL },
-            timestamp: new Date().toISOString()
-        };
-        await callBotApi('/notify', { method: 'POST', body: JSON.stringify({ dmToUserId: discordId, embed: resultEmbed }) });
-    }
+export const unbanUser = async (targetUserId: string): Promise<void> => {
+    if (!supabase) return;
+    const { error } = await supabase.rpc('unban_user', { p_target_user_id: targetUserId });
+    if (error) throw new ApiError(error.message, 500);
 };
+export const getAuditLogs = async (page = 1, limit = 50): Promise<AuditLogEntry[]> => {
+  if (!supabase) return [];
+  const response = await supabase.from('audit_log').select('*').order('timestamp', { ascending: false }).range((page - 1) * limit, page * limit - 1);
+  return handleResponse(response);
+};
+export const logAdminPageVisit = async (pageName: string): Promise<void> => {
+  if (!supabase) return;
+  // This is a fire-and-forget operation, so we don't need to throw an error on failure
+  await supabase.rpc('log_page_visit', { p_page_name: pageName });
+};
+export const getGuildRoles = (): Promise<DiscordRole[]> => callBotApi('/guild-roles');
+export const getRolePermissions = async (): Promise<RolePermission[]> => {
+  if (!supabase) return [];
+  const response = await supabase.from('role_permissions').select('*');
+  return handleResponse(response);
+};
+export const saveRolePermissions = async (data: RolePermission): Promise<void> => {
+    if (!supabase) return;
+    const { error } = await supabase.rpc('save_role_permissions', { p_role_id: data.role_id, p_permissions: data.permissions });
+    if (error) throw new ApiError(error.message, 500);
+};
+export const testNotification = (type: string, targetId: string): Promise<void> => callBotApi('/notify-test', { method: 'POST', body: JSON.stringify({ type, targetId }) });
 
 // =============================================
-// PERMISSIONS & ROLES API
+// WIDGETS & STAFF API
 // =============================================
-export const getGuildRoles = async (): Promise<DiscordRole[]> => callBotApi<DiscordRole[]>('/guild-roles');
-export const getRolePermissions = async (): Promise<RolePermission[]> => handleResponse(await supabase.from('role_permissions').select('*'));
-export const saveRolePermissions = async (rolePermission: RolePermission): Promise<void> => handleResponse(await supabase.rpc('save_role_permissions', { p_role_id: rolePermission.role_id, p_permissions: rolePermission.permissions }));
-
-// =============================================
-// STAFF API (NEW)
-// =============================================
-export const getStaff = async (): Promise<StaffMember[]> => handleResponse(await supabase.rpc('get_staff'));
-export const saveStaff = async (staff: any[]): Promise<void> => handleResponse(await supabase.rpc('save_staff', { p_staff_data: staff }));
-
-
-// =============================================
-// ADMIN & AUDIT LOG API
-// =============================================
-export const getAuditLogs = async (): Promise<AuditLogEntry[]> => handleResponse(await supabase.from('audit_log').select('*').order('timestamp', { ascending: false }).limit(100));
-export const logAdminPageVisit = async (pageName: string): Promise<void> => handleResponse(await supabase.rpc('log_page_visit', { p_page_name: pageName }));
-
-export const banUser = async (targetUserId: string, reason: string, durationHours: number | null): Promise<void> => handleResponse(await supabase.rpc('ban_user', { p_target_user_id: targetUserId, p_reason: reason, p_duration_hours: durationHours }));
-export const unbanUser = async (targetUserId: string): Promise<void> => handleResponse(await supabase.rpc('unban_user', { p_target_user_id: targetUserId }));
-
-export const testNotification = async (type: string, targetId: string): Promise<any> => {
-    const { COMMUNITY_NAME, LOGO_URL } = await getConfig();
-    const embed = {
-        title: `Test Notification: ${type}`,
-        description: `This is a test notification sent to target ID \`${targetId}\`. If you see this, the connection is working.`,
-        color: 0x00F2EA,
-        footer: { text: COMMUNITY_NAME, icon_url: LOGO_URL },
-        timestamp: new Date().toISOString(),
-    };
-    
-    const body: { embed: any, dmToUserId?: string, channelId?: string } = { embed };
-    if (type === 'submission_result') { // Special case for DM test
-        body.dmToUserId = targetId;
-    } else {
-        body.channelId = targetId;
-    }
-    
-    return callBotApi('/notify', { method: 'POST', body: JSON.stringify(body) });
+export const getDiscordWidgets = async (): Promise<DiscordWidget[]> => {
+    if (!supabase) return [];
+    const response = await supabase.from('discord_widgets').select('*').order('position');
+    return handleResponse(response);
+};
+export const saveDiscordWidgets = async (widgets: any[]): Promise<void> => {
+    if (!supabase) return;
+    const { error } = await supabase.rpc('save_discord_widgets', { p_widgets_data: widgets });
+    if (error) throw new ApiError(error.message, 500);
+};
+export const getStaff = async (): Promise<StaffMember[]> => {
+    if (!supabase) return [];
+    const { data, error } = await supabase.rpc('get_staff');
+    if (error) throw new ApiError(error.message, 500);
+    return data;
+};
+export const saveStaff = async (staff: any[]): Promise<void> => {
+    if (!supabase) return;
+    const { error } = await supabase.rpc('save_staff', { p_staff_data: staff });
+    if (error) throw new ApiError(error.message, 500);
 };
 
 
 // =============================================
-// MISC & HEALTH CHECK API
+// EXTERNAL & MISC API
 // =============================================
-export const lookupUser = async (discordId: string): Promise<UserLookupResult> => {
-    if (!supabase) throw new Error("Supabase client is not initialized.");
-    
-    // 1. Get discord info from bot
-    const discordProfile = await callBotApi<any>(`/sync-user/${discordId}`, { method: 'POST' });
-
-    // 2. Try to find the user in our DB to get their website-specific data
-    const { data: profile, error } = await supabase.from('profiles').select('id, is_banned, ban_reason, ban_expires_at').eq('discord_id', discordId).single();
-    
-    // error.code 'PGRST116' means "exact one row not found", which is expected for users who haven't logged in.
-    if (error && error.code !== 'PGRST116') {
-        throw error;
-    }
-
-    return {
-        ...discordProfile, // from bot
-        id: profile?.id || null, // from supabase, can be null
-        is_banned: profile?.is_banned ?? false,
-        ban_reason: profile?.ban_reason ?? null,
-        ban_expires_at: profile?.ban_expires_at ?? null,
-    };
-};
-export const checkDiscordApiHealth = async (): Promise<any> => callBotApi('/health');
-export const getMtaServerStatus = async (): Promise<MtaServerStatus> => {
-    return new Promise(resolve => setTimeout(() => resolve({ name: "Vixel Roleplay", players: Math.floor(Math.random() * 100), maxPlayers: 150, version: "1.6" }), 1000));
-};
-export const getDiscordAnnouncements = async (): Promise<DiscordAnnouncement[]> => Promise.resolve([]);
+export const checkDiscordApiHealth = (): Promise<any> => callBotApi('/health');
+export const getMtaServerStatus = (): Promise<MtaServerStatus> => callBotApi('/mta-status');
+export const getDiscordAnnouncements = (): Promise<DiscordAnnouncement[]> => callBotApi('/announcements');

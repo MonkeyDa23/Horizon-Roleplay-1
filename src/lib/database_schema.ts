@@ -230,7 +230,7 @@ BEGIN
     END IF;
 
     -- First, clear the existing staff table to handle deletions and reordering
-    DELETE FROM public.staff;
+    DELETE FROM public.staff WHERE 1=1;
 
     -- Loop through the provided array and insert new records
     FOR staff_member IN SELECT * FROM jsonb_array_elements(p_staff_data) LOOP
@@ -351,18 +351,9 @@ BEGIN
     CASE WHEN (p_quiz_data->>'isOpen')::boolean AND NOT EXISTS (SELECT 1 FROM public.quizzes WHERE id = (p_quiz_data->>'id')::uuid AND "isOpen" = true) THEN current_timestamp ELSE (SELECT "lastOpenedAt" FROM public.quizzes WHERE id = (p_quiz_data->>'id')::uuid) END
   )
   ON CONFLICT (id) DO UPDATE SET
-    "titleKey" = EXCLUDED."titleKey",
-    "descriptionKey" = EXCLUDED."descriptionKey",
-    "instructionsKey" = EXCLUDED."instructionsKey",
-    "isOpen" = EXCLUDED."isOpen",
-    "allowedTakeRoles" = EXCLUDED."allowedTakeRoles",
-    "logoUrl" = EXCLUDED."logoUrl",
-    "bannerUrl" = EXCLUDED."bannerUrl",
-    questions = EXCLUDED.questions,
-    "lastOpenedAt" = CASE WHEN EXCLUDED."isOpen" AND public.quizzes."isOpen" = false THEN current_timestamp ELSE public.quizzes."lastOpenedAt" END
+    "titleKey" = EXCLUDED."titleKey", "descriptionKey" = EXCLUDED."descriptionKey", "instructionsKey" = EXCLUDED."instructionsKey", "isOpen" = EXCLUDED."isOpen", "allowedTakeRoles" = EXCLUDED."allowedTakeRoles", "logoUrl" = EXCLUDED."logoUrl", "bannerUrl" = EXCLUDED."bannerUrl", questions = EXCLUDED.questions, "lastOpenedAt" = EXCLUDED."lastOpenedAt"
   RETURNING * INTO quiz_record;
-
-  -- Logging is now handled by the frontend.
+  
   RETURN quiz_record;
 END;
 $$;
@@ -371,62 +362,7 @@ CREATE OR REPLACE FUNCTION public.delete_quiz(p_quiz_id uuid) RETURNS void LANGU
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_quizzes') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
   DELETE FROM public.quizzes WHERE id = p_quiz_id;
-  -- Logging is handled by the frontend.
-END;
-$$;
-
-CREATE OR REPLACE FUNCTION public.get_products_with_categories()
-RETURNS jsonb LANGUAGE sql STABLE AS $$
-  SELECT jsonb_agg(
-    jsonb_build_object(
-      'id', c.id,
-      'nameKey', c."nameKey",
-      'position', c.position,
-      'products', (
-        SELECT COALESCE(jsonb_agg(p.* ORDER BY p.id), '[]'::jsonb)
-        FROM public.products p
-        WHERE p.category_id = c.id
-      )
-    )
-    ORDER BY c.position
-  )
-  FROM public.product_categories c;
-$$;
-
-
-CREATE OR REPLACE FUNCTION public.save_product_categories(p_categories_data jsonb)
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE
-    category jsonb;
-BEGIN
-    IF NOT public.has_permission(public.get_user_id(), 'admin_store') THEN
-        RAISE EXCEPTION 'Insufficient permissions.';
-    END IF;
-
-    -- Upsert translations and category data
-    FOR category IN SELECT * FROM jsonb_array_elements(p_categories_data) LOOP
-        INSERT INTO public.translations (key, en, ar)
-        VALUES (category->>'nameKey', category->>'nameEn', category->>'nameAr')
-        ON CONFLICT (key) DO UPDATE SET
-            en = EXCLUDED.en,
-            ar = EXCLUDED.ar;
-
-        INSERT INTO public.product_categories (id, "nameKey", "position")
-        VALUES (
-            (category->>'id')::uuid,
-            category->>'nameKey',
-            (category->>'position')::int
-        )
-        ON CONFLICT (id) DO UPDATE SET
-            "nameKey" = EXCLUDED."nameKey",
-            "position" = EXCLUDED."position";
-    END LOOP;
-
-    -- Delete categories that are not in the provided list
-    DELETE FROM public.product_categories
-    WHERE id NOT IN (
-        SELECT (value->>'id')::uuid FROM jsonb_array_elements(p_categories_data)
-    );
+  -- Logging handled on frontend
 END;
 $$;
 
@@ -440,7 +376,7 @@ BEGIN
   VALUES (p_product_data->>'nameKey', p_product_data->>'nameEn', p_product_data->>'nameAr'),
          (p_product_data->>'descriptionKey', p_product_data->>'descriptionEn', p_product_data->>'descriptionAr')
   ON CONFLICT (key) DO UPDATE SET en = EXCLUDED.en, ar = EXCLUDED.ar;
-
+  
   INSERT INTO public.products (id, "nameKey", "descriptionKey", price, "imageUrl", category_id)
   VALUES (
     (p_product_data->>'id')::uuid,
@@ -448,17 +384,12 @@ BEGIN
     p_product_data->>'descriptionKey',
     (p_product_data->>'price')::numeric,
     p_product_data->>'imageUrl',
-    (p_product_data->>'category_id')::uuid
+    NULLIF(p_product_data->>'category_id', '')::uuid
   )
   ON CONFLICT (id) DO UPDATE SET
-    "nameKey" = EXCLUDED."nameKey",
-    "descriptionKey" = EXCLUDED."descriptionKey",
-    price = EXCLUDED.price,
-    "imageUrl" = EXCLUDED."imageUrl",
-    category_id = EXCLUDED.category_id
+    "nameKey" = EXCLUDED."nameKey", "descriptionKey" = EXCLUDED."descriptionKey", price = EXCLUDED.price, "imageUrl" = EXCLUDED."imageUrl", category_id = EXCLUDED.category_id
   RETURNING * INTO product_record;
   
-  -- Logging is now handled by the frontend.
   RETURN product_record;
 END;
 $$;
@@ -467,83 +398,136 @@ CREATE OR REPLACE FUNCTION public.delete_product(p_product_id uuid) RETURNS void
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_store') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
   DELETE FROM public.products WHERE id = p_product_id;
-  -- Logging is handled by the frontend.
+  -- Logging handled on frontend
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.save_rules(p_rules_data jsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+CREATE OR REPLACE FUNCTION public.save_product_categories(p_categories_data jsonb)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
     category jsonb;
-    rule jsonb;
 BEGIN
-    IF NOT public.has_permission(public.get_user_id(), 'admin_rules') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
-    DELETE FROM public.rules WHERE 1=1;
+    IF NOT public.has_permission(public.get_user_id(), 'admin_store') THEN
+        RAISE EXCEPTION 'Insufficient permissions.';
+    END IF;
 
-    FOR category IN SELECT * FROM jsonb_array_elements(p_rules_data) LOOP
+    -- Clear existing categories
+    DELETE FROM public.product_categories WHERE 1=1;
+
+    -- Insert new categories from the JSON array
+    FOR category IN SELECT * FROM jsonb_array_elements(p_categories_data) LOOP
+        -- Also save the translation for the category name
         INSERT INTO public.translations (key, en, ar)
-        VALUES (category->>'titleKey', category->>'titleEn', category->>'titleAr')
-        ON CONFLICT (key) DO UPDATE SET en = EXCLUDED.en, ar = EXCLUDED.ar;
+        VALUES (
+            category->>'nameKey',
+            category->>'nameEn',
+            category->>'nameAr'
+        )
+        ON CONFLICT (key) DO UPDATE SET
+            en = EXCLUDED.en,
+            ar = EXCLUDED.ar;
 
-        FOR rule IN SELECT * FROM jsonb_array_elements(category->'rules') LOOP
-            INSERT INTO public.translations (key, en, ar)
-            VALUES (rule->>'textKey', rule->>'textEn', rule->>'textAr')
-            ON CONFLICT (key) DO UPDATE SET en = EXCLUDED.en, ar = EXCLUDED.ar;
-        END LOOP;
-        
-        INSERT INTO public.rules (id, "titleKey", "position", rules)
+        INSERT INTO public.product_categories (id, "nameKey", "position")
         VALUES (
             (category->>'id')::uuid,
-            category->>'titleKey',
-            (category->>'position')::int,
-            (SELECT jsonb_agg(jsonb_build_object('id', r->>'id', 'textKey', r->>'textKey')) FROM jsonb_array_elements(category->'rules') as r)
+            category->>'nameKey',
+            (category->>'position')::int
         );
     END LOOP;
-    -- Logging is handled by the frontend.
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.get_products_with_categories()
+RETURNS jsonb LANGUAGE sql STABLE AS $$
+    SELECT COALESCE(jsonb_agg(cats ORDER BY cats.position), '[]'::jsonb)
+    FROM (
+        SELECT
+            pc.id,
+            pc."nameKey",
+            pc.position,
+            (
+                SELECT COALESCE(jsonb_agg(prods ORDER BY prods.id), '[]'::jsonb)
+                FROM public.products AS prods
+                WHERE prods.category_id = pc.id
+            ) AS products
+        FROM public.product_categories AS pc
+        ORDER BY pc.position
+    ) AS cats;
+$$;
+
+
+CREATE OR REPLACE FUNCTION public.save_rules(p_rules_data jsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  category jsonb;
+  rule jsonb;
+BEGIN
+  IF NOT public.has_permission(public.get_user_id(), 'admin_rules') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
+  
+  DELETE FROM public.rules WHERE 1=1;
+  
+  FOR category IN SELECT * FROM jsonb_array_elements(p_rules_data) LOOP
+    INSERT INTO public.translations (key, en, ar)
+    VALUES (category->>'titleKey', category->>'titleEn', category->>'titleAr')
+    ON CONFLICT (key) DO UPDATE SET en = EXCLUDED.en, ar = EXCLUDED.ar;
+    
+    FOR rule IN SELECT * FROM jsonb_array_elements(category->'rules') LOOP
+      INSERT INTO public.translations (key, en, ar)
+      VALUES (rule->>'textKey', rule->>'textEn', rule->>'textAr')
+      ON CONFLICT (key) DO UPDATE SET en = EXCLUDED.en, ar = EXCLUDED.ar;
+    END LOOP;
+    
+    INSERT INTO public.rules (id, "titleKey", "position", rules)
+    VALUES (
+      (category->>'id')::uuid,
+      category->>'titleKey',
+      (category->>'position')::int,
+      COALESCE((SELECT jsonb_agg(jsonb_build_object('id', el->>'id', 'textKey', el->>'textKey')) FROM jsonb_array_elements(category->'rules') as el), '[]'::jsonb)
+    );
+  END LOOP;
 END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.save_discord_widgets(p_widgets_data jsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  widget jsonb;
 BEGIN
-    IF NOT public.has_permission(public.get_user_id(), 'admin_widgets') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
-    DELETE FROM public.discord_widgets WHERE 1=1;
+  IF NOT public.has_permission(public.get_user_id(), 'admin_widgets') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
+  
+  DELETE FROM public.discord_widgets WHERE 1=1;
+  
+  FOR widget IN SELECT * FROM jsonb_array_elements(p_widgets_data) LOOP
     INSERT INTO public.discord_widgets (server_name, server_id, invite_url, "position")
-    SELECT value->>'server_name', value->>'server_id', value->>'invite_url', (value->>'position')::int
-    FROM jsonb_array_elements(p_widgets_data);
-    -- Logging is handled by the frontend.
+    VALUES (
+      widget->>'server_name',
+      widget->>'server_id',
+      widget->>'invite_url',
+      (widget->>'position')::int
+    );
+  END LOOP;
 END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.update_config(new_config jsonb) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
-    -- This function is now only responsible for updating the config.
-    -- The frontend will determine which permission group is saving and log accordingly.
-    IF public.has_permission(public.get_user_id(), 'admin_appearance') OR public.has_permission(public.get_user_id(), 'admin_notifications') THEN
-        UPDATE public.config SET 
-            "COMMUNITY_NAME" = COALESCE(new_config->>'COMMUNITY_NAME', "COMMUNITY_NAME"),
-            "LOGO_URL" = COALESCE(new_config->>'LOGO_URL', "LOGO_URL"),
-            "DISCORD_GUILD_ID" = COALESCE(new_config->>'DISCORD_GUILD_ID', "DISCORD_GUILD_ID"),
-            "DISCORD_INVITE_URL" = COALESCE(new_config->>'DISCORD_INVITE_URL', "DISCORD_INVITE_URL"),
-            "MTA_SERVER_URL" = COALESCE(new_config->>'MTA_SERVER_URL', "MTA_SERVER_URL"),
-            "BACKGROUND_IMAGE_URL" = COALESCE(new_config->>'BACKGROUND_IMAGE_URL', "BACKGROUND_IMAGE_URL"),
-            "admin_password" = CASE WHEN new_config ? 'admin_password' THEN 
-                                    CASE WHEN new_config->>'admin_password' IS NULL OR new_config->>'admin_password' = '' THEN NULL
-                                        ELSE crypt(new_config->>'admin_password', gen_salt('bf'))
-                                    END
-                                ELSE "admin_password" END,
-            "submissions_channel_id" = COALESCE(new_config->>'submissions_channel_id', "submissions_channel_id"),
-            "log_channel_submissions" = COALESCE(new_config->>'log_channel_submissions', "log_channel_submissions"),
-            "log_channel_bans" = COALESCE(new_config->>'log_channel_bans', "log_channel_bans"),
-            "log_channel_admin" = COALESCE(new_config->>'log_channel_admin', "log_channel_admin"),
-            "audit_log_channel_id" = COALESCE(new_config->>'audit_log_channel_id', "audit_log_channel_id"),
-            "mention_role_submissions" = COALESCE(new_config->>'mention_role_submissions', "mention_role_submissions"),
-            "mention_role_audit_log_submissions" = COALESCE(new_config->>'mention_role_audit_log_submissions', "mention_role_audit_log_submissions"),
-            "mention_role_audit_log_bans" = COALESCE(new_config->>'mention_role_audit_log_bans', "mention_role_audit_log_bans"),
-            "mention_role_audit_log_admin" = COALESCE(new_config->>'mention_role_audit_log_admin', "mention_role_audit_log_admin"),
-            "mention_role_audit_log_general" = COALESCE(new_config->>'mention_role_audit_log_general', "mention_role_audit_log_general")
-        WHERE id = 1;
-    ELSE
-        RAISE EXCEPTION 'Insufficient permissions.';
-    END IF;
+  IF NOT (public.has_permission(public.get_user_id(), 'admin_appearance') OR public.has_permission(public.get_user_id(), 'admin_notifications')) THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
+  
+  UPDATE public.config SET
+    "COMMUNITY_NAME" = COALESCE(new_config->>'COMMUNITY_NAME', "COMMUNITY_NAME"),
+    "LOGO_URL" = COALESCE(new_config->>'LOGO_URL', "LOGO_URL"),
+    "DISCORD_GUILD_ID" = COALESCE(new_config->>'DISCORD_GUILD_ID', "DISCORD_GUILD_ID"),
+    "BACKGROUND_IMAGE_URL" = COALESCE(new_config->>'BACKGROUND_IMAGE_URL', "BACKGROUND_IMAGE_URL"),
+    "admin_password" = COALESCE(new_config->>'admin_password', "admin_password"),
+    "submissions_channel_id" = COALESCE(new_config->>'submissions_channel_id', "submissions_channel_id"),
+    "log_channel_submissions" = COALESCE(new_config->>'log_channel_submissions', "log_channel_submissions"),
+    "log_channel_bans" = COALESCE(new_config->>'log_channel_bans', "log_channel_bans"),
+    "log_channel_admin" = COALESCE(new_config->>'log_channel_admin', "log_channel_admin"),
+    "audit_log_channel_id" = COALESCE(new_config->>'audit_log_channel_id', "audit_log_channel_id"),
+    "mention_role_submissions" = COALESCE(new_config->>'mention_role_submissions', "mention_role_submissions"),
+    "mention_role_audit_log_submissions" = COALESCE(new_config->>'mention_role_audit_log_submissions', "mention_role_audit_log_submissions"),
+    "mention_role_audit_log_bans" = COALESCE(new_config->>'mention_role_audit_log_bans', "mention_role_audit_log_bans"),
+    "mention_role_audit_log_admin" = COALESCE(new_config->>'mention_role_audit_log_admin', "mention_role_audit_log_admin"),
+    "mention_role_audit_log_general" = COALESCE(new_config->>'mention_role_audit_log_general', "mention_role_audit_log_general")
+  WHERE id = 1;
 END;
 $$;
 
@@ -551,80 +535,79 @@ CREATE OR REPLACE FUNCTION public.log_action(p_action text, p_log_type text) RET
 DECLARE
   admin_user record;
 BEGIN
-  SELECT id, COALESCE(raw_user_meta_data->>'global_name', raw_user_meta_data->>'full_name') as username
-  INTO admin_user
-  FROM auth.users
-  WHERE id = public.get_user_id();
-
-  IF admin_user.id IS NOT NULL THEN
-    INSERT INTO public.audit_log (admin_id, admin_username, action, log_type)
-    VALUES (admin_user.id, admin_user.username, p_action, p_log_type);
-  END IF;
+  SELECT id, COALESCE(raw_user_meta_data->>'global_name', raw_user_meta_data->>'full_name') as username 
+  INTO admin_user 
+  FROM auth.users WHERE id = public.get_user_id();
+  
+  INSERT INTO public.audit_log (admin_id, admin_username, action, log_type)
+  VALUES (admin_user.id, admin_user.username, p_action, p_log_type);
 END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.log_page_visit(p_page_name text) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  admin_user record;
 BEGIN
-    PERFORM public.log_action('Accessed admin page: **' || p_page_name || '**', 'admin');
+  IF NOT public.has_permission(public.get_user_id(), 'admin_panel') THEN RETURN; END IF;
+
+  SELECT id, COALESCE(raw_user_meta_data->>'global_name', raw_user_meta_data->>'full_name') as username 
+  INTO admin_user 
+  FROM auth.users WHERE id = public.get_user_id();
+  
+  INSERT INTO public.audit_log (admin_id, admin_username, action, log_type)
+  VALUES (admin_user.id, admin_user.username, 'Visited Admin Panel page: ' || p_page_name, 'navigation');
 END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.ban_user(p_target_user_id uuid, p_reason text, p_duration_hours int DEFAULT NULL) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
-    expires_timestamp timestamptz;
+  v_expires_at timestamptz;
 BEGIN
-    IF NOT public.has_permission(public.get_user_id(), 'admin_lookup') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
-
-    IF p_duration_hours IS NOT NULL THEN
-        expires_timestamp := current_timestamp + (p_duration_hours * interval '1 hour');
-    ELSE
-        expires_timestamp := NULL; -- Permanent ban
-    END IF;
-
-    UPDATE public.profiles SET is_banned = true, ban_reason = p_reason, ban_expires_at = expires_timestamp WHERE id = p_target_user_id;
-    IF NOT FOUND THEN RAISE EXCEPTION 'Target user not found.'; END IF;
-    
-    INSERT INTO public.bans (user_id, banned_by, reason, expires_at) VALUES (p_target_user_id, public.get_user_id(), p_reason, expires_timestamp);
-    -- Logging is now handled by the frontend.
+  IF NOT public.has_permission(public.get_user_id(), 'admin_lookup') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
+  
+  IF p_duration_hours IS NOT NULL THEN
+    v_expires_at := current_timestamp + (p_duration_hours * interval '1 hour');
+  END IF;
+  
+  UPDATE public.profiles SET is_banned = true, ban_reason = p_reason, ban_expires_at = v_expires_at WHERE id = p_target_user_id;
+  
+  INSERT INTO public.bans (user_id, banned_by, reason, expires_at)
+  VALUES (p_target_user_id, public.get_user_id(), p_reason, v_expires_at);
+  
+  PERFORM public.log_action('Banned user ' || p_target_user_id || ' for reason: ' || p_reason, 'ban');
 END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.unban_user(p_target_user_id uuid) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_lookup') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
+  
   UPDATE public.profiles SET is_banned = false, ban_reason = NULL, ban_expires_at = NULL WHERE id = p_target_user_id;
-  IF NOT FOUND THEN RAISE EXCEPTION 'Target user not found.'; END IF;
   UPDATE public.bans SET is_active = false, unbanned_by = public.get_user_id(), unbanned_at = current_timestamp WHERE user_id = p_target_user_id AND is_active = true;
-  -- Logging is now handled by the frontend.
+  
+  PERFORM public.log_action('Unbanned user ' || p_target_user_id, 'ban');
 END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.save_role_permissions(p_role_id text, p_permissions text[]) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
-    IF NOT public.has_permission(public.get_user_id(), 'admin_permissions') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
-    INSERT INTO public.role_permissions (role_id, permissions) VALUES (p_role_id, p_permissions)
-    ON CONFLICT (role_id) DO UPDATE SET permissions = EXCLUDED.permissions;
-    -- Logging is now handled by the frontend.
+  IF NOT public.has_permission(public.get_user_id(), 'admin_permissions') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
+  
+  INSERT INTO public.role_permissions (role_id, permissions)
+  VALUES (p_role_id, p_permissions)
+  ON CONFLICT (role_id) DO UPDATE SET permissions = EXCLUDED.permissions;
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.verify_admin_password(p_password text)
-RETURNS boolean LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
-DECLARE
-    hashed_password text;
-BEGIN
-    -- Permission check is handled by API layer before calling this.
-    
-    SELECT admin_password INTO hashed_password FROM public.config WHERE id = 1;
-    
-    IF hashed_password IS NULL THEN
-        RETURN true;
-    END IF;
-    
-    RETURN (hashed_password = crypt(p_password, hashed_password));
-END;
+CREATE OR REPLACE FUNCTION public.verify_admin_password(p_password text) RETURNS boolean LANGUAGE sql STABLE SECURITY INVOKER AS $$
+  SELECT EXISTS (SELECT 1 FROM public.config WHERE id = 1 AND admin_password = p_password);
 $$;
 
+-- =================================================================
+-- 8. INITIAL DATA (TRANSLATIONS)
+-- =================================================================
+-- This section intentionally left blank. Translations will be populated from the fallback file on first run.
 
+-- End of transaction
 COMMIT;
-`
+`;

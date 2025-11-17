@@ -179,6 +179,16 @@ export const translations: Translations = {
   logo_image_url: { ar: 'رابط صورة الشعار', en: 'Logo Image URL' },
   banner_image_url: { ar: 'رابط صورة البانر', en: 'Banner Image URL' },
   
+  // Admin Page - Store Categories
+  product_categories_management: { ar: 'إدارة أقسام المتجر', en: 'Manage Categories' },
+  products_management: { ar: 'إدارة المنتجات', en: 'Manage Products' },
+  category_name_en: { ar: 'اسم القسم (انجليزي)', en: 'Category Name (EN)' },
+  category_name_ar: { ar: 'اسم القسم (عربي)', en: 'Category Name (AR)' },
+  add_category: { ar: 'إضافة قسم', en: 'Add Category' },
+  product_category: { ar: 'قسم المنتج', en: 'Product Category' },
+  no_category: { ar: '-- بلا قسم --', en: '-- No Category --' },
+
+
   // Admin Page - User Lookup & Bans
   discord_id_placeholder: { ar: 'معرف مستخدم ديسكورد...', en: 'Discord User ID...' },
   search: { ar: 'بحث', en: 'Search' },
