@@ -51,6 +51,60 @@ async function callBotApi<T>(endpoint: string, options: RequestInit = {}): Promi
     }
 }
 
+// FIX: Added sendDiscordLog function to send log messages via the bot API.
+export const sendDiscordLog = async (config: AppConfig, embed: any, logType: 'admin' | 'ban' | 'submission' | 'auth' | 'admin_access', language: 'en' | 'ar'): Promise<void> => {
+  let channelId: string | null | undefined = null;
+  let mentionRoleId: string | null | undefined = null;
+
+  switch (logType) {
+    case 'admin':
+    case 'admin_access':
+      channelId = config.log_channel_admin;
+      mentionRoleId = config.mention_role_audit_log_admin;
+      break;
+    case 'ban':
+      channelId = config.log_channel_bans;
+      mentionRoleId = config.mention_role_audit_log_bans;
+      break;
+    case 'submission':
+      channelId = config.log_channel_submissions;
+      mentionRoleId = config.mention_role_audit_log_submissions;
+      break;
+    case 'auth':
+      // Auth logs go to the general admin channel.
+      channelId = config.log_channel_admin;
+      break;
+  }
+
+  // Use fallback channel if specific one is not set.
+  if (!channelId) {
+    channelId = config.audit_log_channel_id;
+    if (logType !== 'auth') { // Don't mention for general auth logs in fallback
+        mentionRoleId = config.mention_role_audit_log_general;
+    }
+  }
+
+  if (!channelId) {
+    console.warn(`[sendDiscordLog] No channel ID configured for log type "${logType}" or as a fallback. Skipping log.`);
+    return;
+  }
+
+  const content = mentionRoleId ? `<@&${mentionRoleId}>` : undefined;
+
+  try {
+    await callBotApi('/notify', {
+      method: 'POST',
+      body: JSON.stringify({
+        channelId,
+        content,
+        embed,
+      }),
+    });
+  } catch (error) {
+    console.error(`[sendDiscordLog] Failed to send log for type "${logType}" to channel ${channelId}:`, error);
+  }
+};
+
 export const verifyCaptcha = async (token: string): Promise<any> => {
     if (!supabase) throw new Error("Supabase client is not initialized.");
     
@@ -83,7 +137,8 @@ const handleResponse = <T>(response: { data: T | null; error: any; status: numbe
 // =============================================
 // AUTH & USER PROFILE API
 // =============================================
-export const fetchUserProfile = async (): Promise<{ user: User, syncError: string | null }> => {
+// FIX: Updated return type of fetchUserProfile to include 'isNewUser'.
+export const fetchUserProfile = async (): Promise<{ user: User, syncError: string | null, isNewUser: boolean }> => {
   if (!supabase) throw new Error("Supabase client is not initialized.");
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
   if (sessionError || !session) throw new ApiError(sessionError?.message || "No active session", 401);
@@ -160,7 +215,7 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
       });
   }
 
-  return { user: finalUser, syncError: null };
+  return { user: finalUser, syncError: null, isNewUser };
 };
 
 export const forceRefreshUserProfile = fetchUserProfile;

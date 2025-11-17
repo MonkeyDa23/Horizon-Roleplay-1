@@ -161,7 +161,12 @@ const QuizPage: React.FC = () => {
       setQuizState('submitted');
     } catch (error) {
       console.error("Failed to submit application:", error);
-      showToast((error as Error).message, 'error');
+      const errorMessage = (error as Error).message;
+      if (errorMessage.includes('secret key is missing')) {
+          showToast(t('error_captcha_not_configured_user'), 'error');
+      } else {
+          showToast(errorMessage, 'error');
+      }
       setIsSubmitting(false);
        if (window.hcaptcha) {
             window.hcaptcha.reset();

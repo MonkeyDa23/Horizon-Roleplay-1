@@ -4,8 +4,9 @@ import { useAdminGate } from '../contexts/AdminGateContext';
 import { useConfig } from '../contexts/ConfigContext';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { useToast } from '../contexts/ToastContext';
-// FIX: Added 'verifyCaptcha' to imports.
-import { verifyAdminPassword, verifyCaptcha } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
+import { verifyAdminPassword, verifyCaptcha, sendDiscordLog } from '../lib/api';
+import { supabase } from '../lib/supabaseClient';
 import Modal from './Modal';
 import { Loader2, KeyRound } from 'lucide-react';
 import { env } from '../env';
@@ -49,11 +50,37 @@ const HCaptcha: React.FC<{ onVerify: (token: string) => void, sitekey: string }>
 const AdminGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { isVerified, verify } = useAdminGate();
     const { config } = useConfig();
-    const { t } = useLocalization();
+    const { t, language } = useLocalization();
     const { showToast } = useToast();
+    const { user } = useAuth();
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [hcaptchaToken, setHcaptchaToken] = useState<string | null>(null);
+    const hasLoggedAccess = useRef(false);
+
+    // Effect to log admin panel access once per session
+    useEffect(() => {
+        if (isVerified && user && !hasLoggedAccess.current) {
+            hasLoggedAccess.current = true;
+            const logAccess = async () => {
+                const action = `Admin ${user.username} accessed the control panel.`;
+                const logType = 'admin_access';
+                // Log to DB
+                supabase.rpc('log_action', { p_action: action, p_log_type: logType });
+                
+                // Log to Discord
+                const embed = {
+                    title: t('log_admin_panel_access_title'),
+                    description: t('log_admin_panel_access_desc', { adminUsername: user.username }),
+                    color: 0xFFA500, // Orange
+                    author: { name: user.username, icon_url: user.avatar },
+                    timestamp: new Date().toISOString()
+                };
+                sendDiscordLog(config, embed, 'admin', language);
+            };
+            logAccess();
+        }
+    }, [isVerified, user, t, config, language]);
 
     // If no password is set in the config, or if the user is already verified, grant access.
     if (!config.admin_password || isVerified) {
@@ -68,7 +95,6 @@ const AdminGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         }
         setIsLoading(true);
         try {
-            // FIX: Separated captcha verification from password check. First verify captcha, then verify password.
             await verifyCaptcha(hcaptchaToken);
             const success = await verifyAdminPassword(password);
             if (success) {
@@ -77,13 +103,17 @@ const AdminGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 showToast(t('admin_gate_incorrect'), 'error');
                 setPassword('');
                  if (window.hcaptcha) {
-                    // Reset captcha on failure
                     window.hcaptcha.reset();
                     setHcaptchaToken(null);
                 }
             }
         } catch (error) {
-            showToast((error as Error).message, 'error');
+            const errorMessage = (error as Error).message;
+            if (errorMessage.includes('secret key is missing')) {
+                 showToast(t('error_captcha_not_configured_user'), 'error');
+            } else {
+                 showToast(errorMessage, 'error');
+            }
              if (window.hcaptcha) {
                 window.hcaptcha.reset();
                 setHcaptchaToken(null);

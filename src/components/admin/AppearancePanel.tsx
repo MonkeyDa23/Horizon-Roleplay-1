@@ -3,14 +3,17 @@ import React, { useState, useEffect } from 'react';
 import { useLocalization } from '../../contexts/LocalizationContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfig } from '../../contexts/ConfigContext';
-import { saveConfig } from '../../lib/api';
+import { useAuth } from '../../contexts/AuthContext';
+import { saveConfig, sendDiscordLog } from '../../lib/api';
+import { supabase } from '../../lib/supabaseClient';
 import type { AppConfig } from '../../types';
 import { Loader2 } from 'lucide-react';
 
 const AppearancePanel: React.FC = () => {
-    const { t } = useLocalization();
+    const { t, language } = useLocalization();
     const { showToast } = useToast();
     const { config, configLoading, refreshConfig } = useConfig();
+    const { user } = useAuth();
     const [settings, setSettings] = useState<Partial<AppConfig>>({});
     const [isSaving, setIsSaving] = useState(false);
 
@@ -21,11 +24,26 @@ const AppearancePanel: React.FC = () => {
     }, [config, configLoading]);
 
     const handleSave = async () => {
+        if (!user) return;
         setIsSaving(true);
         try {
             await saveConfig(settings);
             await refreshConfig(); // Refresh global config context
             showToast(t('config_updated_success'), 'success');
+
+            // Log action to DB and Discord
+            const action = `Admin ${user.username} updated Appearance Settings.`;
+            supabase.rpc('log_action', { p_action: action, p_log_type: 'admin' });
+
+            const embed = {
+                title: t('log_settings_updated_title'),
+                description: t('log_appearance_updated_desc', { adminUsername: user.username }),
+                color: 0xFFA500, // Orange
+                author: { name: user.username, icon_url: user.avatar },
+                timestamp: new Date().toISOString()
+            };
+            sendDiscordLog(config, embed, 'admin', language);
+
         } catch (error) {
             showToast((error as Error).message, 'error');
         } finally {

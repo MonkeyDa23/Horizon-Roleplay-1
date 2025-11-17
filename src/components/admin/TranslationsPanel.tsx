@@ -2,14 +2,19 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocalization } from '../../contexts/LocalizationContext';
 import { useToast } from '../../contexts/ToastContext';
-import { getTranslations, saveTranslations } from '../../lib/api';
+import { useAuth } from '../../contexts/AuthContext';
+import { useConfig } from '../../contexts/ConfigContext';
+import { getTranslations, saveTranslations, sendDiscordLog } from '../../lib/api';
+import { supabase } from '../../lib/supabaseClient';
 import { translations as fallbackTranslations } from '../../lib/translations';
 import type { Translations } from '../../types';
 import { Loader2, Search } from 'lucide-react';
 
 const TranslationsPanel: React.FC = () => {
-    const { t } = useLocalization();
+    const { t, language } = useLocalization();
     const { showToast } = useToast();
+    const { user } = useAuth();
+    const { config } = useConfig();
     const [editableTranslations, setEditableTranslations] = useState<Translations>({});
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -44,10 +49,25 @@ const TranslationsPanel: React.FC = () => {
     }, [fetchTranslations]);
 
     const handleSave = async () => {
+        if (!user) return;
         setIsSaving(true);
         try {
             await saveTranslations(editableTranslations);
             showToast(t('save_translations'), 'success');
+
+            // Log action
+            const action = `Admin ${user.username} updated website translations.`;
+            supabase.rpc('log_action', { p_action: action, p_log_type: 'admin' });
+
+            const embed = {
+                title: t('log_translations_saved_title'),
+                description: t('log_translations_saved_desc', { adminUsername: user.username }),
+                color: 0xFFA500, // Orange
+                author: { name: user.username, icon_url: user.avatar },
+                timestamp: new Date().toISOString()
+            };
+            sendDiscordLog(config, embed, 'admin', language);
+
         } catch (error) {
             showToast((error as Error).message, 'error');
         } finally {

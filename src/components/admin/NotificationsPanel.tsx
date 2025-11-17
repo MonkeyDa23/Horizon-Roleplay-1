@@ -2,8 +2,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalization } from '../../contexts/LocalizationContext';
 import { useToast } from '../../contexts/ToastContext';
-import { getTranslations, saveTranslations, testNotification, saveConfig } from '../../lib/api';
+import { getTranslations, saveTranslations, testNotification, saveConfig, sendDiscordLog } from '../../lib/api';
 import { useConfig } from '../../contexts/ConfigContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { supabase } from '../../lib/supabaseClient';
 import type { Translations, AppConfig } from '../../types';
 import { Loader2, HelpCircle, Send } from 'lucide-react';
 
@@ -29,9 +31,10 @@ const notificationTests: { key: string; label: string; desc: string; targetType:
 ];
 
 const NotificationsPanel: React.FC = () => {
-    const { t } = useLocalization();
+    const { t, language } = useLocalization();
     const { showToast } = useToast();
     const { config, configLoading, refreshConfig } = useConfig();
+    const { user } = useAuth();
     const [allTranslations, setAllTranslations] = useState<Translations>({});
     const [settings, setSettings] = useState<Partial<AppConfig>>({});
     const [isLoading, setIsLoading] = useState(true);
@@ -60,6 +63,7 @@ const NotificationsPanel: React.FC = () => {
     }, [fetchTranslations]);
 
     const handleSave = async () => {
+        if (!user) return;
         setIsSaving(true);
         try {
             await Promise.all([
@@ -68,6 +72,20 @@ const NotificationsPanel: React.FC = () => {
             ]);
             await refreshConfig();
             showToast('تم حفظ إعدادات الإشعارات بنجاح!', 'success');
+
+            // Log action
+            const action = `Admin ${user.username} updated Notification Settings.`;
+            supabase.rpc('log_action', { p_action: action, p_log_type: 'admin' });
+
+            const embed = {
+                title: t('log_settings_updated_title'),
+                description: t('log_notifications_updated_desc', { adminUsername: user.username }),
+                color: 0xFFA500, // Orange
+                author: { name: user.username, icon_url: user.avatar },
+                timestamp: new Date().toISOString()
+            };
+            sendDiscordLog(config, embed, 'admin', language);
+
         } catch (error) {
             showToast((error as Error).message, 'error');
         } finally {

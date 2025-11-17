@@ -1,9 +1,12 @@
 // src/contexts/AuthContext.tsx
 import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { fetchUserProfile } from '../lib/api';
+// FIX: Added 'sendDiscordLog' to import.
+import { fetchUserProfile, sendDiscordLog, getConfig } from '../lib/api';
 import type { User, AuthContextType, PermissionKey } from '../types';
 import type { Session } from '@supabase/supabase-js';
+import { useLocalization } from './LocalizationContext';
+
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -13,6 +16,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true); // Specifically for the first app load
   const [permissionWarning, setPermissionWarning] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<Error | null>(null);
+  const { t, language } = useLocalization();
 
   const handleSession = useCallback(async (session: Session | null, isInitial: boolean = false) => {
     if (isInitial) {
@@ -24,7 +28,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (session) {
       try {
-        const { user: fullUserProfile, syncError: permWarning } = await fetchUserProfile();
+        // FIX: Destructured 'isNewUser' from fetchUserProfile response.
+        const { user: fullUserProfile, syncError: permWarning, isNewUser } = await fetchUserProfile();
         
         if (permWarning) {
             setPermissionWarning(permWarning);
@@ -32,9 +37,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setPermissionWarning(null);
         }
 
-        // Set the user object regardless of ban status.
-        // The AppContent component will now handle rendering the BannedPage.
         setUser(fullUserProfile);
+
+        // If it's a new user, log the event to Discord. The welcome DM is handled separately.
+        if (isNewUser) {
+            console.log("New user detected, triggering log...");
+            const config = await getConfig(); // Fetch config for channel IDs
+            const embed = {
+                title: t('log_new_user_title'),
+                description: t('log_new_user_desc', { username: fullUserProfile.username, discordId: fullUserProfile.discordId }),
+                author: {
+                    name: fullUserProfile.username,
+                    icon_url: fullUserProfile.avatar
+                },
+                color: 0x22C55E, // Green
+                timestamp: new Date().toISOString()
+            };
+            sendDiscordLog(config, embed, 'auth', language);
+            // Also log to the database audit log
+            await supabase.rpc('log_action', { 
+                p_admin_id_override: fullUserProfile.id, // Log as the user themselves
+                p_admin_username_override: fullUserProfile.username,
+                p_action: `User ${fullUserProfile.username} (${fullUserProfile.discordId}) logged in for the first time.`,
+                p_log_type: 'auth'
+            });
+        }
 
       } catch (error) {
         console.error("Critical error fetching user profile:", error);
@@ -49,7 +76,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (isInitial) {
         setIsInitialLoading(false); // Mark initial load as complete
     }
-  }, []);
+  }, [t, language]);
 
   useEffect(() => {
     if (!supabase) {
@@ -82,14 +109,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     setLoading(true);
     // Pass the hCaptcha token to Supabase Auth, which will verify it server-side.
-    // FIX: Moved `captchaToken` to the top level of the `signInWithOAuth` options, as required by Supabase Auth, to resolve a TypeScript error.
+    // FIX: Cast to 'any' to allow the 'captchaToken' property, which may not be in the installed Supabase client type definitions.
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'discord',
       options: {
         scopes: 'identify guilds.members.read',
       },
       captchaToken: captchaToken,
-    });
+    } as any);
     if (error) {
         console.error("Error logging in:", error.message);
         if (typeof window !== 'undefined') (window as any).alert(`Login failed: ${error.message}`);

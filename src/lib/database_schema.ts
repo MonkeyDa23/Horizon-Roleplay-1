@@ -53,7 +53,7 @@ DROP FUNCTION IF EXISTS public.get_products_with_categories();
 DROP FUNCTION IF EXISTS public.save_rules(jsonb);
 DROP FUNCTION IF EXISTS public.save_discord_widgets(jsonb);
 DROP FUNCTION IF EXISTS public.update_config(jsonb);
-DROP FUNCTION IF EXISTS public.log_action(text, text);
+DROP FUNCTION IF EXISTS public.log_action(text, text, uuid, text);
 DROP FUNCTION IF EXISTS public.log_page_visit(text);
 DROP FUNCTION IF EXISTS public.ban_user(uuid, text, int);
 DROP FUNCTION IF EXISTS public.unban_user(uuid);
@@ -64,6 +64,7 @@ DROP FUNCTION IF EXISTS public.delete_quiz(uuid);
 DROP FUNCTION IF EXISTS public.delete_product(uuid);
 DROP FUNCTION IF EXISTS public.verify_admin_password(text);
 DROP FUNCTION IF EXISTS public.lookup_user_by_discord_id(text);
+DROP FUNCTION IF EXISTS public.handle_user_sync(uuid, text, text, text, jsonb, jsonb);
 DROP VIEW IF EXISTS private.user_roles_view;
 
 
@@ -532,31 +533,31 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.log_action(p_action text, p_log_type text) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+CREATE OR REPLACE FUNCTION public.log_action(p_action text, p_log_type text, p_admin_id_override uuid DEFAULT NULL, p_admin_username_override text DEFAULT NULL) 
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
-  admin_user record;
+  admin_user_id uuid;
+  admin_user_name text;
 BEGIN
-  SELECT id, COALESCE(raw_user_meta_data->>'global_name', raw_user_meta_data->>'full_name') as username 
-  INTO admin_user 
-  FROM auth.users WHERE id = public.get_user_id();
+  IF p_admin_id_override IS NOT NULL THEN
+    admin_user_id := p_admin_id_override;
+    admin_user_name := p_admin_username_override;
+  ELSE
+    admin_user_id := public.get_user_id();
+    SELECT COALESCE(raw_user_meta_data->>'global_name', raw_user_meta_data->>'full_name') 
+    INTO admin_user_name
+    FROM auth.users WHERE id = admin_user_id;
+  END IF;
   
   INSERT INTO public.audit_log (admin_id, admin_username, action, log_type)
-  VALUES (admin_user.id, admin_user.username, p_action, p_log_type);
+  VALUES (admin_user_id, admin_user_name, p_action, p_log_type);
 END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.log_page_visit(p_page_name text) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE
-  admin_user record;
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_panel') THEN RETURN; END IF;
-
-  SELECT id, COALESCE(raw_user_meta_data->>'global_name', raw_user_meta_data->>'full_name') as username 
-  INTO admin_user 
-  FROM auth.users WHERE id = public.get_user_id();
-  
-  INSERT INTO public.audit_log (admin_id, admin_username, action, log_type)
-  VALUES (admin_user.id, admin_user.username, 'Visited Admin Panel page: ' || p_page_name, 'navigation');
+  PERFORM public.log_action('Visited Admin Panel page: ' || p_page_name, 'navigation');
 END;
 $$;
 
@@ -638,6 +639,32 @@ BEGIN
     );
 END;
 $$;
+
+CREATE OR REPLACE FUNCTION public.handle_user_sync(p_id uuid, p_discord_id text, p_username text, p_avatar_url text, p_roles jsonb, p_highest_role jsonb)
+RETURNS boolean -- returns true if a new user was created
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  is_new_user boolean := false;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.profiles WHERE id = p_id) THEN
+    is_new_user := true;
+  END IF;
+
+  INSERT INTO public.profiles(id, discord_id, username, avatar_url, roles, highest_role, last_synced_at)
+  VALUES (p_id, p_discord_id, p_username, p_avatar_url, p_roles, p_highest_role, now())
+  ON CONFLICT (id) DO UPDATE SET
+    username = EXCLUDED.username,
+    avatar_url = EXCLUDED.avatar_url,
+    roles = EXCLUDED.roles,
+    highest_role = EXCLUDED.highest_role,
+    last_synced_at = EXCLUDED.last_synced_at;
+
+  RETURN is_new_user;
+END;
+$$;
+
 
 -- =================================================================
 -- 8. INITIAL DATA (TRANSLATIONS)

@@ -91,6 +91,7 @@ export const translations: Translations = {
   cheat_attempts_report: { ar: 'تقرير محاولات الغش', en: 'Cheat Attempts Report' },
   cheat_attempts_count: { ar: 'تم تسجيل {count} محاولة/محاولات.', en: '{count} attempt(s) were logged.' },
   no_cheat_attempts: { ar: 'لم يتم تسجيل أي محاولات غش. عمل رائع!', en: 'No cheat attempts logged. Great job!' },
+  error_captcha_not_configured_user: { ar: 'خدمة التحقق غير مهيأة. الرجاء إبلاغ الإدارة.', en: 'Captcha service is not configured. Please inform an administrator.' },
 
 
   // Admin Page
@@ -337,21 +338,30 @@ export const translations: Translations = {
   health_check_arch_title: { ar: 'نظرة عامة على البنية', en: 'Architecture Overview'},
   health_check_arch_desc: { ar: 'يفشل تسجيل الدخول عادةً عندما تنقطع السلسلة بين الموقع والبوت. هذا المخطط يوضح كيفية تدفق البيانات.', en: 'Login failures usually occur when the chain between the Website and the Bot is broken. This diagram shows how data flows.'},
 
-  // Log Embeds (New)
+  // Log Embeds (New & Expanded)
+  log_admin_panel_access_title: { ar: '🔑 تم الدخول إلى لوحة التحكم', en: '🔑 Admin Panel Accessed' },
+  log_admin_panel_access_desc: { ar: 'دخل المشرف **{adminUsername}** إلى لوحة التحكم.', en: 'Admin **{adminUsername}** accessed the control panel.'},
+  log_new_user_title: { ar: '✨ مستخدم جديد انضم للموقع', en: '✨ New User Registered' },
+  log_new_user_desc: { ar: 'المستخدم **{username}** (`{discordId}`) سجل دخوله للموقع لأول مرة.', en: 'User **{username}** (`{discordId}`) logged into the website for the first time.'},
   log_user_banned_title: { ar: '🔒 تم حظر مستخدم', en: '🔒 User Banned' },
   log_user_unbanned_title: { ar: '🔓 تم رفع الحظر', en: '🔓 User Unbanned' },
   log_settings_updated_title: { ar: '⚙️ تم تحديث الإعدادات', en: '⚙️ Settings Updated' },
-  log_settings_updated_desc: { ar: 'قام المشرف **{adminUsername}** بتحديث إعدادات **{panelName}**.', en: 'Admin **{adminUsername}** updated **{panelName}** settings.' },
+  log_appearance_updated_desc: { ar: 'قام المشرف **{adminUsername}** بتحديث **إعدادات المظهر**.', en: 'Admin **{adminUsername}** updated **Appearance Settings**.' },
+  log_notifications_updated_desc: { ar: 'قام المشرف **{adminUsername}** بتحديث **إعدادات الإشعارات**.', en: 'Admin **{adminUsername}** updated **Notification Settings**.' },
   log_rules_updated_title: { ar: '📚 تم تحديث القوانين', en: '📚 Rules Updated' },
   log_rules_updated_desc: { ar: 'قام المشرف **{adminUsername}** بتحديث قوانين السيرفر.', en: 'Admin **{adminUsername}** updated the server rules.' },
   log_quiz_saved_title: { ar: '📝 تم تحديث التقديمات', en: '📝 Quizzes Updated' },
   log_quiz_saved_desc: { ar: 'قام المشرف **{adminUsername}** بحفظ التغييرات على التقديم **{quizName}**.', en: 'Admin **{adminUsername}** saved changes to the quiz **{quizName}**.' },
   log_quiz_deleted_title: { ar: '🗑️ تم حذف تقديم', en: '🗑️ Quiz Deleted' },
   log_quiz_deleted_desc: { ar: 'قام المشرف **{adminUsername}** بحذف التقديم **{quizName}**.', en: 'Admin **{adminUsername}** deleted the quiz **{quizName}**.' },
-  log_product_saved_title: { ar: '🛒 تم تحديث المتجر', en: '🛒 Store Updated' },
+  log_product_saved_title: { ar: '🛒 تم تحديث منتج', en: '🛒 Product Updated' },
   log_product_saved_desc: { ar: 'قام المشرف **{adminUsername}** بحفظ التغييرات على المنتج **{productName}**.', en: 'Admin **{adminUsername}** saved changes to the product **{productName}**.' },
   log_product_deleted_title: { ar: '🗑️ تم حذف منتج', en: '🗑️ Product Deleted' },
   log_product_deleted_desc: { ar: 'قام المشرف **{adminUsername}** بحذف المنتج **{productName}**.', en: 'Admin **{adminUsername}** deleted the product **{productName}**.' },
+  log_prod_cats_saved_title: { ar: '🛒 تم تحديث أقسام المتجر', en: '🛒 Store Categories Updated' },
+  log_prod_cats_saved_desc: { ar: 'قام المشرف **{adminUsername}** بتحديث أقسام المتجر.', en: 'Admin **{adminUsername}** updated the store categories.' },
+  log_translations_saved_title: { ar: '🌐 تم تحديث الترجمات', en: '🌐 Translations Updated' },
+  log_translations_saved_desc: { ar: 'قام المشرف **{adminUsername}** بتحديث ترجمات الموقع.', en: 'Admin **{adminUsername}** updated the website translations.' },
   log_permissions_updated_title: { ar: '🛡️ تم تحديث الصلاحيات', en: '🛡️ Permissions Updated' },
   log_permissions_updated_desc: { ar: 'قام المشرف **{adminUsername}** بتحديث صلاحيات الرتبة **{roleName}**.', en: 'Admin **{adminUsername}** updated permissions for the role **{roleName}**.' },
   log_staff_updated_title: { ar: '👥 تم تحديث فريق العمل', en: '👥 Staff Updated' },
