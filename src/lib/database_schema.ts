@@ -54,6 +54,8 @@ DROP FUNCTION IF EXISTS public.save_rules(jsonb);
 DROP FUNCTION IF EXISTS public.save_discord_widgets(jsonb);
 DROP FUNCTION IF EXISTS public.update_config(jsonb);
 DROP FUNCTION IF EXISTS public.log_action(text, text, uuid, text);
+DROP FUNCTION IF EXISTS public.log_admin_action(text, text);
+DROP FUNCTION IF EXISTS public.log_system_action(text, text, uuid, text);
 DROP FUNCTION IF EXISTS public.log_page_visit(text);
 DROP FUNCTION IF EXISTS public.ban_user(uuid, text, int);
 DROP FUNCTION IF EXISTS public.unban_user(uuid);
@@ -533,26 +535,35 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.log_action(p_action text, p_log_type text, p_admin_id_override uuid DEFAULT NULL, p_admin_username_override text DEFAULT NULL) 
+-- FIX: Replaced ambiguous log_action with two specific functions
+-- Logs an action performed by the currently authenticated admin
+CREATE OR REPLACE FUNCTION public.log_admin_action(p_action text, p_log_type text) 
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   admin_user_id uuid;
   admin_user_name text;
 BEGIN
-  IF p_admin_id_override IS NOT NULL THEN
-    admin_user_id := p_admin_id_override;
-    admin_user_name := p_admin_username_override;
-  ELSE
-    admin_user_id := public.get_user_id();
-    SELECT COALESCE(raw_user_meta_data->>'global_name', raw_user_meta_data->>'full_name') 
-    INTO admin_user_name
-    FROM auth.users WHERE id = admin_user_id;
-  END IF;
+  admin_user_id := public.get_user_id();
+  IF admin_user_id IS NULL THEN RETURN; END IF;
+  
+  SELECT COALESCE(raw_user_meta_data->>'global_name', raw_user_meta_data->>'full_name') 
+  INTO admin_user_name
+  FROM auth.users WHERE id = admin_user_id;
   
   INSERT INTO public.audit_log (admin_id, admin_username, action, log_type)
   VALUES (admin_user_id, admin_user_name, p_action, p_log_type);
 END;
 $$;
+
+-- Logs an action performed by the system or on behalf of a specified user
+CREATE OR REPLACE FUNCTION public.log_system_action(p_action text, p_log_type text, p_actor_id uuid, p_actor_username text) 
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+BEGIN
+  INSERT INTO public.audit_log (admin_id, admin_username, action, log_type)
+  VALUES (p_actor_id, p_actor_username, p_action, p_log_type);
+END;
+$$;
+
 
 CREATE OR REPLACE FUNCTION public.log_page_visit(p_page_name text) 
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
@@ -592,7 +603,7 @@ BEGIN
   INSERT INTO public.bans (user_id, banned_by, reason, expires_at)
   VALUES (p_target_user_id, public.get_user_id(), p_reason, v_expires_at);
   
-  PERFORM public.log_action('Banned user ' || p_target_user_id || ' for reason: ' || p_reason, 'ban');
+  PERFORM public.log_admin_action('Banned user ' || p_target_user_id || ' for reason: ' || p_reason, 'ban');
 END;
 $$;
 
@@ -603,7 +614,7 @@ BEGIN
   UPDATE public.profiles SET is_banned = false, ban_reason = NULL, ban_expires_at = NULL WHERE id = p_target_user_id;
   UPDATE public.bans SET is_active = false, unbanned_by = public.get_user_id(), unbanned_at = current_timestamp WHERE user_id = p_target_user_id AND is_active = true;
   
-  PERFORM public.log_action('Unbanned user ' || p_target_user_id, 'ban');
+  PERFORM public.log_admin_action('Unbanned user ' || p_target_user_id, 'ban');
 END;
 $$;
 

@@ -140,8 +140,9 @@ const handleResponse = <T>(response: { data: T | null; error: any; status: numbe
 // FIX: Updated return type of fetchUserProfile to include 'isNewUser'.
 export const fetchUserProfile = async (): Promise<{ user: User, syncError: string | null, isNewUser: boolean }> => {
   if (!supabase) throw new Error("Supabase client is not initialized.");
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-  if (sessionError || !session) throw new ApiError(sessionError?.message || "No active session", 401);
+  // FIX: Replaced async getSession() with sync session() for older Supabase v1 compatibility.
+  const session = supabase.auth.session();
+  if (!session) throw new ApiError("No active session", 401);
 
   // 1. Get Discord profile from our bot. This is the primary source of truth for user details.
   const discordProfile = await callBotApi<any>(`/sync-user/${session.user.user_metadata.provider_id}`, { method: 'POST' });
@@ -291,7 +292,7 @@ export const saveRules = async (rules: any[]): Promise<void> => {
     if (error) throw new ApiError(error.message, 500);
 };
 export const getConfig = async (): Promise<AppConfig> => {
-  if (!supabase) throw new Error("Supabase client is not initialized.");
+  if (!supabase) throw new Error("Supabase client not initialized.");
   const { data, error } = await supabase.rpc('get_config');
   if (error) throw new ApiError(error.message, 500);
   return data as AppConfig;

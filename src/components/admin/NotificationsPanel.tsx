@@ -75,7 +75,7 @@ const NotificationsPanel: React.FC = () => {
 
             // Log action
             const action = `Admin ${user.username} updated Notification Settings.`;
-            supabase.rpc('log_action', { p_action: action, p_log_type: 'admin' });
+            supabase.rpc('log_admin_action', { p_action: action, p_log_type: 'admin' });
 
             const embed = {
                 title: t('log_settings_updated_title'),

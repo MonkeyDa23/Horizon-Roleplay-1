@@ -33,7 +33,7 @@ const AppearancePanel: React.FC = () => {
 
             // Log action to DB and Discord
             const action = `Admin ${user.username} updated Appearance Settings.`;
-            supabase.rpc('log_action', { p_action: action, p_log_type: 'admin' });
+            supabase.rpc('log_admin_action', { p_action: action, p_log_type: 'admin' });
 
             const embed = {
                 title: t('log_settings_updated_title'),

@@ -57,7 +57,7 @@ const TranslationsPanel: React.FC = () => {
 
             // Log action
             const action = `Admin ${user.username} updated website translations.`;
-            supabase.rpc('log_action', { p_action: action, p_log_type: 'admin' });
+            supabase.rpc('log_admin_action', { p_action: action, p_log_type: 'admin' });
 
             const embed = {
                 title: t('log_translations_saved_title'),

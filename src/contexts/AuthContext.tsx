@@ -4,7 +4,8 @@ import { supabase } from '../lib/supabaseClient';
 // FIX: Added 'sendDiscordLog' to import.
 import { fetchUserProfile, sendDiscordLog, getConfig } from '../lib/api';
 import type { User, AuthContextType, PermissionKey } from '../types';
-import type { Session } from '@supabase/supabase-js';
+// FIX: Removed Session import as it's not exported in older Supabase versions. The type will be inferred.
+// import type { Session } from '@supabase/supabase-js';
 import { useLocalization } from './LocalizationContext';
 
 
@@ -18,7 +19,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [syncError, setSyncError] = useState<Error | null>(null);
   const { t, language } = useLocalization();
 
-  const handleSession = useCallback(async (session: Session | null, isInitial: boolean = false) => {
+  // FIX: Changed Session type to any for compatibility with older Supabase versions.
+  const handleSession = useCallback(async (session: any | null, isInitial: boolean = false) => {
     if (isInitial) {
         setIsInitialLoading(true);
     } else {
@@ -39,7 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         setUser(fullUserProfile);
 
-        // If it's a new user, log the event to Discord. The welcome DM is handled separately.
+        // If it's a new user, log the event to Discord and the database.
         if (isNewUser) {
             console.log("New user detected, triggering log...");
             const config = await getConfig(); // Fetch config for channel IDs
@@ -54,10 +56,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 timestamp: new Date().toISOString()
             };
             sendDiscordLog(config, embed, 'auth', language);
-            // Also log to the database audit log
-            await supabase.rpc('log_action', { 
-                p_admin_id_override: fullUserProfile.id, // Log as the user themselves
-                p_admin_username_override: fullUserProfile.username,
+            
+            // Also log to the database audit log, using the specific function for system actions
+            await supabase.rpc('log_system_action', { 
+                p_actor_id: fullUserProfile.id, // Log as the user themselves
+                p_actor_username: fullUserProfile.username,
                 p_action: `User ${fullUserProfile.username} (${fullUserProfile.discordId}) logged in for the first time.`,
                 p_log_type: 'auth'
             });
@@ -85,11 +88,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
     }
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-        handleSession(session, true); // This is the initial session handling
-    });
+    // FIX: Replaced async getSession() with sync session() for older Supabase v1 compatibility.
+    const session = supabase.auth.session();
+    handleSession(session, true); // This is the initial session handling
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // FIX: Adjusted destructuring for onAuthStateChange for older Supabase v1 compatibility.
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
         if (_event === 'SIGNED_IN') {
           // A new sign-in should show a loader, but not the initial full-screen one
           setLoading(true); 
@@ -109,12 +113,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     setLoading(true);
     // Pass the hCaptcha token to Supabase Auth, which will verify it server-side.
+    // FIX: Replaced signInWithOAuth with signIn for older Supabase v1 compatibility.
     // FIX: Cast to 'any' to allow the 'captchaToken' property, which may not be in the installed Supabase client type definitions.
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { error } = await supabase.auth.signIn({
       provider: 'discord',
-      options: {
-        scopes: 'identify guilds.members.read',
-      },
+    }, {
+      scopes: 'identify guilds.members.read',
       captchaToken: captchaToken,
     } as any);
     if (error) {
@@ -146,7 +150,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!supabase) return;
     setSyncError(null);
     setLoading(true);
-    const { data: { session } } = await supabase.auth.getSession();
+    // FIX: Replaced async getSession() with sync session() for older Supabase v1 compatibility.
+    const session = supabase.auth.session();
     await handleSession(session);
   }, [handleSession]);
 

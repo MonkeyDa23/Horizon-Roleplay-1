@@ -66,7 +66,7 @@ const AdminGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 const action = `Admin ${user.username} accessed the control panel.`;
                 const logType = 'admin_access';
                 // Log to DB
-                supabase.rpc('log_action', { p_action: action, p_log_type: logType });
+                supabase.rpc('log_admin_action', { p_action: action, p_log_type: logType });
                 
                 // Log to Discord
                 const embed = {
