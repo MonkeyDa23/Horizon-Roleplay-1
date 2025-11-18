@@ -140,8 +140,9 @@ const handleResponse = <T>(response: { data: T | null; error: any; status: numbe
 // FIX: Updated return type of fetchUserProfile to include 'isNewUser'.
 export const fetchUserProfile = async (): Promise<{ user: User, syncError: string | null, isNewUser: boolean }> => {
   if (!supabase) throw new Error("Supabase client is not initialized.");
-  // FIX: Replaced async getSession() with sync session() for older Supabase v1 compatibility.
-  const session = supabase.auth.session();
+  // FIX: Reverted to async getSession() for Supabase v2 compatibility.
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw new ApiError(sessionError.message, 500);
   if (!session) throw new ApiError("No active session", 401);
 
   // 1. Get Discord profile from our bot. This is the primary source of truth for user details.

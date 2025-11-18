@@ -4,8 +4,8 @@ import { supabase } from '../lib/supabaseClient';
 // FIX: Added 'sendDiscordLog' to import.
 import { fetchUserProfile, sendDiscordLog, getConfig } from '../lib/api';
 import type { User, AuthContextType, PermissionKey } from '../types';
-// FIX: Removed Session import as it's not exported in older Supabase versions. The type will be inferred.
-// import type { Session } from '@supabase/supabase-js';
+// FIX: Re-imported Session type for Supabase v2 compatibility.
+import type { Session } from '@supabase/supabase-js';
 import { useLocalization } from './LocalizationContext';
 
 
@@ -19,8 +19,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [syncError, setSyncError] = useState<Error | null>(null);
   const { t, language } = useLocalization();
 
-  // FIX: Changed Session type to any for compatibility with older Supabase versions.
-  const handleSession = useCallback(async (session: any | null, isInitial: boolean = false) => {
+  // FIX: Restored Session type for Supabase v2 compatibility.
+  const handleSession = useCallback(async (session: Session | null, isInitial: boolean = false) => {
     if (isInitial) {
         setIsInitialLoading(true);
     } else {
@@ -88,12 +88,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
     }
 
-    // FIX: Replaced async getSession() with sync session() for older Supabase v1 compatibility.
-    const session = supabase.auth.session();
-    handleSession(session, true); // This is the initial session handling
+    // FIX: Switched back to async getSession() for Supabase v2 compatibility.
+    const checkInitialSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      handleSession(session, true); // This is the initial session handling
+    };
+    checkInitialSession();
 
-    // FIX: Adjusted destructuring for onAuthStateChange for older Supabase v1 compatibility.
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+    // FIX: Restored correct destructuring for onAuthStateChange for Supabase v2.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
         if (_event === 'SIGNED_IN') {
           // A new sign-in should show a loader, but not the initial full-screen one
           setLoading(true); 
@@ -113,14 +116,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     setLoading(true);
     // Pass the hCaptcha token to Supabase Auth, which will verify it server-side.
-    // FIX: Replaced signInWithOAuth with signIn for older Supabase v1 compatibility.
-    // FIX: Cast to 'any' to allow the 'captchaToken' property, which may not be in the installed Supabase client type definitions.
-    const { error } = await supabase.auth.signIn({
+    // FIX: Restored signInWithOAuth for Supabase v2 compatibility.
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: 'discord',
-    }, {
-      scopes: 'identify guilds.members.read',
-      captchaToken: captchaToken,
-    } as any);
+      options: {
+        scopes: 'identify guilds.members.read',
+        captchaToken: captchaToken,
+      }
+    });
     if (error) {
         console.error("Error logging in:", error.message);
         if (typeof window !== 'undefined') (window as any).alert(`Login failed: ${error.message}`);
@@ -150,8 +153,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!supabase) return;
     setSyncError(null);
     setLoading(true);
-    // FIX: Replaced async getSession() with sync session() for older Supabase v1 compatibility.
-    const session = supabase.auth.session();
+    // FIX: Restored async getSession() for Supabase v2 compatibility.
+    const { data: { session } } = await supabase.auth.getSession();
     await handleSession(session);
   }, [handleSession]);
 
