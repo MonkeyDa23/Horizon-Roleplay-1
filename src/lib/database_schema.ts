@@ -554,10 +554,26 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.log_page_visit(p_page_name text) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+CREATE OR REPLACE FUNCTION public.log_page_visit(p_page_name text) 
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  admin_user_id uuid;
+  admin_user_name text;
 BEGIN
-  IF NOT public.has_permission(public.get_user_id(), 'admin_panel') THEN RETURN; END IF;
-  PERFORM public.log_action('Visited Admin Panel page: ' || p_page_name, 'navigation');
+  admin_user_id := public.get_user_id();
+  
+  -- Silently exit if no user is found (e.g., function called improperly).
+  -- The frontend logic should prevent this, but this makes the function robust.
+  IF admin_user_id IS NULL THEN
+    RETURN;
+  END IF;
+
+  SELECT COALESCE(raw_user_meta_data->>'global_name', raw_user_meta_data->>'full_name') 
+  INTO admin_user_name
+  FROM auth.users WHERE id = admin_user_id;
+  
+  INSERT INTO public.audit_log (admin_id, admin_username, action, log_type)
+  VALUES (admin_user_id, admin_user_name, 'Visited Admin Panel page: ' || p_page_name, 'navigation');
 END;
 $$;
 
