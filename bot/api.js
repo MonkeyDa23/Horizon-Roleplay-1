@@ -12,38 +12,40 @@ export function createApi(client, botState) {
   app.use(express.json());
 
   // --- AUTH MIDDLEWARE ---
-  app.use((req, res, next) => {
+  const checkAuth = (req, res, next) => {
     const apiKey = req.headers.authorization;
     if (apiKey === process.env.API_SECRET_KEY) {
       next();
     } else {
-      // Allow simpler health check without auth for debugging if needed, or keep strict.
-      // Keeping strict for security.
       res.status(401).json({ error: 'Unauthorized: Invalid API Key' });
     }
-  });
+  };
 
   // --- HELPER: Ensure Bot Ready ---
   const ensureReady = (req, res, next) => {
       if (!botState.ready || !botState.guild) {
           return res.status(503).json({ 
               error: 'Bot is not ready or not connected to guild yet.',
-              details: botState.error || 'Initializing...'
+              details: botState.error || 'Initializing... Please wait.'
           });
       }
       next();
   };
 
-  // 1. Health Check (Always answers, even if bot disconnected)
+  // 1. Health Check (UNPROTECTED & ALWAYS UP)
+  // This prevents 502 errors by always returning something, even if unauthorized or initializing.
   app.get('/health', (req, res) => {
     res.json({
-      status: botState.ready ? 'online' : 'connecting',
+      status: botState.ready ? 'online' : 'initializing',
       bot: client.user?.tag || 'Unknown',
       guild: botState.guild?.name || 'Not Linked',
-      ping: client.ws.ping,
+      ping: client.ws?.ping || -1,
       lastError: botState.error
     });
   });
+
+  // Apply Auth to everything else
+  app.use(checkAuth);
 
   // 2. Guild Roles
   app.get('/guild-roles', ensureReady, async (req, res) => {
@@ -110,7 +112,7 @@ export function createApi(client, botState) {
     }
   });
   
-  // 5. MTA Status (No Bot Ready Check needed technically, but good to keep consistent)
+  // 5. MTA Status
   app.get('/mta-status', async (req, res) => {
     try {
         if (!process.env.MTA_SERVER_IP) throw new Error('No IP');

@@ -1,4 +1,3 @@
-
 // src/lib/api.ts
 import { supabase } from './supabaseClient';
 import { env } from '../env';
@@ -67,13 +66,11 @@ export const sendDiscordLog = async (config: AppConfig, embed: any, logType: 'ad
       try {
           // We use a fire-and-forget approach for the DB log to not block execution, 
           // but we handle the promise catch to avoid unhandled rejections.
-          supabase.rpc('log_system_action', { 
+          await supabase.rpc('log_system_action', { 
             p_action: actionText, 
             p_log_type: logType,
             p_actor_id: null, // System action or we don't have ID handy here, will use admin_username
             p_actor_username: adminName
-          }).then(({ error }) => {
-              if (error) console.error("[DB Log] Failed to write to audit_log:", error);
           });
       } catch (err) {
           console.error("[DB Log] Critical error:", err);
@@ -349,6 +346,13 @@ export const getSubmissions = async (): Promise<QuizSubmission[]> => {
   const { data, error } = await supabase.rpc('get_all_submissions');
   if (error) throw new ApiError(error.message, 500);
   return data;
+};
+export const getSubmissionById = async (id: string): Promise<QuizSubmission> => {
+    if (!supabase) throw new Error("Supabase client not initialized.");
+    // We use the submissions table directly, but ensure RLS allows reading it.
+    // Admin policies should allow reading any submission.
+    const response = await supabase.from('submissions').select('*').eq('id', id).single();
+    return handleResponse(response);
 };
 export const getSubmissionsByUserId = async (userId: string): Promise<QuizSubmission[]> => {
   if (!supabase) return [];

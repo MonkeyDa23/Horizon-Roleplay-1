@@ -17,12 +17,17 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidt
         onClose();
       }
     };
-    // FIX: Guard against document access in non-browser environments.
     if (typeof document !== 'undefined') {
+      if (isOpen) {
+        document.body.style.overflow = 'hidden'; // Prevent scrolling background
+      }
       document.addEventListener('keydown', handleEscape);
-      return () => document.removeEventListener('keydown', handleEscape);
+      return () => {
+          document.removeEventListener('keydown', handleEscape);
+          document.body.style.overflow = 'unset';
+      };
     }
-  }, [onClose]);
+  }, [isOpen, onClose]);
   
   if (!isOpen) return null;
 
@@ -37,26 +42,49 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidt
 
   return (
     <div 
-      className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in"
-      onClick={onClose}
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+      aria-modal="true"
+      role="dialog"
     >
+      {/* Backdrop - Fixed to cover entire viewport */}
+      <div 
+          className="fixed inset-0 bg-black/80 backdrop-blur-md animate-fade-in" 
+          onClick={onClose}
+      ></div>
+
+      {/* Modal Content - Centered and Independent of scroll */}
       <div
-        className={`glass-panel w-full ${maxWidthClass} relative animate-slide-in-up flex flex-col max-h-[90vh]`}
+        className={`relative z-10 glass-panel w-full ${maxWidthClass} flex flex-col max-h-[90vh] animate-slide-in-up shadow-2xl shadow-black/50 my-auto`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-6 border-b border-border-color flex justify-between items-center flex-shrink-0">
+        <div className="p-5 border-b border-border-color flex justify-between items-center flex-shrink-0 bg-brand-dark-blue/50 rounded-t-2xl">
           <h2 className="text-2xl font-bold text-primary-blue tracking-wide">{title}</h2>
           <button onClick={onClose} className="p-2 rounded-full text-text-secondary hover:text-white hover:bg-white/10 transition-colors">
             <X size={24} />
           </button>
         </div>
-        <div className="flex-1 p-8 overflow-y-auto">
+        <div className="flex-1 p-6 overflow-y-auto custom-scrollbar">
           {children}
         </div>
       </div>
        <style>{`
         @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
-        .animate-fade-in { animation: fade-in 0.3s ease-out forwards; }
+        .animate-fade-in { animation: fade-in 0.2s ease-out forwards; }
+        
+        /* Custom Scrollbar for Modal Content */
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(0, 0, 0, 0.2);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(0, 169, 255, 0.3);
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(0, 169, 255, 0.5);
+        }
       `}</style>
     </div>
   );

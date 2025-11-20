@@ -3,7 +3,7 @@ import 'dotenv/config';
 import { Client, GatewayIntentBits, Partials } from 'discord.js';
 import { createApi } from './api.js';
 
-console.log('Starting Vixel Core Bot v2.1...');
+console.log('Starting Vixel Core Bot v2.3 (Fast Start)...');
 
 // --- CONFIG CHECK ---
 const requiredEnv = ['DISCORD_BOT_TOKEN', 'API_SECRET_KEY', 'DISCORD_GUILD_ID'];
@@ -36,13 +36,20 @@ const botState = {
 };
 
 // --- API SERVER STARTUP (IMMEDIATE) ---
-// We start the express app immediately so the frontend proxy always has something to talk to.
+// Critical: Start the API server FIRST so the frontend (Vercel) gets a response 
+// (even if it's 503 Service Unavailable) instead of a 502 Bad Gateway timeout.
 const app = createApi(client, botState);
 const PORT = process.env.PORT || 3001;
 
 const server = app.listen(PORT, () => {
   console.log(`🚀 API Server running on port ${PORT}`);
   console.log(`   - Waiting for Discord connection...`);
+  
+  // Only after server is up, try to login
+  client.login(process.env.DISCORD_BOT_TOKEN).catch(err => {
+      console.error("❌ Discord Login Failed:", err.message);
+      botState.error = "Discord Login Failed: " + err.message;
+  });
 });
 
 server.on('error', (e) => {
@@ -78,10 +85,4 @@ process.on('unhandledRejection', (reason) => {
 
 process.on('uncaughtException', (err) => {
   console.error('⚠️ Uncaught Exception:', err);
-});
-
-// --- LOGIN ---
-client.login(process.env.DISCORD_BOT_TOKEN).catch(err => {
-    console.error("❌ Discord Login Failed:", err.message);
-    botState.error = "Discord Login Failed: " + err.message;
 });

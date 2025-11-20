@@ -1,3 +1,4 @@
+
 // src/lib/translations.ts
 import { Translations } from '../types';
 
@@ -85,7 +86,7 @@ export const translations: Translations = {
   application_submitted: { ar: 'تم إرسال تقديمك بنجاح!', en: 'Your application has been submitted successfully!' },
   application_submitted_desc: { ar: 'ستتم مراجعته من قبل الإدارة قريباً. يمكنك متابعة حالته من صفحة "تقديماتي".', en: 'It will be reviewed by the administration soon. You can track its status on the "My Applications" page.' },
   view_my_applications: { ar: 'عرض تقديماتي', en: 'View My Applications' },
-  cheat_attempt_detected: { ar: 'تم كشف محاولة غش! تم إعادة تعيين التقديم.', en: 'Cheat attempt detected! Application has been reset.' },
+  cheat_attempt_detected: { ar: 'تم كشف محاولات غش!', en: 'Cheat attempts detected!' },
   cheat_method_switched_tab: { ar: 'تبديل التبويبات', en: 'Switched Tabs' },
   cheat_method_lost_focus: { ar: 'فقدان التركيز', en: 'Lost Focus' },
   cheat_attempts_report: { ar: 'تقرير محاولات الغش', en: 'Cheat Attempts Report' },
