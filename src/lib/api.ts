@@ -1,3 +1,4 @@
+
 // src/lib/api.ts
 import { supabase } from './supabaseClient';
 import { env } from '../env';
@@ -140,9 +141,12 @@ const handleResponse = <T>(response: { data: T | null; error: any; status: numbe
 // FIX: Updated return type of fetchUserProfile to include 'isNewUser'.
 export const fetchUserProfile = async (): Promise<{ user: User, syncError: string | null, isNewUser: boolean }> => {
   if (!supabase) throw new Error("Supabase client is not initialized.");
-  // FIX: Reverted to async getSession() for Supabase v2 compatibility.
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  
+  // Cast to any to support Supabase v1/v2 compatibility for getSession
+  const { data, error: sessionError } = await (supabase.auth as any).getSession();
   if (sessionError) throw new ApiError(sessionError.message, 500);
+  
+  const session = data?.session;
   if (!session) throw new ApiError("No active session", 401);
 
   // 1. Get Discord profile from our bot. This is the primary source of truth for user details.

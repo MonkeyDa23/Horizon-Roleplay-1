@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-// FIX: Switched to namespace import for react-router-dom to resolve module resolution issues.
-import * as ReactRouterDOM from 'react-router-dom';
+import { NavLink as RouterNavLink, Link, useNavigate } from 'react-router-dom';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
@@ -11,7 +10,7 @@ import LoginCaptchaModal from './LoginCaptchaModal';
 import { Globe, ChevronDown, LogIn, LogOut, Loader2, ShoppingCart, UserCog, FileText, User, Menu, X } from 'lucide-react';
 
 const NavLink: React.FC<{ to: string; children: React.ReactNode; onClick?: () => void }> = ({ to, children, onClick }) => (
-    <ReactRouterDOM.NavLink
+    <RouterNavLink
         to={to}
         onClick={onClick}
         className={({ isActive }) =>
@@ -20,14 +19,14 @@ const NavLink: React.FC<{ to: string; children: React.ReactNode; onClick?: () =>
         end={to === '/'}
     >
         {children}
-    </ReactRouterDOM.NavLink>
+    </RouterNavLink>
 );
 
 const UserMenuLink: React.FC<{ to: string; children: React.ReactNode; icon: React.ElementType; onClick?: () => void }> = ({ to, children, icon: Icon, onClick }) => (
-     <ReactRouterDOM.Link to={to} onClick={onClick} className="flex items-center gap-3 w-full text-start px-4 py-2.5 text-sm text-text-primary hover:bg-primary-blue/20 hover:text-white rounded-md transition-colors">
+     <Link to={to} onClick={onClick} className="flex items-center gap-3 w-full text-start px-4 py-2.5 text-sm text-text-primary hover:bg-primary-blue/20 hover:text-white rounded-md transition-colors">
        <Icon size={18} />
        {children}
-     </ReactRouterDOM.Link>
+     </Link>
 );
 
 
@@ -62,10 +61,10 @@ const Navbar: React.FC = () => {
       <header className="sticky top-4 z-50 mx-auto max-w-7xl w-[calc(100%-2rem)] animate-fade-in-up" style={{ animationDelay: '100ms', opacity: 0 }}>
         <div className="glass-panel">
             <div className="container mx-auto px-4 sm:px-6 py-3 flex justify-between items-center">
-              <ReactRouterDOM.Link to="/" className="flex items-center gap-3 flex-shrink-0">
+              <Link to="/" className="flex items-center gap-3 flex-shrink-0">
                 <Logo className="h-10 w-10" />
                 <h1 className="text-xl font-bold text-white tracking-wider hidden sm:block">{config.COMMUNITY_NAME}</h1>
-              </ReactRouterDOM.Link>
+              </Link>
               
               <div className="hidden lg:flex items-center gap-10">
                 {navLinks.map((link) => (
@@ -158,15 +157,15 @@ const Navbar: React.FC = () => {
         <div className="absolute inset-0 bg-background-dark/80 backdrop-blur-lg" onClick={() => setMobileMenuOpen(false)}></div>
         <div className={`relative w-full max-w-xs h-full bg-background-light ml-auto p-6 flex flex-col transform transition-transform duration-300 ease-in-out ${mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
             <div className="flex justify-between items-center mb-10">
-                <ReactRouterDOM.Link to="/" onClick={closeAllMenus} className="flex items-center gap-2">
+                <Link to="/" onClick={closeAllMenus} className="flex items-center gap-2">
                     <Logo className="w-8 h-8"/>
                     <h2 className="font-bold text-white text-lg">{config.COMMUNITY_NAME}</h2>
-                </ReactRouterDOM.Link>
+                </Link>
                 <button onClick={() => setMobileMenuOpen(false)} className="text-text-primary hover:text-white"><X size={28}/></button>
             </div>
             <nav className="flex flex-col gap-6 text-xl">
                  {navLinks.map((link, index) => (
-                    <ReactRouterDOM.NavLink 
+                    <RouterNavLink 
                         key={link.to}
                         to={link.to}
                         onClick={() => setMobileMenuOpen(false)}
@@ -174,7 +173,7 @@ const Navbar: React.FC = () => {
                         style={{ animation: `fade-in-up 0.5s ${index * 0.1}s ease-out backwards` }}
                     >
                       {link.text}
-                    </ReactRouterDOM.NavLink>
+                    </RouterNavLink>
                 ))}
             </nav>
         </div>

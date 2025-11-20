@@ -1,168 +1,169 @@
-// bot/api.js
+
 import express from 'express';
 import cors from 'cors';
 import { formatDiscordUser, formatDiscordRole } from './utils.js';
 import GameDig from 'gamedig';
 import { EmbedBuilder } from 'discord.js';
 
-/**
- * Creates and configures the Express API server.
- * @param {import('discord.js').Client} client - The Discord client instance.
- * @param {import('discord.js').Guild} guild - The Discord guild object.
- * @returns {express.Express} The configured Express app.
- */
 export function createApi(client, guild) {
   const app = express();
+  
+  // Allow requests from the frontend
   app.use(cors());
   app.use(express.json());
 
-  // API Key authentication middleware
-  const authenticate = (req, res, next) => {
+  // --- SECURITY MIDDLEWARE ---
+  app.use((req, res, next) => {
     const apiKey = req.headers.authorization;
-    if (apiKey && apiKey === process.env.API_SECRET_KEY) {
+    if (apiKey === process.env.API_SECRET_KEY) {
       next();
     } else {
+      console.warn(`🔒 Blocked unauthorized access from ${req.ip}`);
       res.status(401).json({ error: 'Unauthorized: Invalid API Key' });
     }
-  };
-  
-  app.use(authenticate);
+  });
 
-  // --- API ROUTES ---
+  // --- ROUTES ---
 
+  // 1. Health Check
   app.get('/health', (req, res) => {
     res.json({
       status: 'online',
-      botUser: client.user.tag,
-      guildName: guild.name,
+      bot: client.user.tag,
+      guild: guild.name,
+      ping: client.ws.ping
     });
   });
-  
-  app.post('/sync-user/:discordId', async (req, res) => {
+
+  // 2. Guild Roles (Critical for Admin Panel)
+  app.get('/guild-roles', async (req, res) => {
     try {
-      const { discordId } = req.params;
-      const member = await guild.members.fetch(discordId);
-      if (!member) {
-        return res.status(404).json({ error: 'User not found in this server.' });
-      }
+      // Force fetch from Discord to get the absolute latest roles
+      const rolesMap = await guild.roles.fetch(undefined, { force: true });
+      const roles = rolesMap
+        .filter(r => r.id !== guild.id) // Remove @everyone
+        .sort((a, b) => b.position - a.position) // Sort by hierarchy
+        .map(formatDiscordRole);
+        
+      res.json(roles);
+    } catch (error) {
+      console.error('Error fetching roles:', error);
+      res.status(500).json({ error: 'Failed to fetch roles from Discord.' });
+    }
+  });
+
+  // 3. User Sync (Login Logic)
+  app.post('/sync-user/:discordId', async (req, res) => {
+    const { discordId } = req.params;
+    try {
+      const member = await guild.members.fetch({ user: discordId, force: true });
       res.json(formatDiscordUser(member));
     } catch (error) {
-        console.error(`[API /sync-user] Error syncing user ${req.params.discordId}:`, error);
-        if (error.code === 10007) { // Unknown Member
-             return res.status(404).json({ error: 'User not found in this server.' });
-        }
-        // This specific error message helps diagnose a common setup issue.
-        if (error.message.includes("Members fetching is disabled")) {
-            return res.status(503).json({ error: 'Bot is missing permissions. The "Server Members Intent" is likely not enabled in the Discord Developer Portal.'});
-        }
-        res.status(500).json({ error: 'An internal error occurred while fetching user data.' });
+      if (error.code === 10007) {
+        return res.status(404).json({ error: 'User not found in the server.' });
+      }
+      console.error(`Sync error for ${discordId}:`, error);
+      res.status(500).json({ error: 'Internal bot error during sync.' });
     }
   });
 
-  app.get('/guild-roles', (req, res) => {
-    const roles = guild.roles.cache
-      .filter(role => role.id !== guild.id)
-      .sort((a, b) => b.position - a.position)
-      .map(formatDiscordRole);
-    res.json(roles);
-  });
-
+  // 4. The Notification System (DMs & Channels)
   app.post('/notify', async (req, res) => {
-    try {
-      const { channelId, dmToUserId, content, embed } = req.body;
-      const embedBuilder = new EmbedBuilder(embed);
+    const { channelId, dmToUserId, content, embed } = req.body;
 
+    try {
+      let target;
+      let destinationName;
+
+      // Determine Target
       if (dmToUserId) {
-        const user = await client.users.fetch(dmToUserId);
-        await user.send({ content, embeds: [embedBuilder] });
+        try {
+           target = await client.users.fetch(dmToUserId);
+           destinationName = `User ${target.tag}`;
+        } catch (e) {
+           console.warn(`Notify: User ${dmToUserId} not found.`);
+           // Return success to frontend anyway to prevent website crash
+           return res.json({ success: false, reason: 'User not found' }); 
+        }
       } else if (channelId) {
-        const channel = await client.channels.fetch(channelId);
-        if (channel.isTextBased()) {
-          await channel.send({ content, embeds: [embedBuilder] });
-        } else {
-          throw new Error('Channel is not a text-based channel.');
+        target = await client.channels.fetch(channelId).catch(() => null);
+        destinationName = `Channel ${channelId}`;
+        if (!target) {
+            console.warn(`Notify: Channel ${channelId} not accessible.`);
+            return res.json({ success: false, reason: 'Channel not found' });
         }
       } else {
-        return res.status(400).json({ error: 'Either channelId or dmToUserId must be provided.' });
+        return res.status(400).json({ error: 'Missing target (channelId or dmToUserId)' });
       }
-      res.status(204).send();
+
+      // Build Payload
+      const payload = {};
+      if (content) payload.content = content;
+      if (embed) payload.embeds = [new EmbedBuilder(embed)];
+
+      // Send
+      await target.send(payload);
+      console.log(`📨 Notification sent to ${destinationName}`);
+      res.json({ success: true });
+
     } catch (error) {
-      console.error('[API /notify] Error sending notification:', error);
-      res.status(500).json({ error: `Failed to send notification: ${error.message}` });
+      // Handle "Cannot send messages to this user" (Error 50007) gracefully
+      if (error.code === 50007) {
+        console.warn(`⚠️ Failed to DM user ${dmToUserId} (DMs likely closed).`);
+        return res.json({ success: false, reason: 'DMs closed' });
+      }
+      
+      console.error('Notify Error:', error);
+      // Even on error, we often want to return 200 so the frontend flow continues
+      res.status(200).json({ success: false, error: error.message });
     }
   });
   
+  // 5. MTA Status
   app.get('/mta-status', async (req, res) => {
-      try {
-        if (!process.env.MTA_SERVER_IP || !process.env.MTA_SERVER_PORT) {
-            throw new Error('MTA server address is not configured in the bot environment.');
-        }
+    try {
+        // Use GameDig or fallback mock data if environment is not set
+        if (!process.env.MTA_SERVER_IP) throw new Error('No IP set');
+        
         const state = await GameDig.query({
             type: 'mtasa',
             host: process.env.MTA_SERVER_IP,
-            port: process.env.MTA_SERVER_PORT,
+            port: parseInt(process.env.MTA_SERVER_PORT) || 22003
         });
         res.json({
             name: state.name,
             players: state.players.length,
             maxPlayers: state.maxplayers,
-            version: state.raw?.version || 'N/A'
+            version: state.raw?.version
         });
-      } catch (error) {
-          console.error('[API /mta-status] Error fetching MTA server status:', error);
-          res.status(500).json({ name: 'Server Offline', players: 0, maxPlayers: 0, version: 'N/A' });
-      }
-  });
-
-  app.get('/announcements', async (req, res) => {
-      try {
-          const channelId = process.env.ANNOUNCEMENTS_CHANNEL_ID;
-          if (!channelId) {
-              throw new Error('ANNOUNCEMENTS_CHANNEL_ID is not set in the bot environment.');
-          }
-          const channel = await client.channels.fetch(channelId);
-          if (!channel || !channel.isTextBased()) {
-              throw new Error('Announcements channel not found or is not a text channel.');
-          }
-          const messages = await channel.messages.fetch({ limit: 5 });
-          const announcements = messages.map(msg => ({
-              id: msg.id,
-              title: msg.embeds[0]?.title || `Announcement`,
-              content: msg.content || msg.embeds[0]?.description || '',
-              author: {
-                  name: msg.author.globalName || msg.author.username,
-                  avatarUrl: msg.author.displayAvatarURL(),
-              },
-              timestamp: msg.createdAt.toISOString(),
-              url: msg.url,
-          }));
-          res.json(announcements);
-      } catch (error) {
-          console.error('[API /announcements] Error fetching announcements:', error);
-          res.status(500).json({ error: `Failed to fetch announcements: ${error.message}` });
-      }
-  });
-
-  // Simplified test notification handler
-  app.post('/notify-test', async (req, res) => {
-    try {
-        const { type, targetId } = req.body;
-        const testEmbed = new EmbedBuilder()
-            .setTitle(`✅ Test Notification: ${type}`)
-            .setDescription(`This is a test notification sent to target ID \`${targetId}\`.\nTimestamp: ${new Date().toISOString()}`)
-            .setColor(0x00FF00);
-        
-        const target = await client.channels.fetch(targetId).catch(() => client.users.fetch(targetId));
-        if (!target) throw new Error("Target channel or user not found.");
-
-        await target.send({ embeds: [testEmbed] });
-        res.status(204).send();
-    } catch(error) {
-        console.error('[API /notify-test] Error sending test notification:', error);
-        res.status(500).json({ error: `Failed to send test notification: ${error.message}` });
+    } catch (e) {
+        res.json({ name: 'Server Offline', players: 0, maxPlayers: 0, version: 'N/A' });
     }
   });
-
+  
+  // 6. Announcements
+  app.get('/announcements', async (req, res) => {
+      const channelId = process.env.ANNOUNCEMENTS_CHANNEL_ID;
+      if (!channelId) return res.json([]);
+      
+      try {
+          const channel = await client.channels.fetch(channelId);
+          if (!channel?.isTextBased()) return res.json([]);
+          
+          const messages = await channel.messages.fetch({ limit: 5 });
+          const data = messages.map(m => ({
+              id: m.id,
+              content: m.content || (m.embeds[0] ? m.embeds[0].description : ''),
+              author: { name: m.author.username, avatarUrl: m.author.displayAvatarURL() },
+              timestamp: m.createdAt,
+              url: m.url
+          }));
+          res.json(data);
+      } catch (e) {
+          console.error('Announcements Error:', e);
+          res.json([]);
+      }
+  });
 
   return app;
 }

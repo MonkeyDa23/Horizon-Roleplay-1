@@ -3,8 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { getSubmissionsByUserId } from '../lib/api';
 import type { QuizSubmission, SubmissionStatus } from '../types';
-// FIX: Switched to namespace import for react-router-dom to resolve module resolution issues.
-import * as ReactRouterDOM from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { FileText, Loader2 } from 'lucide-react';
 import { useConfig } from '../contexts/ConfigContext';
 import SEO from '../components/SEO';
@@ -12,8 +11,7 @@ import SEO from '../components/SEO';
 const MyApplicationsPage: React.FC = () => {
   const { user } = useAuth();
   const { t } = useLocalization();
-  // FIX: Use namespace import 'ReactRouterDOM.useNavigate'.
-  const navigate = ReactRouterDOM.useNavigate();
+  const navigate = useNavigate();
   const { config } = useConfig();
   const communityName = config.COMMUNITY_NAME;
   const [submissions, setSubmissions] = useState<QuizSubmission[]>([]);

@@ -1,3 +1,4 @@
+
 // src/lib/database_schema.ts
 
 export const databaseSchema = `
@@ -700,4 +701,4 @@ $$;
 
 -- End of transaction
 COMMIT;
-`;
+`

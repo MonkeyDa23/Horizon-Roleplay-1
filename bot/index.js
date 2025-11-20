@@ -1,54 +1,66 @@
-// bot/index.js
+
 import 'dotenv/config';
-import { Client, GatewayIntentBits } from 'discord.js';
+import { Client, GatewayIntentBits, Partials } from 'discord.js';
 import { createApi } from './api.js';
 
-// --- VALIDATE ENVIRONMENT VARIABLES ---
-const requiredEnv = [
-  'DISCORD_BOT_TOKEN',
-  'API_SECRET_KEY',
-  'DISCORD_GUILD_ID',
-  'PORT'
-];
+console.log('Starting Vixel Core Bot v2.0...');
 
-for (const envVar of requiredEnv) {
-  if (!process.env[envVar]) {
-    console.error(`FATAL ERROR: Missing required environment variable: ${envVar}`);
-    process.exit(1);
-  }
+// --- CRITICAL CONFIG CHECK ---
+const requiredEnv = ['DISCORD_BOT_TOKEN', 'API_SECRET_KEY', 'DISCORD_GUILD_ID'];
+const missingEnv = requiredEnv.filter(key => !process.env[key]);
+
+if (missingEnv.length > 0) {
+  console.error(`❌ CRITICAL ERROR: Missing environment variables: ${missingEnv.join(', ')}`);
+  console.error('Please check your .env file in the bot directory.');
+  process.exit(1);
 }
 
-// --- DISCORD CLIENT SETUP ---
+// --- ROBUST CLIENT SETUP ---
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers, // Required for fetching member data
+    GatewayIntentBits.GuildMembers, // Crucial for syncing users
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.DirectMessages,
   ],
+  partials: [Partials.Channel], // Required to receive DMs
 });
 
-client.once('ready', async () => {
-  console.log(`Logged in as ${client.user.tag}!`);
+// --- GLOBAL ERROR HANDLING (Anti-Crash) ---
+process.on('unhandledRejection', (reason, p) => {
+  console.error('⚠️ Unhandled Rejection/Async Error:', reason);
+  // Do not exit the process, keep the bot alive
+});
 
+process.on('uncaughtException', (err) => {
+  console.error('⚠️ Uncaught Exception:', err);
+  // Do not exit the process, keep the bot alive
+});
+
+client.on('error', (error) => {
+  console.error('⚠️ Discord Client Error:', error);
+});
+
+// --- STARTUP LOGIC ---
+client.once('ready', async () => {
+  console.log(`✅ Bot Connected: ${client.user.tag}`);
+  
   try {
-    // Fetch the main guild
     const guild = await client.guilds.fetch(process.env.DISCORD_GUILD_ID);
-    if (!guild) {
-      console.error(`FATAL ERROR: Could not find guild with ID ${process.env.DISCORD_GUILD_ID}.`);
-      console.error('Please ensure the bot is in the server and the ID is correct.');
-      process.exit(1);
-    }
-    console.log(`Successfully connected to guild: ${guild.name}`);
+    console.log(`✅ Guild Linked: ${guild.name} (${guild.id})`);
     
-    // --- API SERVER SETUP ---
+    // Start the API Server only when bot is ready
     const app = createApi(client, guild);
     const PORT = process.env.PORT || 3001;
-    app.listen(PORT, () => {
-      console.log(`API server listening on port ${PORT}`);
-    });
     
+    app.listen(PORT, () => {
+      console.log(`🚀 Vixel API Server is running on port ${PORT}`);
+      console.log(`🔗 Status: READY to receive website requests.`);
+    });
+
   } catch (error) {
-    console.error('FATAL ERROR during startup:', error);
-    process.exit(1);
+    console.error('❌ FAILED to connect to the target Guild. Check DISCORD_GUILD_ID.');
+    console.error(error);
   }
 });
 

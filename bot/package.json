@@ -1,11 +1,12 @@
+
 {
-  "name": "vixel-bot",
-  "version": "1.0.0",
-  "description": "Discord bot with an API for the Vixel Roleplay website.",
+  "name": "vixel-bot-core",
+  "version": "2.0.0",
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev": "nodemon index.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -13,5 +14,8 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "gamedig": "^4.0.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
   }
 }

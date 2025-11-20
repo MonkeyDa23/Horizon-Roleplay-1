@@ -15,11 +15,15 @@ serve(async (req) => {
 
   try {
     const HCAPTCHA_SECRET_KEY = Deno.env.get('HCAPTCHA_SECRET_KEY');
+    
+    // CRITICAL: If the key is missing, we throw a specific error that the frontend can recognize.
     if (!HCAPTCHA_SECRET_KEY) {
       console.error('[HCAPTCHA Function] Error: HCAPTCHA_SECRET_KEY is not set in Supabase secrets.');
-      // Return a 200 with an error payload for easier client-side handling
       return new Response(
-        JSON.stringify({ success: false, error: 'Captcha service is not configured on the server. The HCaptcha secret key is missing.' }),
+        JSON.stringify({ 
+            success: false, 
+            error: 'The server is missing the hCaptcha secret key configuration. Please contact an admin to add HCAPTCHA_SECRET_KEY to Supabase Edge Function secrets.' 
+        }),
         { status: 200, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } }
       );
     }

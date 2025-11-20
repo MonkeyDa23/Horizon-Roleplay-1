@@ -1,11 +1,9 @@
+
 // src/contexts/AuthContext.tsx
 import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
 import { supabase } from '../lib/supabaseClient';
-// FIX: Added 'sendDiscordLog' to import.
 import { fetchUserProfile, sendDiscordLog, getConfig } from '../lib/api';
 import type { User, AuthContextType, PermissionKey } from '../types';
-// FIX: Re-imported Session type for Supabase v2 compatibility.
-import type { Session } from '@supabase/supabase-js';
 import { useLocalization } from './LocalizationContext';
 
 
@@ -14,13 +12,12 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true); // For any loading state
-  const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true); // Specifically for the first app load
+  const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true); // Specifically for the first load
   const [permissionWarning, setPermissionWarning] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<Error | null>(null);
   const { t, language } = useLocalization();
 
-  // FIX: Restored Session type for Supabase v2 compatibility.
-  const handleSession = useCallback(async (session: Session | null, isInitial: boolean = false) => {
+  const handleSession = useCallback(async (session: any | null, isInitial: boolean = false) => {
     if (isInitial) {
         setIsInitialLoading(true);
     } else {
@@ -30,7 +27,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (session) {
       try {
-        // FIX: Destructured 'isNewUser' from fetchUserProfile response.
         const { user: fullUserProfile, syncError: permWarning, isNewUser } = await fetchUserProfile();
         
         if (permWarning) {
@@ -57,8 +53,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             };
             sendDiscordLog(config, embed, 'auth', language);
             
-            // Also log to the database audit log, using the specific function for system actions
-            await supabase.rpc('log_system_action', { 
+            // Also log to the database audit log
+            await supabase!.rpc('log_system_action', { 
                 p_actor_id: fullUserProfile.id, // Log as the user themselves
                 p_actor_username: fullUserProfile.username,
                 p_action: `User ${fullUserProfile.username} (${fullUserProfile.discordId}) logged in for the first time.`,
@@ -88,21 +84,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
     }
 
-    // FIX: Switched back to async getSession() for Supabase v2 compatibility.
     const checkInitialSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      handleSession(session, true); // This is the initial session handling
+      // Cast to any to support multiple Supabase client versions (v1/v2)
+      const { data } = await (supabase.auth as any).getSession();
+      const session = data?.session || null;
+      handleSession(session, true); 
     };
     checkInitialSession();
 
-    // FIX: Restored correct destructuring for onAuthStateChange for Supabase v2.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data } = (supabase.auth as any).onAuthStateChange((_event: string, session: any) => {
         if (_event === 'SIGNED_IN') {
-          // A new sign-in should show a loader, but not the initial full-screen one
           setLoading(true); 
         }
-        handleSession(session, false); // Subsequent changes are not initial
+        handleSession(session, false);
     });
+    const subscription = data?.subscription;
 
     return () => {
         subscription?.unsubscribe();
@@ -115,9 +111,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
     }
     setLoading(true);
-    // Pass the hCaptcha token to Supabase Auth, which will verify it server-side.
-    // FIX: Restored signInWithOAuth for Supabase v2 compatibility.
-    const { error } = await supabase.auth.signInWithOAuth({
+    
+    // Cast to any to avoid type errors if types are v1 but client is v2
+    const { error } = await (supabase.auth as any).signInWithOAuth({
       provider: 'discord',
       options: {
         scopes: 'identify guilds.members.read',
@@ -136,7 +132,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     setPermissionWarning(null);
     setSyncError(null);
-    await supabase.auth.signOut();
+    await (supabase.auth as any).signOut();
   }, []);
   
   const updateUser = useCallback((newUser: User) => {
@@ -153,8 +149,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!supabase) return;
     setSyncError(null);
     setLoading(true);
-    // FIX: Restored async getSession() for Supabase v2 compatibility.
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data } = await (supabase.auth as any).getSession();
+    const session = data?.session || null;
     await handleSession(session);
   }, [handleSession]);
 
@@ -163,7 +159,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-// Merged Hook
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (context === undefined) {

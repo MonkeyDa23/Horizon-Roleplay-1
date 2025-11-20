@@ -1,9 +1,9 @@
+
 // src/pages/AdminPage.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocalization } from '../contexts/LocalizationContext';
-// FIX: Switched to namespace import for react-router-dom to resolve module resolution issues.
-import * as ReactRouterDOM from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import type { PermissionKey } from '../types';
 import SEO from '../components/SEO';
 import { UserCog, FileText, Server, BookCopy, Store, Languages, Palette, Search, ShieldCheck, ShieldQuestion, Bell, LayoutGrid, Users } from 'lucide-react';
@@ -47,8 +47,7 @@ export const TABS: { id: AdminTab; labelKey: string; icon: React.ElementType; pe
 const AdminPage: React.FC = () => {
     const { t } = useLocalization();
     const { hasPermission, user, loading } = useAuth();
-    // FIX: Use namespace import 'ReactRouterDOM.useNavigate'.
-    const navigate = ReactRouterDOM.useNavigate();
+    const navigate = useNavigate();
     const hasLoggedVisit = useRef(false);
 
     const accessibleTabs = TABS.filter(tab => hasPermission(tab.permission));

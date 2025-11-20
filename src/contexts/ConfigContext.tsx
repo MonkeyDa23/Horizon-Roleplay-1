@@ -1,3 +1,4 @@
+
 // src/contexts/ConfigContext.tsx
 import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
 import { getConfig } from '../lib/api';

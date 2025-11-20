@@ -7,8 +7,7 @@ import type { Product, ProductCategory } from '../types';
 import { ShoppingCart, PlusCircle, AlertTriangle } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 import SEO from '../components/SEO';
-// FIX: Switched to namespace import for react-router-dom to resolve module resolution issues.
-import * as ReactRouterDOM from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 const ProductCard: React.FC<{ product: Product, index: number }> = ({ product, index }) => {
   const { t } = useLocalization();
@@ -23,7 +22,7 @@ const ProductCard: React.FC<{ product: Product, index: number }> = ({ product, i
   };
 
   return (
-    <ReactRouterDOM.Link 
+    <Link 
       to={`/store/${product.id}`}
       key={product.id} 
       className="block glass-panel overflow-hidden group hover:shadow-glow-blue hover:-translate-y-2 animate-stagger"
@@ -49,7 +48,7 @@ const ProductCard: React.FC<{ product: Product, index: number }> = ({ product, i
               </div>
           </div>
       </div>
-    </ReactRouterDOM.Link>
+    </Link>
   );
 };
 

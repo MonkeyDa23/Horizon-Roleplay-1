@@ -1,7 +1,7 @@
 // src/pages/LoginErrorPage.tsx
 import React from 'react';
 import { AlertTriangle, RefreshCw, LogOut, Wrench, ChevronsRight } from 'lucide-react';
-import * as ReactRouterDOM from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { useConfig } from '../contexts/ConfigContext';
 import { env } from '../env';
@@ -105,13 +105,13 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
                         {t('logout')}
                     </button>
                     {config.SHOW_HEALTH_CHECK && (
-                         <ReactRouterDOM.Link
+                         <Link
                             to="/health-check"
                             className="w-full sm:w-auto px-8 py-3 bg-yellow-600 text-white font-bold text-lg rounded-lg hover:bg-yellow-500 transform transition-all duration-300 ease-in-out flex items-center justify-center gap-3 sm:order-2 order-2"
                         >
                             <Wrench size={22}/>
                             {t('go_to_health_check_page')}
-                        </ReactRouterDOM.Link>
+                        </Link>
                     )}
                      <button
                         onClick={onRetry}

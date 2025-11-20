@@ -1,7 +1,6 @@
 // src/App.tsx
 import React from 'react';
-// FIX: Switched to namespace import for react-router-dom to resolve module resolution issues.
-import * as ReactRouterDOM from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProviders } from './contexts/AppProviders';
 import { useConfig } from './contexts/ConfigContext';
 import { useAuth } from './contexts/AuthContext';
@@ -46,13 +45,11 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; permission?: Permiss
   }
 
   if (!user) {
-      // FIX: Use namespace import 'ReactRouterDOM.Navigate' instead of 'Navigate'.
-      return <ReactRouterDOM.Navigate to="/" replace />;
+      return <Navigate to="/" replace />;
   }
 
   if (permission && !hasPermission(permission)) {
-      // FIX: Use namespace import 'ReactRouterDOM.Navigate' instead of 'Navigate'.
-      return <ReactRouterDOM.Navigate to="/" replace />;
+      return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
@@ -121,31 +118,19 @@ const AppContent: React.FC = () => {
       <Navbar />
       {permissionWarning && <PermissionWarningBanner message={permissionWarning} />}
       <main className="flex-grow">
-        {/* FIX: Use namespace import 'ReactRouterDOM.Routes'. */}
-        <ReactRouterDOM.Routes>
-          {/* FIX: Use namespace import 'ReactRouterDOM.Route'. */}
-          <ReactRouterDOM.Route path="/" element={<HomePage />} />
-          {/* FIX: Use namespace import 'ReactRouterDOM.Route'. */}
-          <ReactRouterDOM.Route path="/store" element={<StorePage />} />
-          {/* FIX: Use namespace import 'ReactRouterDOM.Route'. */}
-          <ReactRouterDOM.Route path="/store/:productId" element={<ProductDetailPage />} />
-          {/* FIX: Use namespace import 'ReactRouterDOM.Route'. */}
-          <ReactRouterDOM.Route path="/rules" element={<RulesPage />} />
-          {/* FIX: Use namespace import 'ReactRouterDOM.Route'. */}
-          <ReactRouterDOM.Route path="/applies" element={<AppliesPage />} />
-          {/* FIX: Use namespace import 'ReactRouterDOM.Route'. */}
-          <ReactRouterDOM.Route path="/about" element={<AboutUsPage />} />
-          {/* FIX: Use namespace import 'ReactRouterDOM.Route'. */}
-          <ReactRouterDOM.Route path="/applies/:quizId" element={<ProtectedRoute><QuizPage /></ProtectedRoute>} />
-          {/* FIX: Use namespace import 'ReactRouterDOM.Route'. */}
-          <ReactRouterDOM.Route path="/my-applications" element={<ProtectedRoute><MyApplicationsPage /></ProtectedRoute>} />
-          {/* FIX: Use namespace import 'ReactRouterDOM.Route'. */}
-          <ReactRouterDOM.Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-          {/* FIX: Use namespace import 'ReactRouterDOM.Route'. */}
-          <ReactRouterDOM.Route path="/admin" element={<ProtectedRoute permission="admin_panel"><AdminGate><AdminPage /></AdminGate></ProtectedRoute>} />
-          {/* FIX: Use namespace import 'ReactRouterDOM.Route'. */}
-          <ReactRouterDOM.Route path="/health-check" element={<ProtectedRoute permission="_super_admin"><HealthCheckPage /></ProtectedRoute>} />
-        </ReactRouterDOM.Routes>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/store" element={<StorePage />} />
+          <Route path="/store/:productId" element={<ProductDetailPage />} />
+          <Route path="/rules" element={<RulesPage />} />
+          <Route path="/applies" element={<AppliesPage />} />
+          <Route path="/about" element={<AboutUsPage />} />
+          <Route path="/applies/:quizId" element={<ProtectedRoute><QuizPage /></ProtectedRoute>} />
+          <Route path="/my-applications" element={<ProtectedRoute><MyApplicationsPage /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute permission="admin_panel"><AdminGate><AdminPage /></AdminGate></ProtectedRoute>} />
+          <Route path="/health-check" element={<ProtectedRoute permission="_super_admin"><HealthCheckPage /></ProtectedRoute>} />
+        </Routes>
       </main>
       <Footer />
     </div>
@@ -154,14 +139,13 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    // FIX: Use namespace import 'ReactRouterDOM.BrowserRouter'.
-    <ReactRouterDOM.BrowserRouter>
+    <BrowserRouter>
         <AppProviders>
             <SessionWatcher />
             <CosmicBackground />
             <AppContent />
         </AppProviders>
-    </ReactRouterDOM.BrowserRouter>
+    </BrowserRouter>
   );
 };
 

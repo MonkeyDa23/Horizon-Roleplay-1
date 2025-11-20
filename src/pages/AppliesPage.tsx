@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-// FIX: Switched to namespace import for react-router-dom to resolve module resolution issues.
-import * as ReactRouterDOM from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { useAuth } from '../contexts/AuthContext';
 import { getQuizzes, getSubmissionsByUserId } from '../lib/api';
@@ -92,13 +91,12 @@ const AppliesPage: React.FC = () => {
       }
 
       return (
-        // FIX: Use namespace import 'ReactRouterDOM.Link'.
-        <ReactRouterDOM.Link 
+        <Link 
           to={`/applies/${quiz.id}`}
           className="w-full text-center bg-gradient-to-r from-primary-blue to-accent-cyan text-background-dark font-bold py-3 px-8 rounded-lg hover:opacity-90 transition-all duration-300 flex items-center justify-center gap-2 transform hover:scale-105"
         >
           {t('apply_now')}
-        </ReactRouterDOM.Link>
+        </Link>
       );
   };
 
