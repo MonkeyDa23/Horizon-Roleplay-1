@@ -52,8 +52,35 @@ async function callBotApi<T>(endpoint: string, options: RequestInit = {}): Promi
     }
 }
 
-// FIX: Added sendDiscordLog function to send log messages via the bot API.
+// FIX: Robust Logging System
+// 1. Logs to Database FIRST (Reliable).
+// 2. Logs to Discord SECOND (Best Effort).
 export const sendDiscordLog = async (config: AppConfig, embed: any, logType: 'admin' | 'ban' | 'submission' | 'auth' | 'admin_access', language: 'en' | 'ar'): Promise<void> => {
+  
+  // --- 1. DATABASE LOGGING (Priority) ---
+  // We extract basic info from the embed to store a textual representation in the DB.
+  const adminName = embed.author?.name || 'System';
+  const actionText = embed.title ? `${embed.title}: ${embed.description || ''}` : (embed.description || 'Action occurred');
+  
+  // Ensure supabase is available
+  if (supabase) {
+      try {
+          // We use a fire-and-forget approach for the DB log to not block execution, 
+          // but we handle the promise catch to avoid unhandled rejections.
+          supabase.rpc('log_system_action', { 
+            p_action: actionText, 
+            p_log_type: logType,
+            p_actor_id: null, // System action or we don't have ID handy here, will use admin_username
+            p_actor_username: adminName
+          }).then(({ error }) => {
+              if (error) console.error("[DB Log] Failed to write to audit_log:", error);
+          });
+      } catch (err) {
+          console.error("[DB Log] Critical error:", err);
+      }
+  }
+
+  // --- 2. DISCORD LOGGING (Best Effort) ---
   let channelId: string | null | undefined = null;
   let mentionRoleId: string | null | undefined = null;
 
@@ -72,27 +99,26 @@ export const sendDiscordLog = async (config: AppConfig, embed: any, logType: 'ad
       mentionRoleId = config.mention_role_audit_log_submissions;
       break;
     case 'auth':
-      // Auth logs go to the general admin channel.
       channelId = config.log_channel_admin;
       break;
   }
 
-  // Use fallback channel if specific one is not set.
   if (!channelId) {
     channelId = config.audit_log_channel_id;
-    if (logType !== 'auth') { // Don't mention for general auth logs in fallback
+    if (logType !== 'auth') { 
         mentionRoleId = config.mention_role_audit_log_general;
     }
   }
 
   if (!channelId) {
-    console.warn(`[sendDiscordLog] No channel ID configured for log type "${logType}" or as a fallback. Skipping log.`);
+    // No channel configured, skip Discord part quietly.
     return;
   }
 
   const content = mentionRoleId ? `<@&${mentionRoleId}>` : undefined;
 
   try {
+    // We await this, but we catch the error so it doesn't crash the calling function
     await callBotApi('/notify', {
       method: 'POST',
       body: JSON.stringify({
@@ -102,7 +128,9 @@ export const sendDiscordLog = async (config: AppConfig, embed: any, logType: 'ad
       }),
     });
   } catch (error) {
-    console.error(`[sendDiscordLog] Failed to send log for type "${logType}" to channel ${channelId}:`, error);
+    // Common error: Bot offline or proxy failure. 
+    // Since we already logged to DB, this is not critical for data integrity.
+    console.warn(`[sendDiscordLog] Could not send Discord notification for type "${logType}":`, (error as Error).message);
   }
 };
 
@@ -138,37 +166,50 @@ const handleResponse = <T>(response: { data: T | null; error: any; status: numbe
 // =============================================
 // AUTH & USER PROFILE API
 // =============================================
-// FIX: Updated return type of fetchUserProfile to include 'isNewUser'.
 export const fetchUserProfile = async (): Promise<{ user: User, syncError: string | null, isNewUser: boolean }> => {
   if (!supabase) throw new Error("Supabase client is not initialized.");
   
-  // Cast to any to support Supabase v1/v2 compatibility for getSession
   const { data, error: sessionError } = await (supabase.auth as any).getSession();
   if (sessionError) throw new ApiError(sessionError.message, 500);
   
   const session = data?.session;
   if (!session) throw new ApiError("No active session", 401);
 
-  // 1. Get Discord profile from our bot. This is the primary source of truth for user details.
-  const discordProfile = await callBotApi<any>(`/sync-user/${session.user.user_metadata.provider_id}`, { method: 'POST' });
+  let discordProfile;
+  let syncError = null;
 
-  // 2. Fetch existing profile from DB (ban status, etc.). This might not exist for a new user.
-  // We query without .single() to avoid the 406 error for new users.
+  // Try to fetch from Discord Bot
+  try {
+      discordProfile = await callBotApi<any>(`/sync-user/${session.user.user_metadata.provider_id}`, { method: 'POST' });
+  } catch (e) {
+      console.error("Bot Sync Failed, falling back to session metadata:", e);
+      syncError = (e as Error).message;
+      // Fallback: Construct basic profile from Supabase session metadata if bot is down
+      const meta = session.user.user_metadata;
+      discordProfile = {
+          discordId: meta.provider_id,
+          username: meta.custom_claims?.global_name || meta.full_name || 'Unknown',
+          avatar: meta.avatar_url || '',
+          roles: [], // Cannot get roles without bot
+          highestRole: null
+      };
+  }
+
+  // Fetch existing profile from DB
   const { data: existingProfiles, error: dbError } = await supabase.from('profiles').select('id, is_banned, ban_reason, ban_expires_at').eq('id', session.user.id);
   if (dbError) throw new ApiError(dbError.message, 500);
   const existingProfile = existingProfiles?.[0] || null;
   const isNewUser = !existingProfile;
 
-  // 3. Get permissions from Supabase based on roles from Discord profile
-  const { data: permsData, error: permsError } = await supabase.from('role_permissions').select('permissions').in('role_id', discordProfile.roles.map((r: any) => r.id));
-  if (permsError) throw new ApiError(permsError.message, 500);
-
-  const userPermissions = new Set<string>();
-  if (permsData) {
-      permsData.forEach(p => (p.permissions || []).forEach(perm => userPermissions.add(perm)));
+  // Get permissions
+  let userPermissions = new Set<string>();
+  if (discordProfile.roles.length > 0) {
+      const { data: permsData } = await supabase.from('role_permissions').select('permissions').in('role_id', discordProfile.roles.map((r: any) => r.id));
+      if (permsData) {
+          permsData.forEach(p => (p.permissions || []).forEach(perm => userPermissions.add(perm)));
+      }
   }
 
-  // 4. Combine into the final user object
   const finalUser: User = {
       id: session.user.id,
       ...discordProfile,
@@ -178,50 +219,26 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
       ban_expires_at: existingProfile?.ban_expires_at ?? null,
   };
 
-  // 5. Upsert the latest profile info back to the DB
-  // This will create the profile for a new user, or update it for an existing one.
   const { error: upsertError } = await supabase.from('profiles').upsert({
       id: finalUser.id, discord_id: finalUser.discordId, username: finalUser.username, avatar_url: finalUser.avatar,
       roles: finalUser.roles, highest_role: finalUser.highestRole, last_synced_at: new Date().toISOString()
   }, { onConflict: 'id' });
 
-  if (upsertError) {
-      console.error("Profile upsert failed:", upsertError.message);
-  }
+  if (upsertError) console.error("Profile upsert failed:", upsertError.message);
   
-  // 6. If it was a new user, send welcome DM and log it
-  if (isNewUser && !upsertError) {
+  if (isNewUser && !upsertError && !syncError) {
+      // Try to log new user event
       const { COMMUNITY_NAME, LOGO_URL } = await getConfig();
-      const { data: translations } = await supabase.from('translations').select('key, en, ar').in('key', ['notification_welcome_title', 'notification_welcome_body']);
-      const welcomeTitle = translations?.find(t => t.key === 'notification_welcome_title')?.en.replace('{communityName}', COMMUNITY_NAME) ?? `Welcome to ${COMMUNITY_NAME}!`;
-      const welcomeBody = translations?.find(t => t.key === 'notification_welcome_body')?.en.replace('{username}', finalUser.username) ?? `We're happy to have you, ${finalUser.username}!`;
-
-      const welcomeEmbed = {
-          title: welcomeTitle,
-          description: welcomeBody,
-          color: 0x00F2EA,
-          thumbnail: { url: LOGO_URL },
-          footer: { text: COMMUNITY_NAME, icon_url: LOGO_URL },
+      const embed = {
+          title: '✨ New User Registered',
+          description: `User **${finalUser.username}** (\`${finalUser.discordId}\`) logged in for the first time.`,
+          color: 0x22C55E,
           timestamp: new Date().toISOString()
       };
-      
-      callBotApi('/notify', { method: 'POST', body: JSON.stringify({ dmToUserId: finalUser.discordId, embed: welcomeEmbed }) })
-        .catch(e => console.error("Failed to send welcome DM:", e));
-      
-      // Log this event
-      // FIX: The supabase rpc call is thenable but does not have a .catch method.
-      // Used .then() to handle potential errors in this fire-and-forget logging action.
-      supabase.rpc('log_action', { 
-          p_action: `New user logged in: **${finalUser.username}** (\`${finalUser.discordId}\`)`,
-          p_log_type: 'auth'
-      }).then(({ error: logError }) => {
-        if (logError) {
-            console.error("Failed to log new user event:", logError);
-        }
-      });
+      sendDiscordLog({ ...await getConfig() }, embed, 'auth', 'en');
   }
 
-  return { user: finalUser, syncError: null, isNewUser };
+  return { user: finalUser, syncError, isNewUser };
 };
 
 export const forceRefreshUserProfile = fetchUserProfile;
@@ -368,7 +385,6 @@ export const getTranslations = async (): Promise<Translations> => {
   if (!supabase) return {};
   const { data, error } = await supabase.from('translations').select('key, en, ar');
   if (error) throw new ApiError(error.message, 500);
-  // FIX: Replaced reduce with a for loop for broader compatibility.
   const translations: Translations = {};
   for (let i = 0; i < data.length; i++) {
     const item = data[i];
@@ -409,8 +425,10 @@ export const getAuditLogs = async (page = 1, limit = 50): Promise<AuditLogEntry[
 };
 export const logAdminPageVisit = async (pageName: string): Promise<void> => {
   if (!supabase) return;
-  // This is a fire-and-forget operation, so we don't need to throw an error on failure
-  await supabase.rpc('log_page_visit', { p_page_name: pageName });
+  // This is a fire-and-forget operation
+  await supabase.rpc('log_page_visit', { p_page_name: pageName }).then(({error}) => {
+      if (error) console.warn("Log page visit failed:", error.message);
+  });
 };
 export const getGuildRoles = (): Promise<DiscordRole[]> => callBotApi('/guild-roles');
 export const getRolePermissions = async (): Promise<RolePermission[]> => {

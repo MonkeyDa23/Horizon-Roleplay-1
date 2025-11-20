@@ -1,3 +1,4 @@
+
 // src/pages/HealthCheckPage.tsx
 import React, { useState } from 'react';
 import { Loader2, CheckCircle, XCircle, AlertTriangle, HelpCircle, Server, Bot, ArrowRight, User } from 'lucide-react';
@@ -116,9 +117,19 @@ const HealthCheckPage: React.FC = () => {
                                 <ResultItem label="VITE_SUPABASE_ANON_KEY" value={env.VITE_SUPABASE_ANON_KEY} good={!!env.VITE_SUPABASE_ANON_KEY && env.VITE_SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY'} />
                                 <ResultItem label="VITE_HCAPTCHA_SITE_KEY" value={env.VITE_HCAPTCHA_SITE_KEY} good={!!env.VITE_HCAPTCHA_SITE_KEY} />
                             </div>
-                             <div className="mt-4 p-3 rounded-md bg-blue-500/10 border border-blue-500/30">
-                                <h4 className="font-bold text-blue-300 flex items-center gap-2"><HelpCircle size={18} /> Important: hCaptcha Secret Key</h4>
-                                <p className="text-sm text-blue-200 mt-1">For captcha verification to work on submissions, you must add your <strong className="text-white">hCaptcha Secret Key</strong> to your Supabase project. Go to Project Settings &gt; Functions, and add a new secret named <code className="bg-brand-dark px-1.5 py-0.5 rounded">HCAPTCHA_SECRET_KEY</code> with your secret key as the value.</p>
+                             <div className="mt-4 p-4 rounded-md bg-blue-500/10 border border-blue-500/30">
+                                <h4 className="font-bold text-blue-300 flex items-center gap-2 mb-2"><HelpCircle size={20} /> هام: مفتاح hCaptcha السري (Secret Key)</h4>
+                                <div className="text-sm text-gray-200 space-y-3">
+                                    <p>
+                                        <strong className="text-white">AR:</strong> لكي يعمل التحقق في التقديمات، يجب إضافة المفتاح السري في إعدادات سوبابيس.
+                                        اذهب إلى <strong>Project Settings &gt; Edge Functions</strong>، وأضف "Secret" جديد بالاسم <code className="bg-brand-dark px-1.5 py-0.5 rounded text-yellow-300">HCAPTCHA_SECRET_KEY</code> وضع المفتاح الخاص بك كقيمة له.
+                                    </p>
+                                    <hr className="border-blue-500/30"/>
+                                    <p>
+                                        <strong className="text-white">EN:</strong> For captcha verification to work on submissions, you must add your Secret Key to your Supabase project. 
+                                        Go to <strong>Project Settings &gt; Edge Functions</strong>, and add a new secret named <code className="bg-brand-dark px-1.5 py-0.5 rounded text-yellow-300">HCAPTCHA_SECRET_KEY</code> with your secret key as the value.
+                                    </p>
+                                </div>
                             </div>
                         </div>
 
