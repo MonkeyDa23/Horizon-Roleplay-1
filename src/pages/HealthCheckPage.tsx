@@ -1,7 +1,7 @@
 
 // src/pages/HealthCheckPage.tsx
 import React, { useState } from 'react';
-import { Loader2, CheckCircle, XCircle, AlertTriangle, HelpCircle, Server, Bot, ArrowRight, User, ExternalLink, RefreshCw } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, User, Server, Bot, ArrowRight, RefreshCw } from 'lucide-react';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { env } from '../env';
 import { checkDiscordApiHealth, lookupUser, ApiError } from '../lib/api';
@@ -149,15 +149,17 @@ const HealthCheckPage: React.FC = () => {
                                             
                                             {botHealth.is502 && (
                                                 <div className="bg-yellow-500/10 border border-yellow-500/30 p-4 rounded mt-4 text-sm text-yellow-200">
-                                                    <p className="font-bold text-lg mb-2 flex items-center gap-2"><RefreshCw size={20}/> Moved Hosting or IP?</p>
-                                                    <p className="mb-2">You are getting a <strong>Bad Gateway (502)</strong> error. This means Vercel is trying to reach the bot at the URL above, but getting no response.</p>
+                                                    <p className="font-bold text-lg mb-2 flex items-center gap-2"><RefreshCw size={20}/> Connection Refused (502)</p>
+                                                    <p className="mb-2">Vercel cannot reach the bot at the target URL. If you just updated the IP/Port, <strong>did you Redeploy?</strong></p>
                                                     
-                                                    <p className="mb-2 font-semibold text-white">If you recently moved your bot (e.g., to Katbump or a new VPS):</p>
-                                                    <ol className="list-decimal list-inside space-y-2 ml-1 text-gray-300">
-                                                        <li>Go to your <strong>Vercel Dashboard</strong> {'>'} Settings {'>'} Environment Variables.</li>
-                                                        <li>Update <code>VITE_DISCORD_BOT_URL</code> to your new IP and Port.<br/><span className="opacity-70 text-xs ml-5 block">Example: http://51.75.118.170:20228</span></li>
-                                                        <li><strong>CRITICAL:</strong> Go to the "Deployments" tab in Vercel and <strong>Redeploy</strong> your latest commit. <span className="text-yellow-400">Changing variables does not affect the live site until you redeploy!</span></li>
-                                                    </ol>
+                                                    <div className="bg-black/20 p-3 rounded mb-3">
+                                                        <p className="font-bold text-white mb-1">Checklist:</p>
+                                                        <ul className="list-disc list-inside space-y-1 ml-1 text-gray-300">
+                                                            <li><strong>Is the Bot Online?</strong> Check your hosting console (Katbump/Wispbyte).</li>
+                                                            <li><strong>Redeploy:</strong> Changing Env Vars in Vercel DOES NOT apply automatically. You MUST go to Deployments -> Redeploy.</li>
+                                                            <li><strong>Port Mapping:</strong> Does the port in the URL ({env.VITE_DISCORD_BOT_URL?.split(':').pop()}) match the 'Primary Port' in your host's Network tab?</li>
+                                                        </ul>
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>

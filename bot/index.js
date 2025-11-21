@@ -34,14 +34,13 @@ const PORT = process.env.SERVER_PORT || process.env.PORT || 3001;
 // CRITICAL: Bind to '0.0.0.0' to accept connections from outside (Required for Docker/Panels)
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n===================================================`);
-  console.log(`🚀 BOT API SERVER RUNNING ON PORT: ${PORT}`);
+  console.log(`🚀 API Server listening on: 0.0.0.0:${PORT}`);
   console.log(`---------------------------------------------------`);
-  console.log(`⚠️  ACTION REQUIRED IN VERCEL:`);
-  console.log(`   Go to Vercel Dashboard -> Settings -> Environment Variables`);
-  console.log(`   Update VITE_DISCORD_BOT_URL to:`);
-  console.log(`   http://<YOUR_SERVER_IP>:${PORT}`);
-  console.log(`   (e.g., http://51.75.118.170:${PORT})`);
-  console.log(`   Then REDEPLOY your website.`);
+  console.log(`IMPORTANT: This port (${PORT}) must match your Vercel Config.`);
+  console.log(`If you are using Katbump/Wispbyte:`);
+  console.log(`1. Look at the 'Network' tab in your panel.`);
+  console.log(`2. Use the Public IP and Port shown there.`);
+  console.log(`3. Example: http://51.75.118.170:${PORT}`);
   console.log(`===================================================\n`);
   
   // Only AFTER server is up, verify env and login
