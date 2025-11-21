@@ -376,3 +376,10 @@ export const getProductsWithCategories = async () => {
 };
 export const forceRefreshUserProfile = fetchUserProfile;
 export const revalidateSession = async (): Promise<User> => { const { user } = await fetchUserProfile(); return user; };
+
+// --- INVITE & REAL STATS API ---
+export const getInviteDetails = (code: string) => callBotApi<{
+    guild: { name: string; id: string; iconURL: string | null };
+    memberCount: number;
+    presenceCount: number;
+}>(`/invite-info/${code}`);

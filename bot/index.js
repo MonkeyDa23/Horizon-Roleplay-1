@@ -173,6 +173,32 @@ app.get('/guild-roles', async (req, res) => {
     }
 });
 
+// 6. Invite Info (for Widgets)
+app.get('/invite-info/:code', async (req, res) => {
+    const { code } = req.params;
+    // log('WIDGET', `Fetching details for invite: ${code}`);
+    try {
+        const invite = await client.fetchInvite(code);
+        
+        if (!invite || !invite.guild) {
+             return res.status(404).json({ error: 'Guild not found in invite' });
+        }
+
+        res.json({
+            guild: {
+                name: invite.guild.name,
+                id: invite.guild.id,
+                iconURL: invite.guild.iconURL({ dynamic: true, size: 256 })
+            },
+            memberCount: invite.memberCount,
+            presenceCount: invite.presenceCount
+        });
+    } catch (e) {
+        // log('ERROR', `Invite fetch failed: ${e.message}`);
+        res.status(404).json({ error: 'Invite not found or expired', details: e.message });
+    }
+});
+
 // --- STARTUP ---
 client.once('ready', () => {
     log('DISCORD', `Logged in as ${client.user.tag}`);
