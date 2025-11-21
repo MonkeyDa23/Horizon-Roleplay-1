@@ -87,7 +87,9 @@ export const sendDiscordLog = async (
           mentionRoleId = config.mention_role_submissions;
           break;
         case 'auth':
-          finalTargetId = config.log_channel_admin; // Login logs go to admin log
+          // Routes to specific Auth/New Member channel
+          finalTargetId = config.log_channel_auth || config.log_channel_admin; 
+          mentionRoleId = config.mention_role_auth;
           break;
       }
       

@@ -32,6 +32,7 @@ const defaultConfig: AppConfig = {
     log_channel_submissions: null,
     log_channel_bans: null,
     log_channel_admin: null,
+    log_channel_auth: null, // New Members Log
     audit_log_channel_id: null,
 
     // Mention Roles
@@ -39,6 +40,7 @@ const defaultConfig: AppConfig = {
     mention_role_audit_log_submissions: null,
     mention_role_audit_log_bans: null,
     mention_role_audit_log_admin: null,
+    mention_role_auth: null, // New Members Role
     mention_role_audit_log_general: null,
 };
 

@@ -94,11 +94,13 @@ CREATE TABLE public.config (
     "log_channel_submissions" text,
     "log_channel_bans" text,
     "log_channel_admin" text,
+    "log_channel_auth" text, -- New for user auth/new members
     "audit_log_channel_id" text,
     "mention_role_submissions" text,
     "mention_role_audit_log_submissions" text,
     "mention_role_audit_log_bans" text,
     "mention_role_audit_log_admin" text,
+    "mention_role_auth" text, -- New for user auth/new members
     "mention_role_audit_log_general" text,
     CONSTRAINT id_check CHECK (id = 1)
 );
@@ -526,11 +528,13 @@ BEGIN
     "log_channel_submissions" = COALESCE(new_config->>'log_channel_submissions', "log_channel_submissions"),
     "log_channel_bans" = COALESCE(new_config->>'log_channel_bans', "log_channel_bans"),
     "log_channel_admin" = COALESCE(new_config->>'log_channel_admin', "log_channel_admin"),
+    "log_channel_auth" = COALESCE(new_config->>'log_channel_auth', "log_channel_auth"),
     "audit_log_channel_id" = COALESCE(new_config->>'audit_log_channel_id', "audit_log_channel_id"),
     "mention_role_submissions" = COALESCE(new_config->>'mention_role_submissions', "mention_role_submissions"),
     "mention_role_audit_log_submissions" = COALESCE(new_config->>'mention_role_audit_log_submissions', "mention_role_audit_log_submissions"),
     "mention_role_audit_log_bans" = COALESCE(new_config->>'mention_role_audit_log_bans', "mention_role_audit_log_bans"),
     "mention_role_audit_log_admin" = COALESCE(new_config->>'mention_role_audit_log_admin', "mention_role_audit_log_admin"),
+    "mention_role_auth" = COALESCE(new_config->>'mention_role_auth', "mention_role_auth"),
     "mention_role_audit_log_general" = COALESCE(new_config->>'mention_role_audit_log_general', "mention_role_audit_log_general")
   WHERE id = 1;
 END;

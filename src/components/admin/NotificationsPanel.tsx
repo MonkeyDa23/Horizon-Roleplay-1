@@ -218,12 +218,20 @@ const NotificationsPanel: React.FC = () => {
                             <IdField labelKey="log_channel_submissions" descKey="log_channel_submissions_desc" value={settings.log_channel_submissions} onChange={e => handleConfigChange('log_channel_submissions', e)} />
                             <IdField labelKey="log_channel_bans" descKey="log_channel_bans_desc" value={settings.log_channel_bans} onChange={e => handleConfigChange('log_channel_bans', e)} />
                             <IdField labelKey="log_channel_admin" descKey="log_channel_admin_desc" value={settings.log_channel_admin} onChange={e => handleConfigChange('log_channel_admin', e)} />
+                            <IdField labelKey="log_channel_auth" descKey="log_channel_auth_desc" value={settings.log_channel_auth} onChange={e => handleConfigChange('log_channel_auth', e)} />
                             <IdField labelKey="audit_log_channel_id" descKey="audit_log_channel_id_desc" value={settings.audit_log_channel_id} onChange={e => handleConfigChange('audit_log_channel_id', e)} />
-                            <IdField labelKey="mention_role_submissions" descKey="mention_role_submissions_desc" value={settings.mention_role_submissions} onChange={e => handleConfigChange('mention_role_submissions', e)} />
-                            <IdField labelKey="mention_role_audit_log_submissions" descKey="mention_role_audit_log_submissions_desc" value={settings.mention_role_audit_log_submissions} onChange={e => handleConfigChange('mention_role_audit_log_submissions', e)} />
-                            <IdField labelKey="mention_role_audit_log_bans" descKey="mention_role_audit_log_bans_desc" value={settings.mention_role_audit_log_bans} onChange={e => handleConfigChange('mention_role_audit_log_bans', e)} />
-                            <IdField labelKey="mention_role_audit_log_admin" descKey="mention_role_audit_log_admin_desc" value={settings.mention_role_audit_log_admin} onChange={e => handleConfigChange('mention_role_audit_log_admin', e)} />
-                            <IdField labelKey="mention_role_audit_log_general" descKey="mention_role_audit_log_general_desc" value={settings.mention_role_audit_log_general} onChange={e => handleConfigChange('mention_role_audit_log_general', e)} />
+                            
+                            <div className="border-t border-gray-700 pt-4 mt-4">
+                                <h4 className="text-lg font-bold text-white mb-3">Mention Roles</h4>
+                                <div className="space-y-4">
+                                    <IdField labelKey="mention_role_submissions" descKey="mention_role_submissions_desc" value={settings.mention_role_submissions} onChange={e => handleConfigChange('mention_role_submissions', e)} />
+                                    <IdField labelKey="mention_role_audit_log_submissions" descKey="mention_role_audit_log_submissions_desc" value={settings.mention_role_audit_log_submissions} onChange={e => handleConfigChange('mention_role_audit_log_submissions', e)} />
+                                    <IdField labelKey="mention_role_audit_log_bans" descKey="mention_role_audit_log_bans_desc" value={settings.mention_role_audit_log_bans} onChange={e => handleConfigChange('mention_role_audit_log_bans', e)} />
+                                    <IdField labelKey="mention_role_audit_log_admin" descKey="mention_role_audit_log_admin_desc" value={settings.mention_role_audit_log_admin} onChange={e => handleConfigChange('mention_role_audit_log_admin', e)} />
+                                    <IdField labelKey="mention_role_auth" descKey="mention_role_auth_desc" value={settings.mention_role_auth} onChange={e => handleConfigChange('mention_role_auth', e)} />
+                                    <IdField labelKey="mention_role_audit_log_general" descKey="mention_role_audit_log_general_desc" value={settings.mention_role_audit_log_general} onChange={e => handleConfigChange('mention_role_audit_log_general', e)} />
+                                </div>
+                            </div>
                         </div>
                     </div>
                      {/* Testing */}
