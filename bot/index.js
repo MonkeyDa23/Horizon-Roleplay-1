@@ -3,7 +3,7 @@ import 'dotenv/config';
 import { Client, GatewayIntentBits, Partials } from 'discord.js';
 import { createApi } from './api.js';
 
-console.log('Starting Vixel Bot Core v2.9 (Root Cause Fix)...');
+console.log('Starting Vixel Bot Core v3.0 (Connection Fix)...');
 
 // --- CLIENT SETUP ---
 const client = new Client({
@@ -35,13 +35,13 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n===================================================`);
   console.log(`✅ BOT IS RUNNING AND LISTENING!`);
   console.log(`---------------------------------------------------`);
-  console.log(`🚀 API Server listening on: 0.0.0.0:${PORT}`);
+  console.log(`🚀 INTERNAL PORT: ${PORT}`);
   console.log(`---------------------------------------------------`);
-  console.log(`⚠️  ACTION REQUIRED: CONFIGURE VERCEL ⚠️`);
-  console.log(`1. Copy the port number above: ${PORT}`);
-  console.log(`2. Go to Vercel Settings > Environment Variables.`);
-  console.log(`3. Set VITE_DISCORD_BOT_URL = http://<YOUR_SERVER_IP>:${PORT}`);
-  console.log(`4. IMPORTANT: Click 'Redeploy' in Vercel deployments.`);
+  console.log(`⚠️  VERCEL CONFIGURATION INSTRUCTIONS ⚠️`);
+  console.log(`1. Your VITE_DISCORD_BOT_URL in Vercel MUST use port: ${PORT}`);
+  console.log(`   Example: http://YOUR_KATBUMP_IP:${PORT}`);
+  console.log(`2. IMPORTANT: If you changed the variable in Vercel,`);
+  console.log(`   YOU MUST CLICK 'REDEPLOY' in Vercel Deployments.`);
   console.log(`===================================================\n`);
   
   // Only AFTER server is up, verify env and login

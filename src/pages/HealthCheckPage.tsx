@@ -157,7 +157,7 @@ const HealthCheckPage: React.FC = () => {
                                                         <ul className="list-disc list-inside space-y-1 ml-1 text-gray-300">
                                                             <li><strong>Is the Bot Online?</strong> Check your hosting console (Katbump/Wispbyte).</li>
                                                             <li><strong>Redeploy:</strong> Changing Env Vars in Vercel DOES NOT apply automatically. You MUST go to Deployments &rarr; Redeploy.</li>
-                                                            <li><strong>Port Mapping:</strong> Does the port in the URL ({env.VITE_DISCORD_BOT_URL?.split(':').pop()}) match the 'Primary Port' in your host's Network tab?</li>
+                                                            <li><strong>Port Mapping:</strong> Does the port in the URL match the 'Primary Port' in your host's Network tab?</li>
                                                         </ul>
                                                     </div>
                                                 </div>

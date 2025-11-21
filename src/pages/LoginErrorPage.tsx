@@ -58,9 +58,9 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
                     <div className="bg-black/20 p-3 rounded">
                         <p className="text-sm font-bold text-white mb-2">Solution Checklist:</p>
                         <ol className="list-decimal list-inside text-sm text-gray-300 space-y-2">
-                            <li><strong>Check Bot Console:</strong> Restart your bot. It will print the correct port.</li>
+                            <li><strong>Check Bot Console:</strong> Restart your bot. It will print the correct port. Make sure it says listening on <code>0.0.0.0</code>.</li>
                             <li><strong>Verify Vercel Env:</strong> Does <code>VITE_DISCORD_BOT_URL</code> match that IP & Port?</li>
-                            <li><strong className="text-yellow-400">DID YOU REDEPLOY?</strong> Changing Env Vars DOES NOT work until you go to Deployments and click <strong>Redeploy</strong>.</li>
+                            <li><strong className="text-yellow-400">DID YOU REDEPLOY?</strong> Changing Env Vars in Vercel DOES NOT work until you go to Deployments and click <strong>Redeploy</strong>.</li>
                         </ol>
                     </div>
                 </div>
