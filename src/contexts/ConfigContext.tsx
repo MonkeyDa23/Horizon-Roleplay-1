@@ -12,12 +12,9 @@ interface ConfigContextType {
   refreshConfig: () => Promise<void>;
 }
 
-// Using Official Discord Logo (White) as requested to override
-const OFFICIAL_DISCORD_LOGO = 'https://assets-global.website-files.com/6257adef93867e56f84d3101/636e0a6918e57475a843f59f_icon_clyde_white_RGB.png';
-
 const defaultConfig: AppConfig = {
     COMMUNITY_NAME: 'Vixel Roleplay',
-    LOGO_URL: OFFICIAL_DISCORD_LOGO,
+    LOGO_URL: '', // Empty by default, to be filled from DB
     DISCORD_GUILD_ID: '',
     DISCORD_INVITE_URL: 'https://discord.gg/u3CazwhxVa',
     MTA_SERVER_URL: 'mtasa://134.255.216.22:22041',
@@ -66,8 +63,7 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     try {
       const configData = await getConfig();
-      // FORCE OVERRIDE: Use hardcoded logo over DB logo as requested
-      setConfig({ ...configData, LOGO_URL: OFFICIAL_DISCORD_LOGO });
+      setConfig(configData); // Directly use data from DB without overrides
       setConfigError(null);
     } catch (error) {
       console.error("Fatal: Could not fetch remote config. Using fallback.", error);
