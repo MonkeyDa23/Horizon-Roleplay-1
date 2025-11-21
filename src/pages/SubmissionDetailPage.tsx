@@ -32,10 +32,6 @@ const SubmissionDetailPage: React.FC = () => {
         try {
             const data = await getSubmissionById(submissionId);
             setSubmission(data);
-            
-            // Optional: Auto-take if pending and user has permission?
-            // Keeping it manual for now as per standard workflow.
-
         } catch (error) {
             showToast('Failed to load submission.', 'error');
             navigate('/admin');
@@ -157,7 +153,7 @@ const SubmissionDetailPage: React.FC = () => {
                         
                         {submission.cheatAttempts && submission.cheatAttempts.length > 0 ? (
                              <div className="bg-red-500/10 border border-red-500/30 p-5 rounded-lg max-w-md w-full">
-                                <h3 className="text-red-400 font-bold flex items-center gap-2 mb-3 text-lg"><AlertTriangle size={20} /> {t('cheat_attempts_detected')}</h3>
+                                <h3 className="text-red-400 font-bold flex items-center gap-2 mb-3 text-lg"><AlertTriangle size={20} /> {t('cheat_attempt_detected')}</h3>
                                 <ul className="text-sm text-red-300 space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-2">
                                     {submission.cheatAttempts.map((attempt, i) => (
                                         <li key={i} className="flex justify-between border-b border-red-500/20 pb-1 last:border-0">

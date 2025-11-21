@@ -1,3 +1,4 @@
+
 // src/pages/LoginErrorPage.tsx
 import React from 'react';
 import { AlertTriangle, RefreshCw, LogOut, Wrench, ChevronsRight } from 'lucide-react';
@@ -40,7 +41,22 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
         }
         
         const steps: React.ReactNode[] = [];
-        if (errorMessage.includes('proxy')) {
+        
+        if (errorMessage.includes('Bad Gateway') || errorMessage.includes('502')) {
+             steps.push(
+                <div className="bg-red-500/10 p-3 rounded border border-red-500/30">
+                    <strong className="text-red-300 block mb-2">Cannot Connect to Bot (502 Error)</strong>
+                    <p className="text-sm mb-2">The website server could not reach your bot.</p>
+                    {errorMessage.includes('Target:') && (
+                        <div className="bg-black/30 p-2 rounded font-mono text-xs break-all">
+                            <strong>Tried to connect to:</strong><br/>
+                            {errorMessage.split('Target: ')[1].replace(')', '')}
+                        </div>
+                    )}
+                    <p className="text-xs mt-2 text-gray-400">Check VITE_DISCORD_BOT_URL in Vercel. Ensure it starts with <code>http://</code> and includes the port.</p>
+                </div>
+             );
+        } else if (errorMessage.includes('proxy')) {
             steps.push(<div dangerouslySetInnerHTML={{ __html: t('login_error_step_fetch') }} />);
             steps.push(<div dangerouslySetInnerHTML={{ __html: t('login_error_step_url') }} />);
         } else if (errorMessage.includes('"Server Members Intent" is likely not enabled')) {
@@ -58,7 +74,7 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
                    {steps.map((item, index) => (
                        <div key={index} className="flex items-start gap-3">
                            <span className="mt-1 font-bold text-yellow-300">{index + 1}.</span>
-                           <div>{item}</div>
+                           <div className="w-full">{item}</div>
                        </div>
                    ))}
                 </div>

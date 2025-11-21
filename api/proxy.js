@@ -1,3 +1,4 @@
+
 // api/proxy.js
 // Vercel Serverless Function to proxy requests to the Discord Bot.
 // This resolves mixed-content issues and keeps the API key secure.
@@ -9,13 +10,19 @@ export default async function handler(req, res) {
 
   if (!botUrl || !apiKey) {
     console.error("Proxy Error: VITE_DISCORD_BOT_URL or VITE_DISCORD_BOT_API_KEY is not set in the server environment.");
-    return res.status(500).json({ error: 'Proxy service is not configured.' });
+    return res.status(500).json({ error: 'Proxy service is not configured (Missing Env Vars).' });
   }
 
   // Reconstruct the target URL. req.url includes the path and query string.
   // e.g., '/api/proxy/sync-user/12345' becomes '/sync-user/12345'
   const targetPath = req.url.replace('/api/proxy', '');
-  const targetUrl = new URL(targetPath, botUrl);
+  
+  let targetUrl;
+  try {
+      targetUrl = new URL(targetPath, botUrl);
+  } catch (e) {
+      return res.status(500).json({ error: `Invalid Bot URL Configuration: ${botUrl}` });
+  }
 
   try {
     const response = await fetch(targetUrl.toString(), {
@@ -42,6 +49,11 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error(`[PROXY] Error forwarding request to ${targetUrl}:`, error);
-    res.status(502).json({ error: 'Bad Gateway: The proxy could not connect to the bot.' });
+    // We return the targetURL in the error to help the user debug 502s
+    res.status(502).json({ 
+        error: 'Bad Gateway: The proxy could not connect to the bot.',
+        details: error.message,
+        targetUrl: targetUrl.toString()
+    });
   }
 }

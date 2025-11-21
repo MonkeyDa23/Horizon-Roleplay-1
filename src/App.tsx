@@ -131,7 +131,6 @@ const AppContent: React.FC = () => {
           <Route path="/my-applications" element={<ProtectedRoute><MyApplicationsPage /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute permission="admin_panel"><AdminGate><AdminPage /></AdminGate></ProtectedRoute>} />
-          {/* New Route for Submission Details */}
           <Route path="/admin/submissions/:submissionId" element={<ProtectedRoute permission="admin_submissions"><AdminGate><SubmissionDetailPage /></AdminGate></ProtectedRoute>} />
           <Route path="/health-check" element={<ProtectedRoute permission="_super_admin"><HealthCheckPage /></ProtectedRoute>} />
         </Routes>

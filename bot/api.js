@@ -11,32 +11,18 @@ export function createApi(client, botState) {
   app.use(cors());
   app.use(express.json());
 
-  // --- AUTH MIDDLEWARE ---
-  const checkAuth = (req, res, next) => {
-    const apiKey = req.headers.authorization;
-    // If no secret key is set on server, allow all (unsafe but functional for initial debug)
-    // otherwise check equality
-    if (!process.env.API_SECRET_KEY || apiKey === process.env.API_SECRET_KEY) {
-      next();
-    } else {
-      res.status(401).json({ error: 'Unauthorized: Invalid API Key' });
-    }
-  };
+  // --- PUBLIC ENDPOINTS (No Auth Required) ---
 
-  // --- HELPER: Ensure Bot Ready ---
-  const ensureReady = (req, res, next) => {
-      if (!botState.ready || !botState.guild) {
-          // Return 503 (Service Unavailable) instead of letting it crash or timeout
-          return res.status(503).json({ 
-              error: 'Bot is initializing or failed to connect.',
-              details: botState.error || 'Starting up...',
-              status: 'starting'
-          });
-      }
-      next();
-  };
+  // 1. Root Check - Reassures the user the bot is running in the browser
+  app.get('/', (req, res) => {
+    res.json({
+      status: 'online',
+      message: 'Vixel Bot API is running correctly.',
+      version: '2.5.0'
+    });
+  });
 
-  // 1. Health Check (UNPROTECTED & ALWAYS UP)
+  // 2. Health Check
   app.get('/health', (req, res) => {
     res.json({
       status: botState.ready ? 'online' : 'initializing',
@@ -47,10 +33,33 @@ export function createApi(client, botState) {
     });
   });
 
-  // Apply Auth to everything else
+  // --- AUTH MIDDLEWARE ---
+  const checkAuth = (req, res, next) => {
+    const apiKey = req.headers.authorization;
+    // Security check
+    if (!process.env.API_SECRET_KEY || apiKey === process.env.API_SECRET_KEY) {
+      next();
+    } else {
+      res.status(401).json({ error: 'Unauthorized: Invalid API Key' });
+    }
+  };
+
+  // Apply Auth to protected routes
   app.use(checkAuth);
 
-  // 2. Guild Roles
+  // --- HELPER: Ensure Bot Ready ---
+  const ensureReady = (req, res, next) => {
+      if (!botState.ready || !botState.guild) {
+          return res.status(503).json({ 
+              error: 'Bot is initializing or failed to connect.',
+              details: botState.error || 'Starting up...',
+              status: 'starting'
+          });
+      }
+      next();
+  };
+
+  // 3. Guild Roles
   app.get('/guild-roles', ensureReady, async (req, res) => {
     try {
       const guild = botState.guild;
@@ -66,7 +75,7 @@ export function createApi(client, botState) {
     }
   });
 
-  // 3. User Sync
+  // 4. User Sync
   app.post('/sync-user/:discordId', ensureReady, async (req, res) => {
     const { discordId } = req.params;
     try {
@@ -81,7 +90,7 @@ export function createApi(client, botState) {
     }
   });
 
-  // 4. Notifications
+  // 5. Notifications
   app.post('/notify', ensureReady, async (req, res) => {
     const { channelId, dmToUserId, content, embed } = req.body;
 
@@ -115,7 +124,7 @@ export function createApi(client, botState) {
     }
   });
   
-  // 5. MTA Status
+  // 6. MTA Status
   app.get('/mta-status', async (req, res) => {
     try {
         if (!process.env.MTA_SERVER_IP) throw new Error('No IP');
@@ -135,7 +144,7 @@ export function createApi(client, botState) {
     }
   });
   
-  // 6. Announcements
+  // 7. Announcements
   app.get('/announcements', ensureReady, async (req, res) => {
       const channelId = process.env.ANNOUNCEMENTS_CHANNEL_ID;
       if (!channelId) return res.json([]);

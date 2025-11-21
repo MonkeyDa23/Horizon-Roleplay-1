@@ -45,7 +45,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidt
 
   return (
     <div 
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[9999] flex items-center justify-center"
       aria-modal="true"
       role="dialog"
     >
@@ -57,7 +57,7 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidt
 
       {/* Modal Content - Fixed in center */}
       <div
-        className={`relative z-10 glass-panel w-full ${maxWidthClass} flex flex-col max-h-[90vh] animate-slide-in-up shadow-2xl shadow-black/50`}
+        className={`relative z-10 glass-panel w-full ${maxWidthClass} flex flex-col max-h-[90vh] animate-slide-in-up shadow-2xl shadow-black/50 m-4`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-5 border-b border-border-color flex justify-between items-center flex-shrink-0 bg-brand-dark-blue/50 rounded-t-2xl">

@@ -3,7 +3,7 @@ import 'dotenv/config';
 import { Client, GatewayIntentBits, Partials } from 'discord.js';
 import { createApi } from './api.js';
 
-console.log('Starting Vixel Core Bot v2.4 (Instant Start)...');
+console.log('Starting Vixel Core Bot v2.5 (Fast Boot Mode)...');
 
 // --- CLIENT SETUP ---
 const client = new Client({

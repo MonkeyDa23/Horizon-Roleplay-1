@@ -12,23 +12,23 @@ import type {
 
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  details?: string;
+  targetUrl?: string;
+
+  constructor(message: string, status: number, details?: string, targetUrl?: string) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.details = details;
+    this.targetUrl = targetUrl;
   }
 }
 
 async function callBotApi<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    // All bot API calls are now routed through the server-side proxy
-    // to handle HTTPS, CORS, and keep the API key secure.
     const url = `/api/proxy${endpoint}`;
     
     const headers = {
         'Content-Type': 'application/json',
-        // The 'Authorization' header with the secret API key is now added
-        // by the proxy (Vite dev server or Vercel serverless function),
-        // not by the client.
         ...options.headers,
     };
     
@@ -36,8 +36,15 @@ async function callBotApi<T>(endpoint: string, options: RequestInit = {}): Promi
         const response = await fetch(url, { ...options, headers });
 
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response from proxy.' }));
-            throw new ApiError(errorData.error || `The application proxy returned an error (status ${response.status}). Check the bot and proxy function logs.`, response.status);
+            const errorData = await response.json().catch(() => ({ error: `Error ${response.status}` }));
+            
+            // Construct a more detailed error message if available
+            let msg = errorData.error || `Proxy Error (${response.status})`;
+            if (errorData.targetUrl) {
+                msg += ` (Target: ${errorData.targetUrl})`;
+            }
+            
+            throw new ApiError(msg, response.status, errorData.details, errorData.targetUrl);
         }
         if (response.status === 204) {
             return null as T;
@@ -48,7 +55,7 @@ async function callBotApi<T>(endpoint: string, options: RequestInit = {}): Promi
             throw error;
         }
         console.error(`[API Client] Network or other fetch error calling proxy at ${url}:`, error);
-        throw new ApiError("Failed to communicate with the application server proxy. It may be offline or misconfigured.", 503);
+        throw new ApiError("Failed to communicate with the application server proxy.", 503);
     }
 }
 
@@ -78,6 +85,8 @@ export const sendDiscordLog = async (config: AppConfig, embed: any, logType: 'ad
       } catch (err) {
           console.error("[DB Log] Critical error:", err);
       }
+  } else {
+      console.warn("[DB Log] Supabase client unavailable, log skipped.");
   }
 
   // --- 2. DISCORD LOGGING (Best Effort) ---
@@ -112,7 +121,6 @@ export const sendDiscordLog = async (config: AppConfig, embed: any, logType: 'ad
   }
 
   if (!channelId) {
-    // No channel configured, skip Discord part quietly.
     return;
   }
 
@@ -184,7 +192,9 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
       discordProfile = await callBotApi<any>(`/sync-user/${session.user.user_metadata.provider_id}`, { method: 'POST' });
   } catch (e) {
       console.error("Bot Sync Failed, falling back to session metadata:", e);
-      syncError = (e as Error).message;
+      const err = e as ApiError;
+      syncError = err.message + (err.targetUrl ? ` (Target: ${err.targetUrl})` : '');
+      
       // Fallback: Construct basic profile from Supabase session metadata if bot is down
       const meta = session.user.user_metadata;
       discordProfile = {
@@ -229,7 +239,6 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
   
   if (isNewUser && !upsertError && !syncError) {
       // Try to log new user event
-      const { COMMUNITY_NAME, LOGO_URL } = await getConfig();
       const embed = {
           title: '✨ New User Registered',
           description: `User **${finalUser.username}** (\`${finalUser.discordId}\`) logged in for the first time.`,
