@@ -1,6 +1,6 @@
 
 // src/contexts/AuthContext.tsx
-import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useContext, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { fetchUserProfile, sendDiscordLog, getConfig } from '../lib/api';
 import type { User, AuthContextType, PermissionKey } from '../types';
@@ -14,7 +14,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
   const [permissionWarning, setPermissionWarning] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<Error | null>(null);
-  const { t } = useLocalization();
+  
+  // Ref to track the last processed access token to prevent duplicate logs/DMs
+  const processedTokenRef = useRef<string | null>(null);
 
   const handleSession = useCallback(async (session: any | null, isInitial: boolean = false) => {
     if (isInitial) setIsInitialLoading(true);
@@ -24,46 +26,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (session) {
       try {
+        // 1. Clean URL Hash (Remove #access_token=...) immediately after session detection
+        if (typeof window !== 'undefined' && window.location.hash && window.location.hash.includes('access_token')) {
+            window.history.replaceState(null, '', window.location.pathname);
+        }
+
         const { user: fullUserProfile, syncError: permWarning, isNewUser } = await fetchUserProfile();
         setPermissionWarning(permWarning);
         setUser(fullUserProfile);
 
-        const config = await getConfig();
+        // --- SMART NOTIFICATION SYSTEM (DEBOUNCED) ---
+        // Only proceed if we haven't processed this specific session token yet.
+        if (session.access_token !== processedTokenRef.current) {
+            processedTokenRef.current = session.access_token;
+            
+            // ONLY send notifications if it is a BRAND NEW USER
+            if (isNewUser) {
+                const config = await getConfig();
+                
+                // 1. Admin Log (Public - New User Joined)
+                const logEmbed = {
+                    title: '✨ عضو جديد انضم للموقع',
+                    description: `**الاسم:** ${fullUserProfile.username}\n**الآيدي:** \`${fullUserProfile.discordId}\`\n\nتم تسجيل الدخول للمرة الأولى.`,
+                    color: 0x00F2EA, // Cyan
+                    thumbnail: { url: fullUserProfile.avatar },
+                    timestamp: new Date().toISOString(),
+                    footer: { text: 'Vixel Security System' }
+                };
+                sendDiscordLog(config, logEmbed, 'auth').catch(console.error);
 
-        // --- AUDIT SYSTEM: NEW USER DETECTION ---
-        if (isNewUser) {
-            // 1. Public Log
-            const logEmbed = {
-                title: '✨ عضو جديد انضم للموقع',
-                description: `**الاسم:** ${fullUserProfile.username}\n**الآيدي:** \`${fullUserProfile.discordId}\`\n\nتم تسجيل الدخول للمرة الأولى.`,
-                color: 0x00F2EA, // Cyan
-                thumbnail: { url: fullUserProfile.avatar },
-                timestamp: new Date().toISOString(),
-                footer: { text: 'Vixel Security System' }
-            };
-            await sendDiscordLog(config, logEmbed, 'auth');
-
-            // 2. Welcome DM
-            const dmEmbed = {
-                title: `أهلاً بك في ${config.COMMUNITY_NAME}!`,
-                description: `مرحباً **${fullUserProfile.username}**،\n\nشكراً لتسجيلك في موقعنا الرسمي. حسابك الآن مفعل ويمكنك التقديم على الوظائف، تصفح المتجر، ومتابعة حالة طلباتك.\n\nنتمنى لك وقتاً ممتعاً!`,
-                color: 0x00A9FF,
-                thumbnail: { url: config.LOGO_URL },
-                timestamp: new Date().toISOString()
-            };
-            await sendDiscordLog(config, dmEmbed, 'dm', fullUserProfile.discordId);
-        } else if (!isInitial) {
-            // --- SECURITY: LOGIN ALERT DM ---
-            // Sent only on active login (not initial page load check)
-            const loginAlertEmbed = {
-                title: '⚠️ تنبيه أمني: تسجيل دخول جديد',
-                description: `تم تسجيل الدخول إلى حسابك في موقع **${config.COMMUNITY_NAME}**.\n\nإذا لم تكن أنت من قام بهذا الإجراء، يرجى تغيير كلمة المرور الخاصة بحسابك في ديسكورد فوراً.`,
-                color: 0xFFA500, // Orange
-                timestamp: new Date().toISOString(),
-                footer: { text: 'نظام الحماية' }
-            };
-            // We don't await this to not block UI
-            sendDiscordLog(config, loginAlertEmbed, 'dm', fullUserProfile.discordId).catch(console.error);
+                // 2. Welcome DM (One single warm welcome message)
+                const dmEmbed = {
+                    title: `أهلاً بك في ${config.COMMUNITY_NAME}!`,
+                    description: `مرحباً **${fullUserProfile.username}**،\n\nشكراً لتسجيلك في موقعنا الرسمي. حسابك الآن مفعل ويمكنك التقديم على الوظائف، تصفح المتجر، ومتابعة حالة طلباتك.\n\nنتمنى لك وقتاً ممتعاً!`,
+                    color: 0x00A9FF,
+                    thumbnail: { url: config.LOGO_URL },
+                    timestamp: new Date().toISOString()
+                };
+                sendDiscordLog(config, dmEmbed, 'dm', fullUserProfile.discordId).catch(console.error);
+            }
+            // Removed: Returning user Login Alert (Requested to be silent)
         }
 
       } catch (error) {
@@ -74,6 +76,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } else {
       setUser(null);
       setPermissionWarning(null);
+      processedTokenRef.current = null; // Reset logic on logout
     }
     setLoading(false);
     if (isInitial) setIsInitialLoading(false);
@@ -89,8 +92,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkInitialSession();
 
     const { data } = (supabase.auth as any).onAuthStateChange((_event: string, session: any) => {
-        if (_event === 'SIGNED_IN') setLoading(true);
-        handleSession(session, _event === 'INITIAL_SESSION');
+        if (_event === 'SIGNED_IN') {
+            setLoading(true);
+            handleSession(session, false);
+        } else if (_event === 'SIGNED_OUT') {
+            handleSession(null, false);
+        } else if (_event === 'INITIAL_SESSION') {
+            handleSession(session, true);
+        }
     });
     return () => { data?.subscription?.unsubscribe(); };
   }, [handleSession]);
@@ -100,7 +109,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     const { error } = await (supabase.auth as any).signInWithOAuth({
       provider: 'discord',
-      options: { scopes: 'identify guilds.members.read', captchaToken }
+      options: { 
+          scopes: 'identify guilds.members.read', 
+          captchaToken,
+          redirectTo: window.location.origin // Ensure we redirect back to clean root
+      }
     });
     if (error) {
         if (typeof window !== 'undefined') (window as any).alert(`Login failed: ${error.message}`);
@@ -111,21 +124,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = useCallback(async () => {
     if (!supabase) return;
     
-    // --- SECURITY: LOGOUT ALERT DM ---
-    if (user) {
-        try {
-            const config = await getConfig();
-            const logoutEmbed = {
-                title: '🔒 تم تسجيل الخروج',
-                description: `تم تسجيل الخروج من حسابك في موقع **${config.COMMUNITY_NAME}** بنجاح.`,
-                color: 0x808080, // Grey
-                timestamp: new Date().toISOString(),
-                footer: { text: 'نظام الحماية' }
-            };
-            await sendDiscordLog(config, logoutEmbed, 'dm', user.discordId);
-        } catch (e) { console.error("Failed to send logout DM", e); }
-    }
+    // Removed: Logout DM Alert (Requested to be silent)
 
+    processedTokenRef.current = null; // Reset duplication check
     setUser(null);
     await (supabase.auth as any).signOut();
   }, [user]);
