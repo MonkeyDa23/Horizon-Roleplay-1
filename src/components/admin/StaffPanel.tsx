@@ -1,25 +1,29 @@
+
 // src/components/admin/StaffPanel.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalization } from '../../contexts/LocalizationContext';
 import { useToast } from '../../contexts/ToastContext';
-import { getStaff, saveStaff, lookupUser } from '../../lib/api';
+import { useConfig } from '../../contexts/ConfigContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { getStaff, saveStaff, lookupUser, sendDiscordLog } from '../../lib/api';
 import { useTranslations } from '../../contexts/TranslationsContext';
 import type { StaffMember, UserLookupResult } from '../../types';
 import { Loader2, Plus, GripVertical, Trash2, Search, ChevronUp, ChevronDown, Info } from 'lucide-react';
 import Modal from '../Modal';
 
-// Type for the staff member being edited/created in the local state
 type EditingStaffMember = Omit<StaffMember, 'id'> & {
     id?: string; // id can be missing for new members
     role_en: string;
     role_ar: string;
 };
 
-
 const StaffPanel: React.FC = () => {
     const { t } = useLocalization();
     const { showToast } = useToast();
     const { translations, refreshTranslations } = useTranslations();
+    const { config } = useConfig();
+    const { user } = useAuth();
+    
     const [staff, setStaff] = useState<EditingStaffMember[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -37,7 +41,6 @@ const StaffPanel: React.FC = () => {
         setIsLoading(true);
         try {
             const staffData = await getStaff();
-            // Augment staff data with translations for editing
             const editableStaff = staffData.map(s => ({
                 ...s,
                 role_en: translations[s.role_key]?.en || '',
@@ -56,6 +59,7 @@ const StaffPanel: React.FC = () => {
     }, [fetchStaff]);
 
     const handleSave = async () => {
+        if (!user) return;
         setIsSaving(true);
         try {
             const dataToSave = staff.map((member, index) => ({
@@ -69,6 +73,18 @@ const StaffPanel: React.FC = () => {
             await refreshTranslations();
             showToast('Staff list saved successfully!', 'success');
             await fetchStaff();
+
+            // --- DETAILED LOG ---
+            const embed = {
+                title: "👥 تحديث فريق العمل",
+                description: `قام المشرف **${user.username}** بتحديث قائمة فريق العمل.\nعدد الأعضاء الحالي: **${staff.length}**`,
+                color: 0xFFA500, // Orange
+                author: { name: user.username, icon_url: user.avatar },
+                timestamp: new Date().toISOString(),
+                footer: { text: "سجل الإدارة" }
+            };
+            await sendDiscordLog(config, embed, 'admin');
+
         } catch (error) {
             showToast((error as Error).message, 'error');
         } finally {
@@ -85,7 +101,6 @@ const StaffPanel: React.FC = () => {
             const result = await lookupUser(lookupDiscordId);
             setLookupResult(result);
         } catch (error) {
-            // The new RPC function provides a clear error message.
             setLookupError((error as Error).message);
         } finally {
             setIsLookingUp(false);

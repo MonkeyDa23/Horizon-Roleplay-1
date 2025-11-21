@@ -1,8 +1,11 @@
+
 // src/components/admin/StorePanel.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalization } from '../../contexts/LocalizationContext';
 import { useToast } from '../../contexts/ToastContext';
-import { getProducts, saveProduct, deleteProduct, getProductCategories, saveProductCategories } from '../../lib/api';
+import { useAuth } from '../../contexts/AuthContext';
+import { useConfig } from '../../contexts/ConfigContext';
+import { getProducts, saveProduct, deleteProduct, getProductCategories, saveProductCategories, sendDiscordLog } from '../../lib/api';
 import type { Product, ProductCategory } from '../../types';
 import { useTranslations } from '../../contexts/TranslationsContext';
 import Modal from '../Modal';
@@ -23,8 +26,9 @@ interface EditableCategory extends ProductCategory {
 const StorePanel: React.FC = () => {
     const { t } = useLocalization();
     const { showToast } = useToast();
-    // FIX: The useTranslations hook returns a 'loading' property, which is aliased to 'translationsLoading' to avoid naming conflicts.
     const { translations, loading: translationsLoading, refreshTranslations } = useTranslations();
+    const { config } = useConfig();
+    const { user } = useAuth();
     
     const [activeView, setActiveView] = useState<'products' | 'categories'>('products');
     const [products, setProducts] = useState<Product[]>([]);
@@ -80,14 +84,27 @@ const StorePanel: React.FC = () => {
     };
 
     const handleSaveProduct = async () => {
-        if (!editingProduct) return;
+        if (!editingProduct || !user) return;
         setIsSaving(true);
         try {
             await saveProduct(editingProduct);
             setEditingProduct(null);
-            showToast('Product saved!', 'success');
             await refreshTranslations();
-            fetchData();
+            await fetchData();
+            
+            showToast('Product saved!', 'success');
+
+            // --- DETAILED LOG ---
+            const embed = {
+                title: "🛒 تحديث المنتج",
+                description: `قام المشرف **${user.username}** بحفظ تغييرات على المنتج **${editingProduct.nameAr || editingProduct.nameEn}**.\n\n**السعر:** $${editingProduct.price}`,
+                color: 0xFFA500, // Orange
+                author: { name: user.username, icon_url: user.avatar },
+                timestamp: new Date().toISOString(),
+                footer: { text: "سجل المتجر" }
+            };
+            await sendDiscordLog(config, embed, 'admin');
+
         } catch (error) {
             showToast(`Error: ${(error as Error).message}`, 'error');
         } finally {
@@ -96,9 +113,22 @@ const StorePanel: React.FC = () => {
     };
 
     const handleDeleteProduct = async (product: Product) => {
+        if (!user) return;
         if (window.confirm(`Delete "${t(product.nameKey)}"? This is irreversible.`)) {
             try {
                 await deleteProduct(product.id);
+                
+                // --- DETAILED LOG ---
+                const embed = {
+                    title: "🗑️ حذف منتج",
+                    description: `قام المشرف **${user.username}** بحذف المنتج **${t(product.nameKey)}** نهائياً من المتجر.`,
+                    color: 0xEF4444, // Red
+                    author: { name: user.username, icon_url: user.avatar },
+                    timestamp: new Date().toISOString(),
+                    footer: { text: "سجل المتجر" }
+                };
+                await sendDiscordLog(config, embed, 'admin');
+
                 showToast('Product deleted!', 'success');
                 fetchData();
             } catch (error) {
@@ -109,6 +139,7 @@ const StorePanel: React.FC = () => {
 
     // Category Handlers
     const handleSaveCategories = async () => {
+        if (!user) return;
         setIsSaving(true);
         try {
             const dataToSave = categories.map((cat, index) => ({
@@ -120,8 +151,21 @@ const StorePanel: React.FC = () => {
             }));
             await saveProductCategories(dataToSave);
             await refreshTranslations();
-            showToast('Categories saved!', 'success');
             await fetchData();
+            
+            showToast('Categories saved!', 'success');
+
+            // --- DETAILED LOG ---
+            const embed = {
+                title: "📂 تحديث أقسام المتجر",
+                description: `قام المشرف **${user.username}** بتحديث هيكلة أقسام المتجر.\nعدد الأقسام الحالية: **${categories.length}**`,
+                color: 0xFFA500, // Orange
+                author: { name: user.username, icon_url: user.avatar },
+                timestamp: new Date().toISOString(),
+                footer: { text: "سجل المتجر" }
+            };
+            await sendDiscordLog(config, embed, 'admin');
+
         } catch (error) {
             showToast((error as Error).message, 'error');
         } finally {

@@ -124,7 +124,7 @@ app.post('/notify', async (req, res) => {
     try {
         let target;
         
-        if (targetType === 'user') {
+        if (targetType === 'user' || targetType === 'dm') {
             try {
                 target = await client.users.fetch(targetId);
             } catch (e) {

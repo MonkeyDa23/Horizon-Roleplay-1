@@ -1,8 +1,11 @@
+
 // src/components/admin/RulesPanel.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalization } from '../../contexts/LocalizationContext';
 import { useToast } from '../../contexts/ToastContext';
-import { getRules, saveRules } from '../../lib/api';
+import { getRules, saveRules, sendDiscordLog } from '../../lib/api';
+import { useConfig } from '../../contexts/ConfigContext';
+import { useAuth } from '../../contexts/AuthContext';
 import type { RuleCategory, Rule } from '../../types';
 import { useTranslations } from '../../contexts/TranslationsContext';
 import { Loader2, Plus, GripVertical, Trash2 } from 'lucide-react';
@@ -11,7 +14,6 @@ interface EditableRule extends Rule {
     textEn: string;
     textAr: string;
 }
-// FIX: Replaced Omit with an explicit type definition to fix compatibility issues.
 interface EditableRuleCategory {
     id: string;
     titleKey: string;
@@ -25,6 +27,8 @@ const RulesPanel: React.FC = () => {
     const { t } = useLocalization();
     const { showToast } = useToast();
     const { translations, loading: translationsLoading, refreshTranslations } = useTranslations();
+    const { config } = useConfig();
+    const { user } = useAuth();
     const [categories, setCategories] = useState<EditableRuleCategory[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -57,11 +61,24 @@ const RulesPanel: React.FC = () => {
     }, [fetchRules]);
     
     const handleSave = async () => {
+        if (!user) return;
         setIsSaving(true);
         try {
             const positionedCategories = categories.map((cat, index) => ({ ...cat, position: index }));
             await saveRules(positionedCategories);
             await refreshTranslations();
+            
+            // --- DETAILED LOG ---
+            const embed = {
+                title: "📚 تحديث القوانين",
+                description: `قام المشرف **${user.username}** بتحديث قائمة القوانين.\n\nعدد الأقسام الحالية: **${categories.length}**`,
+                color: 0xFFA500, // Orange
+                author: { name: user.username, icon_url: user.avatar },
+                timestamp: new Date().toISOString(),
+                footer: { text: "سجل التعديلات" }
+            };
+            await sendDiscordLog(config, embed, 'admin');
+
             showToast(t('rules_updated_success'), 'success');
         } catch (error) {
             showToast((error as Error).message, 'error');
@@ -129,10 +146,10 @@ const RulesPanel: React.FC = () => {
     return (
         <div className="animate-fade-in-up">
             <div className="flex justify-between items-center mb-6">
-                <p className="text-gray-400">Manage rule categories and their contents below.</p>
+                <p className="text-gray-400">قم بإدارة أقسام القوانين ومحتواها أدناه.</p>
                 <div className="flex gap-4">
                      <button onClick={addCategory} className="bg-blue-500/80 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-500 transition-colors flex items-center gap-2">
-                        <Plus size={18} /> Add Category
+                        <Plus size={18} /> إضافة قسم
                     </button>
                     <button onClick={handleSave} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white transition-colors min-w-[9rem] flex justify-center">
                         {isSaving ? <Loader2 className="animate-spin" /> : t('save_rules')}
@@ -146,9 +163,7 @@ const RulesPanel: React.FC = () => {
                         <div className="flex items-center gap-3 mb-4 p-2 bg-brand-light-blue/50 rounded-md">
                             <GripVertical className="cursor-grab text-gray-500" />
                              <div className="flex-grow grid grid-cols-2 gap-3">
-                                {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
                                 <input type="text" value={category.titleEn} onChange={(e) => handleCategoryChange(catIndex, 'titleEn', e.currentTarget.value)} placeholder="Category Title (EN)" className="w-full bg-transparent text-xl font-bold text-white focus:outline-none"/>
-                                {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
                                 <input type="text" dir="rtl" value={category.titleAr} onChange={(e) => handleCategoryChange(catIndex, 'titleAr', e.currentTarget.value)} placeholder="عنوان القسم (AR)" className="w-full bg-transparent text-xl font-bold text-white focus:outline-none"/>
                              </div>
                             <button onClick={() => deleteCategory(catIndex)} className="text-red-500 hover:text-red-400"><Trash2 size={20} /></button>
@@ -158,16 +173,14 @@ const RulesPanel: React.FC = () => {
                                 <div key={rule.id} className="flex items-start gap-2">
                                     <span className="text-gray-500 font-bold pt-2">{ruleIndex + 1}.</span>
                                     <div className="w-full grid grid-cols-2 gap-2">
-                                        {/* FIX: Use e.currentTarget.value to correctly access the textarea's value. */}
                                         <textarea value={rule.textEn} onChange={(e) => handleRuleChange(catIndex, ruleIndex, 'textEn', e.currentTarget.value)} placeholder="Rule Text (EN)" className="vixel-input h-20"/>
-                                        {/* FIX: Use e.currentTarget.value to correctly access the textarea's value. */}
                                         <textarea dir="rtl" value={rule.textAr} onChange={(e) => handleRuleChange(catIndex, ruleIndex, 'textAr', e.currentTarget.value)} placeholder="نص القانون (AR)" className="vixel-input h-20"/>
                                     </div>
                                     <button onClick={() => deleteRule(catIndex, ruleIndex)} className="text-red-500 hover:text-red-400 pt-2"><Trash2 size={18} /></button>
                                 </div>
                             ))}
                             <button onClick={() => addRule(catIndex)} className="text-sm text-brand-cyan hover:text-white font-semibold flex items-center gap-1">
-                                <Plus size={16} /> Add Rule
+                                <Plus size={16} /> إضافة قانون
                             </button>
                         </div>
                     </div>

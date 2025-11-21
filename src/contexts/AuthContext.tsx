@@ -14,7 +14,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
   const [permissionWarning, setPermissionWarning] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<Error | null>(null);
-  const { t, language } = useLocalization();
+  const { t } = useLocalization();
 
   const handleSession = useCallback(async (session: any | null, isInitial: boolean = false) => {
     if (isInitial) setIsInitialLoading(true);
@@ -28,10 +28,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setPermissionWarning(permWarning);
         setUser(fullUserProfile);
 
+        const config = await getConfig();
+
         // --- AUDIT SYSTEM: NEW USER DETECTION ---
         if (isNewUser) {
-            const config = await getConfig();
-            
             // 1. Public Log
             const logEmbed = {
                 title: '✨ عضو جديد انضم للموقع',
@@ -52,6 +52,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 timestamp: new Date().toISOString()
             };
             await sendDiscordLog(config, dmEmbed, 'dm', fullUserProfile.discordId);
+        } else if (!isInitial) {
+            // --- SECURITY: LOGIN ALERT DM ---
+            // Sent only on active login (not initial page load check)
+            const loginAlertEmbed = {
+                title: '⚠️ تنبيه أمني: تسجيل دخول جديد',
+                description: `تم تسجيل الدخول إلى حسابك في موقع **${config.COMMUNITY_NAME}**.\n\nإذا لم تكن أنت من قام بهذا الإجراء، يرجى تغيير كلمة المرور الخاصة بحسابك في ديسكورد فوراً.`,
+                color: 0xFFA500, // Orange
+                timestamp: new Date().toISOString(),
+                footer: { text: 'نظام الحماية' }
+            };
+            // We don't await this to not block UI
+            sendDiscordLog(config, loginAlertEmbed, 'dm', fullUserProfile.discordId).catch(console.error);
         }
 
       } catch (error) {
@@ -65,7 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     setLoading(false);
     if (isInitial) setIsInitialLoading(false);
-  }, [t]);
+  }, []);
 
   useEffect(() => {
     if (!supabase) { setLoading(false); setIsInitialLoading(false); return; }
@@ -78,7 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const { data } = (supabase.auth as any).onAuthStateChange((_event: string, session: any) => {
         if (_event === 'SIGNED_IN') setLoading(true);
-        handleSession(session, false);
+        handleSession(session, _event === 'INITIAL_SESSION');
     });
     return () => { data?.subscription?.unsubscribe(); };
   }, [handleSession]);
@@ -98,9 +110,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = useCallback(async () => {
     if (!supabase) return;
+    
+    // --- SECURITY: LOGOUT ALERT DM ---
+    if (user) {
+        try {
+            const config = await getConfig();
+            const logoutEmbed = {
+                title: '🔒 تم تسجيل الخروج',
+                description: `تم تسجيل الخروج من حسابك في موقع **${config.COMMUNITY_NAME}** بنجاح.`,
+                color: 0x808080, // Grey
+                timestamp: new Date().toISOString(),
+                footer: { text: 'نظام الحماية' }
+            };
+            await sendDiscordLog(config, logoutEmbed, 'dm', user.discordId);
+        } catch (e) { console.error("Failed to send logout DM", e); }
+    }
+
     setUser(null);
     await (supabase.auth as any).signOut();
-  }, []);
+  }, [user]);
   
   const updateUser = useCallback((newUser: User) => { setUser(newUser); }, []);
 

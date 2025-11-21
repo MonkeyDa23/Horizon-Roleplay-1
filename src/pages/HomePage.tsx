@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { useConfig } from '../contexts/ConfigContext';
@@ -10,7 +11,6 @@ const HomePage: React.FC = () => {
   const { config } = useConfig();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const communityName = config.COMMUNITY_NAME || 'Vixel Roleplay';
-  // This description comes from metadata.json
   const description = "A visually stunning website for the Vixel Roleplay community, featuring multilingual support, Discord integration, and pages for community rules, applications, and store.";
 
 
@@ -22,7 +22,8 @@ const HomePage: React.FC = () => {
         keywords={`roleplay, community, ${communityName.toLowerCase()}, mta, gta, gaming, vixel`}
         image={config.BACKGROUND_IMAGE_URL || config.LOGO_URL}
       />
-      <div className="relative h-[calc(90vh)] min-h-[600px] flex items-center justify-center overflow-hidden">
+      {/* Reduced height from 90vh to 85vh to ensure footer/bottom line is visible on standard screens */}
+      <div className="relative h-[85vh] min-h-[600px] flex items-center justify-center overflow-hidden">
         <div 
           className="absolute inset-0 bg-gradient-to-t from-background-dark via-background-dark/80 to-transparent z-10"
         ></div>

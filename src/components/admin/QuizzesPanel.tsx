@@ -1,8 +1,11 @@
+
 // src/components/admin/QuizzesPanel.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalization } from '../../contexts/LocalizationContext';
 import { useToast } from '../../contexts/ToastContext';
-import { getQuizzes, saveQuiz, deleteQuiz } from '../../lib/api';
+import { useAuth } from '../../contexts/AuthContext';
+import { useConfig } from '../../contexts/ConfigContext';
+import { getQuizzes, saveQuiz, deleteQuiz, sendDiscordLog } from '../../lib/api';
 import type { Quiz, QuizQuestion } from '../../types';
 import { useTranslations } from '../../contexts/TranslationsContext';
 import Modal from '../Modal';
@@ -20,7 +23,6 @@ const Panel: React.FC<{ children: React.ReactNode; isLoading: boolean, loadingTe
     return <div className="animate-fade-in-up">{children}</div>;
 }
 
-// FIX: Replaced Omit with an explicit type for broader compatibility.
 type EditableQuestion = {
     id: string;
     textKey: string;
@@ -29,7 +31,6 @@ type EditableQuestion = {
     textAr: string;
 };
 
-// FIX: Removed redeclaration of EditingQuizData interface.
 interface EditingQuizData {
     id: string;
     titleKey: string;
@@ -48,11 +49,13 @@ interface EditingQuizData {
     questions: EditableQuestion[];
 }
 
-
 const QuizzesPanel: React.FC = () => {
     const { t } = useLocalization();
     const { showToast } = useToast();
     const { translations, refreshTranslations } = useTranslations();
+    const { config } = useConfig();
+    const { user } = useAuth();
+    
     const [quizzes, setQuizzes] = useState<Quiz[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -114,14 +117,27 @@ const QuizzesPanel: React.FC = () => {
     };
 
     const handleSave = async () => {
-        if (!editingQuiz) return;
+        if (!editingQuiz || !user) return;
         setIsSaving(true);
         try {
             await saveQuiz(editingQuiz);
             setEditingQuiz(null);
-            showToast('Quiz saved!', 'success');
             await refreshTranslations();
             await fetchQuizzes();
+            
+            showToast(t('save_quiz') + ' success!', 'success');
+
+            // --- DETAILED LOG ---
+            const embed = {
+                title: "📝 تعديل نماذج التقديم",
+                description: `قام المشرف **${user.username}** بحفظ تغييرات على نموذج التقديم **${editingQuiz.titleAr || editingQuiz.titleEn}**.\n\n**الحالة:** ${editingQuiz.isOpen ? 'مفتوح ✅' : 'مغلق ⛔'}\n**عدد الأسئلة:** ${editingQuiz.questions.length}`,
+                color: 0xFFA500, // Orange
+                author: { name: user.username, icon_url: user.avatar },
+                timestamp: new Date().toISOString(),
+                footer: { text: "سجل التعديلات" }
+            };
+            await sendDiscordLog(config, embed, 'admin');
+
         } catch (error) {
             showToast(`Error: ${(error as Error).message}`, 'error');
         } finally {
@@ -130,10 +146,22 @@ const QuizzesPanel: React.FC = () => {
     };
 
     const handleDelete = async (quiz: Quiz) => {
-        // FIX: Guard against window access in non-browser environments.
+        if (!user) return;
         if (typeof window !== 'undefined' && (window as any).confirm(`Delete "${t(quiz.titleKey)}"? This is irreversible.`)) {
             try {
                 await deleteQuiz(quiz.id);
+                
+                // --- DETAILED LOG ---
+                const embed = {
+                    title: "🗑️ حذف تقديم",
+                    description: `قام المشرف **${user.username}** بحذف نموذج التقديم **${t(quiz.titleKey)}** نهائياً.`,
+                    color: 0xEF4444, // Red
+                    author: { name: user.username, icon_url: user.avatar },
+                    timestamp: new Date().toISOString(),
+                    footer: { text: "سجل الحذف" }
+                };
+                await sendDiscordLog(config, embed, 'admin');
+
                 showToast('Quiz deleted!', 'success');
                 fetchQuizzes();
             } catch (error) {
@@ -213,23 +241,19 @@ const QuizzesPanel: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block mb-1 font-semibold text-gray-300">{t('title_en')}</label>
-                            {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
                             <input type="text" value={editingQuiz.titleEn} onChange={(e) => setEditingQuiz({ ...editingQuiz, titleEn: e.currentTarget.value })} className="vixel-input" />
                         </div>
                         <div>
                             <label className="block mb-1 font-semibold text-gray-300">{t('title_ar')}</label>
-                            {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
                             <input type="text" dir="rtl" value={editingQuiz.titleAr} onChange={(e) => setEditingQuiz({ ...editingQuiz, titleAr: e.currentTarget.value })} className="vixel-input" />
                         </div>
                     </div>
                      <div>
                         <label className="block mb-1 font-semibold text-gray-300">{t('description_en')}</label>
-                        {/* FIX: Use e.currentTarget.value to correctly access the textarea's value. */}
                         <textarea value={editingQuiz.descriptionEn} onChange={(e) => setEditingQuiz({ ...editingQuiz, descriptionEn: e.currentTarget.value })} className="vixel-input h-24" />
                     </div>
                      <div>
                         <label className="block mb-1 font-semibold text-gray-300">{t('description_ar')}</label>
-                        {/* FIX: Use e.currentTarget.value to correctly access the textarea's value. */}
                         <textarea dir="rtl" value={editingQuiz.descriptionAr} onChange={(e) => setEditingQuiz({ ...editingQuiz, descriptionAr: e.currentTarget.value })} className="vixel-input h-24" />
                     </div>
                     <div className="border-t border-brand-light-blue/50 pt-4">
@@ -242,18 +266,15 @@ const QuizzesPanel: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block mb-1 font-semibold text-gray-300">{t('logo_image_url')}</label>
-                            {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
                             <input type="text" value={editingQuiz.logoUrl || ''} onChange={(e) => setEditingQuiz({ ...editingQuiz, logoUrl: e.currentTarget.value })} className="vixel-input" />
                         </div>
                         <div>
                             <label className="block mb-1 font-semibold text-gray-300">{t('banner_image_url')}</label>
-                            {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
                             <input type="text" value={editingQuiz.bannerUrl || ''} onChange={(e) => setEditingQuiz({ ...editingQuiz, bannerUrl: e.currentTarget.value })} className="vixel-input" />
                         </div>
                     </div>
                     <div>
                         <label className="block mb-1 font-semibold text-gray-300">{t('quiz_handler_roles')}</label>
-                        {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
                         <input type="text" placeholder="e.g. 123,456" value={(editingQuiz.allowedTakeRoles || []).join(',')} onChange={(e) => setEditingQuiz({ ...editingQuiz, allowedTakeRoles: e.currentTarget.value.split(',').map(s => s.trim()).filter(Boolean) })} className="vixel-input" />
                         <p className="text-xs text-gray-400 mt-1">{t('quiz_handler_roles_desc')}</p>
                     </div>
@@ -274,13 +295,10 @@ const QuizzesPanel: React.FC = () => {
                                         <label className="font-semibold text-gray-300">Question {index + 1}</label>
                                         <button onClick={() => removeQuestion(index)} className="text-red-500 hover:text-red-400"><Trash2 size={18} /></button>
                                     </div>
-                                    {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
                                     <input type="text" placeholder={t('text_en')} value={q.textEn} onChange={(e) => handleQuestionChange(index, 'textEn', e.currentTarget.value)} className="vixel-input"/>
-                                    {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
                                     <input type="text" dir="rtl" placeholder={t('text_ar')} value={q.textAr} onChange={(e) => handleQuestionChange(index, 'textAr', e.currentTarget.value)} className="vixel-input"/>
                                     <div>
                                         <label className="block text-sm font-semibold text-gray-400">{t('time_limit_seconds')}</label>
-                                        {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
                                         <input type="number" placeholder={t('time_limit_seconds')} value={q.timeLimit} onChange={(e) => handleQuestionChange(index, 'timeLimit', parseInt(e.currentTarget.value) || 0)} className="vixel-input"/>
                                     </div>
                                 </div>

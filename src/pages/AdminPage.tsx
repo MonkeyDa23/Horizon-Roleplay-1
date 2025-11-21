@@ -1,9 +1,9 @@
 
 // src/pages/AdminPage.tsx
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocalization } from '../contexts/LocalizationContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { PermissionKey } from '../types';
 import SEO from '../components/SEO';
 import { UserCog, FileText, Server, BookCopy, Store, Languages, Palette, Search, ShieldCheck, ShieldQuestion, Bell, LayoutGrid, Users } from 'lucide-react';
@@ -49,38 +49,52 @@ const AdminPage: React.FC = () => {
     const { hasPermission, user, loading } = useAuth();
     const { config } = useConfig();
     const navigate = useNavigate();
+    const [searchParams, setSearchParams] = useSearchParams();
+    
+    // Get active tab from URL or default to dashboard
+    const activeTab = (searchParams.get('tab') as AdminTab) || 'dashboard';
     
     const accessibleTabs = TABS.filter(tab => hasPermission(tab.permission));
-    const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
 
     useEffect(() => {
         if (!loading && !user) navigate('/');
     }, [user, loading, navigate]);
     
     useEffect(() => {
+        // If current tab is not accessible, redirect to first accessible tab
         if (accessibleTabs.length > 0 && !accessibleTabs.find(t => t.id === activeTab)) {
-            setActiveTab(accessibleTabs[0].id);
+            setSearchParams({ tab: accessibleTabs[0].id });
         }
-    }, [accessibleTabs, activeTab]);
+    }, [accessibleTabs, activeTab, setSearchParams]);
     
+    const setActiveTab = (tab: AdminTab) => {
+        setSearchParams({ tab });
+    };
+
     // --- AUDIT TRAIL: LOG ADMIN NAVIGATION ---
+    // Using a ref to prevent double logging on mount due to StrictMode
+    const lastLoggedTab = useRef<string | null>(null);
+
     useEffect(() => {
-        if (user && hasPermission('admin_panel')) {
+        if (user && hasPermission('admin_panel') && activeTab !== lastLoggedTab.current) {
+            lastLoggedTab.current = activeTab;
             const pageName = TABS.find(t => t.id === activeTab)?.labelKey || activeTab;
             const translatedPage = t(pageName);
             
             // 1. Log to Database
             logAdminPageVisit(translatedPage).catch(err => console.error("Failed to log visit:", err));
             
-            // 2. Optional: Log to Discord (only for sensitive areas if needed, or all)
-            // For "Giant Detailed System", we will log it.
+            // 2. Log to Discord (Admin Channel)
+            // Note: We reduce navigation noise by only logging significant tab changes if needed, 
+            // currently logging all for full surveillance as requested.
+            /* 
             const embed = {
-                description: `قام المشرف **${user.username}** بالدخول إلى صفحة: **${translatedPage}**`,
+                description: `قام المشرف **${user.username}** بالتنقل إلى صفحة: **${translatedPage}**`,
                 color: 0x808080, // Grey
                 footer: { text: "سجل التصفح" }
             };
-            // Using 'admin' type which routes to Admin Log Channel
-            sendDiscordLog(config, embed, 'admin');
+            sendDiscordLog(config, embed, 'admin'); 
+            */
         }
     }, [activeTab, user, hasPermission, config, t]);
 

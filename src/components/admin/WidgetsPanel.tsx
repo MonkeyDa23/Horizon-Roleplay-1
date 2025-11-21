@@ -1,13 +1,15 @@
+
 // src/components/admin/WidgetsPanel.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalization } from '../../contexts/LocalizationContext';
 import { useToast } from '../../contexts/ToastContext';
-import { getDiscordWidgets, saveDiscordWidgets } from '../../lib/api';
+import { useConfig } from '../../contexts/ConfigContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { getDiscordWidgets, saveDiscordWidgets, sendDiscordLog } from '../../lib/api';
 import type { DiscordWidget } from '../../types';
 import { Loader2, Plus, GripVertical, Trash2 } from 'lucide-react';
 import Modal from '../Modal';
 
-// FIX: Replaced Omit with an explicit type for broader compatibility.
 type EditingWidget = {
     id?: string;
     server_name: string;
@@ -18,6 +20,8 @@ type EditingWidget = {
 const WidgetsPanel: React.FC = () => {
     const { t } = useLocalization();
     const { showToast } = useToast();
+    const { config } = useConfig();
+    const { user } = useAuth();
     const [widgets, setWidgets] = useState<DiscordWidget[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -40,6 +44,7 @@ const WidgetsPanel: React.FC = () => {
     }, [fetchWidgets]);
     
     const handleSave = async () => {
+        if (!user) return;
         setIsSaving(true);
         try {
             const widgetsToSave = widgets.map((widget, index) => ({
@@ -49,8 +54,20 @@ const WidgetsPanel: React.FC = () => {
                 position: index,
             }));
             await saveDiscordWidgets(widgetsToSave);
-            await fetchWidgets(); // Refetch to get fresh data with IDs
+            await fetchWidgets(); 
             showToast('Widgets saved successfully!', 'success');
+
+            // --- DETAILED LOG ---
+            const embed = {
+                title: "🖼️ تحديث الويدجتات",
+                description: `قام المشرف **${user.username}** بتحديث قائمة سيرفرات الديسكورد (Widgets).\nالعدد الحالي: **${widgets.length}**`,
+                color: 0xFFA500, // Orange
+                author: { name: user.username, icon_url: user.avatar },
+                timestamp: new Date().toISOString(),
+                footer: { text: "سجل التعديلات" }
+            };
+            await sendDiscordLog(config, embed, 'admin');
+
         } catch (error) {
             showToast((error as Error).message, 'error');
         } finally {
@@ -122,17 +139,14 @@ const WidgetsPanel: React.FC = () => {
                     <div className="space-y-4">
                         <div>
                             <label className="block font-semibold mb-1">Server Name</label>
-                            {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
                             <input type="text" value={editingWidget.server_name} onChange={e => setEditingWidget({...editingWidget, server_name: e.currentTarget.value})} className="w-full bg-background-light text-text-primary p-2 rounded border border-gray-600"/>
                         </div>
                          <div>
                             <label className="block font-semibold mb-1">Server ID</label>
-                            {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
                             <input type="text" value={editingWidget.server_id} onChange={e => setEditingWidget({...editingWidget, server_id: e.currentTarget.value})} className="w-full bg-background-light text-text-primary p-2 rounded border border-gray-600"/>
                         </div>
                          <div>
                             <label className="block font-semibold mb-1">Invite URL</label>
-                            {/* FIX: Use e.currentTarget.value to correctly access the input's value. */}
                             <input type="text" value={editingWidget.invite_url} onChange={e => setEditingWidget({...editingWidget, invite_url: e.currentTarget.value})} className="w-full bg-background-light text-text-primary p-2 rounded border border-gray-600"/>
                         </div>
                         <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4">
