@@ -5,7 +5,7 @@ import { useLocalization } from '../../contexts/LocalizationContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfig } from '../../contexts/ConfigContext';
-import { getSubmissions, deleteSubmission, updateSubmissionStatus, sendDiscordLog, lookupUser } from '../../lib/api';
+import { getSubmissions, deleteSubmission, updateSubmissionStatus, sendDiscordLog } from '../../lib/api';
 import { supabase } from '../../lib/supabaseClient';
 import type { QuizSubmission, SubmissionStatus } from '../../types';
 import { Eye, Loader2, Trash2 } from 'lucide-react';
@@ -91,10 +91,7 @@ const SubmissionsPanel: React.FC = () => {
             await sendDiscordLog(config, embed, 'submission');
 
             // --- DM to User ---
-            // Need to fetch Discord ID first since it might not be in the partial list depending on DB view
             let targetId = (submission as any).discord_id; 
-            
-            // If not present, try to fetch profile from Supabase using user_id
             if (!targetId && submission.user_id && supabase) {
                 const { data } = await supabase.from('profiles').select('discord_id').eq('id', submission.user_id).single();
                 if (data) targetId = data.discord_id;
@@ -102,7 +99,7 @@ const SubmissionsPanel: React.FC = () => {
 
             if (targetId) {
                 const dmEmbed = {
-                    title: `✋ تم استلام تقديمك`,
+                    title: `👨‍💻 تم استلام طلبك`,
                     description: `مرحباً، تم استلام تقديمك لـ **${submission.quizTitle}** وهو الآن قيد المراجعة من قبل المشرف **${user.username}**.`,
                     color: 0xFFA500,
                     footer: { text: config.COMMUNITY_NAME },

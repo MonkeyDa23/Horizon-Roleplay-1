@@ -72,7 +72,7 @@ const SubmissionDetailPage: React.FC = () => {
             };
             await sendDiscordLog(config, logEmbed, 'submission');
 
-            // 3. Send DM to Applicant (Structured Format)
+            // 3. Send Detailed DM to Applicant
             let targetId = (submission as any).discord_id; 
             if (!targetId && submission.user_id && supabase) {
                 const { data } = await supabase.from('profiles').select('discord_id').eq('id', submission.user_id).single();
@@ -80,14 +80,14 @@ const SubmissionDetailPage: React.FC = () => {
             }
             
             if (targetId) {
-                // Fetch actual user avatar for the embed to match "User's Avatar" requirement
-                let applicantAvatarUrl = config.LOGO_URL; // Fallback
+                // Use default logo if lookup fails or to avoid delay, but try to use submission data/user avatar if stored
+                // We will try to get the user avatar if possible, otherwise fallback
+                let applicantAvatarUrl = config.LOGO_URL;
                 try {
-                    const applicantProfile = await lookupUser(targetId);
-                    if (applicantProfile.avatar) applicantAvatarUrl = applicantProfile.avatar;
-                } catch (e) {
-                    // Ignore lookup errors, use default
-                }
+                    // We can reuse the 'user_id' to fetch profile avatar from Supabase directly which is faster
+                    const { data } = await supabase!.from('profiles').select('avatar_url').eq('id', submission.user_id).single();
+                    if (data?.avatar_url) applicantAvatarUrl = data.avatar_url;
+                } catch {}
 
                 const dmEmbed = {
                     title: status === 'accepted' ? '🎉 مبروك! تم قبول تقديمك' : '❌ نأسف، تم رفض تقديمك',
@@ -97,7 +97,8 @@ const SubmissionDetailPage: React.FC = () => {
                         { name: "👤 الاسم", value: applicantName, inline: true },
                         { name: "📄 التقديم", value: quizName, inline: true },
                         { name: "📅 التاريخ", value: new Date(submission.submittedAt).toLocaleDateString('en-GB'), inline: true },
-                        { name: "📝 السبب/الملاحظات", value: reasonText }
+                        { name: "📝 الحالة", value: status === 'accepted' ? "مقبول" : "مرفوض", inline: true },
+                        { name: "📋 الملاحظات", value: reasonText }
                     ],
                     timestamp: new Date().toISOString(),
                     footer: { text: config.COMMUNITY_NAME }
@@ -142,7 +143,7 @@ const SubmissionDetailPage: React.FC = () => {
 
             if (targetId) {
                  const dmEmbed = {
-                    title: `✋ تم استلام تقديمك`,
+                    title: `👨‍💻 تم استلام طلبك`,
                     description: `مرحباً، تم استلام تقديمك لـ **${submission.quizTitle}** وهو الآن قيد المراجعة من قبل المشرف **${user?.username}**.`,
                     color: 0xFFA500,
                     timestamp: new Date().toISOString(),

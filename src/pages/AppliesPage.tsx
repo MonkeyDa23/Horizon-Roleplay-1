@@ -55,7 +55,7 @@ const AppliesPage: React.FC = () => {
 
   const getApplyButton = (quiz: Quiz) => {
       // 1. STRICT CHECK: Does user have an active submission (Pending or Taken)?
-      // Even if the quiz was closed and reopened, if the user has a pending/taken request, they CANNOT apply again.
+      // User cannot apply if they have a pending or taken request for this quiz type, regardless of season.
       const activeSubmission = userSubmissions.find(sub => 
         sub.quizId === quiz.id && 
         (sub.status === 'pending' || sub.status === 'taken')
@@ -69,13 +69,13 @@ const AppliesPage: React.FC = () => {
                 {activeSubmission.status === 'taken' ? t('status_taken') : t('status_pending')}
               </button>
               <p className="text-xs text-center text-yellow-500/70 mt-2">
-                  لا يمكنك التقديم مرة أخرى حتى يتم اتخاذ قرار بشأن طلبك الحالي.
+                  لا يمكنك التقديم لأن لديك طلب قيد المراجعة حالياً.
               </p>
           </div>
         );
       }
 
-      // 2. Check if user was already accepted/refused in the CURRENT season (optional, prevents spamming after rejection)
+      // 2. Check if user was already accepted/refused in the CURRENT season (optional, prevents spamming immediately after rejection if desired, but strict check above handles the main queue)
       const hasFinishedInCurrentSeason = quiz.lastOpenedAt
         ? userSubmissions.some(sub => 
             sub.quizId === quiz.id && 

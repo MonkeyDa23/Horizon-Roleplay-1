@@ -15,10 +15,8 @@ const HCaptcha = React.memo<{ onVerify: (token: string) => void }>(({ onVerify }
     const captchaRef = useRef<HTMLDivElement>(null);
     const widgetIdRef = useRef<string | null>(null);
     useEffect(() => {
-        // FIX: Cast window to any to access hcaptcha property
         if (!captchaRef.current || typeof (window as any).hcaptcha === 'undefined' || widgetIdRef.current) return;
         try {
-            // FIX: Cast window to any to access hcaptcha property
             const id = (window as any).hcaptcha.render(captchaRef.current, {
                 sitekey: env.VITE_HCAPTCHA_SITE_KEY,
                 callback: onVerify,
@@ -117,9 +115,16 @@ const QuizPage: React.FC = () => {
       
       const adminEmbed = {
         title: "📝 تقديم جديد وصل!",
-        description: `قام **${user.username}** بإرسال تقديم جديد.\n\n**معلومات المتقدم:**\n👤 **الاسم:** ${user.username}\n🔰 **الرتبة:** ${roleName}\n📄 **التقديم:** ${t(quiz.titleKey)}\n⚠️ **حالة الغش:** ${hasCheated ? `**مشبوه (${cheatLog.length})**` : "نظيف"}\n\n[🔗 اضغط هنا لعرض التقديم واتخاذ إجراء](${adminLink})`,
+        description: `قام **${user.username}** بإرسال تقديم جديد.`,
         color: hasCheated ? 0xEF4444 : 0x3B82F6, 
         thumbnail: { url: user.avatar },
+        fields: [
+            { name: "👤 الاسم", value: user.username, inline: true },
+            { name: "🔰 الرتبة", value: roleName, inline: true },
+            { name: "📄 التقديم", value: t(quiz.titleKey), inline: true },
+            { name: "⚠️ حالة الغش", value: hasCheated ? `**مشبوه (${cheatLog.length})**` : "نظيف", inline: true },
+            { name: "🔗 الرابط", value: `[**عرض التقديم في لوحة التحكم**](${adminLink})` }
+        ],
         timestamp: new Date().toISOString(),
         footer: { text: "نظام التقديمات الذكي" }
       };
@@ -128,9 +133,9 @@ const QuizPage: React.FC = () => {
       // 3. Send Receipt DM to User (Strict Format: Name, Avatar, Quiz, Date)
       const userReceiptEmbed = {
           title: `✅ تم استلام تقديمك بنجاح`,
-          description: `تم استلام طلبك وهو الآن قيد الانتظار.`,
+          description: `تم استلام طلبك وهو الآن قيد الانتظار للمراجعة.`,
           color: 0x22C55E, // Green
-          thumbnail: { url: user.avatar }, // User's Avatar as requested
+          thumbnail: { url: user.avatar },
           fields: [
               { name: "👤 الاسم", value: user.username, inline: true },
               { name: "📄 التقديم", value: t(quiz.titleKey), inline: true },
@@ -145,7 +150,6 @@ const QuizPage: React.FC = () => {
       
     } catch (error) {
       showToast((error as Error).message, 'error');
-      // FIX: Cast window to any to access hcaptcha property
       if ((window as any).hcaptcha) try { (window as any).hcaptcha.reset(); } catch (e) {}
       setHcaptchaToken(null);
       setIsSubmitting(false);
