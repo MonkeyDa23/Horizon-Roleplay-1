@@ -14,7 +14,9 @@ export function createApi(client, botState) {
   // --- AUTH MIDDLEWARE ---
   const checkAuth = (req, res, next) => {
     const apiKey = req.headers.authorization;
-    if (apiKey === process.env.API_SECRET_KEY) {
+    // If no secret key is set on server, allow all (unsafe but functional for initial debug)
+    // otherwise check equality
+    if (!process.env.API_SECRET_KEY || apiKey === process.env.API_SECRET_KEY) {
       next();
     } else {
       res.status(401).json({ error: 'Unauthorized: Invalid API Key' });
@@ -24,16 +26,17 @@ export function createApi(client, botState) {
   // --- HELPER: Ensure Bot Ready ---
   const ensureReady = (req, res, next) => {
       if (!botState.ready || !botState.guild) {
+          // Return 503 (Service Unavailable) instead of letting it crash or timeout
           return res.status(503).json({ 
-              error: 'Bot is not ready or not connected to guild yet.',
-              details: botState.error || 'Initializing... Please wait.'
+              error: 'Bot is initializing or failed to connect.',
+              details: botState.error || 'Starting up...',
+              status: 'starting'
           });
       }
       next();
   };
 
   // 1. Health Check (UNPROTECTED & ALWAYS UP)
-  // This prevents 502 errors by always returning something, even if unauthorized or initializing.
   app.get('/health', (req, res) => {
     res.json({
       status: botState.ready ? 'online' : 'initializing',

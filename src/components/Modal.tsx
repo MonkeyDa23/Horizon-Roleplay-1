@@ -1,3 +1,4 @@
+
 // src/components/Modal.tsx
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
@@ -20,6 +21,8 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidt
     if (typeof document !== 'undefined') {
       if (isOpen) {
         document.body.style.overflow = 'hidden'; // Prevent scrolling background
+      } else {
+        document.body.style.overflow = 'unset';
       }
       document.addEventListener('keydown', handleEscape);
       return () => {
@@ -52,13 +55,13 @@ const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, maxWidt
           onClick={onClose}
       ></div>
 
-      {/* Modal Content - Centered and Independent of scroll */}
+      {/* Modal Content - Fixed in center */}
       <div
-        className={`relative z-10 glass-panel w-full ${maxWidthClass} flex flex-col max-h-[90vh] animate-slide-in-up shadow-2xl shadow-black/50 my-auto`}
+        className={`relative z-10 glass-panel w-full ${maxWidthClass} flex flex-col max-h-[90vh] animate-slide-in-up shadow-2xl shadow-black/50`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-5 border-b border-border-color flex justify-between items-center flex-shrink-0 bg-brand-dark-blue/50 rounded-t-2xl">
-          <h2 className="text-2xl font-bold text-primary-blue tracking-wide">{title}</h2>
+          <h2 className="text-xl font-bold text-primary-blue tracking-wide">{title}</h2>
           <button onClick={onClose} className="p-2 rounded-full text-text-secondary hover:text-white hover:bg-white/10 transition-colors">
             <X size={24} />
           </button>

@@ -1,3 +1,4 @@
+
 // src/components/admin/SubmissionsPanel.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalization } from '../../contexts/LocalizationContext';
@@ -117,10 +118,10 @@ const SubmissionsPanel: React.FC = () => {
                                             
                                             <Link 
                                                 to={`/admin/submissions/${sub.id}`} 
-                                                className="text-gray-300 hover:text-brand-cyan flex items-center gap-1" 
+                                                className="bg-brand-light-blue p-2 rounded-md text-white hover:bg-brand-cyan hover:text-brand-dark transition-all" 
                                                 title={t('view_submission')}
                                             >
-                                                <Eye size={20}/> 
+                                                <Eye size={18}/> 
                                             </Link>
                                             
                                             {hasPermission('_super_admin') && (

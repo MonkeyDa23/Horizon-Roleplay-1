@@ -3,17 +3,7 @@ import 'dotenv/config';
 import { Client, GatewayIntentBits, Partials } from 'discord.js';
 import { createApi } from './api.js';
 
-console.log('Starting Vixel Core Bot v2.3 (Fast Start)...');
-
-// --- CONFIG CHECK ---
-const requiredEnv = ['DISCORD_BOT_TOKEN', 'API_SECRET_KEY', 'DISCORD_GUILD_ID'];
-const missingEnv = requiredEnv.filter(key => !process.env[key]);
-
-if (missingEnv.length > 0) {
-  console.error(`❌ CRITICAL ERROR: Missing environment variables: ${missingEnv.join(', ')}`);
-  console.error('Please check your .env file in the bot directory.');
-  process.exit(1);
-}
+console.log('Starting Vixel Core Bot v2.4 (Instant Start)...');
 
 // --- CLIENT SETUP ---
 const client = new Client({
@@ -27,8 +17,6 @@ const client = new Client({
 });
 
 // --- SHARED STATE ---
-// We use a state object to allow the API to know if the bot is ready,
-// without blocking the API startup.
 const botState = {
     ready: false,
     guild: null,
@@ -36,20 +24,29 @@ const botState = {
 };
 
 // --- API SERVER STARTUP (IMMEDIATE) ---
-// Critical: Start the API server FIRST so the frontend (Vercel) gets a response 
-// (even if it's 503 Service Unavailable) instead of a 502 Bad Gateway timeout.
+// Start the API server FIRST so the frontend gets a response immediately.
 const app = createApi(client, botState);
 const PORT = process.env.PORT || 3001;
 
 const server = app.listen(PORT, () => {
   console.log(`🚀 API Server running on port ${PORT}`);
-  console.log(`   - Waiting for Discord connection...`);
   
-  // Only after server is up, try to login
-  client.login(process.env.DISCORD_BOT_TOKEN).catch(err => {
-      console.error("❌ Discord Login Failed:", err.message);
-      botState.error = "Discord Login Failed: " + err.message;
-  });
+  // Only AFTER server is up, verify env and login
+  const requiredEnv = ['DISCORD_BOT_TOKEN', 'API_SECRET_KEY', 'DISCORD_GUILD_ID'];
+  const missingEnv = requiredEnv.filter(key => !process.env[key]);
+
+  if (missingEnv.length > 0) {
+    const errorMsg = `❌ CRITICAL: Missing env vars: ${missingEnv.join(', ')}`;
+    console.error(errorMsg);
+    botState.error = errorMsg;
+    // Do not exit, keep server alive to report error to /health
+  } else {
+      console.log(`   - Connecting to Discord...`);
+      client.login(process.env.DISCORD_BOT_TOKEN).catch(err => {
+          console.error("❌ Discord Login Failed:", err.message);
+          botState.error = "Discord Login Failed: " + err.message;
+      });
+  }
 });
 
 server.on('error', (e) => {
@@ -78,11 +75,6 @@ client.on('error', (error) => {
   botState.error = error.message;
 });
 
-// --- GLOBAL ERROR HANDLING ---
 process.on('unhandledRejection', (reason) => {
   console.error('⚠️ Unhandled Rejection:', reason);
-});
-
-process.on('uncaughtException', (err) => {
-  console.error('⚠️ Uncaught Exception:', err);
 });
