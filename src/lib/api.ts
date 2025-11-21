@@ -378,8 +378,9 @@ export const forceRefreshUserProfile = fetchUserProfile;
 export const revalidateSession = async (): Promise<User> => { const { user } = await fetchUserProfile(); return user; };
 
 // --- INVITE & REAL STATS API ---
+// FIX: Changed endpoint to use the new direct proxy route that bypasses the bot
 export const getInviteDetails = (code: string) => callBotApi<{
     guild: { name: string; id: string; iconURL: string | null };
     memberCount: number;
     presenceCount: number;
-}>(`/invite-info/${code}`);
+}>(`/discord-invite/${code}`);

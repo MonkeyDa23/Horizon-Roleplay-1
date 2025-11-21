@@ -8,13 +8,60 @@ export default async function handler(req, res) {
   const botUrl = process.env.VITE_DISCORD_BOT_URL;
   const apiKey = process.env.VITE_DISCORD_BOT_API_KEY;
 
+  // Helper to check if string is valid URL
+  const isValidUrl = (string) => {
+    try { new URL(string); return true; } catch (_) { return false; }
+  }
+
+  // --- SPECIAL ROUTE: DIRECT DISCORD INVITE LOOKUP ---
+  // This bypasses the bot entirely to ensure widgets work even if the bot is offline.
+  // It fetches directly from Discord's public API.
+  if (req.url.includes('/discord-invite/')) {
+      try {
+          // Extract code from URL. expecting /api/proxy/discord-invite/CODE
+          const parts = req.url.split('/discord-invite/');
+          if (parts.length < 2) return res.status(400).json({ error: 'Invalid invite code' });
+          
+          const code = parts[1].split('?')[0]; // Remove any query params
+          
+          const discordRes = await fetch(`https://discord.com/api/v9/invites/${code}?with_counts=true`);
+          
+          if (!discordRes.ok) {
+              return res.status(discordRes.status).json({ 
+                  error: 'Discord API Error', 
+                  details: await discordRes.text() 
+              });
+          }
+          
+          const data = await discordRes.json();
+          
+          // Transform Discord API response to match our frontend expectation
+          const transformed = {
+              guild: {
+                  name: data.guild.name,
+                  id: data.guild.id,
+                  // Construct icon URL manually since invite object gives just the hash
+                  iconURL: data.guild.icon 
+                      ? `https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png` 
+                      : null
+              },
+              memberCount: data.approximate_member_count,
+              presenceCount: data.approximate_presence_count
+          };
+          
+          return res.json(transformed);
+      } catch (e) {
+          console.error("[PROXY] Discord Direct Fetch Error:", e);
+          return res.status(500).json({ error: 'Failed to fetch from Discord', details: e.message });
+      }
+  }
+
+  // --- STANDARD BOT PROXY ---
   if (!botUrl || !apiKey) {
-    console.error("Proxy Error: VITE_DISCORD_BOT_URL or VITE_DISCORD_BOT_API_KEY is not set in the server environment.");
+    console.error("Proxy Error: VITE_DISCORD_BOT_URL or VITE_DISCORD_BOT_API_KEY is not set.");
     return res.status(500).json({ error: 'Proxy service is not configured (Missing Env Vars).' });
   }
 
-  // Reconstruct the target URL. req.url includes the path and query string.
-  // e.g., '/api/proxy/sync-user/12345' becomes '/sync-user/12345'
   const targetPath = req.url.replace('/api/proxy', '');
   
   let targetUrl;
@@ -29,27 +76,21 @@ export default async function handler(req, res) {
       method: req.method,
       headers: {
         'Content-Type': 'application/json',
-        // Securely add the secret API key on the server-side
         'Authorization': apiKey,
       },
-      // Vercel automatically parses JSON bodies, so we re-stringify it for the fetch call
       body: req.body ? JSON.stringify(req.body) : null,
     });
 
-    // Pass all headers from the bot's response back to the client
     response.headers.forEach((value, key) => {
-      // Vercel handles content-encoding automatically
       if (key.toLowerCase() !== 'content-encoding') {
         res.setHeader(key, value);
       }
     });
     
-    // Send back the response from the bot
     res.status(response.status).send(await response.text());
 
   } catch (error) {
     console.error(`[PROXY] Error forwarding request to ${targetUrl}:`, error);
-    // We return the targetURL in the error to help the user debug 502s
     res.status(502).json({ 
         error: 'Bad Gateway: The proxy could not connect to the bot.',
         details: error.message,
