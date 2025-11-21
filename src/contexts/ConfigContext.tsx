@@ -12,9 +12,12 @@ interface ConfigContextType {
   refreshConfig: () => Promise<void>;
 }
 
+// Using Official Discord Logo (White) as requested to override
+const OFFICIAL_DISCORD_LOGO = 'https://assets-global.website-files.com/6257adef93867e56f84d3101/636e0a6918e57475a843f59f_icon_clyde_white_RGB.png';
+
 const defaultConfig: AppConfig = {
     COMMUNITY_NAME: 'Vixel Roleplay',
-    LOGO_URL: 'https://l.top4top.io/p_356271n1v1.png',
+    LOGO_URL: OFFICIAL_DISCORD_LOGO,
     DISCORD_GUILD_ID: '',
     DISCORD_INVITE_URL: 'https://discord.gg/u3CazwhxVa',
     MTA_SERVER_URL: 'mtasa://134.255.216.22:22041',
@@ -23,7 +26,6 @@ const defaultConfig: AppConfig = {
     admin_password: null,
 
     // New Webhook logging settings
-    // FIX: Added missing properties to satisfy the AppConfig type.
     DISCORD_PROXY_URL: null,
     DISCORD_PROXY_SECRET: null,
 
@@ -64,7 +66,8 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     try {
       const configData = await getConfig();
-      setConfig(configData);
+      // FORCE OVERRIDE: Use hardcoded logo over DB logo as requested
+      setConfig({ ...configData, LOGO_URL: OFFICIAL_DISCORD_LOGO });
       setConfigError(null);
     } catch (error) {
       console.error("Fatal: Could not fetch remote config. Using fallback.", error);

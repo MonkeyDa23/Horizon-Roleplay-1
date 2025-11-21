@@ -1,11 +1,4 @@
 
-
-
-
-
-
-
-
 import React, { useEffect } from 'react';
 import { useConfig } from '../contexts/ConfigContext';
 
@@ -66,6 +59,21 @@ const SEO: React.FC<SEOProps> = ({ title, description, keywords, noIndex = false
     updateMetaTag('twitter:title', title);
     updateMetaTag('twitter:description', description);
     updateMetaTag('twitter:image', image || config.LOGO_URL);
+
+    // UPDATE FAVICON DYNAMICALLY
+    const updateFavicon = (url: string) => {
+        let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+        if (!link) {
+            link = document.createElement('link');
+            link.rel = 'icon';
+            document.getElementsByTagName('head')[0].appendChild(link);
+        }
+        link.href = url;
+    };
+
+    if (config.LOGO_URL) {
+        updateFavicon(config.LOGO_URL);
+    }
 
   }, [title, description, keywords, noIndex, image, config.LOGO_URL]);
 
