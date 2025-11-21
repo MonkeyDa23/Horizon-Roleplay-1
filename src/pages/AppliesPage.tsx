@@ -5,7 +5,7 @@ import { useLocalization } from '../contexts/LocalizationContext';
 import { useAuth } from '../contexts/AuthContext';
 import { getQuizzes, getSubmissionsByUserId } from '../lib/api';
 import type { Quiz, QuizSubmission } from '../types';
-import { FileText, Lock, Check, Image as ImageIcon, Clock } from 'lucide-react';
+import { FileText, Lock, Check, Image as ImageIcon, Clock, AlertCircle } from 'lucide-react';
 import { useConfig } from '../contexts/ConfigContext';
 import SEO from '../components/SEO';
 
@@ -54,8 +54,8 @@ const AppliesPage: React.FC = () => {
   );
 
   const getApplyButton = (quiz: Quiz) => {
-      // 1. Strict Check: Does user have an active submission (Pending or Taken)?
-      // If yes, BLOCK APPLICATION completely until admin takes action.
+      // 1. STRICT CHECK: Does user have an active submission (Pending or Taken)?
+      // Even if the quiz was closed and reopened, if the user has a pending/taken request, they CANNOT apply again.
       const activeSubmission = userSubmissions.find(sub => 
         sub.quizId === quiz.id && 
         (sub.status === 'pending' || sub.status === 'taken')
@@ -63,15 +63,19 @@ const AppliesPage: React.FC = () => {
 
       if (activeSubmission) {
         return (
-          <button disabled className="w-full bg-yellow-500/20 text-yellow-300 font-bold py-3 px-8 rounded-lg flex items-center justify-center gap-2 cursor-not-allowed border border-yellow-500/30">
-            <Clock size={20} />
-            {t('status_pending')} / {t('status_taken')}
-          </button>
+          <div className="w-full">
+              <button disabled className="w-full bg-yellow-500/10 text-yellow-400 font-bold py-3 px-8 rounded-lg flex items-center justify-center gap-2 cursor-not-allowed border border-yellow-500/30">
+                <Clock size={20} />
+                {activeSubmission.status === 'taken' ? t('status_taken') : t('status_pending')}
+              </button>
+              <p className="text-xs text-center text-yellow-500/70 mt-2">
+                  لا يمكنك التقديم مرة أخرى حتى يتم اتخاذ قرار بشأن طلبك الحالي.
+              </p>
+          </div>
         );
       }
 
       // 2. Check if user was already accepted/refused in the CURRENT season (optional, prevents spamming after rejection)
-      // Only applies if lastOpenedAt is set.
       const hasFinishedInCurrentSeason = quiz.lastOpenedAt
         ? userSubmissions.some(sub => 
             sub.quizId === quiz.id && 
@@ -90,7 +94,7 @@ const AppliesPage: React.FC = () => {
       
       if (!quiz.isOpen) {
         return (
-          <button disabled className="w-full bg-text-secondary/20 text-text-secondary font-bold py-3 px-8 rounded-lg flex items-center justify-center gap-2 cursor-not-allowed">
+          <button disabled className="w-full bg-red-500/10 text-red-400 font-bold py-3 px-8 rounded-lg flex items-center justify-center gap-2 cursor-not-allowed border border-red-500/20">
             <Lock size={20} />
             {t('application_closed')}
           </button>
@@ -109,7 +113,7 @@ const AppliesPage: React.FC = () => {
       return (
         <Link 
           to={`/applies/${quiz.id}`}
-          className="w-full text-center bg-gradient-to-r from-primary-blue to-accent-cyan text-background-dark font-bold py-3 px-8 rounded-lg hover:opacity-90 transition-all duration-300 flex items-center justify-center gap-2 transform hover:scale-105"
+          className="w-full text-center bg-gradient-to-r from-primary-blue to-accent-cyan text-background-dark font-bold py-3 px-8 rounded-lg hover:opacity-90 transition-all duration-300 flex items-center justify-center gap-2 transform hover:scale-105 shadow-glow-blue"
         >
           {t('apply_now')}
         </Link>
@@ -140,11 +144,11 @@ const AppliesPage: React.FC = () => {
           ) : quizzes.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {quizzes.map((quiz, index) => (
-                  <div key={quiz.id} className={`relative glass-panel p-8 flex flex-col transition-all duration-300 group ${quiz.isOpen ? 'hover:shadow-glow-blue hover:-translate-y-2' : 'opacity-70'} animate-stagger`} style={{ animationDelay: `${index * 150}ms` }}>
+                  <div key={quiz.id} className={`relative glass-panel p-8 flex flex-col transition-all duration-300 group ${quiz.isOpen ? 'hover:shadow-glow-blue hover:-translate-y-2' : 'opacity-80 grayscale-[0.5]'} animate-stagger`} style={{ animationDelay: `${index * 150}ms` }}>
                     {!quiz.isOpen && (
-                      <div className="absolute inset-0 bg-black/60 rounded-2xl flex items-center justify-center z-10">
-                        <span className="text-2xl font-bold text-white tracking-widest uppercase border-4 border-white px-6 py-3 rounded-lg -rotate-12 bg-black/30">
-                          {t('closed')}
+                      <div className="absolute top-4 right-4 z-10">
+                        <span className="flex items-center gap-1 text-xs font-bold text-red-400 bg-red-900/30 px-2 py-1 rounded border border-red-500/30">
+                          <Lock size={12} /> {t('closed')}
                         </span>
                       </div>
                     )}
@@ -158,11 +162,11 @@ const AppliesPage: React.FC = () => {
                                   )}
                               </div>
                               <div>
-                                  <h2 className="text-3xl font-bold text-white">{t(quiz.titleKey)}</h2>
-                                  <p className="text-sm text-text-secondary">{(quiz.questions || []).length} {t('questions')}</p>
+                                  <h2 className="text-2xl font-bold text-white leading-tight">{t(quiz.titleKey)}</h2>
+                                  <p className="text-sm text-text-secondary mt-1">{(quiz.questions || []).length} {t('questions')}</p>
                               </div>
                           </div>
-                          <p className="text-text-secondary mb-6 min-h-[40px] text-base">{t(quiz.descriptionKey)}</p>
+                          <p className="text-text-secondary mb-6 min-h-[40px] text-base leading-relaxed">{t(quiz.descriptionKey)}</p>
                     </div>
                     <div className="mt-auto pt-6 border-t border-border-color">
                           {getApplyButton(quiz)}
@@ -171,7 +175,8 @@ const AppliesPage: React.FC = () => {
               ))}
               </div>
           ) : (
-            <div className="text-center glass-panel p-10">
+            <div className="text-center glass-panel p-10 flex flex-col items-center">
+              <AlertCircle size={48} className="text-text-secondary mb-4"/>
               <p className="text-2xl text-text-secondary">{t('no_applies_open')}</p>
             </div>
           )}

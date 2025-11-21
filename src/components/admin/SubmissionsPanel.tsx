@@ -5,7 +5,8 @@ import { useLocalization } from '../../contexts/LocalizationContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfig } from '../../contexts/ConfigContext';
-import { getSubmissions, deleteSubmission, updateSubmissionStatus, sendDiscordLog } from '../../lib/api';
+import { getSubmissions, deleteSubmission, updateSubmissionStatus, sendDiscordLog, lookupUser } from '../../lib/api';
+import { supabase } from '../../lib/supabaseClient';
 import type { QuizSubmission, SubmissionStatus } from '../../types';
 import { Eye, Loader2, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -89,15 +90,23 @@ const SubmissionsPanel: React.FC = () => {
             };
             await sendDiscordLog(config, embed, 'submission');
 
-            // --- DM to User (New Requirement) ---
-            const targetId = (submission as any).discord_id; 
+            // --- DM to User ---
+            // Need to fetch Discord ID first since it might not be in the partial list depending on DB view
+            let targetId = (submission as any).discord_id; 
+            
+            // If not present, try to fetch profile from Supabase using user_id
+            if (!targetId && submission.user_id && supabase) {
+                const { data } = await supabase.from('profiles').select('discord_id').eq('id', submission.user_id).single();
+                if (data) targetId = data.discord_id;
+            }
+
             if (targetId) {
                 const dmEmbed = {
                     title: `✋ تم استلام تقديمك`,
-                    description: `مرحباً، تم استلام تقديمك لـ **${submission.quizTitle}** وهو الآن قيد المراجعة الدقيقة من قبل المشرف **${user.username}**.`,
+                    description: `مرحباً، تم استلام تقديمك لـ **${submission.quizTitle}** وهو الآن قيد المراجعة من قبل المشرف **${user.username}**.`,
                     color: 0xFFA500,
+                    footer: { text: config.COMMUNITY_NAME },
                     timestamp: new Date().toISOString(),
-                    footer: { text: config.COMMUNITY_NAME }
                 };
                 await sendDiscordLog(config, dmEmbed, 'dm', targetId);
             }

@@ -5,6 +5,7 @@ import { useLocalization } from '../contexts/LocalizationContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { getSubmissionById, updateSubmissionStatus, sendDiscordLog, lookupUser } from '../lib/api';
+import { supabase } from '../lib/supabaseClient';
 import type { QuizSubmission } from '../types';
 import { Loader2, Check, X, ArrowLeft, User, Calendar, Shield, AlertTriangle, ListChecks } from 'lucide-react';
 import SEO from '../components/SEO';
@@ -71,37 +72,27 @@ const SubmissionDetailPage: React.FC = () => {
             };
             await sendDiscordLog(config, logEmbed, 'submission');
 
-            // 3. Send DM to Applicant (Structured Format Requested)
-            // Name, Avatar, Quiz Title, Date
+            // 3. Send DM to Applicant (Structured Format)
             let targetId = (submission as any).discord_id; 
+            if (!targetId && submission.user_id && supabase) {
+                const { data } = await supabase.from('profiles').select('discord_id').eq('id', submission.user_id).single();
+                if (data) targetId = data.discord_id;
+            }
             
             if (targetId) {
-                // Fetch actual user avatar for the embed if possible, or use submission stored one
-                let userAvatar = user.avatar; // Default to admin avatar? No, request wanted USER avatar.
-                // Since we don't have user object here, we assume we use the one from submission or perform a lookup.
-                // The submission object doesn't typically store the avatar URL permanently, so we might need to rely on standard discord avatar logic or just omit if not available.
-                // However, we have `submission` loaded. Let's see.
-                // The submission type doesn't have avatar_url. But we can look it up if we really need to be precise, or just use a generic user icon.
-                // Actually, we logged it in the initial submission log.
-                // Let's use a simple user icon or try to construct it if we had the hash. 
-                // For now, we will use the Guild Logo or similar as thumbnail for the RESULT, effectively.
-                // OR, we can use the admin's avatar as "Processed By".
-                // Re-reading request: "رسالة الي ترسل للمستخدم يكون فيها اسمه وصورته واسم التقديم الي قدمله وتاري التقديم فقط"
-                // Okay, it wants the USER'S avatar. We don't have it stored in `submissions` table. 
-                // We can try to fetch it via lookup, or skip. Let's try to be robust.
-                
-                let applicantAvatarUrl = "";
+                // Fetch actual user avatar for the embed to match "User's Avatar" requirement
+                let applicantAvatarUrl = config.LOGO_URL; // Fallback
                 try {
                     const applicantProfile = await lookupUser(targetId);
-                    applicantAvatarUrl = applicantProfile.avatar;
+                    if (applicantProfile.avatar) applicantAvatarUrl = applicantProfile.avatar;
                 } catch (e) {
-                    console.log("Could not fetch applicant avatar for DM");
+                    // Ignore lookup errors, use default
                 }
 
                 const dmEmbed = {
                     title: status === 'accepted' ? '🎉 مبروك! تم قبول تقديمك' : '❌ نأسف، تم رفض تقديمك',
                     color: status === 'accepted' ? 0x22C55E : 0xEF4444,
-                    thumbnail: { url: applicantAvatarUrl || config.LOGO_URL },
+                    thumbnail: { url: applicantAvatarUrl },
                     fields: [
                         { name: "👤 الاسم", value: applicantName, inline: true },
                         { name: "📄 التقديم", value: quizName, inline: true },
@@ -143,7 +134,12 @@ const SubmissionDetailPage: React.FC = () => {
             sendDiscordLog(config, logEmbed, 'submission');
 
             // Send DM to user
-            let targetId = (submission as any).discord_id;
+            let targetId = (submission as any).discord_id; 
+            if (!targetId && submission.user_id && supabase) {
+                const { data } = await supabase.from('profiles').select('discord_id').eq('id', submission.user_id).single();
+                if (data) targetId = data.discord_id;
+            }
+
             if (targetId) {
                  const dmEmbed = {
                     title: `✋ تم استلام تقديمك`,
@@ -173,7 +169,7 @@ const SubmissionDetailPage: React.FC = () => {
                 <div className="sticky top-0 z-40 bg-brand-dark/90 backdrop-blur-md border-b border-brand-light-blue/30 py-4 px-6 shadow-lg">
                     <div className="container mx-auto max-w-6xl flex justify-between items-center">
                         <div className="flex items-center gap-4">
-                            <Link to="/admin" className="text-gray-400 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-full"><ArrowLeft size={24} /></Link>
+                            <Link to="/admin?tab=submissions" className="text-gray-400 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-full"><ArrowLeft size={24} /></Link>
                             <div>
                                 <h1 className="text-xl font-bold text-white">{submission.username}</h1>
                                 <p className="text-sm text-brand-cyan">{submission.quizTitle}</p>

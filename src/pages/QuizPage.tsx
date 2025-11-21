@@ -113,10 +113,11 @@ const QuizPage: React.FC = () => {
       // 2. Log to Admin Channel (Detailed with Direct Link)
       const hasCheated = cheatLog.length > 0;
       const adminLink = `${window.location.origin}/admin/submissions/${submission.id}`;
+      const roleName = user.highestRole?.name || 'عضو';
       
       const adminEmbed = {
         title: "📝 تقديم جديد وصل!",
-        description: `قام **${user.username}** بإرسال تقديم جديد.\n\n**تفاصيل المتقدم:**\n👤 **الاسم:** ${user.username}\n🔰 **الرتبة:** ${user.highestRole?.name || 'عضو'}\n📄 **التقديم:** ${t(quiz.titleKey)}\n⚠️ **حالة الغش:** ${hasCheated ? `**مشبوه (${cheatLog.length})**` : "نظيف"}\n\n🔗 **[رابط التقديم المباشر (للاتخاذ إجراء)](${adminLink})**`,
+        description: `قام **${user.username}** بإرسال تقديم جديد.\n\n**معلومات المتقدم:**\n👤 **الاسم:** ${user.username}\n🔰 **الرتبة:** ${roleName}\n📄 **التقديم:** ${t(quiz.titleKey)}\n⚠️ **حالة الغش:** ${hasCheated ? `**مشبوه (${cheatLog.length})**` : "نظيف"}\n\n[🔗 اضغط هنا لعرض التقديم واتخاذ إجراء](${adminLink})`,
         color: hasCheated ? 0xEF4444 : 0x3B82F6, 
         thumbnail: { url: user.avatar },
         timestamp: new Date().toISOString(),
@@ -124,12 +125,12 @@ const QuizPage: React.FC = () => {
       };
       sendDiscordLog(config, adminEmbed, 'submission');
 
-      // 3. Send Receipt DM to User (Name, Avatar, Quiz, Date ONLY)
+      // 3. Send Receipt DM to User (Strict Format: Name, Avatar, Quiz, Date)
       const userReceiptEmbed = {
           title: `✅ تم استلام تقديمك بنجاح`,
-          description: `مرحباً بك، تم استلام طلبك بنجاح وهو قيد المراجعة.`,
+          description: `تم استلام طلبك وهو الآن قيد الانتظار.`,
           color: 0x22C55E, // Green
-          thumbnail: { url: user.avatar },
+          thumbnail: { url: user.avatar }, // User's Avatar as requested
           fields: [
               { name: "👤 الاسم", value: user.username, inline: true },
               { name: "📄 التقديم", value: t(quiz.titleKey), inline: true },
