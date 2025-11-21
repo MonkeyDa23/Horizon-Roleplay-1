@@ -16,9 +16,11 @@ const HCaptcha: React.FC<{ onVerify: (token: string) => void, sitekey: string }>
     const widgetIdRef = useRef<string | null>(null);
 
     useEffect(() => {
-        if (window.hcaptcha && captchaRef.current && !widgetIdRef.current) {
+        // FIX: Cast window to any to access hcaptcha property
+        if ((window as any).hcaptcha && captchaRef.current && !widgetIdRef.current) {
             try {
-                const id = window.hcaptcha.render(captchaRef.current, {
+                // FIX: Cast window to any to access hcaptcha property
+                const id = (window as any).hcaptcha.render(captchaRef.current, {
                     sitekey: sitekey,
                     callback: onVerify,
                 });
@@ -66,12 +68,14 @@ const AdminGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             else {
                 showToast(t('admin_gate_incorrect'), 'error');
                 setPassword('');
-                if (window.hcaptcha) try { window.hcaptcha.reset(); } catch {}
+                // FIX: Cast window to any to access hcaptcha property
+                if ((window as any).hcaptcha) try { (window as any).hcaptcha.reset(); } catch {}
                 setHcaptchaToken(null);
             }
         } catch (error) {
             showToast((error as Error).message, 'error');
-            if (window.hcaptcha) try { window.hcaptcha.reset(); } catch {}
+            // FIX: Cast window to any to access hcaptcha property
+            if ((window as any).hcaptcha) try { (window as any).hcaptcha.reset(); } catch {}
             setHcaptchaToken(null);
         } finally { setIsLoading(false); }
     };

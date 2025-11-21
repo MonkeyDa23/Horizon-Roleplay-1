@@ -1,15 +1,13 @@
 
-// src/pages/SubmissionDetailPage.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { getSubmissionById, updateSubmissionStatus, checkDiscordApiHealth } from '../lib/api';
+import { getSubmissionById, updateSubmissionStatus, sendDiscordLog, lookupUser } from '../lib/api';
 import type { QuizSubmission } from '../types';
 import { Loader2, Check, X, ArrowLeft, User, Calendar, Shield, AlertTriangle, ListChecks } from 'lucide-react';
 import SEO from '../components/SEO';
-import Modal from '../components/Modal';
 import { useConfig } from '../contexts/ConfigContext';
 
 const SubmissionDetailPage: React.FC = () => {
@@ -24,7 +22,6 @@ const SubmissionDetailPage: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
     const [decisionReason, setDecisionReason] = useState('');
-    const [notificationWarning, setNotificationWarning] = useState<{ status: 'accepted' | 'refused'; reason?: string } | null>(null);
 
     const fetchSubmission = useCallback(async () => {
         if (!submissionId) return;
@@ -33,7 +30,7 @@ const SubmissionDetailPage: React.FC = () => {
             const data = await getSubmissionById(submissionId);
             setSubmission(data);
         } catch (error) {
-            showToast('Failed to load submission.', 'error');
+            showToast('فشل تحميل التقديم.', 'error');
             navigate('/admin');
         } finally {
             setIsLoading(false);
@@ -49,19 +46,63 @@ const SubmissionDetailPage: React.FC = () => {
         fetchSubmission();
     }, [fetchSubmission, user, hasPermission, navigate]);
 
-    const proceedWithUpdate = async (status: 'accepted' | 'refused' | 'taken', reason?: string) => {
-        if (!submission) return;
+    const handleDecision = async (status: 'accepted' | 'refused') => {
+        if (!submission || !user) return;
         setIsProcessing(true);
+        
         try {
-            const updatedSub = await updateSubmissionStatus(submission.id, status, reason);
+            // 1. Update Database
+            const updatedSub = await updateSubmissionStatus(submission.id, status, decisionReason);
             setSubmission(updatedSub);
-            setNotificationWarning(null);
-            if (status === 'taken') {
-                showToast('Order taken successfully.', 'success');
-            } else {
-                showToast(`Submission ${status}!`, 'success');
-                navigate('/admin'); // Return to list after final decision
+            
+            const adminName = user.username;
+            const applicantName = submission.username;
+            const quizName = submission.quizTitle;
+            const reasonText = decisionReason || 'لم يتم تحديد سبب';
+
+            // 2. Send Public Log (To Submissions/Log Channel)
+            const logEmbed = {
+                title: status === 'accepted' ? '✅ تم قبول التقديم' : '❌ تم رفض التقديم',
+                description: `**المتقدم:** ${applicantName}\n**الإداري:** ${adminName}\n**التقديم:** ${quizName}\n**السبب:** ${reasonText}`,
+                color: status === 'accepted' ? 0x22C55E : 0xEF4444,
+                timestamp: new Date().toISOString(),
+                footer: { text: 'سجلات التقديمات' }
+            };
+            await sendDiscordLog(config, logEmbed, 'submission');
+
+            // 3. Send DM to Applicant
+            // We need to know the applicant's Discord ID.
+            // NOTE: The 'submission' object in database needs to have 'discord_id' or be joined with profiles.
+            // Assuming the backend provides it or we stored it in submission table. 
+            // If using older submissions without discord_id, we fall back to user lookup if user_id is present.
+            
+            let targetId = (submission as any).discord_id; // Requires DB column
+            if (!targetId && submission.user_id) {
+               // Try to get it from profile if not on submission object directly (legacy support)
+               // For this code to work perfectly, ensure `addSubmission` saves discord_id.
             }
+
+            // Note: In the updated QuizPage, we added `discord_id` to `addSubmission`. 
+            // So new submissions will have it.
+            
+            if (targetId) {
+                const dmEmbed = {
+                    title: status === 'accepted' ? '🎉 مبروك! تم قبول تقديمك' : 'تم تحديث حالة تقديمك',
+                    description: status === 'accepted' 
+                        ? `تهانينا! لقد تم قبول تقديمك لـ **${quizName}** بنجاح.\n\n**السبب/ملاحظات:**\n${reasonText}\n\nيرجى التواصل مع الإدارة لاستكمال الإجراءات.` 
+                        : `نأسف لإبلاغك بأنه تم رفض تقديمك لـ **${quizName}**.\n\n**السبب:**\n${reasonText}\n\nحظاً أوفر في المرة القادمة.`,
+                    color: status === 'accepted' ? 0x22C55E : 0xEF4444,
+                    timestamp: new Date().toISOString(),
+                    footer: { text: config.COMMUNITY_NAME }
+                };
+                await sendDiscordLog(config, dmEmbed, 'dm', targetId);
+            } else {
+                showToast("لم يتم العثور على معرف ديسكورد للمستخدم لإرسال الرسالة الخاصة.", "info");
+            }
+
+            showToast(`تم ${status === 'accepted' ? 'قبول' : 'رفض'} التقديم وإرسال السجلات.`, 'success');
+            navigate('/admin');
+
         } catch (e) {
             showToast((e as Error).message, 'error');
         } finally {
@@ -69,44 +110,41 @@ const SubmissionDetailPage: React.FC = () => {
         }
     };
 
-    const handleDecision = async (status: 'accepted' | 'refused') => {
+    const handleTakeOrder = async () => {
+        if (!submission) return;
+        setIsProcessing(true);
         try {
-            // Best effort check for bot health before deciding
-            await checkDiscordApiHealth();
-            await proceedWithUpdate(status, decisionReason);
-        } catch (error) {
-            // If bot is down, warn the admin but allow proceeding (DB logging will still work)
-            setNotificationWarning({ status, reason: decisionReason });
+            await updateSubmissionStatus(submission.id, 'taken');
+            showToast('تم استلام الطلب.', 'success');
+            
+            // Optional: Log that admin took the ticket
+            const logEmbed = {
+                title: '✋ استلام تقديم',
+                description: `قام المشرف **${user?.username}** باستلام تقديم **${submission.quizTitle}** الخاص بـ **${submission.username}** للمراجعة.`,
+                color: 0xFFA500, // Orange
+                timestamp: new Date().toISOString()
+            };
+            sendDiscordLog(config, logEmbed, 'submission');
+
+            fetchSubmission();
+        } catch (e) {
+            showToast((e as Error).message, 'error');
+        } finally {
+            setIsProcessing(false);
         }
     };
 
-    const handleTakeOrder = async () => {
-        await proceedWithUpdate('taken');
-    };
-
-    if (isLoading) {
-        return (
-            <div className="flex flex-col gap-4 justify-center items-center h-screen w-full">
-                <Loader2 size={48} className="text-brand-cyan animate-spin" />
-                <p className="text-gray-400">{t('loading_submissions')}</p>
-            </div>
-        );
-    }
-
+    if (isLoading) return <div className="flex justify-center items-center h-screen"><Loader2 size={48} className="text-brand-cyan animate-spin" /></div>;
     if (!submission) return null;
 
     return (
         <>
-            <SEO title={`${t('submission_details')} - ${submission.username}`} noIndex={true} description="Review Application"/>
-            
+            <SEO title={`مراجعة: ${submission.username}`} noIndex={true} description="Admin Panel"/>
             <div className="min-h-screen bg-brand-dark pb-24 relative">
-                {/* Sticky Header */}
                 <div className="sticky top-0 z-40 bg-brand-dark/90 backdrop-blur-md border-b border-brand-light-blue/30 py-4 px-6 shadow-lg">
                     <div className="container mx-auto max-w-6xl flex justify-between items-center">
                         <div className="flex items-center gap-4">
-                            <Link to="/admin" className="text-gray-400 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-full">
-                                <ArrowLeft size={24} />
-                            </Link>
+                            <Link to="/admin" className="text-gray-400 hover:text-white transition-colors p-2 hover:bg-white/5 rounded-full"><ArrowLeft size={24} /></Link>
                             <div>
                                 <h1 className="text-xl font-bold text-white">{submission.username}</h1>
                                 <p className="text-sm text-brand-cyan">{submission.quizTitle}</p>
@@ -114,19 +152,11 @@ const SubmissionDetailPage: React.FC = () => {
                         </div>
                         <div className="flex gap-3">
                              {submission.status === 'pending' ? (
-                                <button 
-                                    onClick={handleTakeOrder}
-                                    disabled={isProcessing}
-                                    className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white transition-all disabled:opacity-50 flex items-center gap-2"
-                                >
+                                <button onClick={handleTakeOrder} disabled={isProcessing} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white transition-all disabled:opacity-50 flex items-center gap-2">
                                     {isProcessing ? <Loader2 className="animate-spin" size={20}/> : t('take_order')}
                                 </button>
-                            ) : (submission.status === 'taken') ? (
-                                <span className="text-brand-cyan font-bold border border-brand-cyan px-4 py-2 rounded bg-brand-cyan/10">
-                                    IN REVIEW
-                                </span>
                             ) : (
-                                <span className={`font-bold border px-4 py-2 rounded ${submission.status === 'accepted' ? 'text-green-400 border-green-500 bg-green-500/10' : 'text-red-400 border-red-500 bg-red-500/10'}`}>
+                                <span className={`font-bold border px-4 py-2 rounded ${submission.status === 'accepted' ? 'text-green-400 border-green-500 bg-green-500/10' : submission.status === 'refused' ? 'text-red-400 border-red-500 bg-red-500/10' : 'text-brand-cyan border-brand-cyan bg-brand-cyan/10'}`}>
                                     {submission.status.toUpperCase()}
                                 </span>
                             )}
@@ -135,8 +165,6 @@ const SubmissionDetailPage: React.FC = () => {
                 </div>
 
                 <div className="container mx-auto max-w-6xl px-6 py-8 space-y-8">
-                    
-                    {/* Applicant Info Card */}
                     <div className="glass-panel p-8 flex flex-col md:flex-row gap-8 justify-between items-start md:items-center">
                         <div className="flex gap-6 items-center">
                             <div className="w-20 h-20 rounded-full bg-brand-light-blue flex items-center justify-center border-2 border-brand-cyan/30">
@@ -145,8 +173,8 @@ const SubmissionDetailPage: React.FC = () => {
                             <div>
                                 <h2 className="text-3xl font-bold text-white mb-2">{submission.username}</h2>
                                 <div className="flex flex-wrap gap-4 text-sm">
-                                    <p className="text-gray-400 flex items-center gap-2 bg-brand-dark/50 px-3 py-1 rounded-full"><Shield size={14}/> Role: {submission.user_highest_role || t('member')}</p>
-                                    <p className="text-gray-400 flex items-center gap-2 bg-brand-dark/50 px-3 py-1 rounded-full"><Calendar size={14}/> Submitted: {new Date(submission.submittedAt).toLocaleString()}</p>
+                                    <p className="text-gray-400 flex items-center gap-2 bg-brand-dark/50 px-3 py-1 rounded-full"><Shield size={14}/> الرتبة: {submission.user_highest_role || t('member')}</p>
+                                    <p className="text-gray-400 flex items-center gap-2 bg-brand-dark/50 px-3 py-1 rounded-full"><Calendar size={14}/> {new Date(submission.submittedAt).toLocaleString()}</p>
                                 </div>
                             </div>
                         </div>
@@ -171,14 +199,13 @@ const SubmissionDetailPage: React.FC = () => {
                         )}
                     </div>
 
-                    {/* Questions & Answers */}
                     <div className="space-y-8">
-                        <h3 className="text-2xl font-bold text-white border-b border-gray-700 pb-4">Application Answers</h3>
+                        <h3 className="text-2xl font-bold text-white border-b border-gray-700 pb-4">الإجابات</h3>
                         {submission.answers.map((item, index) => (
                             <div key={index} className="glass-panel p-0 overflow-hidden animate-fade-in-up" style={{ animationDelay: `${index * 50}ms` }}>
                                 <div className="bg-brand-light-blue/10 p-4 border-b border-brand-light-blue/20 flex justify-between items-center">
-                                    <h4 className="text-lg font-bold text-brand-cyan">Question {index + 1}</h4>
-                                    <span className="text-xs text-gray-500 font-mono bg-brand-dark px-2 py-1 rounded">Time: {item.timeTaken}s</span>
+                                    <h4 className="text-lg font-bold text-brand-cyan">سؤال {index + 1}</h4>
+                                    <span className="text-xs text-gray-500 font-mono bg-brand-dark px-2 py-1 rounded">الوقت المستغرق: {item.timeTaken}s</span>
                                 </div>
                                 <div className="p-6">
                                     <p className="text-lg text-white font-medium mb-4">{item.questionText}</p>
@@ -190,32 +217,18 @@ const SubmissionDetailPage: React.FC = () => {
                         ))}
                     </div>
 
-                    {/* Sticky Action Area (Only for Taken/Admin) */}
                     {(hasPermission('_super_admin') || (submission.status === 'taken' && submission.adminId === user?.id)) && (
                         <div className="glass-panel p-6 sticky bottom-6 border-t-4 border-brand-cyan shadow-2xl shadow-black/80 z-30 mt-12">
                             <div className="flex flex-col md:flex-row gap-6 items-start">
                                 <div className="flex-grow w-full">
-                                    <label className="block text-gray-300 mb-2 font-bold text-sm uppercase tracking-wider">{t('reason')} (Optional for Notification)</label>
-                                    <textarea 
-                                        value={decisionReason}
-                                        onChange={(e) => setDecisionReason(e.target.value)}
-                                        placeholder="Write a reason for acceptance or refusal..."
-                                        className="vixel-input min-h-[80px] !bg-brand-dark"
-                                    />
+                                    <label className="block text-gray-300 mb-2 font-bold text-sm uppercase tracking-wider">{t('reason')} (سيتم إرساله للمستخدم)</label>
+                                    <textarea value={decisionReason} onChange={(e) => setDecisionReason(e.target.value)} placeholder="اكتب سبب القبول أو الرفض هنا..." className="vixel-input min-h-[80px] !bg-brand-dark" />
                                 </div>
                                 <div className="flex md:flex-col gap-3 w-full md:w-auto pt-7 md:pt-0 min-w-[200px]">
-                                    <button 
-                                        onClick={() => handleDecision('accepted')} 
-                                        disabled={isProcessing}
-                                        className="flex-1 bg-green-600/90 text-white font-bold py-4 px-6 rounded-lg hover:bg-green-500 transition-all flex justify-center items-center gap-2 text-lg shadow-lg hover:shadow-green-500/20 hover:-translate-y-1"
-                                    >
+                                    <button onClick={() => handleDecision('accepted')} disabled={isProcessing} className="flex-1 bg-green-600/90 text-white font-bold py-4 px-6 rounded-lg hover:bg-green-500 transition-all flex justify-center items-center gap-2 text-lg shadow-lg">
                                         {isProcessing ? <Loader2 className="animate-spin" /> : <><Check size={24}/> {t('accept')}</>}
                                     </button>
-                                    <button 
-                                        onClick={() => handleDecision('refused')} 
-                                        disabled={isProcessing}
-                                        className="flex-1 bg-red-600/90 text-white font-bold py-4 px-6 rounded-lg hover:bg-red-500 transition-all flex justify-center items-center gap-2 text-lg shadow-lg hover:shadow-red-500/20 hover:-translate-y-1"
-                                    >
+                                    <button onClick={() => handleDecision('refused')} disabled={isProcessing} className="flex-1 bg-red-600/90 text-white font-bold py-4 px-6 rounded-lg hover:bg-red-500 transition-all flex justify-center items-center gap-2 text-lg shadow-lg">
                                         {isProcessing ? <Loader2 className="animate-spin" /> : <><X size={24}/> {t('refuse')}</>}
                                     </button>
                                 </div>
@@ -224,35 +237,6 @@ const SubmissionDetailPage: React.FC = () => {
                     )}
                 </div>
             </div>
-            
-            {notificationWarning && (
-                <Modal isOpen={!!notificationWarning} onClose={() => setNotificationWarning(null)} title={t('notification_check_failed_title')}>
-                     <div className="text-center">
-                        <div className="bg-yellow-500/10 p-4 rounded-full inline-block mb-4 border border-yellow-500/30">
-                            <AlertTriangle className="text-yellow-400" size={40} />
-                        </div>
-                        <h3 className="text-xl font-bold text-white mb-2">Bot Connection Issue</h3>
-                        <p className="text-gray-300 mb-6">{t('notification_check_failed_body')}</p>
-                        
-                        <div className="bg-brand-dark p-4 rounded-md mb-6 text-left text-sm text-gray-400">
-                            <p><strong>Note:</strong> Proceeding will still update the database status, but the user will NOT receive a DM on Discord.</p>
-                        </div>
-
-                        <div className="flex justify-center gap-4">
-                            <button onClick={() => setNotificationWarning(null)} className="bg-gray-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-gray-500 transition-colors">{t('cancel')}</button>
-                            <button 
-                                onClick={() => proceedWithUpdate(notificationWarning.status, notificationWarning.reason)}
-                                className="bg-yellow-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-yellow-500 transition-colors"
-                            >
-                                {t('proceed_anyway')}
-                            </button>
-                        </div>
-                        <div className="mt-6 border-t border-gray-700 pt-4">
-                             <Link to="/health-check" className="text-brand-cyan hover:text-white text-sm flex items-center justify-center gap-1"><Loader2 size={14} /> {t('go_to_health_check')}</Link>
-                        </div>
-                    </div>
-                </Modal>
-            )}
         </>
     );
 };

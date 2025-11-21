@@ -33,7 +33,8 @@ const HealthCheckPage: React.FC = () => {
         setBotHealth(null);
         try {
             const result = await checkDiscordApiHealth();
-            setBotHealth({ ok: true, ...result });
+            // FIX: Cast result to any to avoid spread of unknown type error
+            setBotHealth({ ok: true, ...(result as any) });
         } catch (error) {
             const msg = (error as Error).message;
             const is502 = msg.includes('502') || msg.includes('Bad Gateway') || msg.includes('Proxy Error');

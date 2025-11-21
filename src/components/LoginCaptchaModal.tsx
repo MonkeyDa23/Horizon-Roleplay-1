@@ -10,9 +10,11 @@ const HCaptcha: React.FC<{ onVerify: (token: string) => void, sitekey: string }>
     const widgetIdRef = useRef<string | null>(null);
 
     useEffect(() => {
-        if (window.hcaptcha && captchaRef.current && !widgetIdRef.current) {
+        // FIX: Cast window to any to access hcaptcha property
+        if ((window as any).hcaptcha && captchaRef.current && !widgetIdRef.current) {
             try {
-                const id = window.hcaptcha.render(captchaRef.current, {
+                // FIX: Cast window to any to access hcaptcha property
+                const id = (window as any).hcaptcha.render(captchaRef.current, {
                     sitekey: sitekey,
                     callback: onVerify,
                 });

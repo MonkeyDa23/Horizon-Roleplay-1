@@ -7,9 +7,10 @@ import { useNavigate } from 'react-router-dom';
 import type { PermissionKey } from '../types';
 import SEO from '../components/SEO';
 import { UserCog, FileText, Server, BookCopy, Store, Languages, Palette, Search, ShieldCheck, ShieldQuestion, Bell, LayoutGrid, Users } from 'lucide-react';
-import { logAdminPageVisit } from '../lib/api'; // Import the new logging function
+import { logAdminPageVisit, sendDiscordLog } from '../lib/api'; 
+import { useConfig } from '../contexts/ConfigContext';
 
-// Import the new layout and panel components
+// Import Panels
 import AdminLayout from '../components/admin/AdminLayout';
 import SubmissionsPanel from '../components/admin/SubmissionsPanel';
 import QuizzesPanel from '../components/admin/QuizzesPanel';
@@ -22,9 +23,8 @@ import PermissionsPanel from '../components/admin/PermissionsPanel';
 import AuditLogPanel from '../components/admin/AuditLogPanel';
 import AdminDashboard from '../components/admin/AdminDashboard';
 import NotificationsPanel from '../components/admin/NotificationsPanel';
-import WidgetsPanel from '../components/admin/WidgetsPanel'; // New Import
-import StaffPanel from '../components/admin/StaffPanel'; // New Staff Panel Import
-
+import WidgetsPanel from '../components/admin/WidgetsPanel'; 
+import StaffPanel from '../components/admin/StaffPanel'; 
 
 export type AdminTab = 'dashboard' | 'submissions' | 'quizzes' | 'rules' | 'store' | 'translations' | 'appearance' | 'lookup' | 'permissions' | 'audit' | 'notifications' | 'widgets' | 'staff';
 
@@ -47,16 +47,14 @@ export const TABS: { id: AdminTab; labelKey: string; icon: React.ElementType; pe
 const AdminPage: React.FC = () => {
     const { t } = useLocalization();
     const { hasPermission, user, loading } = useAuth();
+    const { config } = useConfig();
     const navigate = useNavigate();
-    const hasLoggedVisit = useRef(false);
-
+    
     const accessibleTabs = TABS.filter(tab => hasPermission(tab.permission));
     const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
 
     useEffect(() => {
-        if (!loading && !user) {
-            navigate('/');
-        }
+        if (!loading && !user) navigate('/');
     }, [user, loading, navigate]);
     
     useEffect(() => {
@@ -65,17 +63,26 @@ const AdminPage: React.FC = () => {
         }
     }, [accessibleTabs, activeTab]);
     
-    // NEW: Effect to log page visits within the admin panel
+    // --- AUDIT TRAIL: LOG ADMIN NAVIGATION ---
     useEffect(() => {
         if (user && hasPermission('admin_panel')) {
-            // Avoid logging the initial "dashboard" load as a separate action from "Accessed Admin Panel"
-            if (activeTab === 'dashboard' && !hasLoggedVisit.current) {
-                hasLoggedVisit.current = true;
-                return;
-            }
-            logAdminPageVisit(activeTab).catch(err => console.error("Failed to log page visit:", err));
+            const pageName = TABS.find(t => t.id === activeTab)?.labelKey || activeTab;
+            const translatedPage = t(pageName);
+            
+            // 1. Log to Database
+            logAdminPageVisit(translatedPage).catch(err => console.error("Failed to log visit:", err));
+            
+            // 2. Optional: Log to Discord (only for sensitive areas if needed, or all)
+            // For "Giant Detailed System", we will log it.
+            const embed = {
+                description: `قام المشرف **${user.username}** بالدخول إلى صفحة: **${translatedPage}**`,
+                color: 0x808080, // Grey
+                footer: { text: "سجل التصفح" }
+            };
+            // Using 'admin' type which routes to Admin Log Channel
+            sendDiscordLog(config, embed, 'admin');
         }
-    }, [activeTab, user, hasPermission]);
+    }, [activeTab, user, hasPermission, config, t]);
 
     const renderActivePanel = () => {
         switch(activeTab) {
