@@ -7,7 +7,8 @@ import { useConfig } from '../contexts/ConfigContext';
 import Logo from './Logo';
 import CartModal from './CartModal';
 import LoginCaptchaModal from './LoginCaptchaModal';
-import { Globe, ChevronDown, LogIn, LogOut, Loader2, ShoppingCart, UserCog, FileText, User, Menu, X } from 'lucide-react';
+import { Globe, ChevronDown, LogOut, Loader2, ShoppingCart, UserCog, FileText, User, Menu, X } from 'lucide-react';
+import DiscordLogo from './icons/DiscordLogo';
 
 const NavLink: React.FC<{ to: string; children: React.ReactNode; onClick?: () => void }> = ({ to, children, onClick }) => (
     <RouterNavLink
@@ -138,7 +139,7 @@ const Navbar: React.FC = () => {
                     disabled={loading}
                     className="bg-gradient-to-r from-primary-blue to-accent-cyan text-background-dark font-bold py-2 px-5 rounded-lg hover:opacity-90 hover:shadow-glow-blue transition-all duration-300 flex items-center gap-2 disabled:opacity-50 disabled:cursor-wait"
                   >
-                    {loading ? <Loader2 size={20} className="animate-spin" /> : <LogIn size={20} />}
+                    {loading ? <Loader2 size={20} className="animate-spin" /> : <DiscordLogo className="w-5 h-5" />}
                     <span className="hidden sm:inline">{t('login_discord')}</span>
                   </button>
                 )}

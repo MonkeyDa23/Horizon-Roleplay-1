@@ -1,10 +1,10 @@
-
 import React, { useState } from 'react';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { useConfig } from '../contexts/ConfigContext';
 import Modal from '../components/Modal';
-import { Disc3, Gamepad2 } from 'lucide-react';
+import { Gamepad2 } from 'lucide-react';
 import SEO from '../components/SEO';
+import DiscordLogo from '../components/icons/DiscordLogo';
 
 const HomePage: React.FC = () => {
   const { t } = useLocalization();
@@ -52,7 +52,7 @@ const HomePage: React.FC = () => {
             rel="noopener noreferrer"
             className="group flex items-center justify-center gap-4 w-full p-4 bg-[#5865F2] text-white font-bold rounded-lg hover:bg-[#4f5bda] transition-all duration-300 transform hover:scale-105"
           >
-            <Disc3 size={24} className="transition-transform duration-300 group-hover:rotate-180" />
+            <DiscordLogo className="w-6 h-6 transition-transform duration-300 group-hover:rotate-12" />
             <span>{t('join_discord')}</span>
           </a>
           <a
