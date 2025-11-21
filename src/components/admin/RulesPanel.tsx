@@ -69,9 +69,10 @@ const RulesPanel: React.FC = () => {
             await refreshTranslations();
             
             // --- DETAILED LOG ---
+            const totalRules = categories.reduce((acc, cat) => acc + cat.rules.length, 0);
             const embed = {
-                title: "📚 تحديث القوانين",
-                description: `قام المشرف **${user.username}** بتحديث قائمة القوانين.\n\nعدد الأقسام الحالية: **${categories.length}**`,
+                title: "📚 تحديث القوانين العامة",
+                description: `قام المشرف **${user.username}** بحفظ تعديلات على صفحة القوانين.\n\n**الإحصائيات:**\n- عدد الأقسام: ${categories.length}\n- إجمالي القوانين: ${totalRules}`,
                 color: 0xFFA500, // Orange
                 author: { name: user.username, icon_url: user.avatar },
                 timestamp: new Date().toISOString(),

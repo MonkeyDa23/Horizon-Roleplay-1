@@ -120,6 +120,7 @@ const QuizzesPanel: React.FC = () => {
         if (!editingQuiz || !user) return;
         setIsSaving(true);
         try {
+            const isNew = !quizzes.find(q => q.id === editingQuiz.id);
             await saveQuiz(editingQuiz);
             setEditingQuiz(null);
             await refreshTranslations();
@@ -129,12 +130,12 @@ const QuizzesPanel: React.FC = () => {
 
             // --- DETAILED LOG ---
             const embed = {
-                title: "📝 تعديل نماذج التقديم",
-                description: `قام المشرف **${user.username}** بحفظ تغييرات على نموذج التقديم **${editingQuiz.titleAr || editingQuiz.titleEn}**.\n\n**الحالة:** ${editingQuiz.isOpen ? 'مفتوح ✅' : 'مغلق ⛔'}\n**عدد الأسئلة:** ${editingQuiz.questions.length}`,
-                color: 0xFFA500, // Orange
+                title: isNew ? "📝 إنشاء تقديم جديد" : "📝 تعديل تقديم",
+                description: `قام المشرف **${user.username}** ${isNew ? 'بإنشاء' : 'بتعديل'} نموذج التقديم **${editingQuiz.titleAr || editingQuiz.titleEn}**.\n\n**الحالة:** ${editingQuiz.isOpen ? 'مفتوح ✅' : 'مغلق ⛔'}\n**عدد الأسئلة:** ${editingQuiz.questions.length}\n**الرتب المسموحة:** ${editingQuiz.allowedTakeRoles.length > 0 ? editingQuiz.allowedTakeRoles.join(', ') : 'الكل'}`,
+                color: isNew ? 0x22C55E : 0xFFA500,
                 author: { name: user.username, icon_url: user.avatar },
                 timestamp: new Date().toISOString(),
-                footer: { text: "سجل التعديلات" }
+                footer: { text: "سجل التقديمات" }
             };
             await sendDiscordLog(config, embed, 'admin');
 
@@ -154,11 +155,11 @@ const QuizzesPanel: React.FC = () => {
                 // --- DETAILED LOG ---
                 const embed = {
                     title: "🗑️ حذف تقديم",
-                    description: `قام المشرف **${user.username}** بحذف نموذج التقديم **${t(quiz.titleKey)}** نهائياً.`,
+                    description: `قام المشرف **${user.username}** بحذف نموذج التقديم **${t(quiz.titleKey)}** وجميع البيانات المرتبطة به نهائياً.`,
                     color: 0xEF4444, // Red
                     author: { name: user.username, icon_url: user.avatar },
                     timestamp: new Date().toISOString(),
-                    footer: { text: "سجل الحذف" }
+                    footer: { text: "سجل التقديمات" }
                 };
                 await sendDiscordLog(config, embed, 'admin');
 

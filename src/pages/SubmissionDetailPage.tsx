@@ -65,25 +65,14 @@ const SubmissionDetailPage: React.FC = () => {
                 title: status === 'accepted' ? '✅ تم قبول التقديم' : '❌ تم رفض التقديم',
                 description: `**المتقدم:** ${applicantName}\n**الإداري:** ${adminName}\n**التقديم:** ${quizName}\n**السبب:** ${reasonText}`,
                 color: status === 'accepted' ? 0x22C55E : 0xEF4444,
+                author: { name: adminName, icon_url: user.avatar },
                 timestamp: new Date().toISOString(),
                 footer: { text: 'سجلات التقديمات' }
             };
             await sendDiscordLog(config, logEmbed, 'submission');
 
             // 3. Send DM to Applicant
-            // We need to know the applicant's Discord ID.
-            // NOTE: The 'submission' object in database needs to have 'discord_id' or be joined with profiles.
-            // Assuming the backend provides it or we stored it in submission table. 
-            // If using older submissions without discord_id, we fall back to user lookup if user_id is present.
-            
-            let targetId = (submission as any).discord_id; // Requires DB column
-            if (!targetId && submission.user_id) {
-               // Try to get it from profile if not on submission object directly (legacy support)
-               // For this code to work perfectly, ensure `addSubmission` saves discord_id.
-            }
-
-            // Note: In the updated QuizPage, we added `discord_id` to `addSubmission`. 
-            // So new submissions will have it.
+            let targetId = (submission as any).discord_id; 
             
             if (targetId) {
                 const dmEmbed = {
@@ -96,8 +85,6 @@ const SubmissionDetailPage: React.FC = () => {
                     footer: { text: config.COMMUNITY_NAME }
                 };
                 await sendDiscordLog(config, dmEmbed, 'dm', targetId);
-            } else {
-                showToast("لم يتم العثور على معرف ديسكورد للمستخدم لإرسال الرسالة الخاصة.", "info");
             }
 
             showToast(`تم ${status === 'accepted' ? 'قبول' : 'رفض'} التقديم وإرسال السجلات.`, 'success');
@@ -117,12 +104,14 @@ const SubmissionDetailPage: React.FC = () => {
             await updateSubmissionStatus(submission.id, 'taken');
             showToast('تم استلام الطلب.', 'success');
             
-            // Optional: Log that admin took the ticket
+            // Log that admin took the ticket
             const logEmbed = {
                 title: '✋ استلام تقديم',
                 description: `قام المشرف **${user?.username}** باستلام تقديم **${submission.quizTitle}** الخاص بـ **${submission.username}** للمراجعة.`,
                 color: 0xFFA500, // Orange
-                timestamp: new Date().toISOString()
+                author: { name: user?.username, icon_url: user?.avatar },
+                timestamp: new Date().toISOString(),
+                footer: { text: "سجل التقديمات" }
             };
             sendDiscordLog(config, logEmbed, 'submission');
 

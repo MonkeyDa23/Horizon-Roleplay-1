@@ -11,7 +11,7 @@ import type { AppConfig } from '../../types';
 import { Loader2 } from 'lucide-react';
 
 const AppearancePanel: React.FC = () => {
-    const { t, language } = useLocalization();
+    const { t } = useLocalization();
     const { showToast } = useToast();
     const { config, configLoading, refreshConfig } = useConfig();
     const { user } = useAuth();
@@ -32,18 +32,16 @@ const AppearancePanel: React.FC = () => {
             await refreshConfig(); // Refresh global config context
             showToast(t('config_updated_success'), 'success');
 
-            // Log action to DB and Discord
-            const action = `Admin ${user.username} updated Appearance Settings.`;
-            supabase.rpc('log_admin_action', { p_action: action, p_log_type: 'admin' });
-
+            // --- DETAILED LOG ---
             const embed = {
-                title: t('log_settings_updated_title'),
-                description: t('log_appearance_updated_desc', { adminUsername: user.username }),
+                title: "⚙️ تحديث الإعدادات العامة",
+                description: `قام المشرف **${user.username}** بتحديث إعدادات المظهر والربط في الموقع.`,
                 color: 0xFFA500, // Orange
                 author: { name: user.username, icon_url: user.avatar },
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                footer: { text: "سجل الإعدادات" }
             };
-            sendDiscordLog(config, embed, 'admin', language);
+            await sendDiscordLog(config, embed, 'admin');
 
         } catch (error) {
             showToast((error as Error).message, 'error');

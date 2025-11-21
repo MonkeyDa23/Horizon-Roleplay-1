@@ -77,7 +77,7 @@ const StaffPanel: React.FC = () => {
             // --- DETAILED LOG ---
             const embed = {
                 title: "👥 تحديث فريق العمل",
-                description: `قام المشرف **${user.username}** بتحديث قائمة فريق العمل.\nعدد الأعضاء الحالي: **${staff.length}**`,
+                description: `قام المشرف **${user.username}** بتحديث قائمة فريق العمل المعروضة في صفحة 'من نحن'.\n\n**عدد الأعضاء الحالي:** ${staff.length}`,
                 color: 0xFFA500, // Orange
                 author: { name: user.username, icon_url: user.avatar },
                 timestamp: new Date().toISOString(),

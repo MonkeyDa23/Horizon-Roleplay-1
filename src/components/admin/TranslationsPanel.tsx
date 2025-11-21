@@ -50,15 +50,16 @@ const TranslationsPanel: React.FC = () => {
             await saveTranslations(editableTranslations);
             showToast(t('save_translations'), 'success');
 
-            // --- AUDIT LOG ---
+            // --- DETAILED LOG ---
             const embed = {
                 title: "🌐 تحديث الترجمات",
                 description: `قام المشرف **${user.username}** بتحديث نصوص وترجمات الموقع.`,
                 color: 0xFFA500, // Orange
                 author: { name: user.username, icon_url: user.avatar },
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                footer: { text: "سجل الإعدادات" }
             };
-            sendDiscordLog(config, embed, 'admin');
+            await sendDiscordLog(config, embed, 'admin');
 
         } catch (error) {
             showToast((error as Error).message, 'error');

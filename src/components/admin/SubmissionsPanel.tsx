@@ -4,7 +4,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalization } from '../../contexts/LocalizationContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
-import { getSubmissions, deleteSubmission, updateSubmissionStatus } from '../../lib/api';
+import { useConfig } from '../../contexts/ConfigContext';
+import { getSubmissions, deleteSubmission, updateSubmissionStatus, sendDiscordLog } from '../../lib/api';
 import type { QuizSubmission, SubmissionStatus } from '../../types';
 import { Eye, Loader2, Trash2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -25,6 +26,7 @@ const Panel: React.FC<{ children: React.ReactNode; isLoading: boolean, loadingTe
 const SubmissionsPanel: React.FC = () => {
     const { t } = useLocalization();
     const { user, hasPermission } = useAuth();
+    const { config } = useConfig();
     const { showToast } = useToast();
     const [submissions, setSubmissions] = useState<QuizSubmission[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -46,22 +48,47 @@ const SubmissionsPanel: React.FC = () => {
     }, [fetchData]);
 
     const handleDelete = async (submission: QuizSubmission) => {
+        if (!user) return;
         if (window.confirm(t('delete_submission_confirm', { username: submission.username, quizTitle: submission.quizTitle }))) {
             try {
                 await deleteSubmission(submission.id);
                 showToast(t('submission_deleted_success'), 'success');
                 fetchData();
+
+                // --- LOG ---
+                const embed = {
+                    title: "🗑️ حذف تقديم",
+                    description: `قام المشرف **${user.username}** بحذف تقديم **${submission.quizTitle}** الخاص بالمستخدم **${submission.username}**.`,
+                    color: 0xEF4444, // Red
+                    author: { name: user.username, icon_url: user.avatar },
+                    timestamp: new Date().toISOString(),
+                    footer: { text: "سجل التقديمات" }
+                };
+                await sendDiscordLog(config, embed, 'admin');
+
             } catch (e) {
                 showToast((e as Error).message, 'error');
             }
         }
     };
     
-    // Simple take order function for the list view (optional quick action)
-    const handleQuickTake = async (id: string) => {
+    const handleQuickTake = async (id: string, submission: QuizSubmission) => {
+        if (!user) return;
         try {
             await updateSubmissionStatus(id, 'taken');
             showToast('Order taken successfully.', 'success');
+            
+            // --- LOG ---
+            const embed = {
+                title: "✋ استلام تقديم",
+                description: `قام المشرف **${user.username}** باستلام تقديم **${submission.quizTitle}** الخاص بـ **${submission.username}**.`,
+                color: 0xFFA500, // Orange
+                author: { name: user.username, icon_url: user.avatar },
+                timestamp: new Date().toISOString(),
+                footer: { text: "سجل التقديمات" }
+            };
+            await sendDiscordLog(config, embed, 'submission'); // Log to submissions channel usually
+
             fetchData();
         } catch (e) {
             showToast((e as Error).message, 'error');
@@ -107,7 +134,7 @@ const SubmissionsPanel: React.FC = () => {
                                             {/* Quick Take Action if Pending */}
                                             {sub.status === 'pending' && (
                                                  <button 
-                                                    onClick={() => handleQuickTake(sub.id)} 
+                                                    onClick={() => handleQuickTake(sub.id, sub)} 
                                                     className="bg-brand-cyan/20 text-brand-cyan font-bold py-1 px-3 rounded-md text-sm transition-colors hover:bg-brand-cyan/40"
                                                 >
                                                     {t('take_order')}

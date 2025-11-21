@@ -87,6 +87,7 @@ const StorePanel: React.FC = () => {
         if (!editingProduct || !user) return;
         setIsSaving(true);
         try {
+            const isNew = !products.find(p => p.id === editingProduct.id);
             await saveProduct(editingProduct);
             setEditingProduct(null);
             await refreshTranslations();
@@ -96,10 +97,11 @@ const StorePanel: React.FC = () => {
 
             // --- DETAILED LOG ---
             const embed = {
-                title: "🛒 تحديث المنتج",
-                description: `قام المشرف **${user.username}** بحفظ تغييرات على المنتج **${editingProduct.nameAr || editingProduct.nameEn}**.\n\n**السعر:** $${editingProduct.price}`,
-                color: 0xFFA500, // Orange
+                title: isNew ? "🆕 منتج جديد" : "🛒 تحديث منتج",
+                description: `قام المشرف **${user.username}** ${isNew ? 'بإضافة' : 'بتعديل'} منتج في المتجر.\n\n**الاسم:** ${editingProduct.nameAr || editingProduct.nameEn}\n**السعر:** $${editingProduct.price}\n**الوصف:** ${editingProduct.descriptionAr || editingProduct.descriptionEn}`,
+                color: isNew ? 0x22C55E : 0xFFA500,
                 author: { name: user.username, icon_url: user.avatar },
+                thumbnail: { url: editingProduct.imageUrl },
                 timestamp: new Date().toISOString(),
                 footer: { text: "سجل المتجر" }
             };
@@ -124,6 +126,7 @@ const StorePanel: React.FC = () => {
                     description: `قام المشرف **${user.username}** بحذف المنتج **${t(product.nameKey)}** نهائياً من المتجر.`,
                     color: 0xEF4444, // Red
                     author: { name: user.username, icon_url: user.avatar },
+                    thumbnail: { url: product.imageUrl },
                     timestamp: new Date().toISOString(),
                     footer: { text: "سجل المتجر" }
                 };
@@ -158,7 +161,7 @@ const StorePanel: React.FC = () => {
             // --- DETAILED LOG ---
             const embed = {
                 title: "📂 تحديث أقسام المتجر",
-                description: `قام المشرف **${user.username}** بتحديث هيكلة أقسام المتجر.\nعدد الأقسام الحالية: **${categories.length}**`,
+                description: `قام المشرف **${user.username}** بتحديث هيكلة أقسام المتجر.\n\n**عدد الأقسام الحالية:** ${categories.length}`,
                 color: 0xFFA500, // Orange
                 author: { name: user.username, icon_url: user.avatar },
                 timestamp: new Date().toISOString(),

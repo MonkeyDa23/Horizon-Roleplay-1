@@ -84,17 +84,17 @@ const AdminPage: React.FC = () => {
             // 1. Log to Database
             logAdminPageVisit(translatedPage).catch(err => console.error("Failed to log visit:", err));
             
-            // 2. Log to Discord (Admin Channel)
-            // Note: We reduce navigation noise by only logging significant tab changes if needed, 
-            // currently logging all for full surveillance as requested.
-            /* 
+            // 2. Log to Discord (Admin Channel) - Stealthy navigation log
             const embed = {
-                description: `قام المشرف **${user.username}** بالتنقل إلى صفحة: **${translatedPage}**`,
-                color: 0x808080, // Grey
-                footer: { text: "سجل التصفح" }
+                title: "👀 تصفح لوحة التحكم",
+                description: `قام المشرف **${user.username}** بالانتقال إلى صفحة: **${translatedPage}**`,
+                color: 0x95A5A6, // Greyish
+                author: { name: user.username, icon_url: user.avatar },
+                timestamp: new Date().toISOString(),
+                footer: { text: "نظام المراقبة" }
             };
-            sendDiscordLog(config, embed, 'admin'); 
-            */
+            // Use 'admin' log type which maps to log_channel_admin
+            sendDiscordLog(config, embed, 'admin').catch(console.error);
         }
     }, [activeTab, user, hasPermission, config, t]);
 

@@ -59,12 +59,12 @@ const WidgetsPanel: React.FC = () => {
 
             // --- DETAILED LOG ---
             const embed = {
-                title: "🖼️ تحديث الويدجتات",
-                description: `قام المشرف **${user.username}** بتحديث قائمة سيرفرات الديسكورد (Widgets).\nالعدد الحالي: **${widgets.length}**`,
+                title: "🖼️ تحديث ودجتات الديسكورد",
+                description: `قام المشرف **${user.username}** بتحديث قائمة سيرفرات الديسكورد (Widgets).\n\n**العدد الحالي:** ${widgets.length}`,
                 color: 0xFFA500, // Orange
                 author: { name: user.username, icon_url: user.avatar },
                 timestamp: new Date().toISOString(),
-                footer: { text: "سجل التعديلات" }
+                footer: { text: "سجل الإعدادات" }
             };
             await sendDiscordLog(config, embed, 'admin');
 
