@@ -44,17 +44,25 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
         
         if (errorMessage.includes('Bad Gateway') || errorMessage.includes('502')) {
              steps.push(
-                <div className="bg-red-500/10 p-3 rounded border border-red-500/30">
-                    <strong className="text-red-300 block mb-2">Cannot Connect to Bot (502 Error)</strong>
-                    <p className="text-sm mb-2">The website server could not reach your bot. The bot might be offline, or the IP/Port changed.</p>
+                <div className="bg-red-500/10 p-4 rounded border border-red-500/30 text-left">
+                    <strong className="text-red-300 block mb-2 text-lg flex items-center gap-2"><AlertTriangle/> Cannot Connect to Bot (502 Error)</strong>
+                    <p className="text-sm mb-3 text-gray-300">The website server could not reach your bot. This almost always means the <strong>URL or Port</strong> is wrong, or you forgot to Redeploy.</p>
+                    
                     {errorMessage.includes('Target:') && (
-                        <div className="bg-black/30 p-2 rounded font-mono text-xs break-all">
-                            <strong>Tried to connect to:</strong><br/>
-                            {errorMessage.split('Target: ')[1].replace(')', '')}
+                        <div className="bg-black/30 p-2 rounded font-mono text-xs break-all mb-3 border border-gray-700">
+                            <strong className="text-gray-500 block mb-1">Tried connecting to:</strong>
+                            <span className="text-brand-cyan">{errorMessage.split('Target: ')[1].replace(')', '')}</span>
                         </div>
                     )}
-                    <p className="text-xs mt-2 text-gray-400 font-bold">Did you move your bot recently?</p>
-                    <p className="text-xs text-gray-400">Update <code>VITE_DISCORD_BOT_URL</code> in Vercel and <strong>Redeploy</strong>.</p>
+                    
+                    <div className="bg-black/20 p-3 rounded">
+                        <p className="text-sm font-bold text-white mb-2">Solution Checklist:</p>
+                        <ol className="list-decimal list-inside text-sm text-gray-300 space-y-2">
+                            <li><strong>Check Bot Console:</strong> Restart your bot. It will print the correct port.</li>
+                            <li><strong>Verify Vercel Env:</strong> Does <code>VITE_DISCORD_BOT_URL</code> match that IP & Port?</li>
+                            <li><strong className="text-yellow-400">DID YOU REDEPLOY?</strong> Changing Env Vars DOES NOT work until you go to Deployments and click <strong>Redeploy</strong>.</li>
+                        </ol>
+                    </div>
                 </div>
              );
         } else if (errorMessage.includes('proxy')) {
@@ -74,7 +82,8 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
                 <div className="text-gray-200 mt-1 space-y-3">
                    {steps.map((item, index) => (
                        <div key={index} className="flex items-start gap-3">
-                           <span className="mt-1 font-bold text-yellow-300">{index + 1}.</span>
+                           {/* Only show number if it's not the big 502 box */}
+                           {!errorMessage.includes('502') && <span className="mt-1 font-bold text-yellow-300">{index + 1}.</span>}
                            <div className="w-full">{item}</div>
                        </div>
                    ))}

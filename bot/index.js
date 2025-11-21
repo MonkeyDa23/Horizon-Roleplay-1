@@ -3,7 +3,7 @@ import 'dotenv/config';
 import { Client, GatewayIntentBits, Partials } from 'discord.js';
 import { createApi } from './api.js';
 
-console.log('Starting Vixel Bot Core v2.7 (Katbump/Panel Ready)...');
+console.log('Starting Vixel Bot Core v2.9 (Root Cause Fix)...');
 
 // --- CLIENT SETUP ---
 const client = new Client({
@@ -24,7 +24,6 @@ const botState = {
 };
 
 // --- API SERVER STARTUP (IMMEDIATE) ---
-// Start the API server FIRST so the frontend gets a response immediately.
 const app = createApi(client, botState);
 
 // Wispbyte/Pterodactyl/Katbump usually inject the assigned port as SERVER_PORT.
@@ -34,13 +33,15 @@ const PORT = process.env.SERVER_PORT || process.env.PORT || 3001;
 // CRITICAL: Bind to '0.0.0.0' to accept connections from outside (Required for Docker/Panels)
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n===================================================`);
+  console.log(`✅ BOT IS RUNNING AND LISTENING!`);
+  console.log(`---------------------------------------------------`);
   console.log(`🚀 API Server listening on: 0.0.0.0:${PORT}`);
   console.log(`---------------------------------------------------`);
-  console.log(`IMPORTANT: This port (${PORT}) must match your Vercel Config.`);
-  console.log(`If you are using Katbump/Wispbyte:`);
-  console.log(`1. Look at the 'Network' tab in your panel.`);
-  console.log(`2. Use the Public IP and Port shown there.`);
-  console.log(`3. Example: http://51.75.118.170:${PORT}`);
+  console.log(`⚠️  ACTION REQUIRED: CONFIGURE VERCEL ⚠️`);
+  console.log(`1. Copy the port number above: ${PORT}`);
+  console.log(`2. Go to Vercel Settings > Environment Variables.`);
+  console.log(`3. Set VITE_DISCORD_BOT_URL = http://<YOUR_SERVER_IP>:${PORT}`);
+  console.log(`4. IMPORTANT: Click 'Redeploy' in Vercel deployments.`);
   console.log(`===================================================\n`);
   
   // Only AFTER server is up, verify env and login
