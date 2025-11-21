@@ -78,7 +78,7 @@ const SubmissionsPanel: React.FC = () => {
             await updateSubmissionStatus(id, 'taken');
             showToast('Order taken successfully.', 'success');
             
-            // --- LOG ---
+            // --- LOG (Channel) ---
             const embed = {
                 title: "✋ استلام تقديم",
                 description: `قام المشرف **${user.username}** باستلام تقديم **${submission.quizTitle}** الخاص بـ **${submission.username}**.`,
@@ -87,7 +87,20 @@ const SubmissionsPanel: React.FC = () => {
                 timestamp: new Date().toISOString(),
                 footer: { text: "سجل التقديمات" }
             };
-            await sendDiscordLog(config, embed, 'submission'); // Log to submissions channel usually
+            await sendDiscordLog(config, embed, 'submission');
+
+            // --- DM to User (New Requirement) ---
+            const targetId = (submission as any).discord_id; 
+            if (targetId) {
+                const dmEmbed = {
+                    title: `✋ تم استلام تقديمك`,
+                    description: `مرحباً، تم استلام تقديمك لـ **${submission.quizTitle}** وهو الآن قيد المراجعة الدقيقة من قبل المشرف **${user.username}**.`,
+                    color: 0xFFA500,
+                    timestamp: new Date().toISOString(),
+                    footer: { text: config.COMMUNITY_NAME }
+                };
+                await sendDiscordLog(config, dmEmbed, 'dm', targetId);
+            }
 
             fetchData();
         } catch (e) {

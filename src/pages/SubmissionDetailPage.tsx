@@ -71,16 +71,43 @@ const SubmissionDetailPage: React.FC = () => {
             };
             await sendDiscordLog(config, logEmbed, 'submission');
 
-            // 3. Send DM to Applicant
+            // 3. Send DM to Applicant (Structured Format Requested)
+            // Name, Avatar, Quiz Title, Date
             let targetId = (submission as any).discord_id; 
             
             if (targetId) {
+                // Fetch actual user avatar for the embed if possible, or use submission stored one
+                let userAvatar = user.avatar; // Default to admin avatar? No, request wanted USER avatar.
+                // Since we don't have user object here, we assume we use the one from submission or perform a lookup.
+                // The submission object doesn't typically store the avatar URL permanently, so we might need to rely on standard discord avatar logic or just omit if not available.
+                // However, we have `submission` loaded. Let's see.
+                // The submission type doesn't have avatar_url. But we can look it up if we really need to be precise, or just use a generic user icon.
+                // Actually, we logged it in the initial submission log.
+                // Let's use a simple user icon or try to construct it if we had the hash. 
+                // For now, we will use the Guild Logo or similar as thumbnail for the RESULT, effectively.
+                // OR, we can use the admin's avatar as "Processed By".
+                // Re-reading request: "رسالة الي ترسل للمستخدم يكون فيها اسمه وصورته واسم التقديم الي قدمله وتاري التقديم فقط"
+                // Okay, it wants the USER'S avatar. We don't have it stored in `submissions` table. 
+                // We can try to fetch it via lookup, or skip. Let's try to be robust.
+                
+                let applicantAvatarUrl = "";
+                try {
+                    const applicantProfile = await lookupUser(targetId);
+                    applicantAvatarUrl = applicantProfile.avatar;
+                } catch (e) {
+                    console.log("Could not fetch applicant avatar for DM");
+                }
+
                 const dmEmbed = {
-                    title: status === 'accepted' ? '🎉 مبروك! تم قبول تقديمك' : 'تم تحديث حالة تقديمك',
-                    description: status === 'accepted' 
-                        ? `تهانينا! لقد تم قبول تقديمك لـ **${quizName}** بنجاح.\n\n**السبب/ملاحظات:**\n${reasonText}\n\nيرجى التواصل مع الإدارة لاستكمال الإجراءات.` 
-                        : `نأسف لإبلاغك بأنه تم رفض تقديمك لـ **${quizName}**.\n\n**السبب:**\n${reasonText}\n\nحظاً أوفر في المرة القادمة.`,
+                    title: status === 'accepted' ? '🎉 مبروك! تم قبول تقديمك' : '❌ نأسف، تم رفض تقديمك',
                     color: status === 'accepted' ? 0x22C55E : 0xEF4444,
+                    thumbnail: { url: applicantAvatarUrl || config.LOGO_URL },
+                    fields: [
+                        { name: "👤 الاسم", value: applicantName, inline: true },
+                        { name: "📄 التقديم", value: quizName, inline: true },
+                        { name: "📅 التاريخ", value: new Date(submission.submittedAt).toLocaleDateString('en-GB'), inline: true },
+                        { name: "📝 السبب/الملاحظات", value: reasonText }
+                    ],
                     timestamp: new Date().toISOString(),
                     footer: { text: config.COMMUNITY_NAME }
                 };
@@ -114,6 +141,19 @@ const SubmissionDetailPage: React.FC = () => {
                 footer: { text: "سجل التقديمات" }
             };
             sendDiscordLog(config, logEmbed, 'submission');
+
+            // Send DM to user
+            let targetId = (submission as any).discord_id;
+            if (targetId) {
+                 const dmEmbed = {
+                    title: `✋ تم استلام تقديمك`,
+                    description: `مرحباً، تم استلام تقديمك لـ **${submission.quizTitle}** وهو الآن قيد المراجعة من قبل المشرف **${user?.username}**.`,
+                    color: 0xFFA500,
+                    timestamp: new Date().toISOString(),
+                    footer: { text: config.COMMUNITY_NAME }
+                };
+                await sendDiscordLog(config, dmEmbed, 'dm', targetId);
+            }
 
             fetchSubmission();
         } catch (e) {

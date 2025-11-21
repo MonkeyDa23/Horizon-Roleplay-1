@@ -110,24 +110,31 @@ const QuizPage: React.FC = () => {
         discord_id: user.discordId
       });
 
-      // 2. Log to Admin Channel (Detailed)
+      // 2. Log to Admin Channel (Detailed with Direct Link)
       const hasCheated = cheatLog.length > 0;
+      const adminLink = `${window.location.origin}/admin/submissions/${submission.id}`;
+      
       const adminEmbed = {
         title: "📝 تقديم جديد وصل!",
-        description: `قام **${user.username}** بإرسال تقديم جديد لـ **${t(quiz.titleKey)}**.\n\n**معلومات:**\n- المعرف: \`${submission.id}\`\n- الرتبة: ${user.highestRole?.name || 'عضو'}\n- الغش: ${hasCheated ? `⚠️ **${cheatLog.length} محاولة!**` : "✅ نظيف"}`,
+        description: `قام **${user.username}** بإرسال تقديم جديد.\n\n**تفاصيل المتقدم:**\n👤 **الاسم:** ${user.username}\n🔰 **الرتبة:** ${user.highestRole?.name || 'عضو'}\n📄 **التقديم:** ${t(quiz.titleKey)}\n⚠️ **حالة الغش:** ${hasCheated ? `**مشبوه (${cheatLog.length})**` : "نظيف"}\n\n🔗 **[رابط التقديم المباشر (للاتخاذ إجراء)](${adminLink})**`,
         color: hasCheated ? 0xEF4444 : 0x3B82F6, 
         thumbnail: { url: user.avatar },
         timestamp: new Date().toISOString(),
         footer: { text: "نظام التقديمات الذكي" }
       };
-      // Send to "Submissions Channel"
       sendDiscordLog(config, adminEmbed, 'submission');
 
-      // 3. Send Receipt DM to User
+      // 3. Send Receipt DM to User (Name, Avatar, Quiz, Date ONLY)
       const userReceiptEmbed = {
-          title: `✅ تم استلام تقديمك لـ ${t(quiz.titleKey)}`,
-          description: `أهلاً **${user.username}**،\n\nلقد وصلنا طلبك بنجاح. سيقوم فريق الإدارة بمراجعته قريباً. ستصلك رسالة هنا عند اتخاذ القرار.\n\nرقم الطلب: \`${submission.id}\``,
+          title: `✅ تم استلام تقديمك بنجاح`,
+          description: `مرحباً بك، تم استلام طلبك بنجاح وهو قيد المراجعة.`,
           color: 0x22C55E, // Green
+          thumbnail: { url: user.avatar },
+          fields: [
+              { name: "👤 الاسم", value: user.username, inline: true },
+              { name: "📄 التقديم", value: t(quiz.titleKey), inline: true },
+              { name: "📅 التاريخ", value: new Date().toLocaleDateString('en-GB'), inline: true }
+          ],
           timestamp: new Date().toISOString(),
           footer: { text: config.COMMUNITY_NAME }
       };

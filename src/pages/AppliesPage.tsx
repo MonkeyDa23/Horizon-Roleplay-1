@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { useAuth } from '../contexts/AuthContext';
 import { getQuizzes, getSubmissionsByUserId } from '../lib/api';
 import type { Quiz, QuizSubmission } from '../types';
-import { FileText, Lock, Check, Image as ImageIcon } from 'lucide-react';
+import { FileText, Lock, Check, Image as ImageIcon, Clock } from 'lucide-react';
 import { useConfig } from '../contexts/ConfigContext';
 import SEO from '../components/SEO';
 
@@ -53,18 +54,33 @@ const AppliesPage: React.FC = () => {
   );
 
   const getApplyButton = (quiz: Quiz) => {
-      // New logic: Check if the user has applied in the current "season"
-      // A season is defined by the last time the quiz was opened.
-      const hasAppliedInCurrentSeason = quiz.lastOpenedAt
+      // 1. Strict Check: Does user have an active submission (Pending or Taken)?
+      // If yes, BLOCK APPLICATION completely until admin takes action.
+      const activeSubmission = userSubmissions.find(sub => 
+        sub.quizId === quiz.id && 
+        (sub.status === 'pending' || sub.status === 'taken')
+      );
+
+      if (activeSubmission) {
+        return (
+          <button disabled className="w-full bg-yellow-500/20 text-yellow-300 font-bold py-3 px-8 rounded-lg flex items-center justify-center gap-2 cursor-not-allowed border border-yellow-500/30">
+            <Clock size={20} />
+            {t('status_pending')} / {t('status_taken')}
+          </button>
+        );
+      }
+
+      // 2. Check if user was already accepted/refused in the CURRENT season (optional, prevents spamming after rejection)
+      // Only applies if lastOpenedAt is set.
+      const hasFinishedInCurrentSeason = quiz.lastOpenedAt
         ? userSubmissions.some(sub => 
             sub.quizId === quiz.id && 
             new Date(sub.submittedAt) >= new Date(quiz.lastOpenedAt!)
           )
-        // Fallback for old quizzes that might not have this timestamp
-        : userSubmissions.some(sub => sub.quizId === quiz.id);
+        : false;
 
-      if (hasAppliedInCurrentSeason) {
-        return (
+      if (hasFinishedInCurrentSeason) {
+         return (
           <button disabled className="w-full bg-green-500/20 text-green-300 font-bold py-3 px-8 rounded-lg flex items-center justify-center gap-2 cursor-not-allowed">
             <Check size={20} />
             {t('already_applied')}
