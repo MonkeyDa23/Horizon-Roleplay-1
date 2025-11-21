@@ -1,7 +1,7 @@
 
 // src/pages/HealthCheckPage.tsx
 import React, { useState } from 'react';
-import { Loader2, CheckCircle, XCircle, AlertTriangle, HelpCircle, Server, Bot, ArrowRight, User } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, AlertTriangle, HelpCircle, Server, Bot, ArrowRight, User, ExternalLink } from 'lucide-react';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { env } from '../env';
 import { checkDiscordApiHealth, lookupUser, ApiError } from '../lib/api';
@@ -35,7 +35,9 @@ const HealthCheckPage: React.FC = () => {
             const result = await checkDiscordApiHealth();
             setBotHealth({ ok: true, ...result });
         } catch (error) {
-            setBotHealth({ ok: false, error: (error as Error).message });
+            const msg = (error as Error).message;
+            const is502 = msg.includes('502') || msg.includes('Bad Gateway');
+            setBotHealth({ ok: false, error: msg, is502 });
         } finally {
             setIsTestingBot(false);
         }
@@ -117,25 +119,17 @@ const HealthCheckPage: React.FC = () => {
                                 <ResultItem label="VITE_SUPABASE_ANON_KEY" value={env.VITE_SUPABASE_ANON_KEY} good={!!env.VITE_SUPABASE_ANON_KEY && env.VITE_SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY'} />
                                 <ResultItem label="VITE_HCAPTCHA_SITE_KEY" value={env.VITE_HCAPTCHA_SITE_KEY} good={!!env.VITE_HCAPTCHA_SITE_KEY} />
                             </div>
-                             <div className="mt-4 p-4 rounded-md bg-blue-500/10 border border-blue-500/30">
-                                <h4 className="font-bold text-blue-300 flex items-center gap-2 mb-2"><HelpCircle size={20} /> هام: مفتاح hCaptcha السري (Secret Key)</h4>
-                                <div className="text-sm text-gray-200 space-y-3">
-                                    <p>
-                                        <strong className="text-white">AR:</strong> لكي يعمل التحقق في التقديمات، يجب إضافة المفتاح السري في إعدادات سوبابيس.
-                                        اذهب إلى <strong>Project Settings &gt; Edge Functions</strong>، وأضف "Secret" جديد بالاسم <code className="bg-brand-dark px-1.5 py-0.5 rounded text-yellow-300">HCAPTCHA_SECRET_KEY</code> وضع المفتاح الخاص بك كقيمة له.
-                                    </p>
-                                    <hr className="border-blue-500/30"/>
-                                    <p>
-                                        <strong className="text-white">EN:</strong> For captcha verification to work on submissions, you must add your Secret Key to your Supabase project. 
-                                        Go to <strong>Project Settings &gt; Edge Functions</strong>, and add a new secret named <code className="bg-brand-dark px-1.5 py-0.5 rounded text-yellow-300">HCAPTCHA_SECRET_KEY</code> with your secret key as the value.
-                                    </p>
-                                </div>
-                            </div>
                         </div>
 
                         <div className="bg-brand-dark-blue p-6 rounded-lg border-2 border-brand-light-blue shadow-lg">
                             <h2 className="text-2xl font-bold text-brand-cyan mb-3">Step 2: Bot API Connection</h2>
                             <p className="text-gray-300 mb-4">Tests if the frontend can successfully connect to your running bot's API using the proxy.</p>
+                            
+                            <div className="flex items-center justify-between bg-brand-dark p-3 rounded border border-gray-700 mb-4">
+                                <span className="text-gray-400 text-sm">Target URL:</span>
+                                <code className="text-brand-cyan text-xs sm:text-sm">{env.VITE_DISCORD_BOT_URL || 'Not Configured'}</code>
+                            </div>
+
                             <button onClick={handleRunBotTest} disabled={isTestingBot} className="w-full bg-brand-cyan text-brand-dark font-bold py-3 px-6 rounded-md hover:bg-white transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-wait">
                                 {isTestingBot ? <Loader2 className="animate-spin" /> : null}
                                 <span>{isTestingBot ? t('health_check_test_running') : t('health_check_run_test')}</span>
@@ -146,12 +140,21 @@ const HealthCheckPage: React.FC = () => {
                                     {botHealth.ok ? (
                                         <div className="text-green-300 space-y-2">
                                             <p className="font-bold flex items-center gap-2"><CheckCircle/> Connection Successful!</p>
-                                            <p>The bot reported its status as: <code className="font-mono bg-green-900/50 px-1 rounded">{botHealth.status}</code>, logged in as <code className="font-mono bg-green-900/50 px-1 rounded">{botHealth.botUser}</code>.</p>
+                                            <p>The bot reported its status as: <code className="font-mono bg-green-900/50 px-1 rounded">{botHealth.status}</code>.</p>
                                         </div>
                                     ) : (
                                         <div className="text-red-400 space-y-2">
                                             <p className="font-bold flex items-center gap-2"><XCircle/> Connection Failed</p>
-                                            <p className="text-sm text-red-200 bg-red-500/10 p-2 rounded-md">{botHealth.error}</p>
+                                            <p className="text-sm text-red-200 bg-red-500/10 p-2 rounded-md font-mono break-all">{botHealth.error}</p>
+                                            
+                                            {botHealth.is502 && (
+                                                <div className="bg-yellow-500/10 border border-yellow-500/30 p-3 rounded mt-2 text-sm text-yellow-200">
+                                                    <p className="font-bold mb-1">⚠️ Firewall / Port Blocking Detected</p>
+                                                    <p className="mb-2">The website cannot reach the bot's port (14686). This is usually because the VPS firewall is blocking the connection.</p>
+                                                    <p><strong>Solution:</strong> Run this command on your VPS:</p>
+                                                    <code className="block bg-black/50 p-2 mt-1 rounded text-white select-all">sudo ufw allow 14686/tcp</code>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -162,11 +165,6 @@ const HealthCheckPage: React.FC = () => {
                             <h2 className="text-2xl font-bold text-brand-cyan mb-3">Step 3: User Sync Test</h2>
                             <p className="text-gray-300 mb-4">{t('health_check_step4_desc')}</p>
                             
-                            <div className="p-3 rounded-md bg-blue-500/10 border border-blue-500/30 mb-4">
-                                <h4 className="font-bold text-blue-300 flex items-center gap-2"><HelpCircle size={18} /> {t('health_check_get_discord_id')}</h4>
-                                <p className="text-sm text-blue-200 mt-1">{t('health_check_get_discord_id_steps')}</p>
-                            </div>
-
                             <div className="flex flex-col sm:flex-row items-center gap-4">
                                 <input type="text" value={syncDiscordId} onChange={(e) => setSyncDiscordId(e.currentTarget.value)} placeholder={t('health_check_discord_id_input')} className="w-full bg-background-light text-text-primary p-3 rounded-md border border-gray-600 focus:ring-brand-cyan focus:border-brand-cyan"/>
                                 <button onClick={handleRunSyncTest} disabled={isTestingSync || !syncDiscordId} className="w-full sm:w-auto bg-brand-cyan text-brand-dark font-bold py-3 px-6 rounded-md hover:bg-white transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-wait">

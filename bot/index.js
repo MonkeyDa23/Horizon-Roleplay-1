@@ -3,7 +3,7 @@ import 'dotenv/config';
 import { Client, GatewayIntentBits, Partials } from 'discord.js';
 import { createApi } from './api.js';
 
-console.log('Starting Vixel Core Bot v2.5 (Fast Boot Mode)...');
+console.log('Starting Vixel Bot Core v2.6 (Public Binding)...');
 
 // --- CLIENT SETUP ---
 const client = new Client({
@@ -28,8 +28,9 @@ const botState = {
 const app = createApi(client, botState);
 const PORT = process.env.PORT || 3001;
 
-const server = app.listen(PORT, () => {
-  console.log(`🚀 API Server running on port ${PORT}`);
+// CRITICAL FIX: Bind to '0.0.0.0' to accept connections from outside (Vercel)
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 API Server running on port ${PORT} (Accessible via Public IP)`);
   
   // Only AFTER server is up, verify env and login
   const requiredEnv = ['DISCORD_BOT_TOKEN', 'API_SECRET_KEY', 'DISCORD_GUILD_ID'];
@@ -39,7 +40,6 @@ const server = app.listen(PORT, () => {
     const errorMsg = `❌ CRITICAL: Missing env vars: ${missingEnv.join(', ')}`;
     console.error(errorMsg);
     botState.error = errorMsg;
-    // Do not exit, keep server alive to report error to /health
   } else {
       console.log(`   - Connecting to Discord...`);
       client.login(process.env.DISCORD_BOT_TOKEN).catch(err => {
@@ -66,7 +66,7 @@ client.once('ready', async () => {
     botState.error = null;
   } catch (error) {
     console.error('❌ Discord: FAILED to connect to target Guild.');
-    botState.error = "Bot connected to Discord, but could not fetch the configured Guild ID.";
+    botState.error = "Bot connected to Discord, but could not fetch the configured Guild ID. Check DISCORD_GUILD_ID.";
   }
 });
 
