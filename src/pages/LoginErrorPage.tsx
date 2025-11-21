@@ -46,14 +46,15 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
              steps.push(
                 <div className="bg-red-500/10 p-3 rounded border border-red-500/30">
                     <strong className="text-red-300 block mb-2">Cannot Connect to Bot (502 Error)</strong>
-                    <p className="text-sm mb-2">The website server could not reach your bot.</p>
+                    <p className="text-sm mb-2">The website server could not reach your bot. The bot might be offline, or the IP/Port changed.</p>
                     {errorMessage.includes('Target:') && (
                         <div className="bg-black/30 p-2 rounded font-mono text-xs break-all">
                             <strong>Tried to connect to:</strong><br/>
                             {errorMessage.split('Target: ')[1].replace(')', '')}
                         </div>
                     )}
-                    <p className="text-xs mt-2 text-gray-400">Check VITE_DISCORD_BOT_URL in Vercel. Ensure it starts with <code>http://</code> and includes the port.</p>
+                    <p className="text-xs mt-2 text-gray-400 font-bold">Did you move your bot recently?</p>
+                    <p className="text-xs text-gray-400">Update <code>VITE_DISCORD_BOT_URL</code> in Vercel and <strong>Redeploy</strong>.</p>
                 </div>
              );
         } else if (errorMessage.includes('proxy')) {

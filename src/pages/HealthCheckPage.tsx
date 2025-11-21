@@ -1,7 +1,7 @@
 
 // src/pages/HealthCheckPage.tsx
 import React, { useState } from 'react';
-import { Loader2, CheckCircle, XCircle, AlertTriangle, HelpCircle, Server, Bot, ArrowRight, User, ExternalLink } from 'lucide-react';
+import { Loader2, CheckCircle, XCircle, AlertTriangle, HelpCircle, Server, Bot, ArrowRight, User, ExternalLink, RefreshCw } from 'lucide-react';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { env } from '../env';
 import { checkDiscordApiHealth, lookupUser, ApiError } from '../lib/api';
@@ -36,7 +36,7 @@ const HealthCheckPage: React.FC = () => {
             setBotHealth({ ok: true, ...result });
         } catch (error) {
             const msg = (error as Error).message;
-            const is502 = msg.includes('502') || msg.includes('Bad Gateway');
+            const is502 = msg.includes('502') || msg.includes('Bad Gateway') || msg.includes('Proxy Error');
             setBotHealth({ ok: false, error: msg, is502 });
         } finally {
             setIsTestingBot(false);
@@ -126,8 +126,8 @@ const HealthCheckPage: React.FC = () => {
                             <p className="text-gray-300 mb-4">Tests if the frontend can successfully connect to your running bot's API using the proxy.</p>
                             
                             <div className="flex items-center justify-between bg-brand-dark p-3 rounded border border-gray-700 mb-4">
-                                <span className="text-gray-400 text-sm">Target URL:</span>
-                                <code className="text-brand-cyan text-xs sm:text-sm">{env.VITE_DISCORD_BOT_URL || 'Not Configured'}</code>
+                                <span className="text-gray-400 text-sm">Target URL (From Vercel):</span>
+                                <code className="text-brand-cyan text-xs sm:text-sm break-all">{env.VITE_DISCORD_BOT_URL || 'Not Configured'}</code>
                             </div>
 
                             <button onClick={handleRunBotTest} disabled={isTestingBot} className="w-full bg-brand-cyan text-brand-dark font-bold py-3 px-6 rounded-md hover:bg-white transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-wait">
@@ -148,16 +148,15 @@ const HealthCheckPage: React.FC = () => {
                                             <p className="text-sm text-red-200 bg-red-500/10 p-2 rounded-md font-mono break-all">{botHealth.error}</p>
                                             
                                             {botHealth.is502 && (
-                                                <div className="bg-yellow-500/10 border border-yellow-500/30 p-3 rounded mt-2 text-sm text-yellow-200">
-                                                    <p className="font-bold mb-1">⚠️ Wispbyte/Host Port Issue Detected</p>
-                                                    <p className="mb-2">The website cannot reach the bot (502 Bad Gateway). Since you are using Wispbyte, you <strong>cannot use random ports</strong> (like 14686).</p>
-                                                    <p className="mb-2"><strong>Solution:</strong></p>
-                                                    <ol className="list-decimal list-inside space-y-1 ml-1">
-                                                        <li>Go to your Wispbyte Panel {'>'} <strong>Network</strong> tab.</li>
-                                                        <li>Copy the <strong>Primary Port</strong> (or any allocated port).</li>
-                                                        <li>Go to <strong>Vercel Settings</strong>.</li>
-                                                        <li>Update <code>VITE_DISCORD_BOT_URL</code> to use that port. <br/><span className="opacity-70 text-xs">(e.g., http://217.160.125.125:YOUR_PORT)</span></li>
-                                                        <li>Restart the Bot.</li>
+                                                <div className="bg-yellow-500/10 border border-yellow-500/30 p-4 rounded mt-4 text-sm text-yellow-200">
+                                                    <p className="font-bold text-lg mb-2 flex items-center gap-2"><RefreshCw size={20}/> Moved Hosting or IP?</p>
+                                                    <p className="mb-2">You are getting a <strong>Bad Gateway (502)</strong> error. This means Vercel is trying to reach the bot at the URL above, but getting no response.</p>
+                                                    
+                                                    <p className="mb-2 font-semibold text-white">If you recently moved your bot (e.g., to Katbump or a new VPS):</p>
+                                                    <ol className="list-decimal list-inside space-y-2 ml-1 text-gray-300">
+                                                        <li>Go to your <strong>Vercel Dashboard</strong> {'>'} Settings {'>'} Environment Variables.</li>
+                                                        <li>Update <code>VITE_DISCORD_BOT_URL</code> to your new IP and Port.<br/><span className="opacity-70 text-xs ml-5 block">Example: http://51.75.118.170:20228</span></li>
+                                                        <li><strong>CRITICAL:</strong> Go to the "Deployments" tab in Vercel and <strong>Redeploy</strong> your latest commit. <span className="text-yellow-400">Changing variables does not affect the live site until you redeploy!</span></li>
                                                     </ol>
                                                 </div>
                                             )}
