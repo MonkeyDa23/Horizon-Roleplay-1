@@ -1,8 +1,10 @@
+
 // src/pages/AboutUsPage.tsx
 import React, { useState, useEffect } from 'react';
 import { useLocalization } from '../contexts/LocalizationContext';
+import { useTranslations } from '../contexts/TranslationsContext';
 import { useConfig } from '../contexts/ConfigContext';
-import { Info, Loader2, Users, Server } from 'lucide-react';
+import { Info, Loader2, Users, Server, RefreshCw } from 'lucide-react';
 import DiscordEmbed from '../components/DiscordEmbed';
 import SEO from '../components/SEO';
 import { getDiscordWidgets, getStaff } from '../lib/api';
@@ -19,7 +21,7 @@ const StaffCard: React.FC<{ member: StaffMember, index: number }> = React.memo((
                 <img 
                     src={member.avatar_url} 
                     alt={member.username} 
-                    className="w-28 h-28 rounded-full border-4 border-border-color group-hover:border-primary-blue transition-colors duration-300" 
+                    className="w-28 h-28 rounded-full border-4 border-border-color group-hover:border-primary-blue transition-colors duration-300 object-cover" 
                 />
             </div>
             <h3 className="text-xl font-bold text-white">{member.username}</h3>
@@ -31,29 +33,33 @@ const StaffCard: React.FC<{ member: StaffMember, index: number }> = React.memo((
 
 const AboutUsPage: React.FC = () => {
     const { t } = useLocalization();
+    const { refreshTranslations } = useTranslations();
     const { config } = useConfig();
     const communityName = config.COMMUNITY_NAME;
     const [widgets, setWidgets] = useState<DiscordWidget[]>([]);
     const [staff, setStaff] = useState<StaffMember[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [activeView, setActiveView] = useState<'staff' | 'servers'>('staff'); // Default to 'staff'
+    const [activeView, setActiveView] = useState<'staff' | 'servers'>('staff');
+
+    const fetchData = async () => {
+        setIsLoading(true);
+        try {
+            // Fetch data and refresh translations in parallel to ensure role names are up to date
+            const [widgetsData, staffData] = await Promise.all([
+                getDiscordWidgets(),
+                getStaff(),
+                refreshTranslations() 
+            ]);
+            setWidgets(widgetsData);
+            setStaff(staffData);
+        } catch (error) {
+            console.error("Failed to fetch About Us page data:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchData = async () => {
-            setIsLoading(true);
-            try {
-                const [widgetsData, staffData] = await Promise.all([
-                    getDiscordWidgets(),
-                    getStaff()
-                ]);
-                setWidgets(widgetsData);
-                setStaff(staffData);
-            } catch (error) {
-                console.error("Failed to fetch About Us page data:", error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
         fetchData();
     }, []);
     
@@ -71,7 +77,9 @@ const AboutUsPage: React.FC = () => {
                             {staff.map((member, index) => <StaffCard key={member.id} member={member} index={index} />)}
                         </div>
                     ) : (
-                        <p className="text-center text-text-secondary">{t('staff_not_added_yet')}</p>
+                        <div className="text-center glass-panel p-10">
+                            <p className="text-text-secondary text-lg">Staff list is currently empty.</p>
+                        </div>
                     )}
                 </div>
             );
@@ -93,7 +101,9 @@ const AboutUsPage: React.FC = () => {
                                 </div>
                             ))
                          ) : (
-                            <p className="text-center text-text-secondary">{t('widgets_not_added_yet')}</p>
+                            <div className="text-center glass-panel p-10 w-full">
+                                <p className="text-text-secondary text-lg">No server widgets configured yet.</p>
+                            </div>
                          )}
                     </div>
                 </div>

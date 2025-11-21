@@ -218,6 +218,8 @@ CREATE POLICY "Admins can manage submissions" ON public.submissions FOR ALL USIN
 -- =================================================================
 CREATE OR REPLACE FUNCTION public.get_config() RETURNS json LANGUAGE sql STABLE AS $$ SELECT row_to_json(c) FROM public.config c WHERE id = 1; $$;
 
+-- IMPORTANT: SECURITY DEFINER is crucial here so the function can read profiles
+-- even if the calling user (anon) doesn't have direct access to the profiles table.
 CREATE OR REPLACE FUNCTION public.get_staff()
 RETURNS TABLE(id uuid, user_id uuid, role_key text, "position" int, username text, avatar_url text, discord_id text)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
@@ -703,6 +705,9 @@ $$;
 -- =================================================================
 -- This section intentionally left blank. Translations will be populated from the fallback file on first run.
 
+-- Explicit GRANTs to be absolutely sure about visibility
+GRANT SELECT ON public.discord_widgets TO anon, authenticated;
+GRANT SELECT ON public.staff TO anon, authenticated;
+
 -- End of transaction
 COMMIT;
-`
