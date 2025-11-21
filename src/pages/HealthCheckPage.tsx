@@ -149,10 +149,16 @@ const HealthCheckPage: React.FC = () => {
                                             
                                             {botHealth.is502 && (
                                                 <div className="bg-yellow-500/10 border border-yellow-500/30 p-3 rounded mt-2 text-sm text-yellow-200">
-                                                    <p className="font-bold mb-1">⚠️ Firewall / Port Blocking Detected</p>
-                                                    <p className="mb-2">The website cannot reach the bot's port (14686). This is usually because the VPS firewall is blocking the connection.</p>
-                                                    <p><strong>Solution:</strong> Run this command on your VPS:</p>
-                                                    <code className="block bg-black/50 p-2 mt-1 rounded text-white select-all">sudo ufw allow 14686/tcp</code>
+                                                    <p className="font-bold mb-1">⚠️ Wispbyte/Host Port Issue Detected</p>
+                                                    <p className="mb-2">The website cannot reach the bot (502 Bad Gateway). Since you are using Wispbyte, you <strong>cannot use random ports</strong> (like 14686).</p>
+                                                    <p className="mb-2"><strong>Solution:</strong></p>
+                                                    <ol className="list-decimal list-inside space-y-1 ml-1">
+                                                        <li>Go to your Wispbyte Panel {'>'} <strong>Network</strong> tab.</li>
+                                                        <li>Copy the <strong>Primary Port</strong> (or any allocated port).</li>
+                                                        <li>Go to <strong>Vercel Settings</strong>.</li>
+                                                        <li>Update <code>VITE_DISCORD_BOT_URL</code> to use that port. <br/><span className="opacity-70 text-xs">(e.g., http://217.160.125.125:YOUR_PORT)</span></li>
+                                                        <li>Restart the Bot.</li>
+                                                    </ol>
                                                 </div>
                                             )}
                                         </div>
