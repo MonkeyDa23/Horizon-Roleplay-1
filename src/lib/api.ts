@@ -4,7 +4,7 @@ import { supabase } from './supabaseClient';
 import { env } from '../env';
 import type { 
   AppConfig, Product, Quiz, QuizSubmission, RuleCategory, Translations, 
-  User, DiscordRole, UserLookupResult,
+  User, DiscordRole, UserLookupResult, Invoice, InvoiceItem,
   MtaServerStatus, AuditLogEntry, DiscordAnnouncement, RolePermission, DiscordWidget, StaffMember, ProductCategory
 } from '../types';
 
@@ -173,7 +173,7 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
   }
 
   // Check DB for existing profile to determine if new
-  const { data: existingProfiles } = await supabase.from('profiles').select('id, is_banned, ban_reason, ban_expires_at').eq('id', session.user.id);
+  const { data: existingProfiles } = await supabase.from('profiles').select('id, is_banned, ban_reason, ban_expires_at, balance').eq('id', session.user.id);
   const existingProfile = existingProfiles?.[0] || null;
   const isNewUser = !existingProfile;
 
@@ -191,6 +191,7 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
       is_banned: existingProfile?.is_banned ?? false,
       ban_reason: existingProfile?.ban_reason ?? null,
       ban_expires_at: existingProfile?.ban_expires_at ?? null,
+      balance: existingProfile?.balance ?? 0, // Sync balance
   };
 
   // Upsert Profile
@@ -221,9 +222,26 @@ export const logAdminPageVisit = async (pageName: string): Promise<void> => {
   await supabase.rpc('log_page_visit', { p_page_name: pageName });
 };
 
+// --- FINANCIAL API ---
+export const addBalance = async (targetUserId: string, amount: number, reason?: string): Promise<number> => {
+    const { data, error } = await supabase!.rpc('add_user_balance', { p_target_user_id: targetUserId, p_amount: amount, p_reason: reason });
+    if (error) throw new Error(error.message);
+    return data as number; // Returns new balance
+};
+
+export const createInvoice = async (targetUserId: string, products: InvoiceItem[], totalAmount: number): Promise<Invoice> => {
+    const { data, error } = await supabase!.rpc('create_invoice', { p_target_user_id: targetUserId, p_products: products, p_total_amount: totalAmount });
+    if (error) throw new Error(error.message);
+    return data as Invoice;
+};
+
+export const getUserInvoices = async (userId: string): Promise<Invoice[]> => {
+    const { data, error } = await supabase!.from('invoices').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+    if (error) throw error;
+    return data as Invoice[];
+};
+
 // ... [Rest of the CRUD functions remain the same but imported types might have changed] ...
-// For brevity, assuming standard CRUD functions (getProducts, saveProduct, etc.) exist as before.
-// I will include the essential ones for the admin panel logging logic.
 
 export const getConfig = async (): Promise<AppConfig> => {
   if (!supabase) throw new Error("Supabase client not initialized.");
@@ -268,10 +286,6 @@ export const deleteQuiz = async (id: string): Promise<void> => {
     if (!supabase) return;
     await supabase.rpc('delete_quiz', { p_quiz_id: id });
 };
-
-// ... [Include other necessary getters/setters like getProducts, saveProduct, etc.] ...
-// To ensure the file is complete for the user without errors, I'll add the rest of the mocked/real implementations
-// that were present in the previous context implicitly or explicitly.
 
 export const getProducts = async (): Promise<Product[]> => {
     if (!supabase) return [];
@@ -378,7 +392,6 @@ export const forceRefreshUserProfile = fetchUserProfile;
 export const revalidateSession = async (): Promise<User> => { const { user } = await fetchUserProfile(); return user; };
 
 // --- INVITE & REAL STATS API ---
-// FIX: Changed endpoint to use the new direct proxy route that bypasses the bot
 export const getInviteDetails = (code: string) => callBotApi<{
     guild: { name: string; id: string; iconURL: string | null };
     memberCount: number;

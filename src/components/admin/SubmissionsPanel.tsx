@@ -1,6 +1,6 @@
 
 // src/components/admin/SubmissionsPanel.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocalization } from '../../contexts/LocalizationContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -8,7 +8,7 @@ import { useConfig } from '../../contexts/ConfigContext';
 import { getSubmissions, deleteSubmission, updateSubmissionStatus, sendDiscordLog } from '../../lib/api';
 import { supabase } from '../../lib/supabaseClient';
 import type { QuizSubmission, SubmissionStatus } from '../../types';
-import { Eye, Loader2, Trash2 } from 'lucide-react';
+import { Eye, Loader2, Trash2, Search, Filter } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 
@@ -31,6 +31,10 @@ const SubmissionsPanel: React.FC = () => {
     const { showToast } = useToast();
     const [submissions, setSubmissions] = useState<QuizSubmission[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    
+    // Search & Filter State
+    const [searchTerm, setSearchTerm] = useState('');
+    const [filterStatus, setFilterStatus] = useState<SubmissionStatus | 'all'>('all');
 
     const fetchData = useCallback(async () => {
         setIsLoading(true);
@@ -47,6 +51,20 @@ const SubmissionsPanel: React.FC = () => {
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    // --- Filter & Search Logic ---
+    const filteredSubmissions = useMemo(() => {
+        return submissions.filter(sub => {
+            const matchesSearch = 
+                sub.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                sub.quizTitle.toLowerCase().includes(searchTerm.toLowerCase());
+            
+            const matchesFilter = filterStatus === 'all' || sub.status === filterStatus;
+
+            return matchesSearch && matchesFilter;
+        });
+    }, [submissions, searchTerm, filterStatus]);
+
 
     const handleDelete = async (submission: QuizSubmission) => {
         if (!user) return;
@@ -127,6 +145,34 @@ const SubmissionsPanel: React.FC = () => {
 
     return (
         <Panel isLoading={isLoading} loadingText={t('loading_submissions', {})}>
+            {/* Search & Filter Bar */}
+            <div className="flex flex-col md:flex-row gap-4 mb-6">
+                <div className="relative flex-grow">
+                    <Search className="absolute top-1/2 -translate-y-1/2 left-3 text-gray-400" size={20} />
+                    <input 
+                        type="text" 
+                        placeholder={t('filter_search_placeholder')} 
+                        value={searchTerm} 
+                        onChange={(e) => setSearchTerm(e.target.value)} 
+                        className="vixel-input !pl-10"
+                    />
+                </div>
+                <div className="relative w-full md:w-64 flex-shrink-0">
+                    <Filter className="absolute top-1/2 -translate-y-1/2 left-3 text-gray-400" size={20} />
+                    <select 
+                        value={filterStatus} 
+                        onChange={(e) => setFilterStatus(e.target.value as SubmissionStatus | 'all')}
+                        className="vixel-input !pl-10 appearance-none"
+                    >
+                        <option value="all">{t('filter_all')}</option>
+                        <option value="pending">{t('filter_pending')}</option>
+                        <option value="taken">{t('filter_taken')}</option>
+                        <option value="accepted">{t('filter_accepted')}</option>
+                        <option value="refused">{t('filter_refused')}</option>
+                    </select>
+                </div>
+            </div>
+
             <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left min-w-[700px]">
@@ -141,7 +187,7 @@ const SubmissionsPanel: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {submissions.length > 0 ? submissions.map((sub) => (
+                            {filteredSubmissions.length > 0 ? filteredSubmissions.map((sub) => (
                                 <tr key={sub.id} className="border-b border-brand-light-blue/50 last:border-none hover:bg-brand-light-blue/20 transition-colors">
                                     <td className="p-4 font-semibold text-white">{sub.username}</td>
                                     <td className="p-4 text-sm text-gray-400">{sub.user_highest_role || t('member')}</td>

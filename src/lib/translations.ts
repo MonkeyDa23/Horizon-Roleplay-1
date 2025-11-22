@@ -56,7 +56,7 @@ export const translations: Translations = {
   // Footer
   footer_rights: { ar: '© {year} {communityName}. جميع الحقوق محفوظة.', en: '© {year} {communityName}. All Rights Reserved.' },
 
-  // Store & Cart
+  // Store & Cart & Balance
   add_to_cart: { ar: 'أضف للسلة', en: 'Add to Cart' },
   item_added_to_cart: { ar: 'تمت إضافة {itemName} إلى السلة!', en: '{itemName} added to cart!' },
   your_cart: { ar: 'سلة التسوق', en: 'Your Cart' },
@@ -67,6 +67,10 @@ export const translations: Translations = {
   checkout_via_discord: { ar: 'الدفع عبر ديسكورد', en: 'Checkout via Discord' },
   checkout_instructions: { ar: 'لإكمال عملية الشراء، يرجى فتح تذكرة في سيرفر الديسكورد الخاص بنا وسيقوم أحد المسؤولين بمساعدتك.', en: 'To complete your purchase, please open a ticket in our Discord server and an admin will assist you.' },
   open_ticket: { ar: 'فتح تذكرة', en: 'Open a Ticket' },
+  your_balance: { ar: 'رصيدك', en: 'Your Balance' },
+  pay_from_balance: { ar: 'خصم من الرصيد', en: 'Pay from Balance' },
+  remaining_balance: { ar: 'الرصيد المتبقي', en: 'Remaining Balance' },
+  amount_to_pay: { ar: 'المبلغ المطلوب للدفع', en: 'Amount to Pay' },
   
   // Applies & Quiz
   apply_now: { ar: 'قدم الآن', en: 'Apply Now' },
@@ -253,6 +257,8 @@ export const translations: Translations = {
   recent_applications: { ar: 'آخر التقديمات', en: 'Recent Applications' },
   application_type: { ar: 'نوع التقديم', en: 'Application Type' },
   no_applications_submitted: { ar: 'لم تقم بتقديم أي طلبات بعد.', en: 'You have not submitted any applications yet.' },
+  invoice_history: { ar: 'سجل الفواتير', en: 'Invoice History' },
+  no_invoices_yet: { ar: 'لا توجد فواتير بعد.', en: 'No invoices yet.' },
   
   // Statuses
   status_pending: { ar: 'قيد المراجعة', en: 'Pending' },
@@ -380,4 +386,24 @@ export const translations: Translations = {
   log_field_duration: { ar: 'المدة', en: 'Duration' },
   log_duration_permanent: { ar: 'دائم', en: 'Permanent' },
   log_duration_hours: { ar: '{hours} ساعة', en: '{hours} hours' },
+
+  // Financial System
+  balance: { ar: 'الرصيد', en: 'Balance' },
+  add_balance: { ar: 'إضافة رصيد', en: 'Add Balance' },
+  create_invoice: { ar: 'إنشاء فاتورة', en: 'Create Invoice' },
+  invoice_created_success: { ar: 'تم إنشاء الفاتورة بنجاح!', en: 'Invoice created successfully!' },
+  balance_added_success: { ar: 'تم إضافة الرصيد بنجاح!', en: 'Balance added successfully!' },
+  amount: { ar: 'المبلغ', en: 'Amount' },
+  products_in_invoice: { ar: 'المنتجات في الفاتورة', en: 'Invoice Products' },
+  select_products: { ar: 'اختر المنتجات', en: 'Select Products' },
+  add_item_to_invoice: { ar: 'أضف للفاتورة', en: 'Add to Invoice' },
+  total_amount: { ar: 'الإجمالي', en: 'Total Amount' },
+  current_balance: { ar: 'الرصيد الحالي', en: 'Current Balance' },
+  confirm_invoice: { ar: 'تأكيد الفاتورة', en: 'Confirm Invoice' },
+  filter_all: { ar: 'الكل', en: 'All' },
+  filter_pending: { ar: 'قيد المراجعة', en: 'Pending' },
+  filter_accepted: { ar: 'مقبول', en: 'Accepted' },
+  filter_refused: { ar: 'مرفوض', en: 'Refused' },
+  filter_taken: { ar: 'مستلم', en: 'Taken' },
+  filter_search_placeholder: { ar: 'ابحث عن اسم المستخدم أو نوع التقديم...', en: 'Search username or quiz title...'},
 };

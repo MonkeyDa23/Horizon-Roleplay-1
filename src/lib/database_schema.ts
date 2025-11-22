@@ -36,6 +36,7 @@ DROP TABLE IF EXISTS public.rules CASCADE;
 DROP TABLE IF EXISTS public.quizzes CASCADE;
 DROP TABLE IF EXISTS public.products CASCADE;
 DROP TABLE IF EXISTS public.product_categories CASCADE;
+DROP TABLE IF EXISTS public.invoices CASCADE; -- New
 DROP TABLE IF EXISTS public.profiles CASCADE;
 DROP TABLE IF EXISTS public.config CASCADE;
 DROP TABLE IF EXISTS public.translations CASCADE;
@@ -68,6 +69,8 @@ DROP FUNCTION IF EXISTS public.delete_product(uuid);
 DROP FUNCTION IF EXISTS public.verify_admin_password(text);
 DROP FUNCTION IF EXISTS public.lookup_user_by_discord_id(text);
 DROP FUNCTION IF EXISTS public.handle_user_sync(uuid, text, text, text, jsonb, jsonb);
+DROP FUNCTION IF EXISTS public.add_user_balance(uuid, numeric, text); -- New
+DROP FUNCTION IF EXISTS public.create_invoice(uuid, jsonb, numeric); -- New
 DROP VIEW IF EXISTS private.user_roles_view;
 
 
@@ -94,13 +97,13 @@ CREATE TABLE public.config (
     "log_channel_submissions" text,
     "log_channel_bans" text,
     "log_channel_admin" text,
-    "log_channel_auth" text, -- New for user auth/new members
+    "log_channel_auth" text,
     "audit_log_channel_id" text,
     "mention_role_submissions" text,
     "mention_role_audit_log_submissions" text,
     "mention_role_audit_log_bans" text,
     "mention_role_audit_log_admin" text,
-    "mention_role_auth" text, -- New for user auth/new members
+    "mention_role_auth" text,
     "mention_role_audit_log_general" text,
     CONSTRAINT id_check CHECK (id = 1)
 );
@@ -116,7 +119,18 @@ CREATE TABLE public.profiles (
     last_synced_at timestamptz,
     is_banned boolean DEFAULT false,
     ban_reason text,
-    ban_expires_at timestamptz
+    ban_expires_at timestamptz,
+    balance numeric(12, 2) DEFAULT 0 CHECK (balance >= 0) -- Secure Balance Column
+);
+
+CREATE TABLE public.invoices (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE,
+    admin_id uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+    admin_username text,
+    products jsonb, -- Array of {productName, price, imageUrl}
+    total_amount numeric(12, 2) NOT NULL,
+    created_at timestamptz DEFAULT now()
 );
 
 CREATE TABLE public.role_permissions ( role_id text PRIMARY KEY, permissions text[] );
@@ -180,6 +194,7 @@ ALTER TABLE public.translations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.discord_widgets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.staff ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.invoices ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Allow public read access" ON public.config FOR SELECT USING (true);
 CREATE POLICY "Allow public read access" ON public.products FOR SELECT USING (true);
@@ -190,13 +205,19 @@ CREATE POLICY "Allow public read access" ON public.translations FOR SELECT USING
 CREATE POLICY "Allow public read access" ON public.discord_widgets FOR SELECT USING (true);
 CREATE POLICY "Allow public read access" ON public.staff FOR SELECT USING (true);
 
--- Profiles Policies (REFINED to prevent recursion)
+-- Profiles Policies
+-- IMPORTANT: WE DO NOT allow UPDATE on 'balance' via normal API. Only via RPC.
 CREATE POLICY "Allow individual user full access to their own profile" ON public.profiles FOR ALL
   USING (id = auth.uid())
   WITH CHECK (id = auth.uid());
+  
 CREATE POLICY "Allow admins full access to all profiles" ON public.profiles FOR ALL
   USING (public.has_permission(auth.uid(), '_super_admin') OR public.has_permission(auth.uid(), 'admin_lookup'))
   WITH CHECK (public.has_permission(auth.uid(), '_super_admin') OR public.has_permission(auth.uid(), 'admin_lookup'));
+
+-- Invoice Policies
+CREATE POLICY "Users see own invoices" ON public.invoices FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY "Admins manage invoices" ON public.invoices FOR ALL USING (public.has_permission(auth.uid(), 'admin_lookup'));
 
 CREATE POLICY "Users can access their own submissions" ON public.submissions FOR ALL USING (user_id = public.get_user_id());
 
@@ -216,10 +237,78 @@ CREATE POLICY "Admins can manage submissions" ON public.submissions FOR ALL USIN
 -- =================================================================
 -- 7. RPC FUNCTIONS
 -- =================================================================
+
+-- Secure Balance Addition
+CREATE OR REPLACE FUNCTION public.add_user_balance(p_target_user_id uuid, p_amount numeric, p_reason text DEFAULT 'Manual adjustment')
+RETURNS numeric
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+    new_balance numeric;
+    admin_name text;
+BEGIN
+    -- Check permission
+    IF NOT public.has_permission(public.get_user_id(), 'admin_lookup') THEN
+        RAISE EXCEPTION 'Insufficient permissions to modify balance.';
+    END IF;
+
+    -- Update balance
+    UPDATE public.profiles 
+    SET balance = balance + p_amount 
+    WHERE id = p_target_user_id
+    RETURNING balance INTO new_balance;
+
+    -- Log action
+    SELECT COALESCE(username, 'Unknown Admin') INTO admin_name FROM public.profiles WHERE id = public.get_user_id();
+    
+    INSERT INTO public.audit_log (admin_id, admin_username, action, log_type)
+    VALUES (
+        public.get_user_id(), 
+        admin_name, 
+        'Added $' || p_amount || ' to user ' || p_target_user_id || '. New Balance: $' || new_balance || '. Reason: ' || p_reason,
+        'admin'
+    );
+
+    RETURN new_balance;
+END;
+$$;
+
+-- Create Invoice
+CREATE OR REPLACE FUNCTION public.create_invoice(p_target_user_id uuid, p_products jsonb, p_total_amount numeric)
+RETURNS public.invoices
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+    v_invoice public.invoices;
+    admin_name text;
+BEGIN
+    IF NOT public.has_permission(public.get_user_id(), 'admin_lookup') THEN
+        RAISE EXCEPTION 'Insufficient permissions.';
+    END IF;
+
+    SELECT COALESCE(username, 'Unknown Admin') INTO admin_name FROM public.profiles WHERE id = public.get_user_id();
+
+    INSERT INTO public.invoices (user_id, admin_id, admin_username, products, total_amount)
+    VALUES (p_target_user_id, public.get_user_id(), admin_name, p_products, p_total_amount)
+    RETURNING * INTO v_invoice;
+
+    -- Log
+    INSERT INTO public.audit_log (admin_id, admin_username, action, log_type)
+    VALUES (
+        public.get_user_id(), 
+        admin_name, 
+        'Created invoice for user ' || p_target_user_id || ' Amount: $' || p_total_amount,
+        'admin'
+    );
+
+    RETURN v_invoice;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.get_config() RETURNS json LANGUAGE sql STABLE AS $$ SELECT row_to_json(c) FROM public.config c WHERE id = 1; $$;
 
--- IMPORTANT: SECURITY DEFINER is crucial here so the function can read profiles
--- even if the calling user (anon) doesn't have direct access to the profiles table.
 CREATE OR REPLACE FUNCTION public.get_staff()
 RETURNS TABLE(id uuid, user_id uuid, role_key text, "position" int, username text, avatar_url text, discord_id text)
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
@@ -237,13 +326,8 @@ BEGIN
     IF NOT public.has_permission(public.get_user_id(), 'admin_staff') THEN
         RAISE EXCEPTION 'Insufficient permissions.';
     END IF;
-
-    -- First, clear the existing staff table to handle deletions and reordering
     DELETE FROM public.staff WHERE 1=1;
-
-    -- Loop through the provided array and insert new records
     FOR staff_member IN SELECT * FROM jsonb_array_elements(p_staff_data) LOOP
-        -- Also save the role translation
         INSERT INTO public.translations (key, en, ar)
         VALUES (
             staff_member->>'role_key',
@@ -277,8 +361,6 @@ AS $$
 DECLARE 
   new_submission public.submissions;
 BEGIN
-  -- This function is now only responsible for inserting the data.
-  -- Logging and notifications are handled by the frontend via the bot API.
   INSERT INTO public.submissions ("quizId", "quizTitle", user_id, username, answers, "cheatAttempts", user_highest_role)
   VALUES (
     (submission_data->>'quizId')::uuid, submission_data->>'quizTitle', public.get_user_id(), submission_data->>'username',
@@ -313,8 +395,6 @@ BEGIN
 
   IF NOT FOUND THEN RAISE EXCEPTION 'Submission not found.'; END IF;
   
-  -- Logging is now handled by the frontend.
-  
   RETURN submission_record;
 END;
 $$;
@@ -323,7 +403,6 @@ CREATE OR REPLACE FUNCTION public.delete_submission(p_submission_id uuid) RETURN
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), '_super_admin') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
   DELETE FROM public.submissions WHERE id = p_submission_id;
-  -- Logging is handled by the frontend.
 END;
 $$;
 
@@ -371,7 +450,6 @@ CREATE OR REPLACE FUNCTION public.delete_quiz(p_quiz_id uuid) RETURNS void LANGU
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_quizzes') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
   DELETE FROM public.quizzes WHERE id = p_quiz_id;
-  -- Logging handled on frontend
 END;
 $$;
 
@@ -407,7 +485,6 @@ CREATE OR REPLACE FUNCTION public.delete_product(p_product_id uuid) RETURNS void
 BEGIN
   IF NOT public.has_permission(public.get_user_id(), 'admin_store') THEN RAISE EXCEPTION 'Insufficient permissions.'; END IF;
   DELETE FROM public.products WHERE id = p_product_id;
-  -- Logging handled on frontend
 END;
 $$;
 
@@ -419,13 +496,8 @@ BEGIN
     IF NOT public.has_permission(public.get_user_id(), 'admin_store') THEN
         RAISE EXCEPTION 'Insufficient permissions.';
     END IF;
-
-    -- Clear existing categories
     DELETE FROM public.product_categories WHERE 1=1;
-
-    -- Insert new categories from the JSON array
     FOR category IN SELECT * FROM jsonb_array_elements(p_categories_data) LOOP
-        -- Also save the translation for the category name
         INSERT INTO public.translations (key, en, ar)
         VALUES (
             category->>'nameKey',
@@ -542,8 +614,6 @@ BEGIN
 END;
 $$;
 
--- FIX: Replaced ambiguous log_action with two specific functions
--- Logs an action performed by the currently authenticated admin
 CREATE OR REPLACE FUNCTION public.log_admin_action(p_action text, p_log_type text) 
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -562,7 +632,6 @@ BEGIN
 END;
 $$;
 
--- Logs an action performed by the system or on behalf of a specified user
 CREATE OR REPLACE FUNCTION public.log_system_action(p_action text, p_log_type text, p_actor_id uuid, p_actor_username text) 
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
@@ -579,12 +648,7 @@ DECLARE
   admin_user_name text;
 BEGIN
   admin_user_id := public.get_user_id();
-  
-  -- Silently exit if no user is found (e.g., function called improperly).
-  -- The frontend logic should prevent this, but this makes the function robust.
-  IF admin_user_id IS NULL THEN
-    RETURN;
-  END IF;
+  IF admin_user_id IS NULL THEN RETURN; END IF;
 
   SELECT COALESCE(raw_user_meta_data->>'global_name', raw_user_meta_data->>'full_name') 
   INTO admin_user_name
@@ -651,7 +715,7 @@ BEGIN
         RAISE EXCEPTION 'Insufficient permissions.';
     END IF;
 
-    SELECT id, discord_id, username, avatar_url, roles, highest_role, is_banned, ban_reason, ban_expires_at
+    SELECT id, discord_id, username, avatar_url, roles, highest_role, is_banned, ban_reason, ban_expires_at, balance
     INTO profile_record
     FROM public.profiles
     WHERE discord_id = p_discord_id;
@@ -669,13 +733,14 @@ BEGIN
         'highestRole', profile_record.highest_role,
         'is_banned', profile_record.is_banned,
         'ban_reason', profile_record.ban_reason,
-        'ban_expires_at', profile_record.ban_expires_at
+        'ban_expires_at', profile_record.ban_expires_at,
+        'balance', profile_record.balance
     );
 END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.handle_user_sync(p_id uuid, p_discord_id text, p_username text, p_avatar_url text, p_roles jsonb, p_highest_role jsonb)
-RETURNS boolean -- returns true if a new user was created
+RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = public
 AS $$

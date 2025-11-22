@@ -1,10 +1,12 @@
+
 // src/components/CartModal.tsx
 import React, { useState } from 'react';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { useCart } from '../contexts/CartContext';
 import { useConfig } from '../contexts/ConfigContext';
+import { useAuth } from '../contexts/AuthContext';
 import Modal from './Modal';
-import { Trash2, ShoppingBag, Plus, Minus, Send } from 'lucide-react';
+import { Trash2, ShoppingBag, Plus, Minus, Send, CreditCard } from 'lucide-react';
 import DiscordLogo from './icons/DiscordLogo';
 
 
@@ -17,6 +19,7 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
   const { t } = useLocalization();
   const { cartItems, removeFromCart, updateQuantity, totalItems, totalPrice, clearCart } = useCart();
   const { config } = useConfig();
+  const { user } = useAuth();
   const [isCheckoutModalOpen, setCheckoutModalOpen] = useState(false);
   
   const handleCheckout = () => {
@@ -25,14 +28,18 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
   };
   
   const handleOpenTicket = () => {
-    // FIX: Guard against window access in non-browser environments.
     if (typeof window !== 'undefined') {
-      // FIX: Cast window to any to bypass potential tsconfig lib errors for 'open'.
       (window as any).open(config.DISCORD_INVITE_URL, '_blank');
     }
     clearCart();
     setCheckoutModalOpen(false);
   };
+
+  // Financial Logic
+  const userBalance = user?.balance || 0;
+  const deduction = Math.min(userBalance, totalPrice);
+  const remainingToPay = Math.max(0, totalPrice - deduction);
+  const remainingBalance = Math.max(0, userBalance - deduction);
 
   return (
     <>
@@ -70,13 +77,34 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
                 </div>
               ))}
             </div>
-            <div className="mt-6 pt-6 border-t border-border-color flex justify-between items-center">
-              <div>
-                <span className="text-text-secondary font-semibold text-lg">{t('subtotal')}:</span>
-                <span className="font-bold text-white text-3xl ml-3">${totalPrice.toFixed(2)}</span>
-              </div>
-              <button onClick={handleCheckout} className="bg-gradient-to-r from-primary-blue to-accent-cyan text-background-dark font-bold py-3 px-8 rounded-lg shadow-glow-blue hover:opacity-90 transition-all duration-300 text-lg">
-                {t('checkout')}
+            
+            {/* Financial Summary Section */}
+            <div className="mt-6 pt-6 border-t border-border-color space-y-3 bg-background-dark/30 p-4 rounded-lg">
+                <div className="flex justify-between items-center text-gray-400">
+                    <span>{t('subtotal')}</span>
+                    <span className="font-bold text-white">${totalPrice.toFixed(2)}</span>
+                </div>
+                {user && userBalance > 0 && (
+                    <>
+                        <div className="flex justify-between items-center text-accent-cyan">
+                            <span className="flex items-center gap-2"><CreditCard size={16}/> {t('pay_from_balance')} (Max: ${userBalance.toFixed(2)})</span>
+                            <span className="font-bold">-${deduction.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs text-gray-500 pt-1 border-t border-gray-700">
+                            <span>{t('remaining_balance')}</span>
+                            <span>${remainingBalance.toFixed(2)}</span>
+                        </div>
+                    </>
+                )}
+                <div className="flex justify-between items-center pt-2 border-t border-border-color">
+                    <span className="text-lg font-bold text-white">{t('amount_to_pay')}</span>
+                    <span className="text-3xl font-bold text-primary-blue">${remainingToPay.toFixed(2)}</span>
+                </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <button onClick={handleCheckout} className="w-full bg-gradient-to-r from-primary-blue to-accent-cyan text-background-dark font-bold py-3 px-8 rounded-lg shadow-glow-blue hover:opacity-90 transition-all duration-300 text-lg">
+                {remainingToPay === 0 ? t('confirm_invoice') : t('checkout')}
               </button>
             </div>
           </div>
@@ -90,7 +118,10 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
             </div>
             <h2 className="text-2xl font-bold text-white mb-3">Complete Your Purchase on Discord</h2>
             <p className="text-text-secondary mb-8 leading-relaxed max-w-md mx-auto">
-                {t('checkout_instructions')}
+                {remainingToPay === 0 
+                    ? "Since your balance covers the total, please open a ticket to confirm your order and receive your items instantly."
+                    : t('checkout_instructions')
+                }
             </p>
             <button
                 onClick={handleOpenTicket}

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { getRules } from '../lib/api';
@@ -22,9 +23,7 @@ const RulesPage: React.FC = () => {
       try {
         const rules = await getRules();
         setRuleCategories(rules);
-        if (rules.length > 0) {
-            setOpenCategoryId(rules[0].id); // Open the first category by default
-        }
+        setOpenCategoryId(null); // Ensure all categories are closed by default
       } catch (err) {
         console.error("Failed to fetch rules:", err);
         setError((err as Error).message || "An unknown error occurred while fetching rules.");

@@ -60,6 +60,7 @@ export interface User {
   is_banned: boolean;
   ban_reason: string | null;
   ban_expires_at: string | null;
+  balance: number; // New: User Balance
 }
 
 export interface AuthContextType {
@@ -86,6 +87,7 @@ export interface UserLookupResult {
     is_banned: boolean;
     ban_reason: string | null;
     ban_expires_at: string | null;
+    balance: number; // New
 }
 
 export interface RolePermission {
@@ -95,7 +97,7 @@ export interface RolePermission {
 
 
 // =============================================
-// STORE & CART
+// STORE & CART & INVOICES
 // =============================================
 export interface ProductCategory {
   id: string;
@@ -115,6 +117,23 @@ export interface Product {
 
 export interface CartItem extends Product {
   quantity: number;
+}
+
+export interface InvoiceItem {
+    id?: string;
+    productName: string;
+    price: number;
+    imageUrl?: string;
+}
+
+export interface Invoice {
+    id: string;
+    user_id: string;
+    admin_id: string;
+    admin_username: string;
+    products: InvoiceItem[];
+    total_amount: number;
+    created_at: string;
 }
 
 export interface CartContextType {
