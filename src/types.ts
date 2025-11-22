@@ -160,13 +160,11 @@ export interface Answer {
   questionText: string;
   answer: string;
   timeTaken: number; // Time taken in seconds for this question
-  isTimeout?: boolean; // Was the answer submitted automatically due to timeout?
 }
 
 export interface CheatAttempt {
     method: string;
     timestamp: string;
-    details?: string; // e.g., "Question 3"
 }
 
 export type SubmissionStatus = 'pending' | 'taken' | 'accepted' | 'refused';
