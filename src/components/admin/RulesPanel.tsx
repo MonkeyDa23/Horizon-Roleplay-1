@@ -8,7 +8,8 @@ import { useConfig } from '../../contexts/ConfigContext';
 import { useAuth } from '../../contexts/AuthContext';
 import type { RuleCategory, Rule } from '../../types';
 import { useTranslations } from '../../contexts/TranslationsContext';
-import { Loader2, Plus, GripVertical, Trash2 } from 'lucide-react';
+import { usePersistentState } from '../../hooks/usePersistentState'; // Hook
+import { Loader2, Plus, GripVertical, Trash2, AlertCircle } from 'lucide-react';
 
 interface EditableRule extends Rule {
     textEn: string;
@@ -29,7 +30,10 @@ const RulesPanel: React.FC = () => {
     const { translations, loading: translationsLoading, refreshTranslations } = useTranslations();
     const { config } = useConfig();
     const { user } = useAuth();
-    const [categories, setCategories] = useState<EditableRuleCategory[]>([]);
+    
+    // PERSISTENT STATE
+    const [categories, setCategories] = usePersistentState<EditableRuleCategory[]>('vixel_admin_rules_draft', []);
+    
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
 
@@ -38,27 +42,34 @@ const RulesPanel: React.FC = () => {
         setIsLoading(true);
         try {
             const fetchedRules = await getRules();
-            const editableData = fetchedRules.map(cat => ({
-                ...cat,
-                titleEn: translations[cat.titleKey]?.en || '',
-                titleAr: translations[cat.titleKey]?.ar || '',
-                rules: (cat.rules || []).map(rule => ({
-                    ...rule,
-                    textEn: translations[rule.textKey]?.en || '',
-                    textAr: translations[rule.textKey]?.ar || '',
-                }))
-            }));
-            setCategories(editableData);
+            
+            // Use draft if exists, else use fetched
+            setCategories((prev) => {
+                if (prev.length > 0) return prev;
+                
+                return fetchedRules.map(cat => ({
+                    ...cat,
+                    titleEn: translations[cat.titleKey]?.en || '',
+                    titleAr: translations[cat.titleKey]?.ar || '',
+                    rules: (cat.rules || []).map(rule => ({
+                        ...rule,
+                        textEn: translations[rule.textKey]?.en || '',
+                        textAr: translations[rule.textKey]?.ar || '',
+                    }))
+                }));
+            });
         } catch (error) {
             showToast('Failed to load rules.', 'error');
         } finally {
             setIsLoading(false);
         }
-    }, [showToast, translations, translationsLoading]);
+    }, [showToast, translations, translationsLoading, setCategories]);
 
     useEffect(() => {
-        fetchRules();
-    }, [fetchRules]);
+        // Only fetch if we don't have data locally to avoid overwriting draft
+        if (categories.length === 0) fetchRules();
+        else setIsLoading(false);
+    }, [fetchRules, categories.length]);
     
     const handleSave = async () => {
         if (!user) return;
@@ -68,7 +79,22 @@ const RulesPanel: React.FC = () => {
             await saveRules(positionedCategories);
             await refreshTranslations();
             
-            // --- DETAILED LOG ---
+            // Clear draft on success
+            localStorage.removeItem('vixel_admin_rules_draft');
+            // Refresh to get clean state from server
+            const updatedRules = await getRules();
+             // Force update state to match server (removes drift)
+             setCategories(updatedRules.map(cat => ({
+                ...cat,
+                titleEn: translations[cat.titleKey]?.en || '',
+                titleAr: translations[cat.titleKey]?.ar || '',
+                rules: (cat.rules || []).map(rule => ({
+                    ...rule,
+                    textEn: translations[rule.textKey]?.en || '',
+                    textAr: translations[rule.textKey]?.ar || '',
+                }))
+            })));
+
             const totalRules = categories.reduce((acc, cat) => acc + cat.rules.length, 0);
             const embed = {
                 title: "📚 تحديث القوانين العامة",
@@ -147,7 +173,10 @@ const RulesPanel: React.FC = () => {
     return (
         <div className="animate-fade-in-up">
             <div className="flex justify-between items-center mb-6">
-                <p className="text-gray-400">قم بإدارة أقسام القوانين ومحتواها أدناه.</p>
+                <div className="flex items-center gap-2 text-gray-400 bg-brand-dark p-2 rounded">
+                    <AlertCircle size={16} />
+                    <span className="text-sm">التغييرات تحفظ تلقائياً كمسودة.</span>
+                </div>
                 <div className="flex gap-4">
                      <button onClick={addCategory} className="bg-blue-500/80 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-500 transition-colors flex items-center gap-2">
                         <Plus size={18} /> إضافة قسم

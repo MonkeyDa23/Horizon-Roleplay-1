@@ -7,8 +7,9 @@ import { useConfig } from '../../contexts/ConfigContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { getStaff, saveStaff, lookupUser, sendDiscordLog } from '../../lib/api';
 import { useTranslations } from '../../contexts/TranslationsContext';
+import { usePersistentState } from '../../hooks/usePersistentState';
 import type { StaffMember, UserLookupResult } from '../../types';
-import { Loader2, Plus, GripVertical, Trash2, Search, ChevronUp, ChevronDown, Info } from 'lucide-react';
+import { Loader2, Plus, GripVertical, Trash2, Search, ChevronUp, ChevronDown, AlertCircle } from 'lucide-react';
 import Modal from '../Modal';
 
 type EditingStaffMember = Omit<StaffMember, 'id'> & {
@@ -24,39 +25,53 @@ const StaffPanel: React.FC = () => {
     const { config } = useConfig();
     const { user } = useAuth();
     
-    const [staff, setStaff] = useState<EditingStaffMember[]>([]);
+    // PERSISTENT STATE
+    const [staff, setStaff] = usePersistentState<EditingStaffMember[]>('vixel_admin_staff_draft', []);
+    const [isAddModalOpen, setIsAddModalOpen] = usePersistentState<boolean>('vixel_admin_staff_modal_open', false);
+    
+    // Modal Field State (Persistent)
+    const [lookupDiscordId, setLookupDiscordId] = usePersistentState<string>('vixel_admin_staff_lookup_id', '');
+    const [newStaffRoleEn, setNewStaffRoleEn] = usePersistentState<string>('vixel_admin_staff_new_role_en', '');
+    const [newStaffRoleAr, setNewStaffRoleAr] = usePersistentState<string>('vixel_admin_staff_new_role_ar', '');
+    
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-
-    // State for the 'Add Staff' modal
-    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [lookupDiscordId, setLookupDiscordId] = useState('');
     const [isLookingUp, setIsLookingUp] = useState(false);
     const [lookupResult, setLookupResult] = useState<UserLookupResult | null>(null);
     const [lookupError, setLookupError] = useState<string | null>(null);
-    const [newStaffRoleEn, setNewStaffRoleEn] = useState('');
-    const [newStaffRoleAr, setNewStaffRoleAr] = useState('');
 
     const fetchStaff = useCallback(async () => {
         setIsLoading(true);
         try {
             const staffData = await getStaff();
-            const editableStaff = staffData.map(s => ({
-                ...s,
-                role_en: translations[s.role_key]?.en || '',
-                role_ar: translations[s.role_key]?.ar || ''
-            }));
-            setStaff(editableStaff);
+            
+            setStaff((prev) => {
+                if (prev.length > 0) return prev;
+                return staffData.map(s => ({
+                    ...s,
+                    role_en: translations[s.role_key]?.en || '',
+                    role_ar: translations[s.role_key]?.ar || ''
+                }));
+            });
         } catch (error) {
             showToast('Failed to load staff list.', 'error');
         } finally {
             setIsLoading(false);
         }
-    }, [showToast, translations]);
+    }, [showToast, translations, setStaff]);
 
     useEffect(() => {
-        fetchStaff();
-    }, [fetchStaff]);
+        if (staff.length === 0) fetchStaff();
+        else setIsLoading(false);
+    }, [fetchStaff, staff.length]);
+
+    // Re-run lookup if modal opens and ID exists (restores state visually)
+    useEffect(() => {
+        if (isAddModalOpen && lookupDiscordId && !lookupResult) {
+            // Optional: Auto-lookup again or just let user click? 
+            // Let's let user click to avoid spamming API on reload
+        }
+    }, [isAddModalOpen, lookupDiscordId]);
 
     const handleSave = async () => {
         if (!user) return;
@@ -65,16 +80,26 @@ const StaffPanel: React.FC = () => {
             const dataToSave = staff.map((member, index) => ({
                 user_id: member.user_id,
                 role_key: member.role_key,
-                position: index, // Re-calculate position based on array order
+                position: index,
                 role_en: member.role_en,
                 role_ar: member.role_ar,
             }));
             await saveStaff(dataToSave);
             await refreshTranslations();
+            
+            // Clear draft
+            localStorage.removeItem('vixel_admin_staff_draft');
+            
             showToast('Staff list saved successfully!', 'success');
-            await fetchStaff();
+            
+            // Refresh list
+            const staffData = await getStaff();
+            setStaff(staffData.map(s => ({
+                ...s,
+                role_en: translations[s.role_key]?.en || '',
+                role_ar: translations[s.role_key]?.ar || ''
+            })));
 
-            // --- DETAILED LOG ---
             const embed = {
                 title: "👥 تحديث فريق العمل",
                 description: `قام المشرف **${user.username}** بتحديث قائمة فريق العمل المعروضة في صفحة 'من نحن'.\n\n**عدد الأعضاء الحالي:** ${staff.length}`,
@@ -168,7 +193,10 @@ const StaffPanel: React.FC = () => {
     return (
         <div className="animate-fade-in-up">
             <div className="flex justify-between items-center mb-6">
-                <p className="text-gray-400">{t('drag_to_reorder')}</p>
+                <div className="flex items-center gap-2 text-gray-400 bg-brand-dark p-2 rounded">
+                    <AlertCircle size={16} />
+                    <span className="text-sm">التعديلات محفوظة كمسودة حتى تضغط حفظ.</span>
+                </div>
                 <div className="flex gap-4">
                      <button onClick={() => setIsAddModalOpen(true)} className="bg-blue-500/80 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-500 transition-colors flex items-center gap-2">
                         <Plus size={18} /> {t('add_staff_member')}
@@ -224,22 +252,22 @@ const StaffPanel: React.FC = () => {
                                     <p className="text-sm text-gray-400">ID: {lookupResult.discordId}</p>
                                 </div>
                             </div>
-                        ) : lookupError && (
+                        ) : lookupError ? (
                              <p className="text-yellow-400 text-sm p-2 bg-yellow-500/10 rounded-md">{lookupError.replace('Exception: ', '')}</p>
+                        ) : lookupDiscordId && !isLookingUp && (
+                            <div className="p-2 text-sm text-gray-400">Click "Find User" to verify ID.</div>
                         )}
                         
-                        {lookupResult && lookupResult.id && (
-                            <div className="pt-4 border-t border-brand-light-blue/50 space-y-4">
-                                 <div>
-                                    <label className="block font-semibold mb-1">{t('staff_role_en')}</label>
-                                    <input type="text" value={newStaffRoleEn} onChange={e => setNewStaffRoleEn(e.target.value)} className="vixel-input !p-2"/>
-                                </div>
-                                 <div>
-                                    <label className="block font-semibold mb-1">{t('staff_role_ar')}</label>
-                                    <input type="text" value={newStaffRoleAr} onChange={e => setNewStaffRoleAr(e.target.value)} className="vixel-input !p-2" dir="rtl"/>
-                                </div>
+                        <div className="pt-4 border-t border-brand-light-blue/50 space-y-4">
+                                <div>
+                                <label className="block font-semibold mb-1">{t('staff_role_en')}</label>
+                                <input type="text" value={newStaffRoleEn} onChange={e => setNewStaffRoleEn(e.target.value)} className="vixel-input !p-2"/>
                             </div>
-                        )}
+                                <div>
+                                <label className="block font-semibold mb-1">{t('staff_role_ar')}</label>
+                                <input type="text" value={newStaffRoleAr} onChange={e => setNewStaffRoleAr(e.target.value)} className="vixel-input !p-2" dir="rtl"/>
+                            </div>
+                        </div>
 
                         <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4">
                             <button onClick={closeAddModal} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button>

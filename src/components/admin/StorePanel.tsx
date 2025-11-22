@@ -8,8 +8,9 @@ import { useConfig } from '../../contexts/ConfigContext';
 import { getProducts, saveProduct, deleteProduct, getProductCategories, saveProductCategories, sendDiscordLog } from '../../lib/api';
 import type { Product, ProductCategory } from '../../types';
 import { useTranslations } from '../../contexts/TranslationsContext';
+import { usePersistentState } from '../../hooks/usePersistentState'; // Imported Hook
 import Modal from '../Modal';
-import { Loader2, Plus, Edit, Trash2, GripVertical } from 'lucide-react';
+import { Loader2, Plus, Edit, Trash2, GripVertical, AlertCircle } from 'lucide-react';
 
 interface EditingProductData extends Product {
     nameEn: string;
@@ -30,37 +31,44 @@ const StorePanel: React.FC = () => {
     const { config } = useConfig();
     const { user } = useAuth();
     
-    const [activeView, setActiveView] = useState<'products' | 'categories'>('products');
-    const [products, setProducts] = useState<Product[]>([]);
-    const [categories, setCategories] = useState<EditableCategory[]>([]);
+    // PERSISTENT STATE: Keeps active view and edits safe
+    const [activeView, setActiveView] = usePersistentState<'products' | 'categories'>('vixel_admin_store_view', 'products');
+    const [categories, setCategories] = usePersistentState<EditableCategory[]>('vixel_admin_store_categories_draft', []);
+    const [editingProduct, setEditingProduct] = usePersistentState<EditingProductData | null>('vixel_admin_store_product_draft', null);
     
+    const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     
-    const [editingProduct, setEditingProduct] = useState<EditingProductData | null>(null);
-
     const fetchData = useCallback(async () => {
         if (translationsLoading) return;
         setIsLoading(true);
         try {
             const [productsData, categoriesData] = await Promise.all([getProducts(), getProductCategories()]);
             setProducts(productsData);
-            const editableCategories = categoriesData.map(c => ({
-                ...c,
-                nameEn: translations[c.nameKey]?.en || '',
-                nameAr: translations[c.nameKey]?.ar || '',
-            }));
-            setCategories(editableCategories);
+            
+            // Only overwrite local draft if it's empty, otherwise keep user's unsaved changes for categories
+            setCategories((prev) => {
+                if (prev.length > 0) return prev; 
+                return categoriesData.map(c => ({
+                    ...c,
+                    nameEn: translations[c.nameKey]?.en || '',
+                    nameAr: translations[c.nameKey]?.ar || '',
+                }));
+            });
+
         } catch (error) {
             showToast('Failed to load store data', 'error');
         } finally {
             setIsLoading(false);
         }
-    }, [showToast, translations, translationsLoading]);
+    }, [showToast, translations, translationsLoading, setCategories]);
 
     useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+        // Initial load only if we don't have data or force refresh needed
+        if (products.length === 0) fetchData();
+        else setIsLoading(false);
+    }, [fetchData, products.length]);
 
     // Product Handlers
     const handleCreateNewProduct = () => {
@@ -89,7 +97,10 @@ const StorePanel: React.FC = () => {
         try {
             const isNew = !products.find(p => p.id === editingProduct.id);
             await saveProduct(editingProduct);
-            setEditingProduct(null);
+            
+            // Clear draft explicitly on save
+            setEditingProduct(null); 
+            
             await refreshTranslations();
             await fetchData();
             
@@ -120,7 +131,6 @@ const StorePanel: React.FC = () => {
             try {
                 await deleteProduct(product.id);
                 
-                // --- DETAILED LOG ---
                 const embed = {
                     title: "🗑️ حذف منتج",
                     description: `قام المشرف **${user.username}** بحذف المنتج **${t(product.nameKey)}** نهائياً من المتجر.`,
@@ -133,7 +143,9 @@ const StorePanel: React.FC = () => {
                 await sendDiscordLog(config, embed, 'admin');
 
                 showToast('Product deleted!', 'success');
-                fetchData();
+                // Refresh list
+                const updatedProducts = await getProducts();
+                setProducts(updatedProducts);
             } catch (error) {
                 showToast(`Error: ${(error as Error).message}`, 'error');
             }
@@ -154,11 +166,14 @@ const StorePanel: React.FC = () => {
             }));
             await saveProductCategories(dataToSave);
             await refreshTranslations();
+            
+            // Force clear draft so we get fresh data next time
+            localStorage.removeItem('vixel_admin_store_categories_draft');
+            
             await fetchData();
             
             showToast('Categories saved!', 'success');
 
-            // --- DETAILED LOG ---
             const embed = {
                 title: "📂 تحديث أقسام المتجر",
                 description: `قام المشرف **${user.username}** بتحديث هيكلة أقسام المتجر.\n\n**عدد الأقسام الحالية:** ${categories.length}`,
@@ -252,7 +267,10 @@ const StorePanel: React.FC = () => {
             {activeView === 'categories' && (
                  <div>
                     <div className="flex justify-between items-center mb-6">
-                        <p className="text-gray-400">Drag and drop to reorder categories.</p>
+                        <div className="flex items-center gap-2 text-gray-400 bg-brand-dark p-2 rounded">
+                            <AlertCircle size={16} />
+                            <span className="text-sm">يتم حفظ الترتيب والأسماء تلقائياً في المسودة. اضغط حفظ لتطبيق التغييرات.</span>
+                        </div>
                         <div className="flex gap-4">
                             <button onClick={addCategory} className="bg-blue-500/80 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-500 transition-colors flex items-center gap-2"><Plus size={18} /> {t('add_category')}</button>
                             <button onClick={handleSaveCategories} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white transition-colors min-w-[9rem] flex justify-center">{isSaving ? <Loader2 className="animate-spin" /> : t('save_settings')}</button>
@@ -274,7 +292,7 @@ const StorePanel: React.FC = () => {
             )}
 
             {editingProduct && (
-                <Modal isOpen={!!editingProduct} onClose={() => setEditingProduct(null)} title={t(editingProduct.nameEn ? 'edit_product' : 'create_product')} maxWidth="lg">
+                <Modal isOpen={!!editingProduct} onClose={() => { if(window.confirm('Discard unsaved changes?')) setEditingProduct(null); }} title={t(editingProduct.nameEn ? 'edit_product' : 'create_product')} maxWidth="lg">
                     <div className="space-y-4 text-white">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
@@ -314,7 +332,7 @@ const StorePanel: React.FC = () => {
                             <input type="text" value={editingProduct.imageUrl} onChange={(e) => setEditingProduct({ ...editingProduct, imageUrl: e.currentTarget.value })} className="vixel-input" />
                         </div>
                         <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4">
-                            <button onClick={() => setEditingProduct(null)} disabled={isSaving} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button>
+                            <button onClick={() => { if(window.confirm('Discard unsaved changes?')) setEditingProduct(null); }} disabled={isSaving} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button>
                             <button onClick={handleSaveProduct} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white min-w-[8rem] flex justify-center">
                                 {isSaving ? <Loader2 className="animate-spin"/> : t('save_product')}
                             </button>

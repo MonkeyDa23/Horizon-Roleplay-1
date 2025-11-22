@@ -1,6 +1,6 @@
 
 // src/components/admin/QuizzesPanel.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useLocalization } from '../../contexts/LocalizationContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -9,7 +9,7 @@ import { getQuizzes, saveQuiz, deleteQuiz, sendDiscordLog } from '../../lib/api'
 import type { Quiz, QuizQuestion } from '../../types';
 import { useTranslations } from '../../contexts/TranslationsContext';
 import Modal from '../Modal';
-import { Loader2, Plus, Edit, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Edit, Trash2, Save, RotateCcw, AlertCircle } from 'lucide-react';
 
 const Panel: React.FC<{ children: React.ReactNode; isLoading: boolean, loadingText: string }> = ({ children, isLoading, loadingText }) => {
     if (isLoading) {
@@ -49,6 +49,8 @@ interface EditingQuizData {
     questions: EditableQuestion[];
 }
 
+const DRAFT_KEY = 'vixel_admin_quiz_draft';
+
 const QuizzesPanel: React.FC = () => {
     const { t } = useLocalization();
     const { showToast } = useToast();
@@ -60,6 +62,9 @@ const QuizzesPanel: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [editingQuiz, setEditingQuiz] = useState<EditingQuizData | null>(null);
+    
+    // Ref to track if the initial draft check is done to avoid overwriting with empty state
+    const isDraftLoaded = useRef(false);
 
     const fetchQuizzes = useCallback(async () => {
         setIsLoading(true);
@@ -70,6 +75,38 @@ const QuizzesPanel: React.FC = () => {
     }, [showToast]);
 
     useEffect(() => { fetchQuizzes(); }, [fetchQuizzes]);
+
+    // --- AUTO SAVE LOGIC ---
+    // 1. Load draft on mount (only if not already editing something else)
+    useEffect(() => {
+        if (!editingQuiz && !isDraftLoaded.current) {
+            const savedDraft = localStorage.getItem(DRAFT_KEY);
+            if (savedDraft) {
+                try {
+                    const parsed = JSON.parse(savedDraft);
+                    // Optional: Ask user if they want to resume? For now, auto-resume creates better UX for "I clicked away by mistake"
+                    setEditingQuiz(parsed);
+                    showToast('تم استعادة المسودة غير المحفوظة.', 'info');
+                } catch (e) {
+                    console.error("Failed to parse draft", e);
+                }
+            }
+            isDraftLoaded.current = true;
+        }
+    }, [showToast]);
+
+    // 2. Save draft whenever editingQuiz changes
+    useEffect(() => {
+        if (editingQuiz) {
+            localStorage.setItem(DRAFT_KEY, JSON.stringify(editingQuiz));
+        }
+    }, [editingQuiz]);
+
+    // 3. Clear draft function
+    const clearDraft = () => {
+        localStorage.removeItem(DRAFT_KEY);
+        setEditingQuiz(null);
+    };
 
     const handleCreateNew = () => {
         const newId = crypto.randomUUID();
@@ -93,6 +130,17 @@ const QuizzesPanel: React.FC = () => {
     };
 
     const handleEdit = (quiz: Quiz) => {
+        // Check if there is a pending draft for a DIFFERENT quiz
+        const savedDraft = localStorage.getItem(DRAFT_KEY);
+        if (savedDraft) {
+            const parsed = JSON.parse(savedDraft);
+            if (parsed.id !== quiz.id) {
+                if (!window.confirm('يوجد مسودة لتقديم آخر لم يتم حفظها. هل أنت متأكد أنك تريد استبدالها؟')) {
+                    return;
+                }
+            }
+        }
+
         setEditingQuiz({
             id: quiz.id,
             titleKey: quiz.titleKey,
@@ -122,7 +170,11 @@ const QuizzesPanel: React.FC = () => {
         try {
             const isNew = !quizzes.find(q => q.id === editingQuiz.id);
             await saveQuiz(editingQuiz);
+            
+            // Clear draft on successful save
+            localStorage.removeItem(DRAFT_KEY);
             setEditingQuiz(null);
+            
             await refreshTranslations();
             await fetchQuizzes();
             
@@ -197,6 +249,12 @@ const QuizzesPanel: React.FC = () => {
         setEditingQuiz({ ...editingQuiz, questions: newQuestions });
     };
 
+    const handleCancel = () => {
+        if (window.confirm('هل أنت متأكد؟ سيتم فقدان التغييرات غير المحفوظة.')) {
+            clearDraft();
+        }
+    };
+
     return (
         <Panel isLoading={isLoading} loadingText="Loading quizzes...">
             <div className="flex justify-end mb-6">
@@ -237,8 +295,13 @@ const QuizzesPanel: React.FC = () => {
                     </table>
                 </div>
             </div>
-            {editingQuiz && <Modal isOpen={!!editingQuiz} onClose={() => setEditingQuiz(null)} title={t(editingQuiz.titleEn ? 'edit_quiz' : 'create_new_quiz')} maxWidth="3xl">
+            {editingQuiz && <Modal isOpen={!!editingQuiz} onClose={handleCancel} title={t(editingQuiz.titleEn ? 'edit_quiz' : 'create_new_quiz')} maxWidth="3xl">
                 <div className="space-y-4 text-white">
+                    <div className="flex items-center gap-2 bg-brand-cyan/10 border border-brand-cyan/30 p-2 rounded-lg mb-4 text-brand-cyan text-sm">
+                        <AlertCircle size={16} />
+                        <span>يتم حفظ التغييرات تلقائياً في هذا المتصفح. لن تضيع بياناتك إذا أغلقت الصفحة.</span>
+                    </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block mb-1 font-semibold text-gray-300">{t('title_en')}</label>
@@ -311,9 +374,9 @@ const QuizzesPanel: React.FC = () => {
                     </div>
 
                     <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4">
-                        <button onClick={() => setEditingQuiz(null)} disabled={isSaving} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button>
-                        <button onClick={handleSave} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white min-w-[8rem] flex justify-center">
-                            {isSaving ? <Loader2 className="animate-spin" /> : t('save_quiz')}
+                        <button onClick={handleCancel} disabled={isSaving} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button>
+                        <button onClick={handleSave} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white min-w-[8rem] flex justify-center gap-2">
+                            {isSaving ? <Loader2 className="animate-spin" /> : <><Save size={18} /> {t('save_quiz')}</>}
                         </button>
                     </div>
                 </div>

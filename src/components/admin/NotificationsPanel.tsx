@@ -7,8 +7,9 @@ import { getTranslations, saveTranslations, testNotification, saveConfig, sendDi
 import { useConfig } from '../../contexts/ConfigContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabaseClient';
+import { usePersistentState } from '../../hooks/usePersistentState';
 import type { Translations, AppConfig } from '../../types';
-import { Loader2, HelpCircle, Send } from 'lucide-react';
+import { Loader2, HelpCircle, Send, AlertCircle } from 'lucide-react';
 
 const notificationTemplates = {
     submissionUser: {
@@ -36,28 +37,33 @@ const NotificationsPanel: React.FC = () => {
     const { showToast } = useToast();
     const { config, configLoading, refreshConfig } = useConfig();
     const { user } = useAuth();
-    const [allTranslations, setAllTranslations] = useState<Translations>({});
-    const [settings, setSettings] = useState<Partial<AppConfig>>({});
+    
+    // PERSISTENT STATE
+    const [allTranslations, setAllTranslations] = usePersistentState<Translations>('vixel_admin_notifs_trans_draft', {});
+    const [settings, setSettings] = usePersistentState<Partial<AppConfig>>('vixel_admin_notifs_settings_draft', {});
+    
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
-        if (!configLoading) {
+        // Only load from config if settings draft is empty
+        if (!configLoading && Object.keys(settings).length === 0) {
             setSettings(config);
         }
-    }, [config, configLoading]);
+    }, [config, configLoading, setSettings, settings]);
 
     const fetchTranslations = useCallback(async () => {
         setIsLoading(true);
         try {
             const data = await getTranslations();
-            setAllTranslations(data);
+            // Use draft if exists
+            setAllTranslations(prev => Object.keys(prev).length > 0 ? prev : data);
         } catch (error) {
             showToast('Failed to load notification templates.', 'error');
         } finally {
             setIsLoading(false);
         }
-    }, [showToast]);
+    }, [showToast, setAllTranslations]);
 
     useEffect(() => {
         fetchTranslations();
@@ -71,6 +77,11 @@ const NotificationsPanel: React.FC = () => {
                 saveTranslations(allTranslations),
                 saveConfig(settings)
             ]);
+            
+            // Clear drafts
+            localStorage.removeItem('vixel_admin_notifs_trans_draft');
+            localStorage.removeItem('vixel_admin_notifs_settings_draft');
+            
             await refreshConfig();
             showToast('تم حفظ إعدادات الإشعارات بنجاح!', 'success');
 
@@ -108,8 +119,9 @@ const NotificationsPanel: React.FC = () => {
     const TestItem: React.FC<(typeof notificationTests)[0]> = ({ key, label, desc, targetType, configKey }) => {
         const [targetId, setTargetId] = useState('');
         const [isTesting, setIsTesting] = useState(false);
-        // FIX: Cast config value to string | null to satisfy types for placeholder and function arguments.
-        const configuredChannelId = configKey ? settings[configKey] as string | null : null;
+        
+        // Cast to allow indexing
+        const configuredChannelId = configKey ? (settings as any)[configKey] as string | null : null;
 
         const handleSendTest = async () => {
             const finalTargetId = targetId || configuredChannelId;
@@ -137,7 +149,6 @@ const NotificationsPanel: React.FC = () => {
                     <input 
                         type="text" 
                         value={targetId}
-                        // FIX: Use `e.currentTarget.value` for better React event handling.
                         onChange={e => setTargetId(e.currentTarget.value)}
                         placeholder={configuredChannelId || `${t('target_id')}...`}
                         className="vixel-input !p-2 font-mono !text-sm"
@@ -165,7 +176,10 @@ const NotificationsPanel: React.FC = () => {
     return (
         <div className="animate-fade-in-up">
             <div className="flex justify-between items-center mb-6">
-                <p className="text-gray-400">{t('notifications_desc')}</p>
+                <div className="flex items-center gap-2 text-gray-400 bg-brand-dark p-2 rounded">
+                    <AlertCircle size={16} />
+                    <span className="text-sm">الإعدادات والقوالب تحفظ تلقائياً كمسودة.</span>
+                </div>
                 <button onClick={handleSave} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white transition-colors min-w-[9rem] flex justify-center">
                     {isSaving ? <Loader2 className="animate-spin" /> : t('save_settings')}
                 </button>

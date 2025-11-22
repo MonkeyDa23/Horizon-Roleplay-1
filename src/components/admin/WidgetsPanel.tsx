@@ -6,8 +6,9 @@ import { useToast } from '../../contexts/ToastContext';
 import { useConfig } from '../../contexts/ConfigContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { getDiscordWidgets, saveDiscordWidgets, sendDiscordLog } from '../../lib/api';
+import { usePersistentState } from '../../hooks/usePersistentState';
 import type { DiscordWidget } from '../../types';
-import { Loader2, Plus, GripVertical, Trash2 } from 'lucide-react';
+import { Loader2, Plus, GripVertical, Trash2, AlertCircle } from 'lucide-react';
 import Modal from '../Modal';
 
 type EditingWidget = {
@@ -22,26 +23,31 @@ const WidgetsPanel: React.FC = () => {
     const { showToast } = useToast();
     const { config } = useConfig();
     const { user } = useAuth();
-    const [widgets, setWidgets] = useState<DiscordWidget[]>([]);
+    
+    // PERSISTENT STATE
+    const [widgets, setWidgets] = usePersistentState<DiscordWidget[]>('vixel_admin_widgets_draft', []);
+    const [editingWidget, setEditingWidget] = usePersistentState<EditingWidget | null>('vixel_admin_widget_edit_draft', null);
+    
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-    const [editingWidget, setEditingWidget] = useState<EditingWidget | null>(null);
 
     const fetchWidgets = useCallback(async () => {
         setIsLoading(true);
         try {
             const data = await getDiscordWidgets();
-            setWidgets(data);
+            // Use draft if exists, else fetched
+            setWidgets(prev => prev.length > 0 ? prev : data);
         } catch (error) {
             showToast('Failed to load Discord widgets.', 'error');
         } finally {
             setIsLoading(false);
         }
-    }, [showToast]);
+    }, [showToast, setWidgets]);
 
     useEffect(() => {
-        fetchWidgets();
-    }, [fetchWidgets]);
+        if (widgets.length === 0) fetchWidgets();
+        else setIsLoading(false);
+    }, [fetchWidgets, widgets.length]);
     
     const handleSave = async () => {
         if (!user) return;
@@ -54,10 +60,16 @@ const WidgetsPanel: React.FC = () => {
                 position: index,
             }));
             await saveDiscordWidgets(widgetsToSave);
-            await fetchWidgets(); 
+            
+            // Clear draft
+            localStorage.removeItem('vixel_admin_widgets_draft');
+            
+            // Force Refresh
+            const data = await getDiscordWidgets();
+            setWidgets(data); 
+            
             showToast('Widgets saved successfully!', 'success');
 
-            // --- DETAILED LOG ---
             const embed = {
                 title: "🖼️ تحديث ودجتات الديسكورد",
                 description: `قام المشرف **${user.username}** بتحديث قائمة سيرفرات الديسكورد (Widgets).\n\n**العدد الحالي:** ${widgets.length}`,
@@ -105,7 +117,10 @@ const WidgetsPanel: React.FC = () => {
     return (
         <div className="animate-fade-in-up">
             <div className="flex justify-between items-center mb-6">
-                <p className="text-gray-400">Manage the Discord server widgets shown on the 'About Us' page.</p>
+                <div className="flex items-center gap-2 text-gray-400 bg-brand-dark p-2 rounded">
+                    <AlertCircle size={16} />
+                    <span className="text-sm">التغييرات محفوظة كمسودة حتى الحفظ النهائي.</span>
+                </div>
                 <div className="flex gap-4">
                      <button onClick={() => handleOpenModal()} className="bg-blue-500/80 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-500 transition-colors flex items-center gap-2">
                         <Plus size={18} /> Add Widget

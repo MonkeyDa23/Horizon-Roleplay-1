@@ -7,23 +7,28 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useConfig } from '../../contexts/ConfigContext';
 import { getTranslations, saveTranslations, sendDiscordLog } from '../../lib/api';
 import { translations as fallbackTranslations } from '../../lib/translations';
+import { usePersistentState } from '../../hooks/usePersistentState';
 import type { Translations } from '../../types';
-import { Loader2, Search } from 'lucide-react';
+import { Loader2, Search, AlertCircle } from 'lucide-react';
 
 const TranslationsPanel: React.FC = () => {
     const { t } = useLocalization();
     const { showToast } = useToast();
     const { user } = useAuth();
     const { config } = useConfig();
-    const [editableTranslations, setEditableTranslations] = useState<Translations>({});
+    
+    // PERSISTENT STATE
+    const [editableTranslations, setEditableTranslations] = usePersistentState<Translations>('vixel_admin_translations_draft', {});
+    const [searchTerm, setSearchTerm] = usePersistentState<string>('vixel_admin_translations_search', '');
+    
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
 
     const fetchTranslations = useCallback(async () => {
         setIsLoading(true);
         try {
             const dbTranslations = await getTranslations();
+            
             const mergedTranslations: Translations = {};
             const allKeys = new Set([...Object.keys(fallbackTranslations), ...Object.keys(dbTranslations)]);
             allKeys.forEach(key => {
@@ -32,14 +37,17 @@ const TranslationsPanel: React.FC = () => {
                     en: dbTranslations[key]?.en || fallbackTranslations[key]?.en || '',
                 };
             });
-            setEditableTranslations(mergedTranslations);
+            
+            // Use draft if not empty, else load from DB
+            setEditableTranslations(prev => Object.keys(prev).length > 0 ? prev : mergedTranslations);
+
         } catch (error) {
             showToast('Failed to load translations.', 'error');
-            setEditableTranslations(fallbackTranslations);
+            setEditableTranslations(prev => Object.keys(prev).length > 0 ? prev : fallbackTranslations);
         } finally {
             setIsLoading(false);
         }
-    }, [showToast]);
+    }, [showToast, setEditableTranslations]);
 
     useEffect(() => { fetchTranslations(); }, [fetchTranslations]);
 
@@ -49,6 +57,9 @@ const TranslationsPanel: React.FC = () => {
         try {
             await saveTranslations(editableTranslations);
             showToast(t('save_translations'), 'success');
+            
+            // Clear draft
+            localStorage.removeItem('vixel_admin_translations_draft');
 
             // --- DETAILED LOG ---
             const embed = {
@@ -85,6 +96,10 @@ const TranslationsPanel: React.FC = () => {
     return (
         <div className="animate-fade-in-up">
             <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-6">
+                <div className="flex items-center gap-2 text-gray-400 bg-brand-dark p-2 rounded">
+                    <AlertCircle size={16} />
+                    <span className="text-sm">المسودة محفوظة تلقائياً.</span>
+                </div>
                 <div className="relative w-full md:max-w-md">
                     <Search className="absolute top-1/2 -translate-y-1/2 left-3 text-gray-400" size={20} />
                     <input type="text" placeholder="Search keys..." value={searchTerm} onChange={(e) => setSearchTerm(e.currentTarget.value)} className="vixel-input !pl-10" />
