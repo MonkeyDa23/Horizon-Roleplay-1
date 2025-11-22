@@ -93,13 +93,19 @@ export const translations: Translations = {
   application_submitted: { ar: 'تم إرسال تقديمك بنجاح!', en: 'Your application has been submitted successfully!' },
   application_submitted_desc: { ar: 'ستتم مراجعته من قبل الإدارة قريباً. يمكنك متابعة حالته من صفحة "تقديماتي".', en: 'It will be reviewed by the administration soon. You can track its status on the "My Applications" page.' },
   view_my_applications: { ar: 'عرض تقديماتي', en: 'View My Applications' },
-  cheat_attempt_detected: { ar: 'تم كشف محاولات غش!', en: 'Cheat attempts detected!' },
-  cheat_method_switched_tab: { ar: 'تبديل التبويبات', en: 'Switched Tabs' },
-  cheat_method_lost_focus: { ar: 'فقدان التركيز', en: 'Lost Focus' },
+  cheat_attempt_detected: { ar: '⚠️ تم كشف محاولات غش!', en: '⚠️ Cheat attempts detected!' },
+  cheat_method_switched_tab: { ar: 'تبديل التبويبات (خروج من الصفحة)', en: 'Switched Tabs (Left Page)' },
+  cheat_method_lost_focus: { ar: 'فقدان التركيز (ضغط خارج الصفحة)', en: 'Lost Focus (Clicked Outside)' },
+  cheat_method_blur: { ar: 'تصغير المتصفح أو تراكب نافذة', en: 'Browser Blur/Overlay' },
   cheat_attempts_report: { ar: 'تقرير محاولات الغش', en: 'Cheat Attempts Report' },
   cheat_attempts_count: { ar: 'تم تسجيل {count} محاولة/محاولات.', en: '{count} attempt(s) were logged.' },
-  no_cheat_attempts: { ar: 'لم يتم تسجيل أي محاولات غش. عمل رائع!', en: 'No cheat attempts logged. Great job!' },
+  no_cheat_attempts: { ar: '✨ تقديم نظيف (لا يوجد غش)', en: '✨ Clean Submission (No Cheating)' },
   error_captcha_not_configured_user: { ar: 'خدمة التحقق غير مهيأة. الرجاء إبلاغ الإدارة.', en: 'Captcha service is not configured. Please inform an administrator.' },
+  answer_timeout: { ar: 'لم يتم الإجابة (انتهى الوقت ⏱️)', en: 'Timed Out (Incomplete)' },
+  answer_timeout_badge: { ar: 'انتهى الوقت ⏱️', en: 'Timed Out ⏱️' },
+  cheat_user_warning_title: { ar: '⚠️ تحذير أمني', en: '⚠️ Security Warning' },
+  cheat_user_warning_msg: { ar: 'لقد تم تسجيل {count} محاولة للخروج من الصفحة أو تبديل التبويبات أثناء الاختبار. تم إرفاق هذا التقرير مع طلبك.', en: 'We recorded {count} attempts to switch tabs or leave the page during the quiz. This report has been attached to your application.' },
+  during_question: { ar: 'أثناء السؤال {num}', en: 'During Question {num}' },
 
 
   // Admin Page

@@ -4,10 +4,10 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { getSubmissionById, updateSubmissionStatus, sendDiscordLog, lookupUser } from '../lib/api';
+import { getSubmissionById, updateSubmissionStatus, sendDiscordLog } from '../lib/api';
 import { supabase } from '../lib/supabaseClient';
 import type { QuizSubmission } from '../types';
-import { Loader2, Check, X, ArrowLeft, User, Calendar, Shield, AlertTriangle, ListChecks } from 'lucide-react';
+import { Loader2, Check, X, ArrowLeft, User, Calendar, Shield, AlertTriangle, ListChecks, Eye, MousePointerClick, Clock } from 'lucide-react';
 import SEO from '../components/SEO';
 import { useConfig } from '../contexts/ConfigContext';
 
@@ -80,11 +80,8 @@ const SubmissionDetailPage: React.FC = () => {
             }
             
             if (targetId) {
-                // Use default logo if lookup fails or to avoid delay, but try to use submission data/user avatar if stored
-                // We will try to get the user avatar if possible, otherwise fallback
                 let applicantAvatarUrl = config.LOGO_URL;
                 try {
-                    // We can reuse the 'user_id' to fetch profile avatar from Supabase directly which is faster
                     const { data } = await supabase!.from('profiles').select('avatar_url').eq('id', submission.user_id).single();
                     if (data?.avatar_url) applicantAvatarUrl = data.avatar_url;
                 } catch {}
@@ -123,7 +120,6 @@ const SubmissionDetailPage: React.FC = () => {
             await updateSubmissionStatus(submission.id, 'taken');
             showToast('تم استلام الطلب.', 'success');
             
-            // Log that admin took the ticket
             const logEmbed = {
                 title: '✋ استلام تقديم',
                 description: `قام المشرف **${user?.username}** باستلام تقديم **${submission.quizTitle}** الخاص بـ **${submission.username}** للمراجعة.`,
@@ -134,7 +130,6 @@ const SubmissionDetailPage: React.FC = () => {
             };
             sendDiscordLog(config, logEmbed, 'submission');
 
-            // Send DM to user
             let targetId = (submission as any).discord_id; 
             if (!targetId && submission.user_id && supabase) {
                 const { data } = await supabase.from('profiles').select('discord_id').eq('id', submission.user_id).single();
@@ -205,22 +200,40 @@ const SubmissionDetailPage: React.FC = () => {
                             </div>
                         </div>
                         
+                        {/* ENHANCED CHEAT REPORT CARD */}
                         {submission.cheatAttempts && submission.cheatAttempts.length > 0 ? (
-                             <div className="bg-red-500/10 border border-red-500/30 p-5 rounded-lg max-w-md w-full">
-                                <h3 className="text-red-400 font-bold flex items-center gap-2 mb-3 text-lg"><AlertTriangle size={20} /> {t('cheat_attempt_detected')}</h3>
-                                <ul className="text-sm text-red-300 space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-2">
+                             <div className="bg-gradient-to-br from-red-900/30 to-background-dark border-l-4 border-red-500 p-5 rounded-r-lg max-w-md w-full shadow-lg shadow-red-900/10">
+                                <div className="flex items-center justify-between mb-3 border-b border-red-500/30 pb-2">
+                                    <h3 className="text-red-400 font-extrabold flex items-center gap-2 text-lg">
+                                        <AlertTriangle size={22} className="animate-pulse" /> 
+                                        {t('cheat_attempts_report')}
+                                    </h3>
+                                    <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">{submission.cheatAttempts.length}</span>
+                                </div>
+                                <ul className="text-sm text-red-200 space-y-3 max-h-48 overflow-y-auto custom-scrollbar pr-2">
                                     {submission.cheatAttempts.map((attempt, i) => (
-                                        <li key={i} className="flex justify-between border-b border-red-500/20 pb-1 last:border-0">
-                                            <span>{attempt.method}</span>
-                                            <span className="font-mono text-xs opacity-70">{new Date(attempt.timestamp).toLocaleTimeString()}</span>
+                                        <li key={i} className="flex items-start gap-3 bg-red-950/30 p-2 rounded hover:bg-red-900/40 transition-colors">
+                                            <div className="mt-0.5 text-red-400">
+                                                {attempt.method.includes('Blur') ? <Eye size={16}/> : <MousePointerClick size={16}/>}
+                                            </div>
+                                            <div className="flex-grow">
+                                                <div className="flex justify-between items-start">
+                                                    <span className="block font-semibold">{attempt.method}</span>
+                                                    {attempt.details && <span className="text-xs bg-red-900/50 px-1.5 py-0.5 rounded border border-red-500/20 text-red-300">{attempt.details}</span>}
+                                                </div>
+                                                <span className="font-mono text-xs opacity-60 block mt-0.5">{new Date(attempt.timestamp).toLocaleTimeString()}</span>
+                                            </div>
                                         </li>
                                     ))}
                                 </ul>
                             </div>
                         ) : (
-                             <div className="bg-green-500/10 border border-green-500/30 p-4 rounded-lg flex items-center gap-3 text-green-400">
-                                <ListChecks size={24} />
-                                <span className="font-bold text-lg">{t('no_cheat_attempts')}</span>
+                             <div className="bg-green-500/10 border-l-4 border-green-500 p-4 rounded-r-lg flex items-center gap-4 text-green-400 shadow-md">
+                                <div className="p-2 bg-green-500/20 rounded-full"><ListChecks size={24} /></div>
+                                <div>
+                                    <span className="font-bold text-lg block">{t('no_cheat_attempts')}</span>
+                                    <span className="text-xs text-green-300/70">سجل نظيف وموثوق</span>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -230,13 +243,22 @@ const SubmissionDetailPage: React.FC = () => {
                         {submission.answers.map((item, index) => (
                             <div key={index} className="glass-panel p-0 overflow-hidden animate-fade-in-up" style={{ animationDelay: `${index * 50}ms` }}>
                                 <div className="bg-brand-light-blue/10 p-4 border-b border-brand-light-blue/20 flex justify-between items-center">
-                                    <h4 className="text-lg font-bold text-brand-cyan">سؤال {index + 1}</h4>
+                                    <div className="flex items-center gap-3">
+                                        <h4 className="text-lg font-bold text-brand-cyan">سؤال {index + 1}</h4>
+                                        {item.isTimeout && (
+                                            <span className="flex items-center gap-1 bg-red-500/20 text-red-400 text-xs px-2 py-1 rounded-full border border-red-500/30 font-bold animate-pulse">
+                                                <Clock size={12} /> {t('answer_timeout_badge')}
+                                            </span>
+                                        )}
+                                    </div>
                                     <span className="text-xs text-gray-500 font-mono bg-brand-dark px-2 py-1 rounded">الوقت المستغرق: {item.timeTaken}s</span>
                                 </div>
                                 <div className="p-6">
                                     <p className="text-lg text-white font-medium mb-4">{item.questionText}</p>
                                     <div className="bg-brand-dark/60 p-6 rounded-lg border border-gray-700/50 min-h-[100px]">
-                                        <p className="text-gray-200 whitespace-pre-wrap text-lg leading-relaxed">{item.answer}</p>
+                                        <p className={`text-lg leading-relaxed whitespace-pre-wrap ${item.isTimeout && !item.answer ? 'text-red-400 font-bold italic' : 'text-gray-200'}`}>
+                                            {item.answer || t('answer_timeout')}
+                                        </p>
                                     </div>
                                 </div>
                             </div>
