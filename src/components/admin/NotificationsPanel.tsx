@@ -27,8 +27,8 @@ const notificationTests: { key: string; label: string; desc: string; targetType:
     { key: 'submission_result', label: 'رسالة نتيجة التقديم', desc: 'رسالة خاصة تُرسل للمستخدم عند قبول أو رفض تقديمه.', targetType: 'user' },
     { key: 'audit_log_submissions', label: 'سجل التقديمات', desc: 'يُرسل إلى قناة سجلات التقديمات عند تغيير حالة طلب.', targetType: 'channel', configKey: 'log_channel_submissions' },
     { key: 'audit_log_bans', label: 'سجل الحظر', desc: 'يُرسل إلى قناة سجلات الحظر عند حظر أو فك حظر مستخدم.', targetType: 'channel', configKey: 'log_channel_bans' },
-    { key: 'audit_log_admin', label: 'سجل الإدارة', desc: 'يُرسل إلى قناة سجلات الإدارة عند تغيير الإعدادات.', targetType: 'channel', configKey: 'log_channel_admin' },
-    { key: 'audit_log_general', label: 'السجل العام (الاحتياطي)', desc: 'يُرسل إلى قناة السجلات العامة الاحتياطية.', targetType: 'channel', configKey: 'audit_log_channel_id' },
+    { key: 'finance', label: 'السجل المالي', desc: 'يُرسل إلى قناة المالية عند إضافة رصيد أو فاتورة.', targetType: 'channel', configKey: 'log_channel_finance' },
+    { key: 'store', label: 'سجل المتجر', desc: 'يُرسل إلى قناة المتجر عند شراء عضو لمنتج.', targetType: 'channel', configKey: 'log_channel_store' },
 ];
 
 const NotificationsPanel: React.FC = () => {
@@ -215,7 +215,8 @@ const NotificationsPanel: React.FC = () => {
                         </div>
                         <div className="space-y-4">
                             <IdField labelKey="submissions_channel_id" descKey="submissions_channel_id_desc" value={settings.submissions_channel_id} onChange={e => handleConfigChange('submissions_channel_id', e)} />
-                            <IdField labelKey="log_channel_submissions" descKey="log_channel_submissions_desc" value={settings.log_channel_submissions} onChange={e => handleConfigChange('log_channel_submissions', e)} />
+                            <IdField labelKey="log_channel_finance" descKey="log_channel_finance_desc" value={settings.log_channel_finance} onChange={e => handleConfigChange('log_channel_finance', e)} />
+                            <IdField labelKey="log_channel_store" descKey="log_channel_store_desc" value={settings.log_channel_store} onChange={e => handleConfigChange('log_channel_store', e)} />
                             <IdField labelKey="log_channel_bans" descKey="log_channel_bans_desc" value={settings.log_channel_bans} onChange={e => handleConfigChange('log_channel_bans', e)} />
                             <IdField labelKey="log_channel_admin" descKey="log_channel_admin_desc" value={settings.log_channel_admin} onChange={e => handleConfigChange('log_channel_admin', e)} />
                             <IdField labelKey="log_channel_auth" descKey="log_channel_auth_desc" value={settings.log_channel_auth} onChange={e => handleConfigChange('log_channel_auth', e)} />
@@ -225,11 +226,11 @@ const NotificationsPanel: React.FC = () => {
                                 <h4 className="text-lg font-bold text-white mb-3">Mention Roles</h4>
                                 <div className="space-y-4">
                                     <IdField labelKey="mention_role_submissions" descKey="mention_role_submissions_desc" value={settings.mention_role_submissions} onChange={e => handleConfigChange('mention_role_submissions', e)} />
-                                    <IdField labelKey="mention_role_audit_log_submissions" descKey="mention_role_audit_log_submissions_desc" value={settings.mention_role_audit_log_submissions} onChange={e => handleConfigChange('mention_role_audit_log_submissions', e)} />
+                                    <IdField labelKey="mention_role_finance" descKey="mention_role_finance_desc" value={settings.mention_role_finance} onChange={e => handleConfigChange('mention_role_finance', e)} />
+                                    <IdField labelKey="mention_role_store" descKey="mention_role_store_desc" value={settings.mention_role_store} onChange={e => handleConfigChange('mention_role_store', e)} />
                                     <IdField labelKey="mention_role_audit_log_bans" descKey="mention_role_audit_log_bans_desc" value={settings.mention_role_audit_log_bans} onChange={e => handleConfigChange('mention_role_audit_log_bans', e)} />
                                     <IdField labelKey="mention_role_audit_log_admin" descKey="mention_role_audit_log_admin_desc" value={settings.mention_role_audit_log_admin} onChange={e => handleConfigChange('mention_role_audit_log_admin', e)} />
                                     <IdField labelKey="mention_role_auth" descKey="mention_role_auth_desc" value={settings.mention_role_auth} onChange={e => handleConfigChange('mention_role_auth', e)} />
-                                    <IdField labelKey="mention_role_audit_log_general" descKey="mention_role_audit_log_general_desc" value={settings.mention_role_audit_log_general} onChange={e => handleConfigChange('mention_role_audit_log_general', e)} />
                                 </div>
                             </div>
                         </div>

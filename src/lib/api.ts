@@ -55,7 +55,7 @@ async function callBotApi<T>(endpoint: string, options: RequestInit = {}): Promi
 export const sendDiscordLog = async (
     config: AppConfig, 
     embed: any, 
-    logType: 'admin' | 'ban' | 'submission' | 'submission_dm' | 'auth' | 'dm', 
+    logType: 'admin' | 'ban' | 'submission' | 'submission_dm' | 'auth' | 'dm' | 'finance' | 'store', 
     targetId?: string
 ): Promise<void> => {
   
@@ -87,9 +87,16 @@ export const sendDiscordLog = async (
           mentionRoleId = config.mention_role_submissions;
           break;
         case 'auth':
-          // Routes to specific Auth/New Member channel
           finalTargetId = config.log_channel_auth || config.log_channel_admin; 
           mentionRoleId = config.mention_role_auth;
+          break;
+        case 'finance':
+          finalTargetId = config.log_channel_finance; 
+          mentionRoleId = config.mention_role_finance;
+          break;
+        case 'store':
+          finalTargetId = config.log_channel_store; 
+          mentionRoleId = config.mention_role_store;
           break;
       }
       
@@ -239,6 +246,12 @@ export const getUserInvoices = async (userId: string): Promise<Invoice[]> => {
     const { data, error } = await supabase!.from('invoices').select('*').eq('user_id', userId).order('created_at', { ascending: false });
     if (error) throw error;
     return data as Invoice[];
+};
+
+export const processPurchase = async (amount: number, details: string): Promise<boolean> => {
+    const { data, error } = await supabase!.rpc('process_purchase', { p_amount: amount, p_details: details });
+    if (error) throw new Error(error.message);
+    return data as boolean;
 };
 
 // ... [Rest of the CRUD functions remain the same but imported types might have changed] ...

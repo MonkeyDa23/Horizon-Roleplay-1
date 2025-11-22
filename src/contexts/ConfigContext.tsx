@@ -32,6 +32,8 @@ const defaultConfig: AppConfig = {
     log_channel_bans: null,
     log_channel_admin: null,
     log_channel_auth: null, // New Members Log
+    log_channel_finance: null, // New: Finance Log (Balance/Invoices)
+    log_channel_store: null, // New: Store Log (User Purchases)
     audit_log_channel_id: null,
 
     // Mention Roles
@@ -40,6 +42,8 @@ const defaultConfig: AppConfig = {
     mention_role_audit_log_bans: null,
     mention_role_audit_log_admin: null,
     mention_role_auth: null, // New Members Role
+    mention_role_finance: null, // New
+    mention_role_store: null, // New
     mention_role_audit_log_general: null,
 };
 

@@ -36,7 +36,7 @@ DROP TABLE IF EXISTS public.rules CASCADE;
 DROP TABLE IF EXISTS public.quizzes CASCADE;
 DROP TABLE IF EXISTS public.products CASCADE;
 DROP TABLE IF EXISTS public.product_categories CASCADE;
-DROP TABLE IF EXISTS public.invoices CASCADE; -- New
+DROP TABLE IF EXISTS public.invoices CASCADE;
 DROP TABLE IF EXISTS public.profiles CASCADE;
 DROP TABLE IF EXISTS public.config CASCADE;
 DROP TABLE IF EXISTS public.translations CASCADE;
@@ -69,8 +69,9 @@ DROP FUNCTION IF EXISTS public.delete_product(uuid);
 DROP FUNCTION IF EXISTS public.verify_admin_password(text);
 DROP FUNCTION IF EXISTS public.lookup_user_by_discord_id(text);
 DROP FUNCTION IF EXISTS public.handle_user_sync(uuid, text, text, text, jsonb, jsonb);
-DROP FUNCTION IF EXISTS public.add_user_balance(uuid, numeric, text); -- New
-DROP FUNCTION IF EXISTS public.create_invoice(uuid, jsonb, numeric); -- New
+DROP FUNCTION IF EXISTS public.add_user_balance(uuid, numeric, text);
+DROP FUNCTION IF EXISTS public.create_invoice(uuid, jsonb, numeric);
+DROP FUNCTION IF EXISTS public.process_purchase(numeric, text); -- New
 DROP VIEW IF EXISTS private.user_roles_view;
 
 
@@ -98,12 +99,16 @@ CREATE TABLE public.config (
     "log_channel_bans" text,
     "log_channel_admin" text,
     "log_channel_auth" text,
+    "log_channel_finance" text, -- New
+    "log_channel_store" text, -- New
     "audit_log_channel_id" text,
     "mention_role_submissions" text,
     "mention_role_audit_log_submissions" text,
     "mention_role_audit_log_bans" text,
     "mention_role_audit_log_admin" text,
     "mention_role_auth" text,
+    "mention_role_finance" text, -- New
+    "mention_role_store" text, -- New
     "mention_role_audit_log_general" text,
     CONSTRAINT id_check CHECK (id = 1)
 );
@@ -164,7 +169,6 @@ DECLARE
 BEGIN
     IF p_user_id IS NULL THEN RETURN false; END IF;
 
-    -- Query the private view which bypasses RLS on the profiles table, preventing recursion.
     SELECT COALESCE(array_agg(DISTINCT p.permission), '{}')
     INTO user_permissions
     FROM private.user_roles_view prof
@@ -205,8 +209,6 @@ CREATE POLICY "Allow public read access" ON public.translations FOR SELECT USING
 CREATE POLICY "Allow public read access" ON public.discord_widgets FOR SELECT USING (true);
 CREATE POLICY "Allow public read access" ON public.staff FOR SELECT USING (true);
 
--- Profiles Policies
--- IMPORTANT: WE DO NOT allow UPDATE on 'balance' via normal API. Only via RPC.
 CREATE POLICY "Allow individual user full access to their own profile" ON public.profiles FOR ALL
   USING (id = auth.uid())
   WITH CHECK (id = auth.uid());
@@ -215,7 +217,6 @@ CREATE POLICY "Allow admins full access to all profiles" ON public.profiles FOR 
   USING (public.has_permission(auth.uid(), '_super_admin') OR public.has_permission(auth.uid(), 'admin_lookup'))
   WITH CHECK (public.has_permission(auth.uid(), '_super_admin') OR public.has_permission(auth.uid(), 'admin_lookup'));
 
--- Invoice Policies
 CREATE POLICY "Users see own invoices" ON public.invoices FOR SELECT USING (user_id = auth.uid());
 CREATE POLICY "Admins manage invoices" ON public.invoices FOR ALL USING (public.has_permission(auth.uid(), 'admin_lookup'));
 
@@ -238,6 +239,37 @@ CREATE POLICY "Admins can manage submissions" ON public.submissions FOR ALL USIN
 -- 7. RPC FUNCTIONS
 -- =================================================================
 
+-- Secure Balance Deduction (Purchase)
+CREATE OR REPLACE FUNCTION public.process_purchase(p_amount numeric, p_details text)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+    user_bal numeric;
+BEGIN
+    SELECT balance INTO user_bal FROM public.profiles WHERE id = auth.uid();
+    
+    IF user_bal < p_amount THEN
+        RAISE EXCEPTION 'Insufficient balance';
+    END IF;
+
+    UPDATE public.profiles 
+    SET balance = balance - p_amount 
+    WHERE id = auth.uid();
+
+    INSERT INTO public.audit_log (admin_id, admin_username, action, log_type)
+    VALUES (
+        auth.uid(), 
+        (SELECT username FROM public.profiles WHERE id = auth.uid()), 
+        'Purchase: ' || p_details || ' Amount: $' || p_amount,
+        'store'
+    );
+
+    RETURN true;
+END;
+$$;
+
 -- Secure Balance Addition
 CREATE OR REPLACE FUNCTION public.add_user_balance(p_target_user_id uuid, p_amount numeric, p_reason text DEFAULT 'Manual adjustment')
 RETURNS numeric
@@ -248,18 +280,15 @@ DECLARE
     new_balance numeric;
     admin_name text;
 BEGIN
-    -- Check permission
     IF NOT public.has_permission(public.get_user_id(), 'admin_lookup') THEN
         RAISE EXCEPTION 'Insufficient permissions to modify balance.';
     END IF;
 
-    -- Update balance
     UPDATE public.profiles 
     SET balance = balance + p_amount 
     WHERE id = p_target_user_id
     RETURNING balance INTO new_balance;
 
-    -- Log action
     SELECT COALESCE(username, 'Unknown Admin') INTO admin_name FROM public.profiles WHERE id = public.get_user_id();
     
     INSERT INTO public.audit_log (admin_id, admin_username, action, log_type)
@@ -267,7 +296,7 @@ BEGIN
         public.get_user_id(), 
         admin_name, 
         'Added $' || p_amount || ' to user ' || p_target_user_id || '. New Balance: $' || new_balance || '. Reason: ' || p_reason,
-        'admin'
+        'finance'
     );
 
     RETURN new_balance;
@@ -294,13 +323,12 @@ BEGIN
     VALUES (p_target_user_id, public.get_user_id(), admin_name, p_products, p_total_amount)
     RETURNING * INTO v_invoice;
 
-    -- Log
     INSERT INTO public.audit_log (admin_id, admin_username, action, log_type)
     VALUES (
         public.get_user_id(), 
         admin_name, 
         'Created invoice for user ' || p_target_user_id || ' Amount: $' || p_total_amount,
-        'admin'
+        'finance'
     );
 
     RETURN v_invoice;
@@ -603,12 +631,16 @@ BEGIN
     "log_channel_bans" = COALESCE(new_config->>'log_channel_bans', "log_channel_bans"),
     "log_channel_admin" = COALESCE(new_config->>'log_channel_admin', "log_channel_admin"),
     "log_channel_auth" = COALESCE(new_config->>'log_channel_auth', "log_channel_auth"),
+    "log_channel_finance" = COALESCE(new_config->>'log_channel_finance', "log_channel_finance"),
+    "log_channel_store" = COALESCE(new_config->>'log_channel_store', "log_channel_store"),
     "audit_log_channel_id" = COALESCE(new_config->>'audit_log_channel_id', "audit_log_channel_id"),
     "mention_role_submissions" = COALESCE(new_config->>'mention_role_submissions', "mention_role_submissions"),
     "mention_role_audit_log_submissions" = COALESCE(new_config->>'mention_role_audit_log_submissions', "mention_role_audit_log_submissions"),
     "mention_role_audit_log_bans" = COALESCE(new_config->>'mention_role_audit_log_bans', "mention_role_audit_log_bans"),
     "mention_role_audit_log_admin" = COALESCE(new_config->>'mention_role_audit_log_admin', "mention_role_audit_log_admin"),
     "mention_role_auth" = COALESCE(new_config->>'mention_role_auth', "mention_role_auth"),
+    "mention_role_finance" = COALESCE(new_config->>'mention_role_finance', "mention_role_finance"),
+    "mention_role_store" = COALESCE(new_config->>'mention_role_store', "mention_role_store"),
     "mention_role_audit_log_general" = COALESCE(new_config->>'mention_role_audit_log_general', "mention_role_audit_log_general")
   WHERE id = 1;
 END;

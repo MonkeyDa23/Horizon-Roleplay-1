@@ -254,6 +254,8 @@ export interface AppConfig {
     log_channel_bans: string | null;
     log_channel_admin: string | null;
     log_channel_auth: string | null; // New: New Members Log
+    log_channel_finance: string | null; // New: Finance Log (Balance/Invoices)
+    log_channel_store: string | null; // New: Store Log (User Purchases)
     audit_log_channel_id: string | null;
 
     // Mention Roles
@@ -262,6 +264,8 @@ export interface AppConfig {
     mention_role_audit_log_bans: string | null;
     mention_role_audit_log_admin: string | null;
     mention_role_auth: string | null; // New: New Members Role
+    mention_role_finance: string | null; // New
+    mention_role_store: string | null; // New
     mention_role_audit_log_general: string | null;
 }
 
