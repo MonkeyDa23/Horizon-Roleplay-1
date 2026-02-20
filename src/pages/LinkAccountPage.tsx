@@ -33,10 +33,32 @@ const LinkAccountPage: React.FC = () => {
 
             if (error) throw error;
 
-            if (data && data.ok) {
+            if (data && data.success) {
+                // 1. Refresh user to get the new mta_serial
+                await refreshUser?.();
+                
+                // 2. Fetch MTA Account Name from our API using the serial
+                // Note: We'll get the serial from the refreshed user object
+                const { data: profileData } = await supabase.from('profiles').select('mta_serial').eq('id', user?.id).single();
+                
+                if (profileData?.mta_serial) {
+                    try {
+                        const mtaResponse = await fetch(`/api/mta/account/${profileData.mta_serial}`);
+                        if (mtaResponse.ok) {
+                            const mtaAccount = await mtaResponse.json();
+                            if (mtaAccount.username) {
+                                // 3. Update Supabase profile with the MTA username
+                                await supabase.from('profiles').update({ mta_name: mtaAccount.username }).eq('id', user?.id);
+                                await refreshUser?.();
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Error fetching MTA name:', err);
+                    }
+                }
+
                 setIsSuccess(true);
                 showToast('تم ربط الحساب بنجاح!', 'success');
-                await refreshUser?.();
             } else {
                 showToast(data?.message || 'الكود غير صحيح أو منتهي الصلاحية', 'error');
             }
@@ -89,15 +111,17 @@ const LinkAccountPage: React.FC = () => {
                                     <div className="w-20 h-20 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-6 border border-green-500/30">
                                         <CheckCircle2 className="text-green-400 w-12 h-12" />
                                     </div>
-                                    <h2 className="text-2xl font-bold text-white mb-2">حسابك مربوط بالفعل!</h2>
-                                    <p className="text-gray-400 mb-8">حسابك مرتبط حالياً بالـ Serial التالي:</p>
-                                    <div className="bg-brand-dark px-6 py-4 rounded-2xl font-mono text-brand-cyan border border-white/5 mb-8">
-                                        {user.mta_serial}
+                                    <h2 className="text-2xl font-bold text-white mb-2">حسابك مربوط بنجاح!</h2>
+                                    <p className="text-gray-400 mb-8">حسابك مرتبط حالياً بحساب اللعبة التالي:</p>
+                                    <div className="bg-brand-dark px-6 py-4 rounded-2xl font-bold text-2xl text-brand-cyan border border-white/5 mb-8">
+                                        {user.mta_name || 'جاري التحميل...'}
                                     </div>
                                     <div className="flex flex-col gap-3">
                                         <div className="flex justify-between items-center p-4 bg-white/5 rounded-xl border border-white/5">
-                                            <span className="text-gray-400">اسم اللاعب:</span>
-                                            <span className="text-white font-semibold">{user.mta_name || 'غير معروف'}</span>
+                                            <span className="text-gray-400">حالة الربط:</span>
+                                            <span className="text-green-400 font-semibold flex items-center gap-2">
+                                                <ShieldCheck size={16} /> مربوط
+                                            </span>
                                         </div>
                                         <div className="flex justify-between items-center p-4 bg-white/5 rounded-xl border border-white/5">
                                             <span className="text-gray-400">تاريخ الربط:</span>

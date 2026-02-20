@@ -49,6 +49,48 @@ export interface DiscordRole {
   position: number;
 }
 
+export interface MtaCharacter {
+  id: number;
+  name: string;
+  gender: string;
+  dob: string;
+  age: number;
+  nationality: string;
+  playtime_hours: number;
+  level: number;
+  job: string;
+  sector: string; // Gang or Faction
+  cash: number;
+  bank: number;
+}
+
+export interface MtaVehicle {
+  id: number;
+  model: string;
+  plate: string;
+}
+
+export interface MtaProperty {
+  id: number;
+  name: string;
+  address: string;
+}
+
+export interface MtaAccountInfo {
+  id: number;
+  username: string;
+  serial: string;
+  character_count: number;
+  admin_record: {
+    type: string;
+    reason: string;
+    admin: string;
+    date: string;
+    duration?: string | number;
+  }[];
+  characters: MtaCharacter[];
+}
+
 export interface User {
   id: string; // Supabase Auth User ID
   discordId: string;
@@ -64,6 +106,7 @@ export interface User {
   mta_serial: string | null;
   mta_name: string | null;
   mta_linked_at: string | null;
+  mta_data?: MtaAccountInfo; // New: Detailed MTA data from MySQL
 }
 
 export interface AuthContextType {
