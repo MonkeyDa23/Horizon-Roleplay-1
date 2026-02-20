@@ -71,7 +71,7 @@ const HealthCheckPage: React.FC = () => {
     const renderSyncResultInterpretation = () => {
         if (!syncResult || syncResult.ok) return null;
 
-        let interpretation = '';
+        let interpretation: string;
         if (syncResult.status === 404) {
             interpretation = t('health_check_result_404');
         } else if (syncResult.status === 503) {

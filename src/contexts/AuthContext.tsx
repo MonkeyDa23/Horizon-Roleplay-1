@@ -83,7 +83,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   useEffect(() => {
-    if (!supabase) { setLoading(false); setIsInitialLoading(false); return; }
+    if (!supabase) {
+      const t = setTimeout(() => {
+        setLoading(false);
+        setIsInitialLoading(false);
+      }, 0);
+      return () => clearTimeout(t);
+    }
 
     const checkInitialSession = async () => {
       const { data } = await (supabase.auth as any).getSession();

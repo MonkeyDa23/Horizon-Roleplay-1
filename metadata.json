@@ -1,4 +1,5 @@
 {
-  "name": "New Project",
-  "description": "A new project started from a blank slate."
+  "name": "Vixel Roleplay",
+  "description": "A visually stunning website for the Vixel Roleplay community, featuring multilingual support, Discord integration, and pages for community rules, applications, and store.",
+  "requestFramePermissions": []
 }

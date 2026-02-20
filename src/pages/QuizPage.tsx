@@ -23,7 +23,9 @@ const HCaptcha = React.memo<{ onVerify: (token: string) => void }>(({ onVerify }
                 theme: 'dark'
             });
             widgetIdRef.current = id;
-        } catch (e) {}
+        } catch (e) {
+            // Ignore hcaptcha render errors
+        }
         return () => { widgetIdRef.current = null; };
     }, [onVerify]);
     return <div ref={captchaRef} className="min-h-[78px] flex justify-center"></div>;
@@ -223,7 +225,9 @@ const QuizPage: React.FC = () => {
       
     } catch (error) {
       showToast((error as Error).message, 'error');
-      if ((window as any).hcaptcha) try { (window as any).hcaptcha.reset(); } catch (e) {}
+      if ((window as any).hcaptcha) try { (window as any).hcaptcha.reset(); } catch (e) {
+        // Ignore reset errors
+      }
       setHcaptchaToken(null);
       setIsSubmitting(false);
     }

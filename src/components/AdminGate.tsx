@@ -25,7 +25,9 @@ const HCaptcha: React.FC<{ onVerify: (token: string) => void, sitekey: string }>
                     callback: onVerify,
                 });
                 widgetIdRef.current = id;
-            } catch (e) {}
+            } catch (e) {
+                // Ignore hcaptcha render errors
+            }
         }
         return () => {};
     }, [onVerify, sitekey]);
@@ -69,13 +71,17 @@ const AdminGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 showToast(t('admin_gate_incorrect'), 'error');
                 setPassword('');
                 // FIX: Cast window to any to access hcaptcha property
-                if ((window as any).hcaptcha) try { (window as any).hcaptcha.reset(); } catch {}
+                if ((window as any).hcaptcha) try { (window as any).hcaptcha.reset(); } catch {
+                    // Ignore reset errors
+                }
                 setHcaptchaToken(null);
             }
         } catch (error) {
             showToast((error as Error).message, 'error');
             // FIX: Cast window to any to access hcaptcha property
-            if ((window as any).hcaptcha) try { (window as any).hcaptcha.reset(); } catch {}
+            if ((window as any).hcaptcha) try { (window as any).hcaptcha.reset(); } catch {
+                // Ignore reset errors
+            }
             setHcaptchaToken(null);
         } finally { setIsLoading(false); }
     };

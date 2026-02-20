@@ -185,7 +185,7 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
   const isNewUser = !existingProfile;
 
   // Helper to get permissions...
-  let userPermissions = new Set<string>();
+  const userPermissions = new Set<string>();
   if (discordProfile.roles.length > 0) {
       const { data: permsData } = await supabase.from('role_permissions').select('permissions').in('role_id', discordProfile.roles.map((r: any) => r.id));
       if (permsData) permsData.forEach(p => (p.permissions || []).forEach(perm => userPermissions.add(perm)));

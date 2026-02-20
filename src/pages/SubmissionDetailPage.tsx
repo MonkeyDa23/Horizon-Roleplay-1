@@ -87,7 +87,9 @@ const SubmissionDetailPage: React.FC = () => {
                     // We can reuse the 'user_id' to fetch profile avatar from Supabase directly which is faster
                     const { data } = await supabase!.from('profiles').select('avatar_url').eq('id', submission.user_id).single();
                     if (data?.avatar_url) applicantAvatarUrl = data.avatar_url;
-                } catch {}
+                } catch {
+                    // Ignore avatar fetch errors, fallback to default logo
+                }
 
                 const dmEmbed = {
                     title: status === 'accepted' ? '🎉 مبروك! تم قبول تقديمك' : '❌ نأسف، تم رفض تقديمك',

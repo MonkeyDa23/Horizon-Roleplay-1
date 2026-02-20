@@ -27,21 +27,21 @@ export const TranslationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       // FIX: Replaced Set and spread operator with an object to ensure unique keys for older environment compatibility.
       const allKeysObj: { [key: string]: true } = {};
       
-      var fallbackKeys = Object.keys(fallbackTranslations);
-      for (var i = 0; i < fallbackKeys.length; i++) {
+      const fallbackKeys = Object.keys(fallbackTranslations);
+      for (let i = 0; i < fallbackKeys.length; i++) {
         allKeysObj[fallbackKeys[i]] = true;
       }
 
-      var dbKeys = Object.keys(dbTranslations);
-      for (var j = 0; j < dbKeys.length; j++) {
+      const dbKeys = Object.keys(dbTranslations);
+      for (let j = 0; j < dbKeys.length; j++) {
         allKeysObj[dbKeys[j]] = true;
       }
 
       const allKeys = Object.keys(allKeysObj);
 
       // FIX: Replaced forEach with a standard for loop for broader compatibility.
-      for (var k = 0; k < allKeys.length; k++) {
-        var key = allKeys[k];
+      for (let k = 0; k < allKeys.length; k++) {
+        const key = allKeys[k];
         mergedTranslations[key] = {
             ar: (dbTranslations[key] && dbTranslations[key].ar) || (fallbackTranslations[key] && fallbackTranslations[key].ar) || key,
             en: (dbTranslations[key] && dbTranslations[key].en) || (fallbackTranslations[key] && fallbackTranslations[key].en) || key,

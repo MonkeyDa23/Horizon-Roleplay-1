@@ -30,7 +30,9 @@ export const AdminGateProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         // FIX: Cast window to any to bypass potential tsconfig lib errors for 'sessionStorage'.
         (window as any).sessionStorage.setItem('isAdminVerified', 'true');
       }
-    } catch {}
+    } catch {
+      // Ignore storage errors
+    }
     setIsVerified(true);
   };
 
