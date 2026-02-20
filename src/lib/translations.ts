@@ -417,4 +417,37 @@ export const translations: Translations = {
   filter_refused: { ar: 'مرفوض', en: 'Refused' },
   filter_taken: { ar: 'مستلم', en: 'Taken' },
   filter_search_placeholder: { ar: 'ابحث عن اسم المستخدم أو نوع التقديم...', en: 'Search username or quiz title...'},
+  
+  // Profile Page - MTA Sections
+  mta_linked: { ar: 'حساب مربوط', en: 'Linked Account' },
+  discord_profile: { ar: 'ملف الديسكورد', en: 'Discord Profile' },
+  mta_profile: { ar: 'ملف MTA', en: 'MTA Profile' },
+  mta_not_linked_title: { ar: 'حسابك غير مربوط!', en: 'Account Not Linked!' },
+  mta_not_linked_desc: { ar: 'اربط حسابك الآن لتتمكن من رؤية شخصياتك وسجلك الإداري ومميزات أخرى.', en: 'Link your account now to see your characters, admin history, and other features.' },
+  link_now: { ar: 'اربط الآن', en: 'Link Now' },
+  mta_characters: { ar: 'شخصياتي', en: 'My Characters' },
+  admin_record: { ar: 'السجل الإداري', en: 'Admin Record' },
+  no_admin_records: { ar: 'لا يوجد سجل إداري حالياً.', en: 'No admin records found.' },
+  unlink_account: { ar: 'إلغاء ربط الحساب', en: 'Unlink Account' },
+  unlink_confirm: { ar: 'هل أنت متأكد من رغبتك في إلغاء ربط حسابك؟ سيتم إزالة جميع البيانات المرتبطة.', en: 'Are you sure you want to unlink your account? All associated data will be removed.' },
+  unlink_success: { ar: 'تم إلغاء ربط الحساب بنجاح.', en: 'Account unlinked successfully.' },
+  mta_account_info: { ar: 'معلومات حساب MTA', en: 'MTA Account Info' },
+  mta_username: { ar: 'اسم الحساب', en: 'Account Name' },
+  mta_id: { ar: 'الأيدي (ID)', en: 'Account ID' },
+  mta_status: { ar: 'حالة الربط', en: 'Link Status' },
+  mta_linked_success: { ar: 'مربوط بنجاح', en: 'Linked Successfully' },
+  
+  // Character Details
+  char_info: { ar: 'معلومات الشخصية', en: 'Character Info' },
+  char_vehicles: { ar: 'المركبات', en: 'Vehicles' },
+  char_properties: { ar: 'العقارات', en: 'Properties' },
+  no_vehicles: { ar: 'لا توجد مركبات لهذه الشخصية.', en: 'No vehicles for this character.' },
+  no_properties: { ar: 'لا توجد عقارات لهذه الشخصية.', en: 'No properties for this character.' },
+  back_to_profile: { ar: 'العودة للملف الشخصي', en: 'Back to Profile' },
+  
+  // Misc
+  mta_status_label: { ar: 'حالة MTA', en: 'MTA Status' },
+  linked: { ar: 'مربوط', en: 'Linked' },
+  not_linked: { ar: 'غير مربوط', en: 'Not Linked' },
+  current_balance_label: { ar: 'الرصيد الحالي', en: 'Current Balance' },
 };
