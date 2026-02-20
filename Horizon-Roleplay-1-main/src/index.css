@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background-dark text-text-primary;
+    overflow-x: hidden;
+  }
+}
+
+@layer components {
+  /* The core of the new "Vixel Fusion" design system */
+  .glass-panel {
+    @apply bg-background-light/70 backdrop-blur-xl border border-border-color rounded-2xl shadow-2xl shadow-black/40 transition-all duration-300;
+  }
+
+  /* FIX: Improved input/textarea visibility for better UX */
+  .vixel-input {
+      @apply w-full bg-background-light text-text-primary p-3 rounded-md border border-gray-600 focus:ring-2 focus:ring-primary-blue focus:border-primary-blue transition-colors placeholder:text-text-secondary;
+  }
+}
+
+/* General Purpose Animations */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.8s cubic-bezier(0.215, 0.610, 0.355, 1.000) forwards;
+}
+
+.animate-stagger {
+  animation: fade-in-up 0.8s cubic-bezier(0.215, 0.610, 0.355, 1.000) forwards;
+  animation-fill-mode: backwards; /* Ensures element is hidden before animation starts */
+}
+
+
+/* Modal Animation */
+@keyframes slide-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(50px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.animate-slide-in-up {
+  animation: slide-in-up 0.4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+/* Focus Visible for Keyboard/Controller Navigation */
+:focus-visible {
+  outline: 3px solid #00A9FF;
+  outline-offset: 4px;
+  border-radius: 8px;
+  transition: outline 0.2s ease;
+}

@@ -808,3 +808,4 @@ GRANT SELECT ON public.staff TO anon, authenticated;
 
 -- End of transaction
 COMMIT;
+`;
