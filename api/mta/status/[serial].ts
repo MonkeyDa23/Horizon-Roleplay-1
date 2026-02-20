@@ -21,7 +21,7 @@ export default async function (req: VercelRequest, res: VercelResponse) {
       .from('profiles')
       .select('id, mta_name')
       .eq('mta_serial', serial)
-      .single();
+      .maybeSingle();
     
     if (error) {
       console.error("[API] Supabase error in /api/mta/status:", error);

@@ -1,5 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import mysql from 'mysql2/promise';
+import { createClient } from '@supabase/supabase-js';
 
 const pool = mysql.createPool({
   host: process.env.MTA_DB_HOST,
@@ -8,6 +9,11 @@ const pool = mysql.createPool({
   database: process.env.MTA_DB_NAME,
   port: parseInt(process.env.MTA_DB_PORT || '3306', 10),
 });
+
+const supabase = createClient(
+  process.env.VITE_SUPABASE_URL!,
+  process.env.VITE_SUPABASE_ANON_KEY!
+);
 
 export default async function (req: VercelRequest, res: VercelResponse) {
   console.log(`[API] Received request for /api/mta/account/${req.query.serial}`);
@@ -19,19 +25,34 @@ export default async function (req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: "Missing serial parameter" });
     }
 
-    // 1. Fetch Account
+    // First, get the MTA account ID from Supabase using the serial
+    const { data: profile, error: supabaseError } = await supabase
+      .from('profiles')
+      .select('mta_account_id')
+      .eq('mta_serial', serial)
+      .single();
+
+    if (supabaseError || !profile || !profile.mta_account_id) {
+      console.log(`[API] Supabase: No linked MTA account_id found for serial: ${serial}`);
+      return res.status(404).json({ error: "Linked MTA Account ID not found" });
+    }
+
+    const mtaAccountId = profile.mta_account_id;
+    console.log(`[API] Found linked MTA account ID from Supabase: ${mtaAccountId}`);
+
+    // 1. Fetch Account from MTA DB using the retrieved mtaAccountId
     const [accounts]: any = await pool.execute(
-      "SELECT id, username, serial FROM accounts WHERE serial = ? LIMIT 1",
-      [serial]
+      "SELECT id, username, serial FROM accounts WHERE id = ? LIMIT 1",
+      [mtaAccountId]
     );
 
     if (accounts.length === 0) {
-      console.log(`[API] No MTA account found for serial: ${serial}`);
-      return res.status(404).json({ error: "MTA Account not found" });
+      console.log(`[API] No MTA account found in game DB for ID: ${mtaAccountId}`);
+      return res.status(404).json({ error: "MTA Account not found in game DB" });
     }
 
     const account = accounts[0];
-    console.log(`[API] Found MTA account: ${JSON.stringify(account)}`);
+    console.log(`[API] Found MTA account in game DB: ${JSON.stringify(account)}`);
 
     // 2. Fetch Characters
     const [characters]: any = await pool.execute(

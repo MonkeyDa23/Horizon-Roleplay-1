@@ -23,7 +23,7 @@ export default async function (req: VercelRequest, res: VercelResponse) {
     
     const { error } = await supabase
       .from('profiles')
-      .update({ mta_serial: null, mta_name: null, mta_linked_at: null })
+      .update({ mta_serial: null, mta_name: null, mta_linked_at: null, mta_account_id: null })
       .eq('mta_serial', serial);
 
     if (error) {
