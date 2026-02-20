@@ -31,6 +31,7 @@ app.use(express.json());
 
 // API: Get MTA Account Info by Serial
 app.get("/api/mta/account/:serial", async (req, res) => {
+  console.log(`[API] Received request for /api/mta/account/${req.params.serial}`);
   try {
     const { serial } = req.params;
     
@@ -41,22 +42,26 @@ app.get("/api/mta/account/:serial", async (req, res) => {
     );
 
     if (accounts.length === 0) {
+      console.log(`[API] No MTA account found for serial: ${serial}`);
       return res.status(404).json({ error: "MTA Account not found" });
     }
 
     const account = accounts[0];
+    console.log(`[API] Found MTA account: ${JSON.stringify(account)}`);
 
     // 2. Fetch Characters
     const [characters]: any = await pool.execute(
       "SELECT id, name, gender, dob, age, nationality, playtime_hours, level, job, sector, cash, bank FROM characters WHERE account_id = ?",
       [account.id]
     );
+    console.log(`[API] Found ${characters.length} characters for account ${account.id}`);
 
     // 3. Fetch Admin Record (Bans/Kicks) from actual adminhistory table
     const [adminRecord]: any = await pool.execute(
       "SELECT action as type, reason, admin, date, duration FROM adminhistory WHERE user = ? ORDER BY date DESC",
       [account.id]
     );
+    console.log(`[API] Found ${adminRecord.length} admin records for account ${account.id}`);
 
     res.json({
       ...account,
@@ -65,13 +70,14 @@ app.get("/api/mta/account/:serial", async (req, res) => {
       characters: characters
     });
   } catch (error) {
-    console.error("MySQL Error:", error);
+    console.error("[API] MySQL Error in /api/mta/account:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
 // API: Check Link Status for MTA Menu
 app.get("/api/mta/status/:serial", async (req, res) => {
+  console.log(`[API] Received request for /api/mta/status/${req.params.serial}`);
   try {
     const { serial } = req.params;
     
@@ -82,11 +88,17 @@ app.get("/api/mta/status/:serial", async (req, res) => {
       .eq('mta_serial', serial)
       .single();
     
-    if (error || !profile) {
+    if (error) {
+      console.error("[API] Supabase error in /api/mta/status:", error);
+      return res.json({ linked: false, discord: null, error: error.message });
+    }
+
+    if (!profile) {
+      console.log(`[API] No linked profile found for serial: ${serial}`);
       return res.json({ linked: false, discord: null });
     }
 
-    // If linked, we could fetch Discord info if needed, but for now just return success
+    console.log(`[API] Linked profile found for serial ${serial}: ${JSON.stringify(profile)}`);
     res.json({
       linked: true,
       discord: {
@@ -95,13 +107,15 @@ app.get("/api/mta/status/:serial", async (req, res) => {
         avatar: null // You'd need a discord bot or oauth to get the real avatar
       }
     });
-  } catch {
+  } catch (error) {
+    console.error("[API] General error in /api/mta/status:", error);
     res.status(500).json({ error: "Error checking status" });
   }
 });
 
 // API: Unlink Account
 app.post("/api/mta/unlink", async (req, res) => {
+  console.log(`[API] Received unlink request for serial: ${req.body.serial}`);
   try {
     const { serial } = req.body;
     
@@ -110,16 +124,22 @@ app.post("/api/mta/unlink", async (req, res) => {
       .update({ mta_serial: null, mta_name: null, mta_linked_at: null })
       .eq('mta_serial', serial);
 
-    if (error) throw error;
+    if (error) {
+      console.error("[API] Supabase error during unlink:", error);
+      throw error;
+    }
     
+    console.log(`[API] Successfully unlinked serial: ${serial}`);
     res.json({ success: true });
-  } catch {
+  } catch (error) {
+    console.error("[API] General error in /api/mta/unlink:", error);
     res.status(500).json({ error: "Unlink failed" });
   }
 });
 
 // API: Get Character Details (Vehicles, Properties)
 app.get("/api/mta/character/:id", async (req, res) => {
+  console.log(`[API] Received request for /api/mta/character/${req.params.id}`);
   try {
     const { id } = req.params;
 
@@ -129,20 +149,26 @@ app.get("/api/mta/character/:id", async (req, res) => {
       [id]
     );
 
-    if (chars.length === 0) return res.status(404).json({ error: "Character not found" });
+    if (chars.length === 0) {
+      console.log(`[API] Character not found for ID: ${id}`);
+      return res.status(404).json({ error: "Character not found" });
+    }
     const character = chars[0];
+    console.log(`[API] Found character: ${JSON.stringify(character)}`);
 
     // 2. Fetch Vehicles
     const [vehicles]: any = await pool.execute(
       "SELECT id, model, plate FROM vehicles WHERE owner_id = ?",
       [id]
     );
+    console.log(`[API] Found ${vehicles.length} vehicles for character ${id}`);
 
     // 3. Fetch Properties
     const [properties]: any = await pool.execute(
       "SELECT id, name, address FROM properties WHERE owner_id = ?",
       [id]
     );
+    console.log(`[API] Found ${properties.length} properties for character ${id}`);
 
     res.json({
       character,
@@ -150,7 +176,7 @@ app.get("/api/mta/character/:id", async (req, res) => {
       properties
     });
   } catch (error) {
-    console.error("MySQL Error:", error);
+    console.error("[API] MySQL Error in /api/mta/character:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 });

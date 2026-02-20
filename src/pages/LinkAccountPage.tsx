@@ -6,7 +6,7 @@ import { useToast } from '../contexts/ToastContext';
 import { supabase } from '../lib/supabaseClient';
 import SEO from '../components/SEO';
 import { motion } from 'motion/react';
-import { Link2, ShieldCheck, AlertCircle, Loader2, CheckCircle2, ExternalLink } from 'lucide-react';
+import { Link2, ShieldCheck, AlertCircle, Loader2, CheckCircle2, ExternalLink, LogOut } from 'lucide-react';
 
 const LinkAccountPage: React.FC = () => {
     const { user, refreshUser } = useAuth();
