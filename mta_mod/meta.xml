@@ -1,0 +1,12 @@
+
+<meta>
+    <info author="AI Assistant" type="script" version="1.0.0" name="Vixel Link System" />
+    
+    <script src="server.lua" type="server" />
+    <script src="client.lua" type="client" />
+    
+    <!-- Permissions for Supabase API -->
+    <aclrequest>
+        <right name="function.fetchRemote" access="true" />
+    </aclrequest>
+</meta>

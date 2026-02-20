@@ -61,6 +61,9 @@ export interface User {
   ban_reason: string | null;
   ban_expires_at: string | null;
   balance: number; // New: User Balance
+  mta_serial: string | null;
+  mta_name: string | null;
+  mta_linked_at: string | null;
 }
 
 export interface AuthContextType {
@@ -74,6 +77,7 @@ export interface AuthContextType {
   permissionWarning: string | null;
   syncError: Error | null;
   retrySync?: () => Promise<void>;
+  refreshUser?: () => Promise<void>;
 }
 
 export interface UserLookupResult {

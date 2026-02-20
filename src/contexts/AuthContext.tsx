@@ -153,7 +153,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await handleSession(data?.session || null);
   }, [handleSession]);
 
-  const value = { user, login, logout, loading, isInitialLoading, updateUser, hasPermission, permissionWarning, syncError, retrySync };
+  const refreshUser = useCallback(async () => {
+    if (!supabase) return;
+    const { data } = await (supabase.auth as any).getSession();
+    await handleSession(data?.session || null);
+  }, [handleSession]);
+
+  const value = { user, login, logout, loading, isInitialLoading, updateUser, hasPermission, permissionWarning, syncError, retrySync, refreshUser };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

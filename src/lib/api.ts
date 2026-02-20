@@ -180,7 +180,7 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
   }
 
   // Check DB for existing profile to determine if new
-  const { data: existingProfiles } = await supabase.from('profiles').select('id, is_banned, ban_reason, ban_expires_at, balance').eq('id', session.user.id);
+  const { data: existingProfiles } = await supabase.from('profiles').select('id, is_banned, ban_reason, ban_expires_at, balance, mta_serial, mta_name, mta_linked_at').eq('id', session.user.id);
   const existingProfile = existingProfiles?.[0] || null;
   const isNewUser = !existingProfile;
 
@@ -199,6 +199,9 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
       ban_reason: existingProfile?.ban_reason ?? null,
       ban_expires_at: existingProfile?.ban_expires_at ?? null,
       balance: existingProfile?.balance ?? 0, // Sync balance
+      mta_serial: existingProfile?.mta_serial ?? null,
+      mta_name: existingProfile?.mta_name ?? null,
+      mta_linked_at: existingProfile?.mta_linked_at ?? null,
   };
 
   // Upsert Profile
