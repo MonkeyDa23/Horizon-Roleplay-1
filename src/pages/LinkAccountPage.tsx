@@ -16,6 +16,38 @@ const LinkAccountPage: React.FC = () => {
     const [code, setCode] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
+    const [linkCode, setLinkCode] = useState<string | null>(null);
+    const [cooldownMessage, setCooldownMessage] = useState<string | null>(null);
+
+    const handleGenerateCode = async () => {
+        if (!user?.mta_serial) {
+            showToast(t('link_account.no_serial_found'), 'error');
+            return;
+        }
+
+        setIsLoading(true);
+        setCooldownMessage(null);
+        try {
+            const response = await axios.post('/api/mta/generate-code', { serial: user.mta_serial });
+            const data = response.data;
+
+            if (data.success) {
+                setLinkCode(data.code);
+            } else {
+                setCooldownMessage(data.message || t('link_account.generate_code_error'));
+                setLinkCode(null);
+            }
+        } catch (err: any) {
+            if (err.response && err.response.status === 429) {
+                setCooldownMessage(err.response.data.message || t('link_account.cooldown_error'));
+            } else {
+                showToast(t('link_account.generate_code_error'), 'error');
+            }
+            console.error('Generate code error:', err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
         const handleLink = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -163,16 +195,43 @@ const LinkAccountPage: React.FC = () => {
                                 </motion.div>
                             ) : (
                                 <div className="space-y-10">
-                                    <div className="bg-brand-cyan/5 border border-brand-cyan/20 rounded-3xl p-8">
-                                        <h3 className="text-brand-cyan font-black mb-4 flex items-center gap-3 text-lg">
-                                            <KeyRound size={22} /> {t('link_account.how_to_get_code_title')}
-                                        </h3>
-                                        <ol className="list-decimal list-inside text-gray-300 space-y-3 text-sm font-medium">
-                                            <li>{t('link_account.step_1')}</li>
-                                            <li>{t('link_account.step_2')} <kbd className="bg-brand-dark px-3 py-1 rounded-lg border border-white/10 text-white font-mono">F5</kbd></li>
-                                            <li>{t('link_account.step_3')}</li>
-                                            <li>{t('link_account.step_4')}</li>
-                                        </ol>
+                                    <div className="bg-brand-cyan/5 border border-brand-cyan/20 rounded-3xl p-8 text-center">
+                                        {linkCode ? (
+                                            <div className="space-y-6">
+                                                <div>
+                                                    <h3 className="text-brand-cyan font-black mb-3 text-lg">{t('link_account.your_code_is')}</h3>
+                                                    <div 
+                                                        className="bg-brand-dark px-6 py-5 rounded-2xl font-black text-4xl text-white border border-white/10 shadow-inner tracking-[0.2em] cursor-pointer"
+                                                        onClick={() => {
+                                                            navigator.clipboard.writeText(linkCode);
+                                                            showToast(t('general.copied'), 'info');
+                                                        }}
+                                                    >
+                                                        {linkCode}
+                                                    </div>
+                                                </div>
+                                                <p className="text-gray-400 text-xs font-medium">{t('link_account.code_usage_instructions')}</p>
+                                            </div>
+                                        ) : cooldownMessage ? (
+                                            <div className="py-6">
+                                                <AlertCircle className="text-yellow-400 w-12 h-12 mx-auto mb-4" />
+                                                <h3 className="text-yellow-400 font-black mb-2">{t('link_account.cooldown_title')}</h3>
+                                                <p className="text-gray-300 font-medium">{cooldownMessage}</p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-6">
+                                                <h3 className="text-brand-cyan font-black mb-2 text-lg">{t('link_account.ready_to_link')}</h3>
+                                                <p className="text-gray-400 text-sm font-medium max-w-sm mx-auto">{t('link_account.press_button_to_get_code')}</p>
+                                                <button 
+                                                    onClick={handleGenerateCode}
+                                                    disabled={isLoading}
+                                                    className="w-full bg-brand-cyan text-brand-dark font-black py-4 rounded-2xl shadow-lg shadow-brand-cyan/20 hover:bg-white transition-all flex items-center justify-center gap-3"
+                                                >
+                                                    {isLoading ? <Loader2 className="animate-spin" /> : <KeyRound />}
+                                                    {t('link_account.generate_code_button')}
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
 
                                     <form onSubmit={handleLink} className="space-y-8">

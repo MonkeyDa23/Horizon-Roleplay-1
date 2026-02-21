@@ -58,6 +58,34 @@ async function startServer() {
     }
   });
 
+  app.post('/api/mta/generate-code', async (req, res) => {
+    const { serial } = req.body;
+    if (!serial) {
+      return res.status(400).json({ error: 'Serial is required' });
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('generate_mta_link_code', {
+        p_serial: serial,
+        p_secret_key: process.env.MTA_SECRET_KEY
+      });
+
+      if (error) {
+        console.error('Supabase RPC error:', error);
+        // Check for specific cooldown error from Supabase function
+        if (error.message.includes('cooldown')) {
+            return res.status(429).json({ success: false, message: error.details });
+        }
+        throw error;
+      }
+
+      res.status(200).json(data);
+    } catch (err) {
+      console.error('Generate code error:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
