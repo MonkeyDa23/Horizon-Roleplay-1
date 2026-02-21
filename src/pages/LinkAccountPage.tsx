@@ -5,7 +5,7 @@ import { useLocalization } from '../contexts/LocalizationContext';
 import { useToast } from '../contexts/ToastContext';
 import { supabase } from '../lib/supabaseClient';
 import SEO from '../components/SEO';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Link2, ShieldCheck, AlertCircle, Loader2, CheckCircle2, ExternalLink, LogOut, KeyRound, Copy } from 'lucide-react';
 
 const LinkAccountPage: React.FC = () => {

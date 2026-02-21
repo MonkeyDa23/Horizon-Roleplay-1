@@ -7,7 +7,13 @@ addEventHandler('onClientResourceStart', resourceRoot, function()
     local width, height = 450, 600
     local x, y = (screenWidth - width) / 2, (screenHeight - height) / 2
 
-    browser = guiCreateBrowser(x, y, width, height, true, false, false)
+    browser = guiCreateBrowser(x, y, width, height, true, false, true)
+    
+    if not browser then
+        outputDebugString("Failed to create browser. Please ensure CEF is enabled in MTA settings.")
+        return
+    end
+
     guiSetVisible(browser, false)
     
     -- Load the local HTML file

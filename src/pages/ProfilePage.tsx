@@ -5,7 +5,7 @@ import { getSubmissionsByUserId, forceRefreshUserProfile, getMtaAccountInfo, che
 import type { QuizSubmission, SubmissionStatus, DiscordRole, MtaAccountInfo } from '../types';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
-  User as UserIcon, Loader2, FileText, ExternalLink, Shield, ShieldCheck, RefreshCw,
+  User as UserIcon, Loader2, FileText, ExternalLink, Shield, RefreshCw,
   Gamepad2, Users, ChevronRight, Star, CreditCard, Link2, LogOut, Car, Home, Info
 } from 'lucide-react';
 import { useConfig } from '../contexts/ConfigContext';
@@ -91,6 +91,19 @@ const ProfilePage: React.FC = () => {
       }
   }, [user?.mta_serial]);
 
+  const fetchSubmissions = useCallback(async () => {
+    if (!user) return;
+    setSubmissionsLoading(true);
+    try {
+      const userSubmissions = await getSubmissionsByUserId(user.id);
+      setSubmissions(userSubmissions);
+    } catch (error) {
+      console.error("Failed to fetch user submissions for profile", error);
+    } finally {
+      setSubmissionsLoading(false);
+    }
+  }, [user]);
+
   useEffect(() => {
     if (!authLoading && !user) {
       navigate('/');
@@ -98,17 +111,6 @@ const ProfilePage: React.FC = () => {
     }
 
     if (user) {
-      const fetchSubmissions = async () => {
-        setSubmissionsLoading(true);
-        try {
-          const userSubmissions = await getSubmissionsByUserId(user.id);
-          setSubmissions(userSubmissions);
-        } catch (error) {
-          console.error("Failed to fetch user submissions for profile", error);
-        } finally {
-          setSubmissionsLoading(false);
-        }
-      };
       fetchSubmissions();
       
       if (user.mta_serial && activeTab === 'mta') {
