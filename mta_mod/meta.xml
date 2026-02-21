@@ -1,14 +1,10 @@
-
 <meta>
-    <info author="AI Assistant" type="script" version="1.0.0" name="Vixel Link System" />
-    
+    <info type="script" name="Florida Roleplay Link Account" author="Vixel Development" version="2.0.0" description="New account linking system with HTML UI" />
     <script src="server.lua" type="server" />
     <script src="client.lua" type="client" />
-    
-    <min_mta_version client="1.5.4-9.11342" server="1.5.4-9.11342" />
-    
-    <!-- Permissions for Supabase API -->
-    <aclrequest>
-        <right name="function.fetchRemote" access="true" />
-    </aclrequest>
+    <file src="html/index.html" />
+    <file src="html/style.css" />
+    <file src="html/script.js" />
+    <file src="html/logo.png" />
+    <min_mta_version client="1.5.8-9.20977" server="1.5.8-9.20977" />
 </meta>

@@ -368,6 +368,47 @@ export const checkDiscordApiHealth = () => callBotApi('/health');
 export const getMtaServerStatus = () => callBotApi<MtaServerStatus>('/mta-status');
 export const getDiscordAnnouncements = () => callBotApi<DiscordAnnouncement[]>('/announcements');
 
+// MTA API
+export const getMtaAccountInfo = async (serial: string): Promise<MtaAccountInfo> => {
+    const response = await fetch(`/api/mta/account/${serial}`);
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: `Error ${response.status}` }));
+        throw new ApiError(errorData.error || `Failed to fetch MTA account info (${response.status})`, response.status);
+    }
+    return response.json();
+};
+
+export const getMtaCharacterDetails = async (characterId: string): Promise<any> => {
+    const response = await fetch(`/api/mta/character/${characterId}`);
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: `Error ${response.status}` }));
+        throw new ApiError(errorData.error || `Failed to fetch MTA character details (${response.status})`, response.status);
+    }
+    return response.json();
+};
+
+export const checkMtaLinkStatus = async (serial: string): Promise<{ linked: boolean; discord: { id: string; username: string; avatar: string | null } | null }> => {
+    const response = await fetch(`/api/mta/status/${serial}`);
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: `Error ${response.status}` }));
+        throw new ApiError(errorData.error || `Failed to check MTA link status (${response.status})`, response.status);
+    }
+    return response.json();
+};
+
+export const unlinkMtaAccount = async (serial: string): Promise<{ success: boolean }> => {
+    const response = await fetch(`/api/mta/unlink`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ serial }),
+    });
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: `Error ${response.status}` }));
+        throw new ApiError(errorData.error || `Failed to unlink MTA account (${response.status})`, response.status);
+    }
+    return response.json();
+};
+
 // Submissions
 export const getQuizById = async (id: string): Promise<Quiz> => {
     const { data } = await supabase!.from('quizzes').select('*').eq('id', id).single();

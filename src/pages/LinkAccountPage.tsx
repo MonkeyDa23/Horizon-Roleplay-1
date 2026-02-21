@@ -6,7 +6,7 @@ import { useToast } from '../contexts/ToastContext';
 import { supabase } from '../lib/supabaseClient';
 import SEO from '../components/SEO';
 import { motion } from 'motion/react';
-import { Link2, ShieldCheck, AlertCircle, Loader2, CheckCircle2, ExternalLink, LogOut } from 'lucide-react';
+import { Link2, ShieldCheck, AlertCircle, Loader2, CheckCircle2, ExternalLink, LogOut, KeyRound, Copy } from 'lucide-react';
 
 const LinkAccountPage: React.FC = () => {
     const { user, refreshUser } = useAuth();
@@ -17,54 +17,33 @@ const LinkAccountPage: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
 
-    const handleLink = async (e: React.FormEvent) => {
+        const handleLink = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!code || code.length < 5) {
-            showToast('الرجاء إدخال كود صحيح', 'warning');
+        if (!code || code.trim() === '') {
+            showToast(t('link_account.enter_valid_code'), 'warning');
             return;
         }
 
         setIsLoading(true);
         try {
-            const { data, error } = await supabase.rpc('link_mta_account', {
+            // The new RPC function takes the code and the user's profile ID
+            const { data, error } = await supabase.rpc('link_mta_account_with_temp_code', {
                 p_code: code.trim(),
-                p_discord_id: user?.id
+                p_user_id: user?.id
             });
 
             if (error) throw error;
 
-            if (data && data.success) {
-                // 1. Refresh user to get the new mta_serial
-                await refreshUser?.();
-                
-                // 2. Fetch MTA Account Name from our API using the serial
-                // Note: We'll get the serial from the refreshed user object
-                const { data: profileData } = await supabase.from('profiles').select('mta_serial').eq('id', user?.id).single();
-                
-                if (profileData?.mta_serial) {
-                    try {
-                        const mtaResponse = await fetch(`/api/mta/account/${profileData.mta_serial}`);
-                        if (mtaResponse.ok) {
-                            const mtaAccount = await mtaResponse.json();
-                            if (mtaAccount.username) {
-                                // 3. Update Supabase profile with the MTA username
-                                await supabase.from('profiles').update({ mta_name: mtaAccount.username }).eq('id', user?.id);
-                                await refreshUser?.();
-                            }
-                        }
-                    } catch (err) {
-                        console.error('Error fetching MTA name:', err);
-                    }
-                }
-
+            if (data.success) {
+                showToast(data.message, 'success');
+                await refreshUser?.(); // Refresh user context to get new MTA data
                 setIsSuccess(true);
-                showToast('تم ربط الحساب بنجاح!', 'success');
             } else {
-                showToast(data?.message || 'الكود غير صحيح أو منتهي الصلاحية', 'error');
+                showToast(data.message, 'error');
             }
-        } catch (error) {
-            console.error('Linking error:', error);
-            showToast('حدث خطأ أثناء محاولة الربط', 'error');
+        } catch (err) {
+            console.error('Linking error:', err);
+            showToast((err as Error).message || t('link_account.link_error'), 'error');
         } finally {
             setIsLoading(false);
         }
@@ -107,7 +86,7 @@ const LinkAccountPage: React.FC = () => {
 
     return (
         <>
-            <SEO title="ربط حساب MTA" description="اربط حسابك في لعبة MTA مع حسابك في الديسكورد والموقع" />
+            <SEO title={t('link_account.title')} description={t('link_account.description')} />
             
             <div className="container mx-auto px-6 py-16">
                 <div className="max-w-2xl mx-auto">
@@ -126,34 +105,34 @@ const LinkAccountPage: React.FC = () => {
                                     <Link2 className="text-brand-cyan w-9 h-9" />
                                 </div>
                                 <div>
-                                    <h1 className="text-3xl font-black text-white tracking-tight">ربط حساب اللعبة</h1>
-                                    <p className="text-gray-400 text-sm font-medium">اربط حسابك في MTA مع Discord</p>
+                                    <h1 className="text-3xl font-black text-white tracking-tight">{t('link_account.main_title')}</h1>
+                                    <p className="text-gray-400 text-sm font-medium">{t('link_account.subtitle')}</p>
                                 </div>
                             </div>
 
-                            {user.mta_serial ? (
+                            {user.is_mta_linked ? (
                                 <div className="text-center py-4">
                                     <div className="w-24 h-24 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-8 border border-green-500/30">
                                         <CheckCircle2 className="text-green-400 w-14 h-14" />
                                     </div>
-                                    <h2 className="text-3xl font-black text-white mb-3 tracking-tight">حسابك مربوط بنجاح!</h2>
-                                    <p className="text-gray-400 mb-10">حسابك مرتبط حالياً بحساب اللعبة التالي:</p>
+                                    <h2 className="text-3xl font-black text-white mb-3 tracking-tight">{t('link_account.already_linked_title')}</h2>
+                                    <p className="text-gray-400 mb-10">{t('link_account.already_linked_subtitle')}</p>
                                     
                                     <div className="bg-brand-dark px-8 py-6 rounded-3xl font-black text-3xl text-brand-cyan border border-white/5 mb-10 shadow-inner">
-                                        {user.mta_name || 'جاري التحميل...'}
+                                        {user.mta_name || '...'}
                                     </div>
 
                                     <div className="space-y-4 mb-10">
                                         <div className="flex justify-between items-center p-5 bg-white/5 rounded-2xl border border-white/5">
-                                            <span className="text-gray-400 font-bold text-sm">حالة الربط:</span>
+                                            <span className="text-gray-400 font-bold text-sm">{t('link_account.status_label')}</span>
                                             <span className="text-green-400 font-black text-sm flex items-center gap-2">
-                                                <ShieldCheck size={18} /> مربوط
+                                                <ShieldCheck size={18} /> {t('link_account.status_linked')}
                                             </span>
                                         </div>
                                         <div className="flex justify-between items-center p-5 bg-white/5 rounded-2xl border border-white/5">
-                                            <span className="text-gray-400 font-bold text-sm">تاريخ الربط:</span>
+                                            <span className="text-gray-400 font-bold text-sm">{t('link_account.linked_since_label')}</span>
                                             <span className="text-white font-black text-sm font-mono">
-                                                {user.mta_linked_at ? new Date(user.mta_linked_at).toLocaleDateString('en-GB') : 'غير متوفر'}
+                                                {user.mta_linked_at ? new Date(user.mta_linked_at).toLocaleDateString('en-GB') : t('general.not_available')}
                                             </span>
                                         </div>
                                     </div>
@@ -173,40 +152,59 @@ const LinkAccountPage: React.FC = () => {
                                     className="text-center py-12"
                                 >
                                     <CheckCircle2 className="w-24 h-24 text-green-400 mx-auto mb-8" />
-                                    <h2 className="text-4xl font-black text-white mb-4 tracking-tight">تم الربط بنجاح!</h2>
-                                    <p className="text-gray-400 mb-10 leading-relaxed">يمكنك الآن العودة إلى اللعبة والضغط على زر التحديث لرؤية معلوماتك.</p>
+                                    <h2 className="text-4xl font-black text-white mb-4 tracking-tight">{t('link_account.success_title')}</h2>
+                                    <p className="text-gray-400 mb-10 leading-relaxed">{t('link_account.success_subtitle')}</p>
                                     <button 
                                         onClick={() => setIsSuccess(false)}
                                         className="px-12 py-4 bg-brand-cyan text-brand-dark font-black rounded-2xl hover:bg-white transition-all shadow-2xl shadow-brand-cyan/20"
                                     >
-                                        إغلاق
+                                        {t('general.close')}
                                     </button>
                                 </motion.div>
                             ) : (
                                 <div className="space-y-10">
                                     <div className="bg-brand-cyan/5 border border-brand-cyan/20 rounded-3xl p-8">
                                         <h3 className="text-brand-cyan font-black mb-4 flex items-center gap-3 text-lg">
-                                            <ShieldCheck size={22} /> كيف تحصل على الكود؟
+                                            <KeyRound size={22} /> {t('link_account.how_to_get_code_title')}
                                         </h3>
                                         <ol className="list-decimal list-inside text-gray-300 space-y-3 text-sm font-medium">
-                                            <li>ادخل إلى سيرفر MTA الخاص بنا.</li>
-                                            <li>اضغط على زر <kbd className="bg-brand-dark px-3 py-1 rounded-lg border border-white/10 text-white font-mono">F5</kbd> لفتح قائمة الربط.</li>
-                                            <li>اضغط على زر "توليد الكود" وانسخه.</li>
-                                            <li>ضع الكود في الحقل أدناه واضغط على "ربط الحساب".</li>
+                                            <li>{t('link_account.step_1')}</li>
+                                            <li>{t('link_account.step_2')} <kbd className="bg-brand-dark px-3 py-1 rounded-lg border border-white/10 text-white font-mono">F5</kbd></li>
+                                            <li>{t('link_account.step_3')}</li>
+                                            <li>{t('link_account.step_4')}</li>
                                         </ol>
                                     </div>
 
                                     <form onSubmit={handleLink} className="space-y-8">
                                         <div>
-                                            <label className="block text-gray-400 text-xs font-black uppercase tracking-widest mb-3 mr-1">كود الربط</label>
-                                            <input 
-                                                type="text" 
-                                                value={code}
-                                                onChange={(e) => setCode(e.target.value)}
-                                                placeholder="VXL-XXXXX-XXXXX"
-                                                className="w-full bg-brand-dark border border-white/10 rounded-3xl px-8 py-5 text-white focus:border-brand-cyan focus:ring-2 focus:ring-brand-cyan/20 transition-all outline-none text-center font-mono text-xl tracking-[0.2em] placeholder:opacity-20"
-                                                disabled={isLoading}
-                                            />
+                                            <label className="block text-gray-400 text-xs font-black uppercase tracking-widest mb-3 mr-1">{t('link_account.code_label')}</label>
+                                            <div className="relative">
+                                                <input 
+                                                    type="text" 
+                                                    value={code}
+                                                    onChange={(e) => setCode(e.target.value)}
+                                                    placeholder="VXL-XXXXX-XXXXX"
+                                                    className="w-full bg-brand-dark border border-white/10 rounded-3xl px-8 py-5 text-white focus:border-brand-cyan focus:ring-2 focus:ring-brand-cyan/20 transition-all outline-none text-center font-mono text-xl tracking-[0.2em] placeholder:opacity-20 pr-14"
+                                                    disabled={isLoading}
+                                                />
+                                                <AnimatePresence>
+                                                {code && (
+                                                    <motion.button
+                                                        type="button"
+                                                        onClick={() => { 
+                                                            navigator.clipboard.writeText(code);
+                                                            showToast(t('general.copied'), 'info');
+                                                        }}
+                                                        initial={{ opacity: 0, scale: 0.8 }}
+                                                        animate={{ opacity: 1, scale: 1 }}
+                                                        exit={{ opacity: 0, scale: 0.8 }}
+                                                        className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-white transition-colors"
+                                                    >
+                                                        <Copy size={20} />
+                                                    </motion.button>
+                                                )}
+                                                </AnimatePresence>
+                                            </div>
                                         </div>
 
                                         <button 
@@ -219,7 +217,7 @@ const LinkAccountPage: React.FC = () => {
                                             ) : (
                                                 <>
                                                     <Link2 size={22} />
-                                                    ربط الحساب الآن
+                                                    {t('link_account.submit_button')}
                                                 </>
                                             )}
                                         </button>
@@ -235,8 +233,8 @@ const LinkAccountPage: React.FC = () => {
                                 <ShieldCheck className="text-brand-purple" size={24} />
                             </div>
                             <div>
-                                <h4 className="text-white font-black mb-2 tracking-tight">أمان عالي</h4>
-                                <p className="text-gray-400 text-xs leading-relaxed">يتم ربط حسابك بالـ Serial الخاص بجهازك لضمان عدم سرقة الحساب.</p>
+                                <h4 className="text-white font-black mb-2 tracking-tight">{t('link_account.feature_1_title')}</h4>
+                                <p className="text-gray-400 text-xs leading-relaxed">{t('link_account.feature_1_desc')}</p>
                             </div>
                         </div>
                         <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-8 flex items-start gap-5">
@@ -244,8 +242,8 @@ const LinkAccountPage: React.FC = () => {
                                 <ExternalLink className="text-brand-cyan" size={24} />
                             </div>
                             <div>
-                                <h4 className="text-white font-black mb-2 tracking-tight">تزامن لحظي</h4>
-                                <p className="text-gray-400 text-xs leading-relaxed">بمجرد الربط ستظهر معلوماتك في اللعبة وفي الموقع فوراً.</p>
+                                <h4 className="text-white font-black mb-2 tracking-tight">{t('link_account.feature_2_title')}</h4>
+                                <p className="text-gray-400 text-xs leading-relaxed">{t('link_account.feature_2_desc')}</p>
                             </div>
                         </div>
                     </div>

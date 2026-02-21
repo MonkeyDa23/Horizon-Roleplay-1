@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocalization } from '../contexts/LocalizationContext';
-import { getSubmissionsByUserId, forceRefreshUserProfile } from '../lib/api';
+import { getSubmissionsByUserId, forceRefreshUserProfile, getMtaAccountInfo, checkMtaLinkStatus, unlinkMtaAccount } from '../lib/api';
 import type { QuizSubmission, SubmissionStatus, DiscordRole, MtaAccountInfo } from '../types';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
-  User as UserIcon, Loader2, FileText, ExternalLink, Shield, RefreshCw,
+  User as UserIcon, Loader2, FileText, ExternalLink, Shield, ShieldCheck, RefreshCw,
   Gamepad2, Users, ChevronRight, Star, CreditCard, Link2, LogOut, Car, Home, Info
 } from 'lucide-react';
 import { useConfig } from '../contexts/ConfigContext';
@@ -24,24 +24,71 @@ const ProfilePage: React.FC = () => {
   const [submissions, setSubmissions] = useState<QuizSubmission[]>([]);
   const [submissionsLoading, setSubmissionsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [activeTab, setActiveTab] = useState<'discord' | 'mta'>('discord');
-  const [mtaData, setMtaData] = useState<MtaAccountInfo | null>(null);
-  const [loadingMta, setLoadingMta] = useState(false);
 
-  const fetchMtaData = useCallback(async () => {
-    if (!user?.mta_serial) return;
-    setLoadingMta(true);
-    try {
-      const res = await fetch(`/api/mta/account/${user.mta_serial}`);
-      if (res.ok) {
-        const data = await res.json();
-        setMtaData(data);
+  const [mtaAccountInfo, setMtaAccountInfo] = useState<MtaAccountInfo | null>(null);
+  const [mtaAccountLoading, setMtaAccountLoading] = useState(false);
+  const [mtaAccountError, setMtaAccountError] = useState<string | null>(null);
+
+  const [isMtaLinked, setIsMtaLinked] = useState<boolean | null>(null);
+  const [mtaLinkLoading, setMtaLinkLoading] = useState(false);
+  const [mtaLinkError, setMtaLinkError] = useState<string | null>(null);
+
+  const [activeTab, setActiveTab] = useState<'discord' | 'mta'>('discord');
+
+  const fetchMtaAccountData = useCallback(async () => {
+      if (!user?.mta_serial) {
+          setMtaAccountInfo(null);
+          setIsMtaLinked(false);
+          return;
       }
-    } catch (err) {
-      console.error("Failed to fetch MTA data:", err);
-    } finally {
-      setLoadingMta(false);
-    }
+
+      setMtaAccountLoading(true);
+      setMtaAccountError(null);
+      try {
+          const info = await getMtaAccountInfo(user.mta_serial);
+          setMtaAccountInfo(info);
+          setIsMtaLinked(true);
+      } catch (err) {
+          console.error("Failed to fetch MTA account info:", err);
+          setMtaAccountError((err as Error).message);
+          setMtaAccountInfo(null);
+          setIsMtaLinked(false); // Assume unlinked if we can't fetch info
+      } finally {
+          setMtaAccountLoading(false);
+      }
+  }, [user?.mta_serial]);
+
+  const handleUnlinkMta = useCallback(async () => {
+      if (!user?.mta_serial) return;
+
+      setMtaLinkLoading(true);
+      setMtaLinkError(null);
+      try {
+          await unlinkMtaAccount(user.mta_serial);
+          await forceRefreshUserProfile(); // Refresh user context to update mta_serial to null
+          setIsMtaLinked(false);
+          setMtaAccountInfo(null);
+          showToast(t('profile.mta.unlink_success'), 'success');
+      } catch (err) {
+          console.error("Failed to unlink MTA account:", err);
+          setMtaLinkError((err as Error).message);
+          showToast(t('profile.mta.unlink_failed') + `: ${(err as Error).message}`, 'error');
+      } finally {
+          setMtaLinkLoading(false);
+      }
+  }, [user?.mta_serial, forceRefreshUserProfile, showToast, t]);
+
+  useEffect(() => {
+      fetchMtaAccountData();
+  }, [fetchMtaAccountData]);
+
+  // Check link status on initial load and when user changes
+  useEffect(() => {
+      if (user?.mta_serial) {
+          setIsMtaLinked(true);
+      } else {
+          setIsMtaLinked(false);
+      }
   }, [user?.mta_serial]);
 
   useEffect(() => {
@@ -65,10 +112,10 @@ const ProfilePage: React.FC = () => {
       fetchSubmissions();
       
       if (user.mta_serial && activeTab === 'mta') {
-        fetchMtaData();
+        fetchMtaAccountData();
       }
     }
-  }, [user, authLoading, navigate, activeTab, fetchMtaData]);
+  }, [user, authLoading, navigate, activeTab, fetchSubmissions, fetchMtaAccountData]);
 
   const handleRefresh = async () => {
     setIsSyncing(true);
@@ -79,7 +126,7 @@ const ProfilePage: React.FC = () => {
         if (syncError) {
             showToast(syncError, 'warning');
         }
-        if (freshUser.mta_serial) fetchMtaData();
+        if (freshUser.mta_serial) fetchMtaAccountData();
     } catch (error) {
         showToast(t('profile_synced_error'), 'error');
         console.error(error);
@@ -264,21 +311,26 @@ const ProfilePage: React.FC = () => {
                 exit={{ opacity: 0, x: -20 }}
                 className="space-y-8"
               >
-                {!user.mta_linked_at ? (
+                {!isMtaLinked && !mtaAccountLoading ? (
                   <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-16 text-center">
                     <div className="w-24 h-24 bg-brand-cyan/10 rounded-full flex items-center justify-center mx-auto mb-8">
                       <Link2 size={48} className="text-brand-cyan" />
                     </div>
-                    <h2 className="text-3xl font-black text-white mb-4 tracking-tight">{t('mta_not_linked_title')}</h2>
-                    <p className="text-text-secondary mb-10 max-w-md mx-auto leading-relaxed">{t('mta_not_linked_desc')}</p>
+                    <h2 className="text-3xl font-black text-white mb-4 tracking-tight">{t('profile.mta.not_linked_title')}</h2>
+                    <p className="text-text-secondary mb-10 max-w-md mx-auto leading-relaxed">{t('profile.mta.not_linked_desc')}</p>
                     <Link to="/link-account" className="inline-flex items-center gap-3 bg-brand-cyan text-brand-dark px-10 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-white transition-all shadow-2xl shadow-brand-cyan/20">
-                      {t('link_now')}
+                      {t('profile.mta.link_now')}
                       <ChevronRight size={20} />
                     </Link>
                   </div>
-                ) : loadingMta ? (
+                ) : mtaAccountLoading ? (
                   <div className="flex justify-center py-24"><Loader2 className="animate-spin text-brand-cyan" size={48} /></div>
-                ) : mtaData ? (
+                ) : mtaAccountError ? (
+                  <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-6 py-4 rounded-2xl text-center">
+                    <p className="font-bold mb-2">{t('general.error')}</p>
+                    <p>{mtaAccountError}</p>
+                  </div>
+                ) : mtaAccountInfo ? (
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                     <div className="lg:col-span-8 space-y-8">
                       {/* Character Grid */}
@@ -286,12 +338,12 @@ const ProfilePage: React.FC = () => {
                         <div className="flex items-center justify-between mb-8">
                           <div className="flex items-center gap-3">
                             <Users className="text-brand-cyan" size={20} />
-                            <h2 className="text-xl font-bold text-white">{t('mta_characters')}</h2>
+                            <h2 className="text-xl font-bold text-white">{t('profile.mta.characters')}</h2>
                           </div>
-                          <span className="bg-brand-cyan/10 text-brand-cyan px-3 py-1 rounded-full text-xs font-bold">{mtaData.character_count}</span>
+                          <span className="bg-brand-cyan/10 text-brand-cyan px-3 py-1 rounded-full text-xs font-bold">{mtaAccountInfo.character_count}</span>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                          {mtaData.characters.map(char => (
+                          {mtaAccountInfo.characters.map(char => (
                             <Link key={char.id} to={`/character/${char.id}`} className="group bg-black/20 border border-white/5 rounded-2xl p-6 hover:border-brand-cyan/50 transition-all">
                               <div className="flex items-center gap-4 mb-6">
                                 <div className="w-14 h-14 bg-brand-cyan/20 rounded-2xl flex items-center justify-center text-brand-cyan font-black text-2xl">{char.name.charAt(0)}</div>
@@ -302,11 +354,11 @@ const ProfilePage: React.FC = () => {
                               </div>
                               <div className="grid grid-cols-2 gap-4">
                                 <div className="bg-white/5 p-3 rounded-xl border border-white/5">
-                                  <div className="text-[10px] text-text-secondary uppercase font-bold mb-1">Cash</div>
+                                  <div className="text-[10px] text-text-secondary uppercase font-bold mb-1">{t('profile.mta.cash')}</div>
                                   <div className="text-green-400 font-bold">${char.cash.toLocaleString()}</div>
                                 </div>
                                 <div className="bg-white/5 p-3 rounded-xl border border-white/5">
-                                  <div className="text-[10px] text-text-secondary uppercase font-bold mb-1">Bank</div>
+                                  <div className="text-[10px] text-text-secondary uppercase font-bold mb-1">{t('profile.mta.bank')}</div>
                                   <div className="text-brand-cyan font-bold">${char.bank.toLocaleString()}</div>
                                 </div>
                               </div>
@@ -319,11 +371,11 @@ const ProfilePage: React.FC = () => {
                       <section className="bg-white/[0.02] border border-white/5 rounded-3xl p-8">
                         <div className="flex items-center gap-3 mb-8">
                           <Shield className="text-brand-cyan" size={20} />
-                          <h2 className="text-xl font-bold text-white">{t('admin_record')}</h2>
+                          <h2 className="text-xl font-bold text-white">{t('profile.mta.admin_record')}</h2>
                         </div>
                         <div className="space-y-4">
-                          {mtaData.admin_record.length > 0 ? (
-                            mtaData.admin_record.map((record, idx) => (
+                          {mtaAccountInfo.admin_record.length > 0 ? (
+                            mtaAccountInfo.admin_record.map((record, idx) => (
                               <div key={idx} className="flex items-start gap-5 p-6 rounded-2xl bg-black/20 border border-white/5">
                                 <div className={`p-3 rounded-xl ${record.type === 'Ban' ? 'bg-red-500/10 text-red-400' : 'bg-yellow-500/10 text-yellow-400'}`}>
                                   <Shield size={20} />
@@ -334,9 +386,9 @@ const ProfilePage: React.FC = () => {
                                       <span className="font-black text-white text-lg uppercase tracking-tight">
                                         {record.type}
                                       </span>
-                                      {record.duration && record.duration !== '0' && (
+                                      {record.duration && record.duration !== '0' && ( // Assuming duration is in minutes
                                         <span className="text-xs font-bold text-text-secondary ml-3 bg-white/5 px-2 py-0.5 rounded">
-                                          {record.duration} MIN
+                                          {record.duration} {t('general.minutes')}
                                         </span>
                                       )}
                                     </div>
@@ -345,13 +397,13 @@ const ProfilePage: React.FC = () => {
                                   <p className="text-sm text-text-secondary leading-relaxed mb-4">{record.reason}</p>
                                   <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-brand-cyan">
                                     <UserIcon size={12} />
-                                    By: {record.admin}
+                                    {t('profile.mta.by')}: {record.admin}
                                   </div>
                                 </div>
                               </div>
                             ))
                           ) : (
-                            <div className="text-center py-12 text-text-secondary italic bg-black/20 rounded-2xl">{t('no_admin_records')}</div>
+                            <div className="text-center py-12 text-text-secondary italic bg-black/20 rounded-2xl">{t('profile.mta.no_admin_records')}</div>
                           )}
                         </div>
                       </section>
@@ -359,34 +411,41 @@ const ProfilePage: React.FC = () => {
 
                     <div className="lg:col-span-4 space-y-8">
                       <section className="bg-white/[0.02] border border-white/5 rounded-3xl p-8">
-                        <h3 className="text-sm font-bold text-text-secondary uppercase tracking-widest mb-6">{t('mta_account_info')}</h3>
+                        <h3 className="text-sm font-bold text-text-secondary uppercase tracking-widest mb-6">{t('profile.mta.account_info')}</h3>
                         <div className="space-y-6">
                           <div className="flex justify-between items-center">
-                            <span className="text-text-secondary text-sm">{t('mta_username')}</span>
-                            <span className="text-white font-bold">{mtaData.username}</span>
+                            <span className="text-text-secondary text-sm">{t('profile.mta.username')}</span>
+                            <span className="text-white font-bold">{mtaAccountInfo.username}</span>
                           </div>
                           <div className="flex justify-between items-center">
-                            <span className="text-text-secondary text-sm">{t('mta_id')}</span>
-                            <span className="text-white font-bold">#{mtaData.id}</span>
+                            <span className="text-text-secondary text-sm">{t('profile.mta.serial')}</span>
+                            <span className="text-white font-bold">{mtaAccountInfo.serial}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-text-secondary text-sm">{t('profile.mta.id')}</span>
+                            <span className="text-white font-bold">#{mtaAccountInfo.id}</span>
                           </div>
                           <div className="h-px bg-white/10"></div>
                           <div className="flex justify-between items-center">
-                            <span className="text-text-secondary text-sm">{t('mta_status')}</span>
+                            <span className="text-text-secondary text-sm">{t('profile.mta.status')}</span>
                             <span className="text-green-400 font-bold flex items-center gap-2">
-                              <Shield size={14} />
-                              {t('mta_linked_success')}
+                              <ShieldCheck size={14} />
+                              {t('profile.mta.linked_success')}
                             </span>
                           </div>
                         </div>
                         
                         <div className="mt-10">
-                          <Link 
-                            to="/link-account" 
+                          <motion.button 
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={handleUnlinkMta}
+                            disabled={mtaLinkLoading}
                             className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500 hover:text-white transition-all font-bold text-sm"
                           >
-                            <LogOut size={18} />
-                            {t('unlink_account')}
-                          </Link>
+                            {mtaLinkLoading ? <Loader2 className="animate-spin" size={18} /> : <LogOut size={18} />}
+                            {t('profile.mta.unlink_account')}
+                          </motion.button>
                         </div>
                       </section>
                     </div>
