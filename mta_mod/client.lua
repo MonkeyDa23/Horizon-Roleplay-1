@@ -1,82 +1,105 @@
+local browserGUI = nil
 local browser = nil
 local isBrowserOpen = false
 
--- Create the browser instance when the resource starts
-addEventHandler('onClientResourceStart', resourceRoot, function()
+-- Create browser when resource starts
+addEventHandler("onClientResourceStart", resourceRoot, function()
+
     local screenWidth, screenHeight = guiGetScreenSize()
     local width, height = 450, 600
     local x, y = (screenWidth - width) / 2, (screenHeight - height) / 2
 
-    browser = guiCreateBrowser(x, y, width, height, true, false, true)
-    
-    if not browser then
-        outputDebugString("Failed to create browser. Please ensure CEF is enabled in MTA settings.")
+    -- Create GUI browser container
+    browserGUI = guiCreateBrowser(x, y, width, height, true, false, true)
+
+    if not browserGUI then
+        outputDebugString("Failed to create browser. Make sure CEF is enabled.")
         return
     end
 
-    guiSetVisible(browser, false)
-    
-    -- Load the local HTML file
-    loadBrowserURL(browser, 'html/index.html')
+    -- Get actual CEF browser
+    browser = guiGetBrowser(browserGUI)
 
-    addEventHandler('onClientBrowserDocumentReady', browser, function()
-        -- Tell the server we are ready to get the link status
-        triggerServerEvent('onPlayerRequestLinkStatus', localPlayer)
+    -- Wait until browser is created before loading page
+    addEventHandler("onClientBrowserCreated", browser, function()
+        local resourceName = getResourceName(getThisResource())
+        local url = "http://mta/" .. resourceName .. "/html/index.html"
+        loadBrowserURL(source, url)
     end)
+
+    -- When page fully loads
+    addEventHandler("onClientBrowserDocumentReady", browser, function()
+        triggerServerEvent("onPlayerRequestLinkStatus", localPlayer)
+    end)
+
+    guiSetVisible(browserGUI, false)
 end)
 
--- Toggle browser visibility on F5
-function toggleBrowser(key)
-    if key == 'f5' then
-        if not isBrowserOpen then
-            guiSetVisible(browser, true)
-            showCursor(true)
-            isBrowserOpen = true
-            -- Refresh status every time player opens the browser
-            triggerServerEvent('onPlayerRequestLinkStatus', localPlayer)
-        else
-            guiSetVisible(browser, false)
-            showCursor(false)
-            isBrowserOpen = false
-        end
-    end
-end
-bindKey('f5', 'down', toggleBrowser)
+-- Toggle with F5
+bindKey("F5", "down", function()
 
--- Function to send data to the HTML UI
+    if not browserGUI then return end
+
+    if not isBrowserOpen then
+        guiSetVisible(browserGUI, true)
+        showCursor(true)
+        isBrowserOpen = true
+
+        -- Refresh link status every open
+        triggerServerEvent("onPlayerRequestLinkStatus", localPlayer)
+    else
+        guiSetVisible(browserGUI, false)
+        showCursor(false)
+        isBrowserOpen = false
+    end
+
+end)
+
+-- Close with ESC
+bindKey("escape", "down", function()
+    if isBrowserOpen then
+        guiSetVisible(browserGUI, false)
+        showCursor(false)
+        isBrowserOpen = false
+        cancelEvent()
+    end
+end)
+
+-- Send data to HTML UI
 function updateUI(state, data)
-    if browser and guiGetVisible(browser) then
+    if browser and isBrowserOpen then
         local jsonData = toJSON({ state = state, data = data })
-        executeBrowserJavascript(browser, 'window.dispatchEvent(new CustomEvent("mta.updateUI", { detail: ' .. jsonData .. ' }));')
+        executeBrowserJavascript(
+            browser,
+            'window.dispatchEvent(new CustomEvent("mta.updateUI", { detail: ' .. jsonData .. ' }));'
+        )
     end
 end
-addEvent('onClientUpdateUIVisibility', true)
-addEventHandler('onClientUpdateUIVisibility', root, updateUI)
+addEvent("onClientUpdateUIVisibility", true)
+addEventHandler("onClientUpdateUIVisibility", root, updateUI)
 
--- Event handler for copying code to clipboard
-addEvent('onClientCopyCode', true)
-addEventHandler('onClientCopyCode', root, function(code)
+-- Copy code to clipboard
+addEvent("onClientCopyCode", true)
+addEventHandler("onClientCopyCode", root, function(code)
     setClipboard(code)
-    -- You can add a notification here if you want
-    -- e.g., exports.notifications:showInfo('تم نسخ الكود بنجاح')
 end)
 
--- Forward code generation request to server
-addEvent('onClientRequestLinkCode', true)
-addEventHandler('onClientRequestLinkCode', root, function()
-    triggerServerEvent('onPlayerRequestNewLinkCode', localPlayer)
+-- Request new link code
+addEvent("onClientRequestLinkCode", true)
+addEventHandler("onClientRequestLinkCode", root, function()
+    triggerServerEvent("onPlayerRequestNewLinkCode", localPlayer)
 end)
 
--- Forward unlink request to server
-addEvent('onClientRequestUnlink', true)
-addEventHandler('onClientRequestUnlink', root, function()
-    triggerServerEvent('onPlayerRequestUnlink', localPlayer)
+-- Request unlink
+addEvent("onClientRequestUnlink", true)
+addEventHandler("onClientRequestUnlink", root, function()
+    triggerServerEvent("onPlayerRequestUnlink", localPlayer)
 end)
 
--- Clean up when resource stops
-addEventHandler('onClientResourceStop', resourceRoot, function()
-    if isElement(browser) then
-        destroyElement(browser)
+-- Cleanup
+addEventHandler("onClientResourceStop", resourceRoot, function()
+    if isElement(browserGUI) then
+        destroyElement(browserGUI)
     end
     showCursor(false)
 end)

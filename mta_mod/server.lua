@@ -1,10 +1,10 @@
 -- Configuration (MUST BE FILLED MANUALLY BY SERVER OWNER)
-local SUPABASE_URL = 'YOUR_SUPABASE_URL'       -- e.g., 'https://xxxxxxxx.supabase.co'
-local SUPABASE_KEY = 'YOUR_SUPABASE_ANON_KEY' -- The public anon key
-local WEBSITE_BASE_URL = 'YOUR_WEBSITE_URL'     -- e.g., 'https://your-app.vercel.app'
+local SUPABASE_URL = 'https://vjrlsmvuvtabfnxppwbi.supabase.co'       -- e.g., 'https://xxxxxxxx.supabase.co'
+local SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqcmxzbXZ1dnRhYmZueHBwd2JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk3NjIzMjAsImV4cCI6MjA3NTMzODMyMH0.iLWWMRA3ZFAdmhRnO5Ry2b2OJ9VZ39RzFQyPkZh3Y9g' -- The public anon key
+local WEBSITE_BASE_URL = 'https://floridaroleplay.vercel.app/'     -- e.g., 'https://your-app.vercel.app'
 
 -- This secret must match the one in your Supabase RPC function
-local SECRET_KEY = 'FL-RP_9x2KzL8!vQp$mWn5&7Zt*Y2uBvR1_VXL'
+local SECRET_KEY = 'FL-RP_9x2KzL8!vQpmWn5&7ZtY2uBvR1_VXL'
 
 -- Function to generate a secure, random code
 function generateSecureCode()
@@ -27,7 +27,9 @@ addEventHandler('onPlayerRequestLinkStatus', root, function()
     local playerSerial = getPlayerSerial(player)
 
     -- Use the website's API to check the status
-    local url = WEBSITE_BASE_URL .. '/api/mta/status/' .. playerSerial
+    local baseUrl = WEBSITE_BASE_URL:gsub('/$', '') -- Remove trailing slash if it exists
+    local url = baseUrl .. '/api/mta/status/' .. playerSerial
+    outputDebugString('[LINK-MOD] Attempting to fetch URL: ' .. url) -- DEBUG LINE
     fetchRemote(url, function(responseBody, httpCode)
         if httpCode == 200 then
             local data = fromJSON(responseBody)
