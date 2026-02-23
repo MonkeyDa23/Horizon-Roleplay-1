@@ -1,10 +1,11 @@
 
 // src/App.tsx
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AppProviders } from './contexts/AppProviders';
 import { useConfig } from './contexts/ConfigContext';
 import { useAuth } from './contexts/AuthContext';
+import { sendDiscordLog } from './lib/api';
 
 
 import Navbar from './components/Navbar';
@@ -61,7 +62,26 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; permission?: Permiss
   
 const AppContent: React.FC = () => {
   const { config, configLoading, configError } = useConfig();
-  const { user, isInitialLoading, loading, permissionWarning, syncError, logout, retrySync } = useAuth();
+  const { user, profile, isInitialLoading, loading, permissionWarning, syncError, logout, retrySync } = useAuth();
+  const location = useLocation();
+
+  // Global Visit Logger
+  useEffect(() => {
+    if (!profile || !config) return;
+    
+    const logVisit = async () => {
+      await sendDiscordLog(config, {
+        title: '📍 زيارة صفحة',
+        description: `قام اللاعب بزيارة صفحة جديدة.`,
+        fields: [
+          { name: 'اللاعب', value: `${profile.username} (${profile.id})`, inline: true },
+          { name: 'الصفحة', value: location.pathname, inline: true }
+        ]
+      }, 'visit');
+    };
+
+    logVisit();
+  }, [location.pathname, profile, config]);
   
   if (isInitialLoading || configLoading) {
     return (

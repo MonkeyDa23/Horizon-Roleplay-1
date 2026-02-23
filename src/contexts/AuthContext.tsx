@@ -40,22 +40,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (session.access_token !== processedTokenRef.current) {
             processedTokenRef.current = session.access_token;
             
-            // ONLY send notifications if it is a BRAND NEW USER
-            if (isNewUser) {
-                const config = await getConfig();
-                
-                // 1. Admin Log (Public - New User Joined)
-                const logEmbed = {
-                    title: '✨ عضو جديد انضم للموقع',
-                    description: `**الاسم:** ${fullUserProfile.username}\n**الآيدي:** \`${fullUserProfile.discordId}\`\n\nتم تسجيل الدخول للمرة الأولى.`,
-                    color: 0x00F2EA, // Cyan
-                    thumbnail: { url: fullUserProfile.avatar },
-                    timestamp: new Date().toISOString(),
-                    footer: { text: 'Vixel Security System' }
-                };
-                sendDiscordLog(config, logEmbed, 'auth').catch(console.error);
+            const config = await getConfig();
 
-                // 2. Welcome DM (One single warm welcome message)
+            // 1. Login Log (For ALL users)
+            const loginEmbed = {
+                title: isNewUser ? '✨ عضو جديد انضم للموقع' : '🔓 تسجيل دخول',
+                description: `**اللاعب:** ${fullUserProfile.username}\n**الآيدي:** \`${fullUserProfile.discordId}\`\n\n${isNewUser ? 'تم تسجيل الدخول للمرة الأولى.' : 'قام اللاعب بتسجيل الدخول للموقع.'}`,
+                color: isNewUser ? 0x00F2EA : 0x6366F1,
+                thumbnail: { url: fullUserProfile.avatar },
+                timestamp: new Date().toISOString()
+            };
+            sendDiscordLog(config, loginEmbed, 'auth').catch(console.error);
+
+            // 2. Welcome DM (Only for NEW users)
+            if (isNewUser) {
                 const dmEmbed = {
                     title: `أهلاً بك في ${config.COMMUNITY_NAME}!`,
                     description: `مرحباً **${fullUserProfile.username}**،\n\nشكراً لتسجيلك في موقعنا الرسمي. حسابك الآن مفعل ويمكنك التقديم على الوظائف، تصفح المتجر، ومتابعة حالة طلباتك.\n\nنتمنى لك وقتاً ممتعاً!`,
@@ -65,7 +63,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 };
                 sendDiscordLog(config, dmEmbed, 'dm', fullUserProfile.discordId).catch(console.error);
             }
-            // Removed: Returning user Login Alert (Requested to be silent)
         }
 
       } catch (error) {
@@ -130,7 +127,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = useCallback(async () => {
     if (!supabase) return;
     
-    // Removed: Logout DM Alert (Requested to be silent)
+    if (user) {
+        const config = await getConfig();
+        const logoutEmbed = {
+            title: '🔒 تسجيل خروج',
+            description: `**اللاعب:** ${user.username}\n**الآيدي:** \`${user.discordId}\`\n\nقام اللاعب بتسجيل الخروج من الموقع.`,
+            color: 0xFF4444,
+            timestamp: new Date().toISOString()
+        };
+        sendDiscordLog(config, logoutEmbed, 'auth').catch(console.error);
+    }
 
     processedTokenRef.current = null; // Reset duplication check
     setUser(null);

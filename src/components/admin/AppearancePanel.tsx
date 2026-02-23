@@ -28,6 +28,13 @@ const AppearancePanel: React.FC = () => {
         if (!user) return;
         setIsSaving(true);
         try {
+            const changes: string[] = [];
+            if (settings.COMMUNITY_NAME !== config?.COMMUNITY_NAME) changes.push(`- اسم المجتمع: ${config?.COMMUNITY_NAME} ➔ ${settings.COMMUNITY_NAME}`);
+            if (settings.LOGO_URL !== config?.LOGO_URL) changes.push(`- رابط الشعار: ${settings.LOGO_URL}`);
+            if (settings.BACKGROUND_IMAGE_URL !== config?.BACKGROUND_IMAGE_URL) changes.push(`- رابط الخلفية: ${settings.BACKGROUND_IMAGE_URL}`);
+            if (settings.DISCORD_GUILD_ID !== config?.DISCORD_GUILD_ID) changes.push(`- آيدي السيرفر: ${settings.DISCORD_GUILD_ID}`);
+            if (settings.admin_password !== config?.admin_password) changes.push(`- كلمة مرور لوحة التحكم: [تغيرت]`);
+
             await saveConfig(settings);
             await refreshConfig(); // Refresh global config context
             showToast(t('config_updated_success'), 'success');
@@ -35,7 +42,7 @@ const AppearancePanel: React.FC = () => {
             // --- DETAILED LOG ---
             const embed = {
                 title: "⚙️ تحديث الإعدادات العامة",
-                description: `قام المشرف **${user.username}** بتحديث إعدادات المظهر والربط في الموقع.`,
+                description: `قام المشرف **${user.username}** بتحديث إعدادات المظهر والربط.\n\n**التغييرات:**\n${changes.length > 0 ? changes.join('\n') : 'لم يتم تغيير أي شيء ملموس'}`,
                 color: 0xFFA500, // Orange
                 author: { name: user.username, icon_url: user.avatar },
                 timestamp: new Date().toISOString(),

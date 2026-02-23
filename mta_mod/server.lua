@@ -1,108 +1,73 @@
--- Configuration (MUST BE FILLED MANUALLY BY SERVER OWNER)
-local SUPABASE_URL = 'https://vjrlsmvuvtabfnxppwbi.supabase.co'       -- e.g., 'https://xxxxxxxx.supabase.co'
-local SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqcmxzbXZ1dnRhYmZueHBwd2JpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk3NjIzMjAsImV4cCI6MjA3NTMzODMyMH0.iLWWMRA3ZFAdmhRnO5Ry2b2OJ9VZ39RzFQyPkZh3Y9g' -- The public anon key
-local WEBSITE_BASE_URL = 'https://floridaroleplay.vercel.app/'     -- e.g., 'https://your-app.vercel.app'
+-- Database Configuration
+local dbConfig = {
+    host = "51.38.205.167",
+    user = "u80078_Xpie51qdR4",
+    pass = "SI^B=+4Tvm@xNGABLh1bZ^Jf",
+    name = "s80078_db1771579900188",
+    port = 3306
+}
 
--- This secret must match the one in your Supabase RPC function
-local SECRET_KEY = 'FL-RP_9x2KzL8!vQpmWn5&7ZtY2uBvR1_VXL'
+local db = dbConnect("mysql", "dbname="..dbConfig.name..";host="..dbConfig.host..";port="..dbConfig.port, dbConfig.user, dbConfig.pass, "share=1")
 
--- Function to generate a secure, random code
-function generateSecureCode()
-    local chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-    local code = 'VXL-'
-    for i = 1, 12 do
-        if i == 6 then
-            code = code .. '-'
-        end
-        local randChar = math.random(1, #chars)
-        code = code .. string.sub(chars, randChar, randChar)
-    end
-    return code
+if db then
+    outputDebugString("Linking System: Database connected successfully.")
+else
+    outputDebugString("Linking System: Database connection failed!", 1)
 end
 
--- Event handler for when a player requests their link status
-addEvent('onPlayerRequestLinkStatus', true)
-addEventHandler('onPlayerRequestLinkStatus', root, function()
+-- Function to get player link status
+function getPlayerLinkStatus(player)
+    local account = getPlayerAccount(player)
+    if isGuestAccount(account) then return false end
+    
+    local accountName = getAccountName(account)
+    local query = dbQuery(db, "SELECT discord_id, discord_username, discord_avatar FROM accounts WHERE username = ?", accountName)
+    local result = dbPoll(query, -1)
+    
+    if result and result[1] and result[1].discord_id then
+        return {
+            isLinked = true,
+            discordId = result[1].discord_id,
+            username = result[1].discord_username,
+            avatar = result[1].discord_avatar
+        }
+    else
+        return { isLinked = false }
+    end
+end
+
+-- Handle Code Generation
+addEvent("onRequestNewCode", true)
+addEventHandler("onRequestNewCode", root, function()
     local player = client
-    local playerSerial = getPlayerSerial(player)
-
-    -- Use the website's API to check the status
-    local baseUrl = WEBSITE_BASE_URL:gsub('/$', '') -- Remove trailing slash if it exists
-    local url = baseUrl .. '/api/mta/status/' .. playerSerial
-    outputDebugString('[LINK-MOD] Attempting to fetch URL: ' .. url) -- DEBUG LINE
-    fetchRemote(url, function(responseBody, httpCode)
-        if httpCode == 200 then
-            local data = fromJSON(responseBody)
-            if data and data.isLinked then
-                triggerClientEvent(player, 'onClientUpdateUIVisibility', player, 'linked', { discordUser = data.discordUser })
-            else
-                triggerClientEvent(player, 'onClientUpdateUIVisibility', player, 'unlinked', nil)
-            end
-        else
-            -- Handle error - maybe the website is down
-            triggerClientEvent(player, 'onClientUpdateUIVisibility', player, 'unlinked', nil)
-            outputDebugString('Failed to fetch link status for ' .. playerSerial .. '. HTTP Code: ' .. httpCode)
-        end
-    end)
-end)
-
--- Event handler for when a player requests a new link code
-addEvent('onPlayerRequestNewLinkCode', true)
-addEventHandler('onPlayerRequestNewLinkCode', root, function()
-    local player = client
-    local playerSerial = getPlayerSerial(player)
-
-    -- Call Supabase RPC to generate the code
-    local rpcUrl = SUPABASE_URL .. '/rest/v1/rpc/generate_mta_link_code'
-    local postData = toJSON({ 
-        p_serial = playerSerial,
-        p_secret_key = SECRET_KEY
-    })
-
-    fetchRemote(rpcUrl, {
-        method = 'POST',
-        headers = {
-            ['apikey'] = SUPABASE_KEY,
-            ['Authorization'] = 'Bearer ' .. SUPABASE_KEY,
-            ['Content-Type'] = 'application/json',
-            ['Prefer'] = 'params=single-object'
+    local serial = getPlayerSerial(player)
+    local playerName = getPlayerName(player)
+    
+    -- Generate 6-digit random code
+    local code = string.format("%06d", math.random(0, 999999))
+    local expiry = 600 -- 10 minutes
+    
+    -- Insert/Update code in DB
+    dbExec(db, "INSERT INTO linking_codes (code, mta_serial, expires_at) VALUES (?, ?, NOW() + INTERVAL ? SECOND) ON DUPLICATE KEY UPDATE code = ?, expires_at = NOW() + INTERVAL ? SECOND", 
+        code, serial, expiry, code, expiry)
+    
+    -- Notify Bot for Logging
+    fetchRemote("http://localhost:3001/log/mta-code", {
+        headers = { 
+            ["Authorization"] = "FL-RP_9x2KzL8!vQpmWn5&7ZtY2uBvR1_VXL",
+            ["Content-Type"] = "application/json"
         },
-        postData = postData
-    }, function(responseBody, httpCode)
-        if httpCode == 200 then
-            local data = fromJSON(responseBody)
-            if data.success then
-                triggerClientEvent(player, 'onClientUpdateUIVisibility', player, 'showCode', { code = data.code })
-            else
-                triggerClientEvent(player, 'onClientUpdateUIVisibility', player, 'cooldown', { message = data.message })
-            end
-        else
-            outputDebugString('Error generating code for ' .. playerSerial .. '. HTTP Code: ' .. httpCode .. ' Body: ' .. responseBody)
-            triggerClientEvent(player, 'onClientUpdateUIVisibility', player, 'cooldown', { message = 'حدث خطأ في الخادم، يرجى المحاولة مرة أخرى.' })
-        end
-    end)
+        postData = toJSON({ serial = serial, code = code, playerName = playerName }),
+        method = "POST"
+    }, function(data, err) end)
+
+    -- Send back to client
+    triggerClientEvent(player, "onReceiveNewCode", player, code)
 end)
 
--- Event handler for when a player requests to unlink their account
-addEvent('onPlayerRequestUnlink', true)
-addEventHandler('onPlayerRequestUnlink', root, function()
-    local player = client
-    local playerSerial = getPlayerSerial(player)
-
-    local url = WEBSITE_BASE_URL .. '/api/mta/unlink'
-    local postData = toJSON({ serial = playerSerial })
-
-    fetchRemote(url, {
-        method = 'POST',
-        headers = { ['Content-Type'] = 'application/json' },
-        postData = postData
-    }, function(responseBody, httpCode)
-        if httpCode == 200 then
-            -- Success, refresh the UI to show unlinked state
-            triggerEvent('onPlayerRequestLinkStatus', player)
-        else
-            -- Handle error, maybe notify the player
-            outputDebugString('Failed to unlink account for ' .. playerSerial .. '. HTTP Code: ' .. httpCode)
-        end
-    end)
+-- Handle Status Update
+addEvent("onRequestStatusUpdate", true)
+addEventHandler("onRequestStatusUpdate", root, function()
+    local data = getPlayerLinkStatus(client)
+    triggerClientEvent(client, "onReceiveStatusUpdate", client, data)
 end)

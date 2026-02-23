@@ -12,11 +12,16 @@ export default {
       colors: {
         'primary-blue': '#00A9FF',
         'accent-cyan': '#00F2EA',
-        'background-dark': '#010409', // Darker background
-        'background-light': '#0D1117', // Lighter panel background
-        'border-color': 'rgba(137, 218, 255, 0.1)', // Subtle border color
+        'background-dark': '#010409',
+        'background-light': '#0D1117',
+        'border-color': 'rgba(137, 218, 255, 0.1)',
         'text-primary': '#E6EDF3',
         'text-secondary': '#8B949E',
+        'brand-cyan': '#00F2EA',
+        'brand-dark': '#010409',
+        'brand-dark-blue': '#0D1117',
+        'brand-purple': '#6366f1',
+        'brand-discord': '#5865F2',
       },
       boxShadow: {
         'glow-blue': '0 0 20px 0 rgba(0, 169, 255, 0.5)',

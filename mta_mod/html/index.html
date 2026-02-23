@@ -1,23 +1,94 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ar" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Link Account</title>
+    <title>Florida Roleplay - Linking</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <div class="logo">
-            <img src="logo.png" alt="Florida Roleplay Logo">
+    <div class="container" id="main-container">
+        <!-- Header -->
+        <div class="header">
+            <div class="logo-area">
+                <div class="logo-glow"></div>
+                <i class="fas fa-link logo-icon"></i>
+            </div>
+            <h1>نظام ربط الحسابات</h1>
+            <div class="status-badge" id="status-badge">
+                <i class="fas fa-circle"></i>
+                <span id="status-text">جاري التحقق...</span>
+            </div>
         </div>
-        <div id="main-content">
-            <!-- Content will be injected by script.js -->
+
+        <!-- Content Area -->
+        <div class="content">
+            <!-- Not Linked View -->
+            <div id="not-linked-view" class="view hidden">
+                <div class="info-card">
+                    <i class="fab fa-discord discord-main-icon"></i>
+                    <p>قم بربط حسابك في ديسكورد للحصول على مميزات حصرية وحماية إضافية لحسابك.</p>
+                </div>
+                
+                <div class="code-section hidden" id="code-box">
+                    <span class="label">كود الربط الخاص بك:</span>
+                    <div class="code-wrapper">
+                        <div class="code" id="linking-code">------</div>
+                        <button class="copy-btn" id="btn-copy-code" title="نسخ الكود">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    <p class="expiry-text">هذا الكود صالح لمدة 10 دقائق فقط</p>
+                </div>
+
+                <button class="btn btn-primary" id="btn-generate">
+                    <i class="fas fa-plus-circle"></i> إنشاء كود ربط
+                </button>
+            </div>
+
+            <!-- Linked View -->
+            <div id="linked-view" class="view hidden">
+                <div class="profile-card">
+                    <div class="avatar-wrapper">
+                        <img src="" alt="Avatar" id="user-avatar" class="avatar">
+                        <div class="online-indicator"></div>
+                    </div>
+                    <div class="user-info">
+                        <h2 id="user-name">Username</h2>
+                        <p id="user-id">ID: 000000000000</p>
+                    </div>
+                </div>
+                <div class="success-banner">
+                    <i class="fas fa-shield-check"></i>
+                    <span>حسابك محمي ومرتبط بنجاح</span>
+                </div>
+            </div>
         </div>
+
+        <!-- Footer Actions -->
         <div class="footer">
-            <p>Florida Roleplay Linking System</p>
+            <button class="btn btn-secondary" id="btn-refresh">
+                <i class="fas fa-sync-alt"></i> تحديث الحالة
+            </button>
+            
+            <div class="social-links">
+                <div class="social-btn discord" id="copy-discord" title="نسخ رابط الديسكورد">
+                    <i class="fab fa-discord"></i>
+                </div>
+                <div class="social-btn website" id="copy-website" title="نسخ رابط الموقع">
+                    <i class="fas fa-globe"></i>
+                </div>
+            </div>
         </div>
     </div>
+
+    <!-- Notification -->
+    <div id="notification" class="notification hidden">
+        <i class="fas fa-check-circle"></i>
+        <span id="notification-text">تم النسخ بنجاح!</span>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>

@@ -1,83 +1,86 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const mainContent = document.getElementById('main-content');
+// Handle UI updates from Lua
+function updateUI(data) {
+    const statusBadge = document.getElementById('status-badge');
+    const statusText = document.getElementById('status-text');
+    const notLinkedView = document.getElementById('not-linked-view');
+    const linkedView = document.getElementById('linked-view');
+    const btnGenerate = document.getElementById('btn-generate');
+    const codeBox = document.getElementById('code-box');
 
-    // --- Functions to render UI states ---
+    if (data.isLinked) {
+        statusBadge.className = 'status-badge linked';
+        statusText.innerText = 'مربوط';
+        notLinkedView.classList.add('hidden');
+        linkedView.classList.remove('hidden');
+        btnGenerate.classList.add('hidden');
 
-    const renderLoading = () => {
-        mainContent.innerHTML = `<p>Loading...</p>`;
-    };
+        document.getElementById('user-avatar').src = data.avatar || 'https://cdn.discordapp.com/embed/avatars/0.png';
+        document.getElementById('user-name').innerText = data.username || 'Unknown';
+        document.getElementById('user-id').innerText = 'ID: ' + (data.discordId || '000000000');
+    } else {
+        statusBadge.className = 'status-badge not-linked';
+        statusText.innerText = 'غير مربوط';
+        notLinkedView.classList.remove('hidden');
+        linkedView.classList.add('hidden');
+        btnGenerate.classList.remove('hidden');
 
-    const renderUnlinked = () => {
-        mainContent.innerHTML = `
-            <div class="status unlinked">غير مربوط</div>
-            <p>اربط حسابك للاستفادة من الميزات الكاملة.</p>
-            <button id="generate-btn" class="btn btn-primary">توليد كود</button>
-        `;
-        document.getElementById('generate-btn').addEventListener('click', () => {
-            mta.triggerEvent('onClientRequestLinkCode');
-        });
-    };
-
-    const renderLinked = (discordUser) => {
-        mainContent.innerHTML = `
-            <div class="status linked">مربوط</div>
-            <div class="discord-info">
-                <img src="${discordUser.avatar}" alt="Discord Avatar">
-                <div class="text">
-                    <div class="username">${discordUser.username}</div>
-                    <div class="discord-id">ID: ${discordUser.discordId}</div>
-                </div>
-            </div>
-            <button id="unlink-btn" class="btn btn-danger">إلغاء الربط</button>
-        `;
-        document.getElementById('unlink-btn').addEventListener('click', () => {
-            mta.triggerEvent('onClientRequestUnlink');
-        });
-    };
-
-    const renderCode = (code) => {
-        mainContent.innerHTML = `
-            <p>استخدم هذا الكود في الموقع لربط حسابك.</p>
-            <div class="code-box" id="code-box">
-                <div class="blur-overlay">مرر لنسخ الكود</div>
-                <div class="code">${code}</div>
-            </div>
-            <p>الكود صالح لمدة 5 دقائق.</p>
-        `;
-        document.getElementById('code-box').addEventListener('click', () => {
-            mta.triggerEvent('onClientCopyCode', code);
-        });
-    };
-
-    const renderCooldown = (message) => {
-        mainContent.innerHTML = `
-            <div class="status unlinked">غير مربوط</div>
-            <p class="cooldown-message">${message}</p>
-            <button class="btn btn-primary" disabled>توليد كود</button>
-        `;
-    };
-
-    // --- MTA Event Listeners ---
-
-    // Initial state sent from client.lua
-    window.addEventListener('mta.updateUI', (e) => {
-        const { state, data } = e.detail;
-        switch (state) {
-            case 'loading':
-                renderLoading();
-                break;
-            case 'unlinked':
-                renderUnlinked();
-                break;
-            case 'linked':
-                renderLinked(data.discordUser);
-                break;
-            case 'cooldown':
-                renderCooldown(data.message);
-                break;
-            case 'showCode':
-                renderCode(data.code);
-                break;
+        if (data.code) {
+            codeBox.classList.remove('hidden');
+            document.getElementById('linking-code').innerText = data.code;
+            btnGenerate.innerHTML = '<i class="fas fa-sync-alt"></i> تحديث الكود';
+        } else {
+            codeBox.classList.add('hidden');
+            btnGenerate.innerHTML = '<i class="fas fa-plus-circle"></i> إنشاء كود ربط';
         }
-    });
+    }
+}
+
+// Buttons Listeners
+document.getElementById('btn-generate').addEventListener('click', () => {
+    mta.triggerEvent('onClientRequestNewCode');
+});
+
+document.getElementById('btn-refresh').addEventListener('click', () => {
+    mta.triggerEvent('onClientRequestStatusUpdate');
+});
+
+document.getElementById('btn-copy-code').addEventListener('click', () => {
+    const code = document.getElementById('linking-code').innerText;
+    if (code && code !== '------') {
+        copyToClipboard(code, "تم نسخ الكود بنجاح!");
+    }
+});
+
+// Social Links
+const DISCORD_URL = "https://discord.gg/vixel";
+const WEBSITE_URL = "https://florida-rp.com";
+
+document.getElementById('copy-discord').addEventListener('click', () => {
+    copyToClipboard(DISCORD_URL, "تم نسخ رابط الديسكورد!");
+});
+
+document.getElementById('copy-website').addEventListener('click', () => {
+    copyToClipboard(WEBSITE_URL, "تم نسخ رابط الموقع!");
+});
+
+function copyToClipboard(text, message) {
+    const el = document.createElement('textarea');
+    el.value = text;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
+    
+    const notify = document.getElementById('notification');
+    const notifyText = document.getElementById('notification-text');
+    notifyText.innerText = message || 'تم النسخ بنجاح!';
+    notify.classList.remove('hidden');
+    setTimeout(() => notify.classList.add('hidden'), 2500);
+}
+
+// Listen for messages from Lua
+window.addEventListener('message', (event) => {
+    if (event.data.type === 'update') {
+        updateUI(event.data.payload);
+    }
 });

@@ -51,97 +51,47 @@ async function callBotApi<T>(endpoint: string, options: RequestInit = {}): Promi
 }
 
 // --- SMART LOGGING SYSTEM ---
-// This function routes logs to Channels OR Users (DMs) based on the type.
 export const sendDiscordLog = async (
     config: AppConfig, 
     embed: any, 
-    logType: 'admin' | 'ban' | 'submission' | 'submission_dm' | 'auth' | 'dm' | 'finance' | 'store', 
+    logType: 'admin' | 'ban' | 'submission' | 'submission_dm' | 'auth' | 'dm' | 'finance' | 'store' | 'visit', 
     targetId?: string
 ): Promise<void> => {
   
   let finalTargetId: string | null | undefined = null;
   let targetType: 'channel' | 'user' = 'channel';
-  let mentionRoleId: string | null | undefined = null;
+  let category: 'MTA' | 'COMMANDS' | 'AUTH' | 'ADMIN' | 'STORE' | 'VISITS' | 'FINANCE' | 'SUBMISSIONS' | null = null;
+  const type: 'SUCCESS' | 'ERROR' | 'INFO' | 'WARNING' = logType === 'ban' ? 'ERROR' : (logType === 'store' ? 'SUCCESS' : 'INFO');
 
-  // 1. Route based on Type
+  // Map logType to Bot Categories
+  switch (logType) {
+      case 'auth': category = 'AUTH'; break;
+      case 'admin': case 'ban': category = 'ADMIN'; break;
+      case 'store': category = 'STORE'; break;
+      case 'finance': category = 'FINANCE'; break;
+      case 'visit': category = 'VISITS'; break;
+      case 'submission': category = 'SUBMISSIONS'; break;
+  }
+
   if (logType === 'dm' || logType === 'submission_dm') {
-      if (!targetId) {
-          console.warn("[sendDiscordLog] DM requested but no targetId provided.");
-          return;
-      }
+      if (!targetId) return;
       finalTargetId = targetId;
       targetType = 'user';
-  } else {
-      // Channel Routing
-      switch (logType) {
-        case 'admin':
-          finalTargetId = config.log_channel_admin;
-          mentionRoleId = config.mention_role_audit_log_admin;
-          break;
-        case 'ban':
-          finalTargetId = config.log_channel_bans;
-          mentionRoleId = config.mention_role_audit_log_bans;
-          break;
-        case 'submission':
-          finalTargetId = config.submissions_channel_id; // Main submission channel
-          mentionRoleId = config.mention_role_submissions;
-          break;
-        case 'auth':
-          finalTargetId = config.log_channel_auth || config.log_channel_admin; 
-          mentionRoleId = config.mention_role_auth;
-          break;
-        case 'finance':
-          finalTargetId = config.log_channel_finance; 
-          mentionRoleId = config.mention_role_finance;
-          break;
-        case 'store':
-          finalTargetId = config.log_channel_store; 
-          mentionRoleId = config.mention_role_store;
-          break;
-      }
-      
-      // Fallback to general audit log if specific one isn't set
-      if (!finalTargetId) {
-        finalTargetId = config.audit_log_channel_id;
-        if (!mentionRoleId && logType !== 'auth') {
-             mentionRoleId = config.mention_role_audit_log_general;
-        }
-      }
-  }
-
-  // 2. Validate Target
-  if (!finalTargetId) {
-    console.warn(`[sendDiscordLog] No target configured for log type: ${logType}`);
-    return;
-  }
-
-  // 3. Database Logging (Persistence) - Only for system/admin actions, not DMs
-  if (targetType === 'channel' && supabase) {
-      const adminName = embed.author?.name || 'System';
-      const actionText = embed.title ? `${embed.title} - ${embed.description?.substring(0, 50)}...` : (embed.description || 'Log Action');
-      
-      try {
-          // Fire and forget DB log
-          supabase.rpc('log_system_action', { 
-            p_action: actionText, 
-            p_log_type: logType,
-            p_actor_id: null,
-            p_actor_username: adminName
-          });
-      } catch (err) { console.error("[DB Log] Error:", err); }
   }
 
   // 4. Send to Bot
-  const content = (targetType === 'channel' && mentionRoleId) ? `<@&${mentionRoleId}>` : undefined;
-
   try {
     await callBotApi('/notify', {
       method: 'POST',
       body: JSON.stringify({
         targetId: finalTargetId,
         targetType,
-        content,
-        embed,
+        category,
+        title: embed.title,
+        description: embed.description,
+        type,
+        fields: embed.fields || [],
+        embed: targetType === 'user' ? embed : undefined // Only send full embed for DMs
       }),
     });
   } catch (error) {

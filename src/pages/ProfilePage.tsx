@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocalization } from '../contexts/LocalizationContext';
-import { getSubmissionsByUserId, forceRefreshUserProfile, getMtaAccountInfo, checkMtaLinkStatus, unlinkMtaAccount } from '../lib/api';
+import { getSubmissionsByUserId, forceRefreshUserProfile, getMtaAccountInfo, unlinkMtaAccount } from '../lib/api';
 import type { QuizSubmission, SubmissionStatus, DiscordRole, MtaAccountInfo } from '../types';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   User as UserIcon, Loader2, FileText, ExternalLink, Shield, RefreshCw,
-  Gamepad2, Users, ChevronRight, Star, CreditCard, Link2, LogOut, Car, Home, Info
+  Gamepad2, Users, ChevronRight, Star, CreditCard, Link2, LogOut, ShieldCheck,
+  Wallet, Landmark, Trophy, History, Settings, Bell
 } from 'lucide-react';
 import { useConfig } from '../contexts/ConfigContext';
 import SEO from '../components/SEO';
@@ -31,7 +32,6 @@ const ProfilePage: React.FC = () => {
 
   const [isMtaLinked, setIsMtaLinked] = useState<boolean | null>(null);
   const [mtaLinkLoading, setMtaLinkLoading] = useState(false);
-  const [mtaLinkError, setMtaLinkError] = useState<string | null>(null);
 
   const [activeTab, setActiveTab] = useState<'discord' | 'mta'>('discord');
 
@@ -52,7 +52,7 @@ const ProfilePage: React.FC = () => {
           console.error("Failed to fetch MTA account info:", err);
           setMtaAccountError((err as Error).message);
           setMtaAccountInfo(null);
-          setIsMtaLinked(false); // Assume unlinked if we can't fetch info
+          setIsMtaLinked(false);
       } finally {
           setMtaAccountLoading(false);
       }
@@ -61,35 +61,28 @@ const ProfilePage: React.FC = () => {
   const handleUnlinkMta = useCallback(async () => {
       if (!user?.mta_serial) return;
 
+      if (!window.confirm('هل أنت متأكد من رغبتك في إلغاء ربط الحساب؟')) return;
+
       setMtaLinkLoading(true);
-      setMtaLinkError(null);
       try {
           await unlinkMtaAccount(user.mta_serial);
-          await forceRefreshUserProfile(); // Refresh user context to update mta_serial to null
+          await forceRefreshUserProfile();
           setIsMtaLinked(false);
           setMtaAccountInfo(null);
-          showToast(t('profile.mta.unlink_success'), 'success');
+          showToast('تم إلغاء ربط الحساب بنجاح', 'success');
       } catch (err) {
           console.error("Failed to unlink MTA account:", err);
-          setMtaLinkError((err as Error).message);
-          showToast(t('profile.mta.unlink_failed') + `: ${(err as Error).message}`, 'error');
+          showToast('فشل إلغاء ربط الحساب', 'error');
       } finally {
           setMtaLinkLoading(false);
       }
-  }, [user?.mta_serial, forceRefreshUserProfile, showToast, t]);
+  }, [user?.mta_serial, showToast]);
 
-  useEffect(() => {
-      fetchMtaAccountData();
-  }, [fetchMtaAccountData]);
-
-  // Check link status on initial load and when user changes
   useEffect(() => {
       if (user?.mta_serial) {
-          setIsMtaLinked(true);
-      } else {
-          setIsMtaLinked(false);
+          fetchMtaAccountData();
       }
-  }, [user?.mta_serial]);
+  }, [fetchMtaAccountData, user?.mta_serial]);
 
   const fetchSubmissions = useCallback(async () => {
     if (!user) return;
@@ -98,7 +91,7 @@ const ProfilePage: React.FC = () => {
       const userSubmissions = await getSubmissionsByUserId(user.id);
       setSubmissions(userSubmissions);
     } catch (error) {
-      console.error("Failed to fetch user submissions for profile", error);
+      console.error("Failed to fetch user submissions", error);
     } finally {
       setSubmissionsLoading(false);
     }
@@ -112,26 +105,17 @@ const ProfilePage: React.FC = () => {
 
     if (user) {
       fetchSubmissions();
-      
-      if (user.mta_serial && activeTab === 'mta') {
-        fetchMtaAccountData();
-      }
     }
-  }, [user, authLoading, navigate, activeTab, fetchSubmissions, fetchMtaAccountData]);
+  }, [user, authLoading, navigate, fetchSubmissions]);
 
   const handleRefresh = async () => {
     setIsSyncing(true);
     try {
-        const { user: freshUser, syncError } = await forceRefreshUserProfile();
+        const { user: freshUser } = await forceRefreshUserProfile();
         updateUser(freshUser);
-        showToast(t('profile_synced_success'), 'success');
-        if (syncError) {
-            showToast(syncError, 'warning');
-        }
-        if (freshUser.mta_serial) fetchMtaAccountData();
+        showToast('تم تحديث البيانات بنجاح', 'success');
     } catch (error) {
-        showToast(t('profile_synced_error'), 'error');
-        console.error(error);
+        showToast('فشل تحديث البيانات', 'error');
     } finally {
         setIsSyncing(false);
     }
@@ -139,23 +123,31 @@ const ProfilePage: React.FC = () => {
 
   const renderStatusBadge = (status: SubmissionStatus) => {
     const statusMap = {
-      pending: { text: t('status_pending'), color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
-      taken: { text: t('status_taken'), color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
-      accepted: { text: t('status_accepted'), color: 'bg-green-500/20 text-green-400 border-green-500/30' },
-      refused: { text: t('status_refused'), color: 'bg-red-500/20 text-red-400 border-red-500/30' },
+      pending: { text: 'قيد المراجعة', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' },
+      taken: { text: 'تم الاستلام', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
+      accepted: { text: 'مقبول', color: 'bg-green-500/20 text-green-400 border-green-500/30' },
+      refused: { text: 'مرفوض', color: 'bg-red-500/20 text-red-400 border-red-500/30' },
     };
     const { text, color } = statusMap[status];
-    return <span className={`px-3 py-1 text-xs font-bold rounded-full border ${color}`}>{text}</span>;
+    return <span className={`px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full border ${color}`}>{text}</span>;
   };
 
   const RoleBadge: React.FC<{ role: DiscordRole }> = ({ role }) => {
     const color = role.color ? `#${role.color.toString(16).padStart(6, '0')}` : '#99aab5';
-    return <span className="px-3 py-1 text-xs font-bold rounded-lg text-white" style={{ backgroundColor: color + '20', border: `1px solid ${color}40` }}>{role.name}</span>;
+    return (
+      <span 
+        className="px-4 py-2 text-xs font-bold rounded-xl text-white flex items-center gap-2" 
+        style={{ backgroundColor: color + '15', border: `1px solid ${color}30` }}
+      >
+        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color }}></div>
+        {role.name}
+      </span>
+    );
   };
   
   if (authLoading || !user) {
     return (
-      <div className="container mx-auto px-6 py-16 flex justify-center items-center h-96">
+      <div className="min-h-screen flex justify-center items-center bg-brand-dark">
         <Loader2 size={48} className="text-brand-cyan animate-spin" />
       </div>
     );
@@ -164,78 +156,88 @@ const ProfilePage: React.FC = () => {
   return (
     <>
       <SEO 
-        title={`${communityName} - ${t('my_profile')}`}
-        description={`User profile for ${user.username}. View your roles and recent applications.`}
+        title={`${communityName} - ملفي الشخصي`}
+        description={`الملف الشخصي للمستخدم ${user.username}.`}
         noIndex={true}
       />
-      <div className="container mx-auto px-6 py-12">
-        <div className="max-w-6xl mx-auto">
-          {/* Top Header Section */}
-          <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-12">
-            <div className="flex items-center gap-6">
+      
+      <div className="min-h-screen bg-brand-dark font-['Cairo'] pb-24" dir="rtl">
+        {/* Profile Hero Header */}
+        <div className="relative h-80 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-b from-brand-cyan/20 to-brand-dark z-0"></div>
+          <div className="absolute inset-0 backdrop-blur-3xl z-0"></div>
+          
+          <div className="container mx-auto px-6 h-full flex items-end pb-12 relative z-10">
+            <div className="flex flex-col md:flex-row items-center md:items-end gap-8 w-full">
               <div className="relative group">
-                <img 
+                <motion.img 
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
                   src={user.avatar} 
                   alt={user.username} 
-                  className="w-24 h-24 rounded-3xl border-2 border-brand-cyan/30 object-cover shadow-2xl transition-transform group-hover:scale-105" 
+                  className="w-32 h-32 md:w-40 md:h-40 rounded-[40px] border-4 border-brand-dark shadow-2xl object-cover" 
                 />
                 <button 
                   onClick={handleRefresh}
                   disabled={isSyncing}
-                  className="absolute -bottom-2 -right-2 bg-brand-cyan p-2 rounded-xl text-brand-dark hover:bg-white transition-all shadow-xl"
+                  className="absolute -bottom-2 -right-2 bg-brand-cyan p-3 rounded-2xl text-brand-dark hover:bg-white transition-all shadow-xl"
                 >
-                  {isSyncing ? <Loader2 className="animate-spin" size={16} /> : <RefreshCw size={16} />}
+                  {isSyncing ? <Loader2 className="animate-spin" size={20} /> : <RefreshCw size={20} />}
                 </button>
               </div>
-              <div>
-                <h1 className="text-4xl font-black text-white tracking-tighter mb-2">{user.username}</h1>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm text-text-secondary font-mono">ID: {user.discordId}</span>
-                  {user.mta_linked_at && (
-                    <span className="px-2 py-0.5 rounded bg-brand-cyan/10 text-brand-cyan text-[10px] font-bold uppercase tracking-widest border border-brand-cyan/20">
-                      {user.mta_name || 'MTA Linked'}
+              
+              <div className="flex-1 text-center md:text-right">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                >
+                  <h1 className="text-4xl md:text-6xl font-black text-white tracking-tighter mb-2">{user.username}</h1>
+                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-4">
+                    <span className="text-brand-cyan/60 font-mono text-sm">ID: {user.discordId}</span>
+                    <div className="h-4 w-px bg-white/10 hidden md:block"></div>
+                    <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border ${user.mta_linked_at ? "bg-green-500/10 text-green-400 border-green-500/20" : "bg-red-500/10 text-red-400 border-red-500/20"}`}>
+                      {user.mta_linked_at ? 'مربوط باللعبة' : 'غير مربوط'}
                     </span>
-                  )}
-                </div>
+                  </div>
+                </motion.div>
               </div>
-            </div>
 
-            <div className="flex items-center gap-4 bg-white/5 border border-white/10 p-4 rounded-3xl">
-              <div className="text-right">
-                <div className="text-[10px] text-text-secondary uppercase font-bold tracking-widest mb-1">{t('current_balance_label')}</div>
-                <div className="text-2xl font-black text-brand-cyan tracking-tight">
-                  {user.balance.toLocaleString()} <span className="text-xs font-normal text-text-secondary">VXL</span>
+              <div className="flex gap-4">
+                <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-6 rounded-[32px] flex items-center gap-4">
+                  <div className="text-right">
+                    <div className="text-[10px] text-text-secondary uppercase font-black tracking-widest mb-1">الرصيد الحالي</div>
+                    <div className="text-3xl font-black text-brand-cyan tracking-tight">
+                      {user.balance.toLocaleString()} <span className="text-xs font-normal text-text-secondary">VXL</span>
+                    </div>
+                  </div>
+                  <div className="w-14 h-14 rounded-2xl bg-brand-cyan/20 flex items-center justify-center">
+                    <CreditCard className="text-brand-cyan" size={28} />
+                  </div>
                 </div>
-              </div>
-              <div className="w-12 h-12 rounded-2xl bg-brand-cyan/20 flex items-center justify-center">
-                <CreditCard className="text-brand-cyan" size={24} />
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Main Navigation Tabs */}
-          <div className="flex border-b border-white/10 mb-12">
+        <div className="container mx-auto px-6 mt-8">
+          {/* Tabs Navigation */}
+          <div className="flex items-center gap-2 bg-white/5 p-2 rounded-3xl border border-white/10 w-fit mb-12">
             <button 
               onClick={() => setActiveTab('discord')}
-              className={`pb-4 px-8 text-sm font-bold transition-all relative ${
-                activeTab === 'discord' ? 'text-brand-cyan' : 'text-text-secondary hover:text-white'
+              className={`px-8 py-3 rounded-2xl text-sm font-black transition-all ${
+                activeTab === 'discord' ? 'bg-brand-cyan text-brand-dark shadow-lg shadow-brand-cyan/20' : 'text-text-secondary hover:text-white'
               }`}
             >
-              {t('discord_profile')}
-              {activeTab === 'discord' && (
-                <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-cyan" />
-              )}
+              حساب الديسكورد
             </button>
             <button 
               onClick={() => setActiveTab('mta')}
-              className={`pb-4 px-8 text-sm font-bold transition-all relative ${
-                activeTab === 'mta' ? 'text-brand-cyan' : 'text-text-secondary hover:text-white'
+              className={`px-8 py-3 rounded-2xl text-sm font-black transition-all ${
+                activeTab === 'mta' ? 'bg-brand-cyan text-brand-dark shadow-lg shadow-brand-cyan/20' : 'text-text-secondary hover:text-white'
               }`}
             >
-              {t('mta_profile')}
-              {activeTab === 'mta' && (
-                <motion.div layoutId="activeTab" className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-cyan" />
-              )}
+              حساب اللعبة (MTA)
             </button>
           </div>
 
@@ -243,40 +245,63 @@ const ProfilePage: React.FC = () => {
             {activeTab === 'discord' ? (
               <motion.div 
                 key="discord"
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
                 className="grid grid-cols-1 lg:grid-cols-12 gap-8"
               >
                 <div className="lg:col-span-8 space-y-8">
-                  {/* Discord Roles Section */}
-                  <section className="bg-white/[0.02] border border-white/5 rounded-3xl p-8">
-                    <div className="flex items-center gap-3 mb-8">
-                      <Star className="text-brand-cyan" size={20} />
-                      <h2 className="text-xl font-bold text-white">{t('discord_roles')}</h2>
+                  {/* Roles Section */}
+                  <section className="bg-white/[0.03] border border-white/10 rounded-[40px] p-8 md:p-10">
+                    <div className="flex items-center gap-4 mb-10">
+                      <div className="w-12 h-12 rounded-2xl bg-brand-purple/20 flex items-center justify-center text-brand-purple">
+                        <Star size={24} />
+                      </div>
+                      <div>
+                        <h2 className="text-2xl font-black text-white">الرتب والأوسمة</h2>
+                        <p className="text-text-secondary text-sm">الرتب التي تمتلكها في سيرفر الديسكورد</p>
+                      </div>
                     </div>
-                    <div className="flex flex-wrap gap-3">
-                      {user.roles.map(role => <RoleBadge key={role.id} role={role} />)}
+                    <div className="flex flex-wrap gap-4">
+                      {user.roles.length > 0 ? (
+                        user.roles.map(role => <RoleBadge key={role.id} role={role} />)
+                      ) : (
+                        <div className="text-text-secondary italic">لا توجد رتب لعرضها</div>
+                      )}
                     </div>
                   </section>
 
                   {/* Applications Section */}
-                  <section className="bg-white/[0.02] border border-white/5 rounded-3xl p-8">
-                    <div className="flex items-center gap-3 mb-8">
-                      <FileText className="text-brand-cyan" size={20} />
-                      <h2 className="text-xl font-bold text-white">{t('recent_applications')}</h2>
+                  <section className="bg-white/[0.03] border border-white/10 rounded-[40px] p-8 md:p-10">
+                    <div className="flex items-center gap-4 mb-10">
+                      <div className="w-12 h-12 rounded-2xl bg-brand-cyan/20 flex items-center justify-center text-brand-cyan">
+                        <FileText size={24} />
+                      </div>
+                      <div>
+                        <h2 className="text-2xl font-black text-white">التقديمات الأخيرة</h2>
+                        <p className="text-text-secondary text-sm">تاريخ تقديماتك في السيرفر</p>
+                      </div>
                     </div>
+                    
                     {submissionsLoading ? (
                       <div className="flex justify-center py-12"><Loader2 className="animate-spin text-brand-cyan" /></div>
                     ) : submissions.length === 0 ? (
-                      <div className="text-center py-12 text-text-secondary italic bg-black/20 rounded-2xl">{t('no_applications_submitted')}</div>
+                      <div className="text-center py-16 bg-black/20 rounded-[32px] border border-white/5">
+                        <div className="text-text-secondary italic mb-2">لم تقم بتقديم أي طلبات بعد</div>
+                        <Link to="/apply" className="text-brand-cyan text-sm font-bold hover:underline">قدم الآن من هنا</Link>
+                      </div>
                     ) : (
                       <div className="space-y-4">
                         {submissions.map(sub => (
-                          <div key={sub.id} className="flex items-center justify-between p-5 bg-white/5 rounded-2xl border border-white/5 hover:border-brand-cyan/30 transition-all group">
-                            <div>
-                              <div className="font-bold text-white group-hover:text-brand-cyan transition-colors">{sub.quizTitle}</div>
-                              <div className="text-xs text-text-secondary mt-1">{new Date(sub.submittedAt).toLocaleDateString()}</div>
+                          <div key={sub.id} className="flex items-center justify-between p-6 bg-white/5 rounded-[24px] border border-white/5 hover:border-brand-cyan/30 transition-all group">
+                            <div className="flex items-center gap-5">
+                              <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-text-secondary group-hover:text-brand-cyan transition-colors">
+                                <FileText size={20} />
+                              </div>
+                              <div>
+                                <div className="font-black text-white text-lg group-hover:text-brand-cyan transition-colors">{sub.quizTitle}</div>
+                                <div className="text-xs text-text-secondary mt-1">{new Date(sub.submittedAt).toLocaleDateString('ar-EG')}</div>
+                              </div>
                             </div>
                             {renderStatusBadge(sub.status)}
                           </div>
@@ -287,167 +312,230 @@ const ProfilePage: React.FC = () => {
                 </div>
 
                 <div className="lg:col-span-4 space-y-8">
-                  <section className="bg-white/[0.02] border border-white/5 rounded-3xl p-8">
-                    <h3 className="text-sm font-bold text-text-secondary uppercase tracking-widest mb-6">{t('account_info')}</h3>
-                    <div className="space-y-6">
+                  <section className="bg-white/[0.03] border border-white/10 rounded-[40px] p-8">
+                    <h3 className="text-xs font-black text-text-secondary uppercase tracking-[0.2em] mb-8">معلومات الحساب</h3>
+                    <div className="space-y-8">
                       <div className="flex justify-between items-center">
-                        <span className="text-text-secondary text-sm">{t('highest_role')}</span>
-                        <span className="text-brand-cyan font-bold">{user.highestRole?.name || 'None'}</span>
+                        <div className="flex items-center gap-3">
+                          <Shield size={18} className="text-brand-cyan" />
+                          <span className="text-text-secondary text-sm">أعلى رتبة</span>
+                        </div>
+                        <span className="text-white font-black">{user.highestRole?.name || 'لا يوجد'}</span>
                       </div>
-                      <div className="h-px bg-white/10"></div>
+                      <div className="h-px bg-white/5"></div>
                       <div className="flex justify-between items-center">
-                        <span className="text-text-secondary text-sm">{t('mta_status_label')}</span>
-                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${user.mta_linked_at ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"}`}>
-                          {user.mta_linked_at ? t('linked') : t('not_linked')}
+                        <div className="flex items-center gap-3">
+                          <Link2 size={18} className="text-brand-cyan" />
+                          <span className="text-text-secondary text-sm">حالة الربط</span>
+                        </div>
+                        <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest ${user.mta_linked_at ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"}`}>
+                          {user.mta_linked_at ? 'مربوط' : 'غير مربوط'}
                         </span>
                       </div>
                     </div>
+                  </section>
+                  
+                  <section className="bg-gradient-to-br from-brand-cyan/10 to-transparent border border-brand-cyan/20 rounded-[40px] p-8">
+                    <h3 className="text-white font-black text-xl mb-4">هل تحتاج لمساعدة؟</h3>
+                    <p className="text-text-secondary text-sm leading-relaxed mb-8">إذا واجهت أي مشكلة في حسابك أو في عملية الربط، لا تتردد في فتح تذكرة دعم فني في الديسكورد.</p>
+                    <a href="https://discord.gg/vixel" target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl bg-brand-cyan text-brand-dark font-black text-sm hover:bg-white transition-all">
+                      الدعم الفني
+                      <ExternalLink size={16} />
+                    </a>
                   </section>
                 </div>
               </motion.div>
             ) : (
               <motion.div 
                 key="mta"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
                 className="space-y-8"
               >
-                {!isMtaLinked && !mtaAccountLoading ? (
-                  <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-16 text-center">
-                    <div className="w-24 h-24 bg-brand-cyan/10 rounded-full flex items-center justify-center mx-auto mb-8">
-                      <Link2 size={48} className="text-brand-cyan" />
+                {!user.mta_serial ? (
+                  <div className="bg-white/[0.03] border border-white/10 rounded-[50px] p-20 text-center">
+                    <div className="w-24 h-24 bg-brand-cyan/10 rounded-[32px] flex items-center justify-center mx-auto mb-10 border border-brand-cyan/20">
+                      <Gamepad2 size={48} className="text-brand-cyan" />
                     </div>
-                    <h2 className="text-3xl font-black text-white mb-4 tracking-tight">{t('profile.mta.not_linked_title')}</h2>
-                    <p className="text-text-secondary mb-10 max-w-md mx-auto leading-relaxed">{t('profile.mta.not_linked_desc')}</p>
-                    <Link to="/link-account" className="inline-flex items-center gap-3 bg-brand-cyan text-brand-dark px-10 py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-white transition-all shadow-2xl shadow-brand-cyan/20">
-                      {t('profile.mta.link_now')}
-                      <ChevronRight size={20} />
+                    <h2 className="text-4xl font-black text-white mb-6 tracking-tight">حساب اللعبة غير مربوط</h2>
+                    <p className="text-text-secondary mb-12 max-w-md mx-auto leading-relaxed text-lg">قم بربط حسابك في MTA لتتمكن من رؤية شخصياتك، ممتلكاتك، وسجلك الإداري هنا.</p>
+                    <Link to="/link-account" className="inline-flex items-center gap-4 bg-brand-cyan text-brand-dark px-12 py-5 rounded-3xl font-black uppercase tracking-widest hover:bg-white transition-all shadow-2xl shadow-brand-cyan/30">
+                      ربط الحساب الآن
+                      <ChevronRight size={24} />
                     </Link>
                   </div>
                 ) : mtaAccountLoading ? (
                   <div className="flex justify-center py-24"><Loader2 className="animate-spin text-brand-cyan" size={48} /></div>
                 ) : mtaAccountError ? (
-                  <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-6 py-4 rounded-2xl text-center">
-                    <p className="font-bold mb-2">{t('general.error')}</p>
-                    <p>{mtaAccountError}</p>
+                  <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-10 rounded-[40px] text-center">
+                    <AlertCircle size={48} className="mx-auto mb-4" />
+                    <h3 className="text-xl font-black mb-2">حدث خطأ أثناء جلب البيانات</h3>
+                    <p className="opacity-70">{mtaAccountError}</p>
+                    <button onClick={fetchMtaAccountData} className="mt-6 text-white underline font-bold">إعادة المحاولة</button>
                   </div>
                 ) : mtaAccountInfo ? (
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                     <div className="lg:col-span-8 space-y-8">
-                      {/* Character Grid */}
-                      <section className="bg-white/[0.02] border border-white/5 rounded-3xl p-8">
-                        <div className="flex items-center justify-between mb-8">
-                          <div className="flex items-center gap-3">
-                            <Users className="text-brand-cyan" size={20} />
-                            <h2 className="text-xl font-bold text-white">{t('profile.mta.characters')}</h2>
+                      {/* Characters Grid */}
+                      <section className="bg-white/[0.03] border border-white/10 rounded-[40px] p-8 md:p-10">
+                        <div className="flex items-center justify-between mb-12">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-brand-cyan/20 flex items-center justify-center text-brand-cyan">
+                              <Users size={24} />
+                            </div>
+                            <div>
+                              <h2 className="text-2xl font-black text-white">الشخصيات</h2>
+                              <p className="text-text-secondary text-sm">قائمة شخصياتك في السيرفر</p>
+                            </div>
                           </div>
-                          <span className="bg-brand-cyan/10 text-brand-cyan px-3 py-1 rounded-full text-xs font-bold">{mtaAccountInfo.character_count}</span>
+                          <span className="bg-brand-cyan/10 text-brand-cyan px-4 py-2 rounded-xl text-sm font-black border border-brand-cyan/20">
+                            {mtaAccountInfo.character_count} شخصيات
+                          </span>
                         </div>
+
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                           {mtaAccountInfo.characters.map(char => (
-                            <Link key={char.id} to={`/character/${char.id}`} className="group bg-black/20 border border-white/5 rounded-2xl p-6 hover:border-brand-cyan/50 transition-all">
-                              <div className="flex items-center gap-4 mb-6">
-                                <div className="w-14 h-14 bg-brand-cyan/20 rounded-2xl flex items-center justify-center text-brand-cyan font-black text-2xl">{char.name.charAt(0)}</div>
+                            <div key={char.id} className="group bg-black/30 border border-white/5 rounded-[32px] p-8 hover:border-brand-cyan/40 transition-all relative overflow-hidden">
+                              <div className="absolute top-0 right-0 w-32 h-32 bg-brand-cyan/5 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2"></div>
+                              
+                              <div className="flex items-center gap-5 mb-8 relative z-10">
+                                <div className="w-16 h-16 bg-brand-cyan/10 rounded-2xl flex items-center justify-center text-brand-cyan font-black text-3xl border border-brand-cyan/20">
+                                  {char.name.charAt(0)}
+                                </div>
                                 <div>
-                                  <div className="text-lg font-bold text-white group-hover:text-brand-cyan transition-colors">{char.name}</div>
-                                  <div className="text-xs text-text-secondary uppercase tracking-widest font-bold">{char.job} • LVL {char.level}</div>
+                                  <div className="text-xl font-black text-white group-hover:text-brand-cyan transition-colors">{char.name}</div>
+                                  <div className="text-xs text-text-secondary uppercase tracking-widest font-black mt-1">
+                                    {char.job || 'عاطل'} • مستوى {char.level}
+                                  </div>
                                 </div>
                               </div>
-                              <div className="grid grid-cols-2 gap-4">
-                                <div className="bg-white/5 p-3 rounded-xl border border-white/5">
-                                  <div className="text-[10px] text-text-secondary uppercase font-bold mb-1">{t('profile.mta.cash')}</div>
-                                  <div className="text-green-400 font-bold">${char.cash.toLocaleString()}</div>
+
+                              <div className="grid grid-cols-2 gap-4 relative z-10">
+                                <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                                  <div className="flex items-center gap-2 text-[10px] text-text-secondary uppercase font-black mb-2">
+                                    <Wallet size={12} />
+                                    كاش
+                                  </div>
+                                  <div className="text-green-400 font-black text-lg">${char.cash.toLocaleString()}</div>
                                 </div>
-                                <div className="bg-white/5 p-3 rounded-xl border border-white/5">
-                                  <div className="text-[10px] text-text-secondary uppercase font-bold mb-1">{t('profile.mta.bank')}</div>
-                                  <div className="text-brand-cyan font-bold">${char.bank.toLocaleString()}</div>
+                                <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                                  <div className="flex items-center gap-2 text-[10px] text-text-secondary uppercase font-black mb-2">
+                                    <Landmark size={12} />
+                                    البنك
+                                  </div>
+                                  <div className="text-brand-cyan font-black text-lg">${char.bank.toLocaleString()}</div>
                                 </div>
                               </div>
-                            </Link>
+                            </div>
                           ))}
                         </div>
                       </section>
 
-                      {/* Admin History */}
-                      <section className="bg-white/[0.02] border border-white/5 rounded-3xl p-8">
-                        <div className="flex items-center gap-3 mb-8">
-                          <Shield className="text-brand-cyan" size={20} />
-                          <h2 className="text-xl font-bold text-white">{t('profile.mta.admin_record')}</h2>
+                      {/* Admin Record */}
+                      <section className="bg-white/[0.03] border border-white/10 rounded-[40px] p-8 md:p-10">
+                        <div className="flex items-center gap-4 mb-10">
+                          <div className="w-12 h-12 rounded-2xl bg-red-500/20 flex items-center justify-center text-red-400">
+                            <History size={24} />
+                          </div>
+                          <div>
+                            <h2 className="text-2xl font-black text-white">السجل الإداري</h2>
+                            <p className="text-text-secondary text-sm">تاريخ العقوبات الإدارية (آخر 10)</p>
+                          </div>
                         </div>
+
                         <div className="space-y-4">
                           {mtaAccountInfo.admin_record.length > 0 ? (
                             mtaAccountInfo.admin_record.map((record, idx) => (
-                              <div key={idx} className="flex items-start gap-5 p-6 rounded-2xl bg-black/20 border border-white/5">
-                                <div className={`p-3 rounded-xl ${record.type === 'Ban' ? 'bg-red-500/10 text-red-400' : 'bg-yellow-500/10 text-yellow-400'}`}>
-                                  <Shield size={20} />
+                              <div key={idx} className="flex items-start gap-6 p-6 rounded-[24px] bg-black/20 border border-white/5">
+                                <div className={`p-4 rounded-2xl flex-shrink-0 ${record.type === 'Ban' ? 'bg-red-500/10 text-red-500' : 'bg-yellow-500/10 text-yellow-500'}`}>
+                                  <Shield size={24} />
                                 </div>
                                 <div className="flex-1">
-                                  <div className="flex justify-between items-start mb-2">
+                                  <div className="flex justify-between items-start mb-3">
                                     <div>
-                                      <span className="font-black text-white text-lg uppercase tracking-tight">
-                                        {record.type}
+                                      <span className="font-black text-white text-xl uppercase tracking-tight">
+                                        {record.type === 'Ban' ? 'حظر' : record.type === 'Kick' ? 'طرد' : record.type === 'Warn' ? 'تحذير' : record.type}
                                       </span>
-                                      {record.duration && record.duration !== '0' && ( // Assuming duration is in minutes
-                                        <span className="text-xs font-bold text-text-secondary ml-3 bg-white/5 px-2 py-0.5 rounded">
-                                          {record.duration} {t('general.minutes')}
+                                      {record.duration && record.duration !== '0' && (
+                                        <span className="text-xs font-black text-text-secondary mr-4 bg-white/5 px-3 py-1 rounded-lg">
+                                          {record.duration} دقيقة
                                         </span>
                                       )}
                                     </div>
-                                    <span className="text-xs font-mono text-text-secondary">{new Date(record.date).toLocaleDateString()}</span>
+                                    <span className="text-xs font-mono text-text-secondary">{new Date(record.date).toLocaleDateString('ar-EG')}</span>
                                   </div>
-                                  <p className="text-sm text-text-secondary leading-relaxed mb-4">{record.reason}</p>
-                                  <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-brand-cyan">
+                                  <p className="text-text-secondary text-sm leading-relaxed mb-4 p-4 bg-white/5 rounded-xl border border-white/5">{record.reason}</p>
+                                  <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-brand-cyan">
                                     <UserIcon size={12} />
-                                    {t('profile.mta.by')}: {record.admin}
+                                    بواسطة الأدمن: {record.admin}
                                   </div>
                                 </div>
                               </div>
                             ))
                           ) : (
-                            <div className="text-center py-12 text-text-secondary italic bg-black/20 rounded-2xl">{t('profile.mta.no_admin_records')}</div>
+                            <div className="text-center py-20 bg-black/20 rounded-[32px] border border-white/5">
+                              <ShieldCheck size={48} className="mx-auto text-green-500/30 mb-4" />
+                              <div className="text-text-secondary font-bold">سجلك نظيف! لا توجد عقوبات إدارية</div>
+                            </div>
                           )}
                         </div>
                       </section>
                     </div>
 
                     <div className="lg:col-span-4 space-y-8">
-                      <section className="bg-white/[0.02] border border-white/5 rounded-3xl p-8">
-                        <h3 className="text-sm font-bold text-text-secondary uppercase tracking-widest mb-6">{t('profile.mta.account_info')}</h3>
-                        <div className="space-y-6">
+                      <section className="bg-white/[0.03] border border-white/10 rounded-[40px] p-8">
+                        <h3 className="text-xs font-black text-text-secondary uppercase tracking-[0.2em] mb-8">بيانات الحساب</h3>
+                        <div className="space-y-8">
                           <div className="flex justify-between items-center">
-                            <span className="text-text-secondary text-sm">{t('profile.mta.username')}</span>
-                            <span className="text-white font-bold">{mtaAccountInfo.username}</span>
+                            <span className="text-text-secondary text-sm">اسم الحساب</span>
+                            <span className="text-white font-black">{mtaAccountInfo.username}</span>
                           </div>
                           <div className="flex justify-between items-center">
-                            <span className="text-text-secondary text-sm">{t('profile.mta.serial')}</span>
-                            <span className="text-white font-bold">{mtaAccountInfo.serial}</span>
+                            <span className="text-text-secondary text-sm">رقم الحساب</span>
+                            <span className="text-white font-black">#{mtaAccountInfo.id}</span>
                           </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-text-secondary text-sm">{t('profile.mta.id')}</span>
-                            <span className="text-white font-bold">#{mtaAccountInfo.id}</span>
-                          </div>
-                          <div className="h-px bg-white/10"></div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-text-secondary text-sm">{t('profile.mta.status')}</span>
-                            <span className="text-green-400 font-bold flex items-center gap-2">
-                              <ShieldCheck size={14} />
-                              {t('profile.mta.linked_success')}
-                            </span>
+                          <div className="h-px bg-white/5"></div>
+                          <div className="space-y-3">
+                            <span className="text-text-secondary text-xs block mb-2">السيريال (Serial)</span>
+                            <div className="bg-black/40 p-4 rounded-2xl border border-white/5 font-mono text-xs text-brand-cyan break-all">
+                              {mtaAccountInfo.serial}
+                            </div>
                           </div>
                         </div>
                         
-                        <div className="mt-10">
-                          <motion.button 
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
+                        <div className="mt-12">
+                          <button 
                             onClick={handleUnlinkMta}
                             disabled={mtaLinkLoading}
-                            className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500 hover:text-white transition-all font-bold text-sm"
+                            className="flex items-center justify-center gap-3 w-full py-5 rounded-2xl bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500 hover:text-white transition-all font-black text-sm group"
                           >
-                            {mtaLinkLoading ? <Loader2 className="animate-spin" size={18} /> : <LogOut size={18} />}
-                            {t('profile.mta.unlink_account')}
-                          </motion.button>
+                            {mtaLinkLoading ? <Loader2 className="animate-spin" size={20} /> : <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />}
+                            إلغاء ربط الحساب
+                          </button>
+                        </div>
+                      </section>
+
+                      <section className="bg-brand-cyan/5 border border-brand-cyan/10 rounded-[40px] p-8">
+                        <div className="flex items-center gap-4 mb-6">
+                          <div className="w-12 h-12 rounded-2xl bg-brand-cyan/20 flex items-center justify-center text-brand-cyan">
+                            <Trophy size={24} />
+                          </div>
+                          <h3 className="text-white font-black text-xl">إحصائيات عامة</h3>
+                        </div>
+                        <div className="space-y-6">
+                          <div className="flex justify-between items-center">
+                            <span className="text-text-secondary text-sm">إجمالي الثروة</span>
+                            <span className="text-green-400 font-black">
+                              ${mtaAccountInfo.characters.reduce((acc, char) => acc + char.cash + char.bank, 0).toLocaleString()}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-text-secondary text-sm">أعلى مستوى</span>
+                            <span className="text-brand-cyan font-black">
+                              {Math.max(...mtaAccountInfo.characters.map(c => c.level), 0)}
+                            </span>
+                          </div>
                         </div>
                       </section>
                     </div>

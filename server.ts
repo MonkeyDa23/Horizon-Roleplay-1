@@ -1,6 +1,19 @@
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
-import { supabase } from './src/lib/supabaseClient';
+import mysql from 'mysql2/promise';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const pool = mysql.createPool({
+  host: process.env.MTA_DB_HOST || 'localhost',
+  user: process.env.MTA_DB_USER || 'root',
+  password: process.env.MTA_DB_PASSWORD || '',
+  database: process.env.MTA_DB_NAME || 'mta_db',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+});
 
 async function startServer() {
   const app = express();
@@ -8,80 +21,68 @@ async function startServer() {
 
   app.use(express.json());
 
-  // API routes
-  app.get('/api/mta/status/:serial', async (req, res) => {
-    const { serial } = req.params;
-    if (!serial) {
-      return res.status(400).json({ error: 'Serial is required' });
-    }
-
+  // MTA API Routes
+  app.get('/api/mta/account/:serial', async (req, res) => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('username, avatar')
-        .eq('mta_serial', serial)
-        .single();
+      const { serial } = req.params;
+      const [rows] = await pool.execute('SELECT * FROM accounts WHERE serial = ?', [serial]);
+      const account = (rows as any[])[0];
 
-      if (error || !data) {
-        return res.json({ isLinked: false });
+      if (!account) {
+        return res.status(404).json({ error: 'Account not found' });
       }
 
-      res.json({ 
-        isLinked: true, 
-        discordUser: { 
-          username: data.username,
-          avatar: data.avatar
-        }
+      // Fetch characters for this account
+      const [charRows] = await pool.execute('SELECT * FROM characters WHERE account_id = ?', [account.id]);
+      
+      // Fetch admin record
+      const [adminRows] = await pool.execute('SELECT * FROM admin_record WHERE account_id = ? ORDER BY date DESC LIMIT 10', [account.id]);
+
+      res.json({
+        id: account.id,
+        username: account.username,
+        serial: account.serial,
+        character_count: (charRows as any[]).length,
+        characters: charRows,
+        admin_record: adminRows
       });
-    } catch (err) {
+    } catch (error) {
+      console.error('MTA Account API Error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  app.get('/api/mta/status/:serial', async (req, res) => {
+    try {
+      const { serial } = req.params;
+      const [rows] = await pool.execute('SELECT discord_id, discord_username, discord_avatar FROM accounts WHERE serial = ?', [serial]);
+      const account = (rows as any[])[0];
+
+      if (!account) {
+        return res.status(404).json({ error: 'Account not found' });
+      }
+
+      res.json({
+        linked: !!account.discord_id,
+        discord: account.discord_id ? {
+          id: account.discord_id,
+          username: account.discord_username,
+          avatar: account.discord_avatar
+        } : null
+      });
+    } catch (error) {
+      console.error('MTA Status API Error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   });
 
   app.post('/api/mta/unlink', async (req, res) => {
-    const { serial } = req.body;
-    if (!serial) {
-      return res.status(400).json({ error: 'Serial is required' });
-    }
-
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ mta_serial: null, mta_name: null, mta_linked_at: null })
-        .eq('mta_serial', serial);
-
-      if (error) throw error;
-
-      res.status(200).json({ success: true, message: 'Account unlinked successfully.' });
-    } catch (err) {
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  });
-
-  app.post('/api/mta/generate-code', async (req, res) => {
-    const { serial } = req.body;
-    if (!serial) {
-      return res.status(400).json({ error: 'Serial is required' });
-    }
-
-    try {
-      const { data, error } = await supabase.rpc('generate_mta_link_code', {
-        p_serial: serial,
-        p_secret_key: process.env.MTA_SECRET_KEY
-      });
-
-      if (error) {
-        console.error('Supabase RPC error:', error);
-        // Check for specific cooldown error from Supabase function
-        if (error.message.includes('cooldown')) {
-            return res.status(429).json({ success: false, message: error.details });
-        }
-        throw error;
-      }
-
-      res.status(200).json(data);
-    } catch (err) {
-      console.error('Generate code error:', err);
+      const { serial } = req.body;
+      await pool.execute('UPDATE accounts SET discord_id = NULL, discord_username = NULL, discord_avatar = NULL WHERE serial = ?', [serial]);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('MTA Unlink API Error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   });
