@@ -7,7 +7,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { 
   User as UserIcon, Loader2, FileText, ExternalLink, Shield, RefreshCw,
   Gamepad2, Users, ChevronRight, Star, CreditCard, Link2, LogOut, ShieldCheck,
-  Wallet, Landmark, Trophy, History, Settings, Bell, AlertCircle
+  Wallet, Landmark, Trophy, History, Settings, Bell, AlertCircle, Car, Home
 } from 'lucide-react';
 import { useConfig } from '../contexts/ConfigContext';
 import SEO from '../components/SEO';
@@ -483,6 +483,55 @@ const ProfilePage: React.FC = () => {
                     </div>
 
                     <div className="lg:col-span-4 space-y-8">
+                      {/* Vehicles & Properties */}
+                      <section className="bg-white/[0.03] border border-white/10 rounded-[40px] p-8">
+                        <div className="flex items-center gap-4 mb-8">
+                          <div className="w-10 h-10 rounded-xl bg-brand-cyan/20 flex items-center justify-center text-brand-cyan">
+                            <Car size={20} />
+                          </div>
+                          <h3 className="text-xs font-black text-text-secondary uppercase tracking-[0.2em]">المركبات</h3>
+                        </div>
+                        <div className="space-y-4">
+                          {mtaAccountInfo.vehicles && mtaAccountInfo.vehicles.length > 0 ? (
+                            mtaAccountInfo.vehicles.map(vehicle => (
+                              <div key={vehicle.id} className="p-4 bg-white/5 rounded-2xl border border-white/5 flex justify-between items-center">
+                                <div>
+                                  <div className="text-white font-bold">{vehicle.model}</div>
+                                  <div className="text-[10px] text-brand-cyan font-black uppercase tracking-widest">{vehicle.plate}</div>
+                                </div>
+                                <Car size={16} className="text-white/20" />
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-center py-8 text-text-secondary text-sm italic">لا توجد مركبات مسجلة</div>
+                          )}
+                        </div>
+                      </section>
+
+                      <section className="bg-white/[0.03] border border-white/10 rounded-[40px] p-8">
+                        <div className="flex items-center gap-4 mb-8">
+                          <div className="w-10 h-10 rounded-xl bg-brand-cyan/20 flex items-center justify-center text-brand-cyan">
+                            <Home size={20} />
+                          </div>
+                          <h3 className="text-xs font-black text-text-secondary uppercase tracking-[0.2em]">العقارات</h3>
+                        </div>
+                        <div className="space-y-4">
+                          {mtaAccountInfo.properties && mtaAccountInfo.properties.length > 0 ? (
+                            mtaAccountInfo.properties.map(prop => (
+                              <div key={prop.id} className="p-4 bg-white/5 rounded-2xl border border-white/5 flex justify-between items-center">
+                                <div>
+                                  <div className="text-white font-bold">{prop.name}</div>
+                                  <div className="text-[10px] text-brand-cyan font-black uppercase tracking-widest">{prop.address}</div>
+                                </div>
+                                <Home size={16} className="text-white/20" />
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-center py-8 text-text-secondary text-sm italic">لا توجد عقارات مسجلة</div>
+                          )}
+                        </div>
+                      </section>
+
                       <section className="bg-white/[0.03] border border-white/10 rounded-[40px] p-8">
                         <h3 className="text-xs font-black text-text-secondary uppercase tracking-[0.2em] mb-8">بيانات الحساب</h3>
                         <div className="space-y-8">

@@ -148,16 +148,26 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
       is_banned: existingProfile?.is_banned ?? false,
       ban_reason: existingProfile?.ban_reason ?? null,
       ban_expires_at: existingProfile?.ban_expires_at ?? null,
-      balance: existingProfile?.balance ?? 0, // Sync balance
-      mta_serial: existingProfile?.mta_serial ?? null,
-      mta_name: existingProfile?.mta_name ?? null,
-      mta_linked_at: existingProfile?.mta_linked_at ?? null,
+      balance: existingProfile?.balance ?? 0,
+      mta_serial: discordProfile.mtaLink?.serial ?? existingProfile?.mta_serial ?? null,
+      mta_name: discordProfile.mtaLink?.name ?? existingProfile?.mta_name ?? null,
+      mta_linked_at: (discordProfile.mtaLink && !existingProfile?.mta_linked_at) 
+        ? new Date().toISOString() 
+        : (existingProfile?.mta_linked_at ?? null),
   };
 
   // Upsert Profile
   await supabase.from('profiles').upsert({
-      id: finalUser.id, discord_id: finalUser.discordId, username: finalUser.username, avatar_url: finalUser.avatar,
-      roles: finalUser.roles, highest_role: finalUser.highestRole, last_synced_at: new Date().toISOString()
+      id: finalUser.id, 
+      discord_id: finalUser.discordId, 
+      username: finalUser.username, 
+      avatar_url: finalUser.avatar,
+      roles: finalUser.roles, 
+      highest_role: finalUser.highestRole, 
+      mta_serial: finalUser.mta_serial,
+      mta_name: finalUser.mta_name,
+      mta_linked_at: finalUser.mta_linked_at,
+      last_synced_at: new Date().toISOString()
   }, { onConflict: 'id' });
 
   return { user: finalUser, syncError, isNewUser };

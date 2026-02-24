@@ -6,9 +6,9 @@
 CREATE TABLE IF NOT EXISTS `accounts` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `username` varchar(50) NOT NULL,
-  `serial` varchar(100) NOT NULL,
+  `mtaserial` varchar(100) NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `serial` (`serial`)
+  UNIQUE KEY `mtaserial` (`mtaserial`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 2. Characters Table
@@ -31,8 +31,8 @@ CREATE TABLE IF NOT EXISTS `characters` (
   CONSTRAINT `characters_ibfk_1` FOREIGN KEY (`account_id`) REFERENCES `accounts` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- 3. Admin Records Table (Bans, Kicks, Jails)
-CREATE TABLE IF NOT EXISTS `admin_records` (
+-- 3. Admin History Table (Bans, Kicks, Jails)
+CREATE TABLE IF NOT EXISTS `adminhistory` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
   `account_id` int(11) NOT NULL,
   `type` enum('Ban','Kick','Jail','Warn') NOT NULL,
@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS `admin_records` (
   `date` timestamp NOT NULL DEFAULT current_timestamp(),
   PRIMARY KEY (`id`),
   KEY `account_id` (`account_id`),
-  CONSTRAINT `admin_records_ibfk_1` FOREIGN KEY (`account_id`) REFERENCES `accounts` (`id`) ON DELETE CASCADE
+  CONSTRAINT `adminhistory_ibfk_1` FOREIGN KEY (`account_id`) REFERENCES `accounts` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- 4. Vehicles Table

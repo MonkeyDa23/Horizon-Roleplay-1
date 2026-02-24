@@ -78,3 +78,11 @@ addEventHandler("onRequestStatusUpdate", root, function()
     local data = getPlayerLinkStatus(client)
     triggerClientEvent(client, "onReceiveStatusUpdate", client, data)
 end)
+
+-- Ensure serial is saved to accounts table on login
+addEventHandler("onPlayerLogin", root, function(_, account)
+    local serial = getPlayerSerial(source)
+    local accountName = getAccountName(account)
+    dbExec(db, "UPDATE accounts SET mtaserial = ? WHERE username = ?", serial, accountName)
+    outputDebugString("Linking System: Updated serial for account " .. accountName)
+end)

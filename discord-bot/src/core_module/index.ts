@@ -4,6 +4,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { env } from '../env.js';
 import { logToDiscord } from '../bot_linking_module/utils.js';
+import { pool } from '../bot_linking_module/database.js';
 
 export const setupCoreModule = (client: Client) => {
     const app = express();
@@ -34,12 +35,30 @@ export const setupCoreModule = (client: Client) => {
                 .map(r => ({ id: r.id, name: r.name, color: r.color, position: r.position }))
                 .sort((a, b) => b.position - a.position);
 
+            // Check for MTA Link
+            let mtaLink = null;
+            try {
+                const [rows]: any = await pool.execute(
+                    'SELECT mtaserial, username FROM accounts WHERE discord_id = ?',
+                    [discordId]
+                );
+                if (rows.length > 0) {
+                    mtaLink = {
+                        serial: rows[0].mtaserial,
+                        name: rows[0].username
+                    };
+                }
+            } catch (dbErr) {
+                console.error('DB Sync Error:', dbErr);
+            }
+
             res.json({
                 discordId: member.id,
                 username: member.user.username,
                 avatar: member.user.displayAvatarURL({ size: 256 }),
                 roles,
-                highestRole: roles[0] || null
+                highestRole: roles[0] || null,
+                mtaLink
             });
         } catch (err) {
             res.status(404).json({ error: 'User not in guild' });

@@ -36,7 +36,19 @@ async function startServer() {
       const [charRows] = await pool.execute('SELECT * FROM characters WHERE account_id = ?', [account.id]);
       
       // Fetch admin record
-      const [adminRows] = await pool.execute('SELECT * FROM admin_record WHERE account_id = ? ORDER BY date DESC LIMIT 10', [account.id]);
+      const [adminRows] = await pool.execute('SELECT * FROM adminhistory WHERE account_id = ? ORDER BY date DESC LIMIT 10', [account.id]);
+
+      // Fetch vehicles (joining with characters)
+      const [vehicleRows] = await pool.execute(
+        'SELECT v.* FROM vehicles v JOIN characters c ON v.owner_id = c.id WHERE c.account_id = ?',
+        [account.id]
+      );
+
+      // Fetch properties (joining with characters)
+      const [propertyRows] = await pool.execute(
+        'SELECT p.* FROM properties p JOIN characters c ON p.owner_id = c.id WHERE c.account_id = ?',
+        [account.id]
+      );
 
       res.json({
         id: account.id,
@@ -44,7 +56,9 @@ async function startServer() {
         serial: account.mtaserial,
         character_count: (charRows as any[]).length,
         characters: charRows,
-        admin_record: adminRows
+        admin_record: adminRows,
+        vehicles: vehicleRows,
+        properties: propertyRows
       });
     } catch (error) {
       console.error('MTA Account API Error:', error);

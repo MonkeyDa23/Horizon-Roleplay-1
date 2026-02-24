@@ -89,6 +89,8 @@ export interface MtaAccountInfo {
     duration?: string | number;
   }[];
   characters: MtaCharacter[];
+  vehicles: MtaVehicle[];
+  properties: MtaProperty[];
 }
 
 export interface User {
