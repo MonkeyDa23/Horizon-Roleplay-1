@@ -19,23 +19,32 @@ export const handleForceUnlinkCommand = async (interaction: CommandInteraction, 
 
     const targetUser = interaction.options.getUser('user', true);
     const adminUser = interaction.user;
+
+    await interaction.deferReply({ ephemeral: true });
+
     let connection;
     try {
         connection = await pool.getConnection();
+        
+        const [rows]: any = await connection.execute('SELECT username, mtaserial FROM accounts WHERE discord_id = ?', [targetUser.id]);
+        const account = rows[0];
+
         const [updateResult] = await connection.execute(
             'UPDATE accounts SET discord_id = NULL, discord_username = NULL, discord_avatar = NULL WHERE discord_id = ?',
             [targetUser.id]
         ) as any[];
 
         if (updateResult.affectedRows > 0) {
-            await interaction.reply({ content: `Successfully unlinked the account for ${targetUser.tag}.`, ephemeral: true });
+            await interaction.editReply({ content: `Successfully unlinked the account for ${targetUser.tag}.` });
             
-            await logToDiscord(client, 'ERROR', '🛡️ إلغاء ربط إجباري', `قام مسؤول بإلغاء ربط حساب مستخدم إجبارياً.`, 'ADMIN', [
+            await logToDiscord(client, 'ERROR', '🛡️ إلغاء ربط إجباري', `قام مسؤول بإلغاء ربط حساب مستخدم إجبارياً.`, 'MTA', [
                 { name: 'المسؤول', value: `${adminUser.tag} (${adminUser.id})`, inline: true },
-                { name: 'المستهدف', value: `${targetUser.tag} (${targetUser.id})`, inline: true }
+                { name: 'المستهدف', value: `${targetUser.tag} (${targetUser.id})`, inline: true },
+                { name: 'حساب اللعبة', value: account?.username || 'Unknown', inline: true },
+                { name: 'السيريال', value: `\`${account?.mtaserial || 'Unknown'}\``, inline: true }
             ]);
         } else {
-            await interaction.reply({ content: `${targetUser.tag} does not have a linked account.`, ephemeral: true });
+            await interaction.editReply({ content: `${targetUser.tag} does not have a linked account.` });
         }
     } catch (error) {
         console.error('ForceUnlink error:', error);

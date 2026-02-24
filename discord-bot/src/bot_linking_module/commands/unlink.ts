@@ -13,23 +13,26 @@ export const handleUnlinkCommand = async (interaction: CommandInteraction, clien
     const discordId = interaction.user.id;
     const user = interaction.user;
 
+    await interaction.deferReply({ ephemeral: true });
+
     try {
         // In your schema, discord_id is in the 'accounts' table
-        const [rows]: any = await pool.execute('SELECT username FROM accounts WHERE discord_id = ?', [discordId]);
+        const [rows]: any = await pool.execute('SELECT username, mtaserial FROM accounts WHERE discord_id = ?', [discordId]);
 
         if (rows.length === 0) {
-            await interaction.reply({ content: 'Your Discord account is not linked to any MTA account.', ephemeral: true });
+            await interaction.editReply({ content: 'Your Discord account is not linked to any MTA account.' });
             return;
         }
 
-        const accountName = rows[0].username;
+        const account = rows[0];
         await pool.execute('UPDATE accounts SET discord_id = NULL, discord_username = NULL, discord_avatar = NULL WHERE discord_id = ?', [discordId]);
 
-        await interaction.reply({ content: 'You have successfully unlinked your MTA account.', ephemeral: true });
+        await interaction.editReply({ content: 'You have successfully unlinked your MTA account.' });
         
-        await logToDiscord(client, 'WARNING', '🔓 إلغاء ربط حساب', `قام مستخدم بإلغاء ربط حسابه يدوياً.`, 'COMMANDS', [
+        await logToDiscord(client, 'WARNING', '🔓 إلغاء ربط حساب', `قام مستخدم بإلغاء ربط حسابه يدوياً من الديسكورد.`, 'MTA', [
             { name: 'المستخدم', value: `${user.tag} (${user.id})`, inline: true },
-            { name: 'حساب اللعبة', value: accountName, inline: true }
+            { name: 'حساب اللعبة', value: account.username, inline: true },
+            { name: 'السيريال', value: `\`${account.mtaserial}\``, inline: true }
         ]);
 
     } catch (error) {

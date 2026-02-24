@@ -495,12 +495,6 @@ const ProfilePage: React.FC = () => {
                             <span className="text-white font-black">#{mtaAccountInfo.id}</span>
                           </div>
                           <div className="h-px bg-white/5"></div>
-                          <div className="space-y-3">
-                            <span className="text-text-secondary text-xs block mb-2">السيريال (Serial)</span>
-                            <div className="bg-black/40 p-4 rounded-2xl border border-white/5 font-mono text-xs text-brand-cyan break-all">
-                              {mtaAccountInfo.serial}
-                            </div>
-                          </div>
                         </div>
                         
                         <div className="mt-12">

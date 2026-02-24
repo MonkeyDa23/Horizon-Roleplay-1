@@ -79,7 +79,39 @@ async function startServer() {
   app.post('/api/mta/unlink', async (req, res) => {
     try {
       const { serial } = req.body;
+      
+      // Get account info before unlinking for logging
+      const [rows] = await pool.execute('SELECT username, discord_id, discord_username FROM accounts WHERE mtaserial = ?', [serial]);
+      const account = (rows as any[])[0];
+
       await pool.execute('UPDATE accounts SET discord_id = NULL, discord_username = NULL, discord_avatar = NULL WHERE mtaserial = ?', [serial]);
+      
+      if (account && account.discord_id) {
+          // Log to Discord via Bot API
+          try {
+              await fetch(`${process.env.VITE_DISCORD_BOT_API_URL}/notify`, {
+                  method: 'POST',
+                  headers: { 
+                      'Content-Type': 'application/json',
+                      'Authorization': process.env.VITE_DISCORD_BOT_API_KEY || ''
+                  },
+                  body: JSON.stringify({
+                      category: 'MTA',
+                      type: 'WARNING',
+                      title: '🔓 إلغاء ربط حساب (عبر الموقع)',
+                      description: `تم إلغاء ربط حساب MTA من خلال لوحة تحكم الموقع.`,
+                      fields: [
+                          { name: 'المستخدم', value: `${account.discord_username || 'Unknown'} (${account.discord_id})`, inline: true },
+                          { name: 'حساب اللعبة', value: account.username, inline: true },
+                          { name: 'السيريال', value: `\`${serial}\``, inline: true }
+                      ]
+                  })
+              });
+          } catch (logError) {
+              console.error('Failed to send unlink log to bot:', logError);
+          }
+      }
+
       res.json({ success: true });
     } catch (error) {
       console.error('MTA Unlink API Error:', error);

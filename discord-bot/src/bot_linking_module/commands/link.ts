@@ -13,6 +13,8 @@ export const handleLinkCommand = async (interaction: CommandInteraction, client:
     const code = interaction.options.get('code', true).value as string;
     const user = interaction.user;
 
+    await interaction.deferReply({ ephemeral: true });
+
     let connection;
     try {
         connection = await pool.getConnection();
@@ -24,7 +26,7 @@ export const handleLinkCommand = async (interaction: CommandInteraction, client:
         );
 
         if (!Array.isArray(codes) || codes.length === 0) {
-            await interaction.reply({ content: 'Invalid or expired code.', ephemeral: true });
+            await interaction.editReply({ content: '❌ الكود غير صحيح أو انتهت صلاحيته. يرجى طلب كود جديد من داخل اللعبة.' });
             await logToDiscord(client, 'WARNING', '⚠️ فشل محاولة ربط', `حاول مستخدم استخدام كود غير صحيح أو منتهي.`, 'MTA', [
                 { name: 'المستخدم', value: `${user.tag} (${user.id})`, inline: true },
                 { name: 'الكود المستخدم', value: `\`${code}\``, inline: true }
@@ -43,7 +45,9 @@ export const handleLinkCommand = async (interaction: CommandInteraction, client:
         ) as any[];
 
         if (updateResult.affectedRows === 0) {
-            throw new Error('MTA account not found for the given serial.');
+            await interaction.editReply({ content: '❌ لم يتم العثور على حساب MTA مطابق لهذا الكود. تأكد من أنك سجلت الدخول في اللعبة.' });
+            await connection.rollback();
+            return;
         }
 
         await connection.execute('DELETE FROM linking_codes WHERE id = ?', [linkData.id]);
@@ -59,7 +63,7 @@ export const handleLinkCommand = async (interaction: CommandInteraction, client:
             console.warn(`Could not send DM to user ${user.id}:`, dmError);
         }
 
-        await interaction.reply({ content: '✅ Your MTA account has been successfully linked!', ephemeral: true });
+        await interaction.editReply({ content: '✅ تم ربط حسابك بنجاح! تفقد الرسائل الخاصة (DM) لمزيد من التفاصيل.' });
         
         await logToDiscord(client, 'SUCCESS', '🔗 تم ربط حساب جديد', `تمت عملية الربط بنجاح بين الديسكورد واللعبة.`, 'MTA', [
             { name: 'المستخدم', value: `${user.tag} (${user.id})`, inline: true },

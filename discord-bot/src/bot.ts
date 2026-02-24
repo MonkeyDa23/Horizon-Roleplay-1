@@ -65,4 +65,8 @@ client.on(Events.InteractionCreate, async (interaction: Interaction<CacheType>) 
     }
 });
 
+client.on(Events.Error, (error) => {
+    console.error('Discord Client Error:', error);
+});
+
 if (env.DISCORD_BOT_TOKEN) client.login(env.DISCORD_BOT_TOKEN);
