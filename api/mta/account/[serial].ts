@@ -25,30 +25,15 @@ export default async function (req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: "Missing serial parameter" });
     }
 
-    // First, get the MTA account ID from Supabase using the serial
-    const { data: profile, error: supabaseError } = await supabase
-      .from('profiles')
-      .select('mta_account_id')
-      .eq('mta_serial', serial)
-      .single();
-
-    if (supabaseError || !profile || !profile.mta_account_id) {
-      console.log(`[API] Supabase: No linked MTA account_id found for serial: ${serial}`);
-      return res.status(404).json({ error: "Linked MTA Account ID not found" });
-    }
-
-    const mtaAccountId = profile.mta_account_id;
-    console.log(`[API] Found linked MTA account ID from Supabase: ${mtaAccountId}`);
-
-    // 1. Fetch Account from MTA DB using the retrieved mtaAccountId
+    // Direct lookup in MySQL using mtaserial
     const [accounts]: any = await pool.execute(
-      "SELECT id, username, serial FROM accounts WHERE id = ? LIMIT 1",
-      [mtaAccountId]
+      "SELECT id, username, mtaserial FROM accounts WHERE mtaserial = ? LIMIT 1",
+      [serial]
     );
 
     if (accounts.length === 0) {
-      console.log(`[API] No MTA account found in game DB for ID: ${mtaAccountId}`);
-      return res.status(404).json({ error: "MTA Account not found in game DB" });
+      console.log(`[API] No MTA account found in game DB for serial: ${serial}`);
+      return res.status(404).json({ error: "Account not found" });
     }
 
     const account = accounts[0];
@@ -61,18 +46,34 @@ export default async function (req: VercelRequest, res: VercelResponse) {
     );
     console.log(`[API] Found ${characters.length} characters for account ${account.id}`);
 
-    // 3. Fetch Admin Record (Bans/Kicks) from actual adminhistory table
+    // 3. Fetch Admin History
     const [adminRecord]: any = await pool.execute(
-      "SELECT action as type, reason, admin, date, duration FROM adminhistory WHERE user = ? ORDER BY date DESC",
+      "SELECT type, reason, admin, date FROM adminhistory WHERE account_id = ? ORDER BY date DESC LIMIT 10",
       [account.id]
     );
     console.log(`[API] Found ${adminRecord.length} admin records for account ${account.id}`);
 
+    // 4. Fetch Vehicles
+    const [vehicles]: any = await pool.execute(
+      "SELECT v.* FROM vehicles v JOIN characters c ON v.owner_id = c.id WHERE c.account_id = ?",
+      [account.id]
+    );
+
+    // 5. Fetch Properties
+    const [properties]: any = await pool.execute(
+      "SELECT p.* FROM properties p JOIN characters c ON p.owner_id = c.id WHERE c.account_id = ?",
+      [account.id]
+    );
+
     res.json({
-      ...account,
+      id: account.id,
+      username: account.username,
+      serial: account.mtaserial,
       character_count: characters.length,
       admin_record: adminRecord,
-      characters: characters
+      characters: characters,
+      vehicles: vehicles,
+      properties: properties
     });
   } catch (error) {
     console.error("[API] MySQL Error in /api/mta/account:", error);
