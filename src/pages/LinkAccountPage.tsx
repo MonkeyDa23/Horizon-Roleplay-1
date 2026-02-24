@@ -135,29 +135,12 @@ const LinkAccountPage: React.FC = () => {
                                         </div>
                                         <h3 className="text-3xl font-black text-white mb-4">لم يتم الربط بعد</h3>
                                         <p className="text-gray-400 leading-relaxed max-w-md mx-auto">يرجى الدخول إلى سيرفر Florida Roleplay واستخدام أمر <code className="bg-white/5 px-2 py-1 rounded text-brand-cyan">/link</code> للحصول على كود التوثيق.</p>
+                                        <p className="text-gray-500 text-sm mt-6">يتم الربط حصرياً من داخل اللعبة عبر الديسكورد لضمان أعلى مستويات الأمان.</p>
                                     </div>
-
-                                    <form onSubmit={handleLink} className="space-y-8">
-                                        <div className="relative">
-                                            <label className="block text-gray-500 text-xs font-black uppercase tracking-[0.2em] mb-4 mr-2">أدخل كود التوثيق</label>
-                                            <input 
-                                                type="text" 
-                                                value={code}
-                                                onChange={(e) => setCode(e.target.value)}
-                                                placeholder="VXL-XXXXX"
-                                                className="w-full bg-brand-dark border border-white/10 rounded-[32px] px-10 py-6 text-white focus:border-brand-cyan focus:ring-4 focus:ring-brand-cyan/10 transition-all outline-none text-center font-mono text-3xl tracking-[0.3em] placeholder:opacity-10"
-                                                disabled={isLoading}
-                                            />
-                                        </div>
-
-                                        <button 
-                                            type="submit"
-                                            disabled={isLoading || !code}
-                                            className="w-full bg-brand-cyan text-brand-dark font-black py-6 rounded-[32px] shadow-2xl shadow-brand-cyan/30 hover:bg-white transition-all duration-500 flex items-center justify-center gap-4 disabled:opacity-50 text-xl uppercase tracking-widest"
-                                        >
-                                            {isLoading ? <Loader2 className="animate-spin" /> : <><Link2 size={24} /> توثيق الحساب الآن</>}
-                                        </button>
-                                    </form>
+                                    
+                                    <div className="bg-white/5 p-8 rounded-3xl border border-white/5 text-center">
+                                        <p className="text-gray-400">بمجرد إتمام عملية الربط في اللعبة، ستظهر بياناتك هنا تلقائياً.</p>
+                                    </div>
                                 </div>
                             )}
                         </div>

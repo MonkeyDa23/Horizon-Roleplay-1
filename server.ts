@@ -25,7 +25,7 @@ async function startServer() {
   app.get('/api/mta/account/:serial', async (req, res) => {
     try {
       const { serial } = req.params;
-      const [rows] = await pool.execute('SELECT * FROM accounts WHERE serial = ?', [serial]);
+      const [rows] = await pool.execute('SELECT * FROM accounts WHERE mtaserial = ?', [serial]);
       const account = (rows as any[])[0];
 
       if (!account) {
@@ -41,7 +41,7 @@ async function startServer() {
       res.json({
         id: account.id,
         username: account.username,
-        serial: account.serial,
+        serial: account.mtaserial,
         character_count: (charRows as any[]).length,
         characters: charRows,
         admin_record: adminRows
@@ -55,7 +55,7 @@ async function startServer() {
   app.get('/api/mta/status/:serial', async (req, res) => {
     try {
       const { serial } = req.params;
-      const [rows] = await pool.execute('SELECT discord_id, discord_username, discord_avatar FROM accounts WHERE serial = ?', [serial]);
+      const [rows] = await pool.execute('SELECT discord_id, discord_username, discord_avatar FROM accounts WHERE mtaserial = ?', [serial]);
       const account = (rows as any[])[0];
 
       if (!account) {
@@ -79,7 +79,7 @@ async function startServer() {
   app.post('/api/mta/unlink', async (req, res) => {
     try {
       const { serial } = req.body;
-      await pool.execute('UPDATE accounts SET discord_id = NULL, discord_username = NULL, discord_avatar = NULL WHERE serial = ?', [serial]);
+      await pool.execute('UPDATE accounts SET discord_id = NULL, discord_username = NULL, discord_avatar = NULL WHERE mtaserial = ?', [serial]);
       res.json({ success: true });
     } catch (error) {
       console.error('MTA Unlink API Error:', error);

@@ -74,11 +74,11 @@ export const setupCoreModule = (client: Client) => {
 
     // 3. MTA Code Generation Log
     app.post('/log/mta-code', authenticate, async (req: any, res: any) => {
-        const { serial, code, playerName } = req.body;
+        const { mtaserial, code, playerName } = req.body;
         await logToDiscord(client, 'INFO', '🔑 إنشاء كود ربط جديد', `قام لاعب بإنشاء كود ربط من داخل اللعبة.`, 'MTA', [
             { name: 'اللاعب', value: playerName || 'غير معروف', inline: true },
             { name: 'الكود', value: `\`${code}\``, inline: true },
-            { name: 'السيريال', value: `\`${serial}\``, inline: false }
+            { name: 'السيريال', value: `\`${mtaserial}\``, inline: false }
         ]);
         res.json({ success: true });
     });

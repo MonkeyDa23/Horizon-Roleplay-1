@@ -38,7 +38,7 @@ export const handleLinkCommand = async (interaction: CommandInteraction, client:
         const avatarUrl = user.displayAvatarURL({ extension: 'png', size: 256 });
 
         const [updateResult] = await connection.execute(
-            'UPDATE accounts SET discord_id = ?, discord_username = ?, discord_avatar = ? WHERE serial = ?',
+            'UPDATE accounts SET discord_id = ?, discord_username = ?, discord_avatar = ? WHERE mtaserial = ?',
             [user.id, user.tag, avatarUrl, mtaSerial]
         ) as any[];
 
@@ -48,6 +48,16 @@ export const handleLinkCommand = async (interaction: CommandInteraction, client:
 
         await connection.execute('DELETE FROM linking_codes WHERE id = ?', [linkData.id]);
         await connection.commit();
+
+        // Send DM to user
+        try {
+            const now = new Date().toLocaleString('ar-EG');
+            await user.send({
+                content: `✅ **تم ربط حسابك بنجاح!**\n\nلقد قمت بربط حساب الديسكورد الخاص بك مع حسابك في سيرفر **Florida Roleplay**.\n\n**تفاصيل العملية:**\n📅 التاريخ: ${now}\n🆔 السيريال: \`${mtaSerial}\`\n\nنتمنى لك وقتاً ممتعاً في السيرفر! 🎮`
+            });
+        } catch (dmError) {
+            console.warn(`Could not send DM to user ${user.id}:`, dmError);
+        }
 
         await interaction.reply({ content: '✅ Your MTA account has been successfully linked!', ephemeral: true });
         

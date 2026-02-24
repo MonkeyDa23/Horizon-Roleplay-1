@@ -17,8 +17,9 @@ end
 
 -- Function to get player link status
 function getPlayerLinkStatus(player)
+    if not isElement(player) then return { isLinked = false } end
     local account = getPlayerAccount(player)
-    if isGuestAccount(account) then return false end
+    if isGuestAccount(account) then return { isLinked = false } end
     
     local accountName = getAccountName(account)
     local query = dbQuery(db, "SELECT discord_id, discord_username, discord_avatar FROM accounts WHERE username = ?", accountName)
@@ -29,7 +30,7 @@ function getPlayerLinkStatus(player)
             isLinked = true,
             discordId = result[1].discord_id,
             username = result[1].discord_username,
-            avatar = result[1].discord_avatar
+            avatar = result[1].discord_avatar or "https://cdn.discordapp.com/embed/avatars/0.png"
         }
     else
         return { isLinked = false }
@@ -43,21 +44,27 @@ addEventHandler("onRequestNewCode", root, function()
     local serial = getPlayerSerial(player)
     local playerName = getPlayerName(player)
     
-    -- Generate 6-digit random code
-    local code = string.format("%06d", math.random(0, 999999))
+    -- Generate 20-character code starting with flgd
+    local charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    local randomPart = ""
+    for i = 1, 16 do
+        local r = math.random(1, #charset)
+        randomPart = randomPart .. string.sub(charset, r, r)
+    end
+    local code = "flgd" .. randomPart
     local expiry = 600 -- 10 minutes
     
     -- Insert/Update code in DB
     dbExec(db, "INSERT INTO linking_codes (code, mta_serial, expires_at) VALUES (?, ?, NOW() + INTERVAL ? SECOND) ON DUPLICATE KEY UPDATE code = ?, expires_at = NOW() + INTERVAL ? SECOND", 
         code, serial, expiry, code, expiry)
     
-    -- Notify Bot for Logging
+    -- Notify Bot for Logging (Using mtaserial as requested)
     fetchRemote("http://localhost:3001/log/mta-code", {
         headers = { 
             ["Authorization"] = "FL-RP_9x2KzL8!vQpmWn5&7ZtY2uBvR1_VXL",
             ["Content-Type"] = "application/json"
         },
-        postData = toJSON({ serial = serial, code = code, playerName = playerName }),
+        postData = toJSON({ mtaserial = serial, code = code, playerName = playerName }),
         method = "POST"
     }, function(data, err) end)
 

@@ -7,7 +7,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { 
   User as UserIcon, Loader2, FileText, ExternalLink, Shield, RefreshCw,
   Gamepad2, Users, ChevronRight, Star, CreditCard, Link2, LogOut, ShieldCheck,
-  Wallet, Landmark, Trophy, History, Settings, Bell
+  Wallet, Landmark, Trophy, History, Settings, Bell, AlertCircle
 } from 'lucide-react';
 import { useConfig } from '../contexts/ConfigContext';
 import SEO from '../components/SEO';
@@ -359,11 +359,10 @@ const ProfilePage: React.FC = () => {
                       <Gamepad2 size={48} className="text-brand-cyan" />
                     </div>
                     <h2 className="text-4xl font-black text-white mb-6 tracking-tight">حساب اللعبة غير مربوط</h2>
-                    <p className="text-text-secondary mb-12 max-w-md mx-auto leading-relaxed text-lg">قم بربط حسابك في MTA لتتمكن من رؤية شخصياتك، ممتلكاتك، وسجلك الإداري هنا.</p>
-                    <Link to="/link-account" className="inline-flex items-center gap-4 bg-brand-cyan text-brand-dark px-12 py-5 rounded-3xl font-black uppercase tracking-widest hover:bg-white transition-all shadow-2xl shadow-brand-cyan/30">
-                      ربط الحساب الآن
-                      <ChevronRight size={24} />
-                    </Link>
+                    <p className="text-text-secondary mb-8 max-w-md mx-auto leading-relaxed text-lg">يرجى الدخول إلى سيرفر Florida Roleplay واستخدام أمر <code className="bg-white/5 px-2 py-1 rounded text-brand-cyan">/link</code> للحصول على كود التوثيق وإتمام الربط من داخل اللعبة.</p>
+                    <div className="bg-brand-cyan/5 border border-brand-cyan/20 p-6 rounded-3xl inline-block">
+                        <p className="text-brand-cyan font-bold">يتم الربط حصرياً من داخل اللعبة لضمان الأمان</p>
+                    </div>
                   </div>
                 ) : mtaAccountLoading ? (
                   <div className="flex justify-center py-24"><Loader2 className="animate-spin text-brand-cyan" size={48} /></div>

@@ -23,13 +23,13 @@ export const handleShowLinkStatusCommand = async (interaction: CommandInteractio
     try {
         connection = await pool.getConnection();
         const [rows] = await connection.execute(
-            'SELECT username, serial FROM accounts WHERE discord_id = ?',
+            'SELECT username, mtaserial FROM accounts WHERE discord_id = ?',
             [targetUser.id]
         );
 
         if (Array.isArray(rows) && rows.length > 0) {
             const account = (rows as any)[0];
-            await interaction.reply({ content: `User ${targetUser.tag} is linked to MTA account: **${account.username}** (Serial: \`${account.serial}\`)`, ephemeral: true });
+            await interaction.reply({ content: `User ${targetUser.tag} is linked to MTA account: **${account.username}** (Serial: \`${account.mtaserial}\`)`, ephemeral: true });
             
             await logToDiscord(client, 'INFO', '🔍 استعلام عن حالة ربط', `قام مسؤول بالاستعلام عن حالة ربط مستخدم.`, 'ADMIN', [
                 { name: 'المسؤول', value: `${adminUser.tag} (${adminUser.id})`, inline: true },
