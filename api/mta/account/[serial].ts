@@ -25,27 +25,11 @@ export default async function (req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: "Missing serial parameter" });
     }
 
-    // Direct lookup in MySQL using mtaserial with fallback to serial
-    let accounts: any[] = [];
-    try {
-      const [rows]: any = await pool.execute(
-        "SELECT * FROM accounts WHERE mtaserial = ? LIMIT 1",
-        [serial]
-      );
-      accounts = rows;
-    } catch (err) {
-      console.log("[API] mtaserial column not found, trying serial column");
-      try {
-        const [rows]: any = await pool.execute(
-          "SELECT * FROM accounts WHERE serial = ? LIMIT 1",
-          [serial]
-        );
-        accounts = rows;
-      } catch (serialErr) {
-        console.error("[API] Both mtaserial and serial lookups failed.");
-        throw serialErr;
-      }
-    }
+    // 1. Fetch Account
+    const [accounts]: any = await pool.execute(
+      "SELECT id, username, mtaserial FROM accounts WHERE mtaserial = ? LIMIT 1",
+      [serial]
+    );
 
     if (accounts.length === 0) {
       console.log(`[API] No MTA account found in game DB for serial: ${serial}`);
@@ -55,86 +39,71 @@ export default async function (req: VercelRequest, res: VercelResponse) {
     const account = accounts[0];
     console.log(`[API] Found MTA account in game DB: ${JSON.stringify(account)}`);
 
-    // 2. Fetch Characters - Using SELECT * to be safe
-    let characters = [];
-    try {
-      const [rows]: any = await pool.execute(
-        "SELECT * FROM characters WHERE account_id = ?",
-        [account.id]
-      );
-      characters = rows;
-    } catch (err) {
-      console.log("[API] account_id not found in characters, trying user_id or similar");
-      // You can add more fallbacks here if needed
-    }
+    // 2. Fetch Characters with Job and Faction names
+    // Note: We assume 'jobs' table has 'id' and 'name', and 'factions' table has 'id' and 'name'
+    const [characters]: any = await pool.execute(
+      `SELECT c.*, j.name as job_name, f.name as faction_name 
+       FROM Characters c 
+       LEFT JOIN jobs j ON c.job = j.id 
+       LEFT JOIN factions f ON c.faction_id = f.id 
+       WHERE c.account = ?`,
+      [account.id]
+    );
+    console.log(`[API] Found ${characters.length} characters for account ${account.id}`);
 
-    // 3. Fetch Admin History - Using SELECT * and mapping columns
-    let adminRecord = [];
-    try {
-      const [rows]: any = await pool.execute(
-        "SELECT * FROM adminhistory WHERE account_id = ? ORDER BY date DESC LIMIT 10",
-        [account.id]
-      );
-      adminRecord = rows.map((r: any) => ({
-        type: r.type || r.action || 'Unknown',
-        reason: r.reason || 'No reason',
-        admin: r.admin || 'System',
-        date: r.date,
-        duration: r.duration
-      }));
-    } catch (adminErr: any) {
-      console.log("[API] Fallback: Trying 'user' column for adminhistory");
-      try {
-        const [rows]: any = await pool.execute(
-          "SELECT * FROM adminhistory WHERE user = ? ORDER BY date DESC LIMIT 10",
-          [account.id]
-        );
-        adminRecord = rows.map((r: any) => ({
-          type: r.type || r.action || 'Unknown',
-          reason: r.reason || 'No reason',
-          admin: r.admin || 'System',
-          date: r.date,
-          duration: r.duration
-        }));
-      } catch (fallbackErr) {
-        console.error("[API] Admin history fetch failed completely.");
-      }
-    }
-    console.log(`[API] Found ${adminRecord.length} admin records for account ${account.id}`);
+    // 3. Fetch Admin History with Admin Username
+    const [adminRecord]: any = await pool.execute(
+      `SELECT h.*, a.username as admin_name 
+       FROM adminhistory h 
+       LEFT JOIN accounts a ON h.admin = a.id 
+       WHERE h.user = ? 
+       ORDER BY h.date DESC LIMIT 15`,
+      [account.id]
+    );
+    
+    const mappedAdminRecord = adminRecord.map((r: any) => ({
+      id: r.id,
+      type: r.type || 'Penalty',
+      reason: r.reason || 'No reason',
+      admin: r.admin_name || `Admin ID: ${r.admin}`,
+      date: r.date,
+      duration: r.duration
+    }));
 
     // 4. Fetch Vehicles
-    let vehicles = [];
-    try {
-      const [rows]: any = await pool.execute(
-        "SELECT v.* FROM vehicles v JOIN characters c ON v.owner_id = c.id WHERE c.account_id = ?",
-        [account.id]
-      );
-      vehicles = rows;
-    } catch (err) {
-      console.error("[API] Error fetching vehicles:", err);
-    }
+    const [vehicles]: any = await pool.execute(
+      "SELECT id, model, plate, owner FROM vehicles WHERE owner IN (SELECT id FROM Characters WHERE account = ?)",
+      [account.id]
+    );
 
-    // 5. Fetch Properties
-    let properties = [];
-    try {
-      const [rows]: any = await pool.execute(
-        "SELECT p.* FROM properties p JOIN characters c ON p.owner_id = c.id WHERE c.account_id = ?",
-        [account.id]
-      );
-      properties = rows;
-    } catch (err) {
-      console.error("[API] Error fetching properties:", err);
-    }
+    // 5. Fetch Interiors (Properties)
+    const [interiors]: any = await pool.execute(
+      "SELECT id, name, owner FROM interiors WHERE owner IN (SELECT id FROM Characters WHERE account = ?)",
+      [account.id]
+    );
 
     res.json({
       id: account.id,
       username: account.username,
-      serial: account.mtaserial || account.serial,
+      serial: account.mtaserial,
       character_count: characters.length,
-      admin_record: adminRecord,
-      characters: characters,
+      admin_record: mappedAdminRecord,
+      characters: characters.map((c: any) => ({
+        ...c,
+        // Map user's specific field names to frontend expected names if needed
+        name: c.charactername,
+        cash: c.money,
+        bank: c.bankmoney,
+        playtime_hours: c.hoursplayed,
+        // Birth date construction
+        dob: `${c.day}/${c.month}/${c.year || '?'}` 
+      })),
       vehicles: vehicles,
-      properties: properties
+      properties: interiors.map((i: any) => ({
+        id: i.id,
+        name: i.name,
+        address: `Interior ID: ${i.id}`
+      }))
     });
   } catch (error: any) {
     console.error("[API] Global Error in /api/mta/account:", error);

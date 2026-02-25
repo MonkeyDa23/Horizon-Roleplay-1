@@ -51,17 +51,26 @@ export interface DiscordRole {
 
 export interface MtaCharacter {
   id: number;
-  name: string;
+  charactername: string;
+  name: string; // Mapped from charactername
   gender: string;
   dob: string;
   age: number;
   nationality: string;
-  playtime_hours: number;
+  hoursplayed: number;
+  playtime_hours: number; // Mapped from hoursplayed
   level: number;
-  job: string;
-  sector: string; // Gang or Faction
-  cash: number;
-  bank: number;
+  job: number;
+  job_name?: string;
+  faction_id: number;
+  faction_name?: string;
+  money: number;
+  cash: number; // Mapped from money
+  bankmoney: number;
+  bank: number; // Mapped from bankmoney
+  day: number;
+  month: number;
+  year?: number;
 }
 
 export interface MtaVehicle {
@@ -82,6 +91,7 @@ export interface MtaAccountInfo {
   serial: string;
   character_count: number;
   admin_record: {
+    id: number;
     type: string;
     reason: string;
     admin: string;

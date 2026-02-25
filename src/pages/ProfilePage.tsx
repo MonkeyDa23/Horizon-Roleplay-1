@@ -405,7 +405,10 @@ const ProfilePage: React.FC = () => {
                                 <div>
                                   <div className="text-xl font-black text-white group-hover:text-brand-cyan transition-colors">{char.name}</div>
                                   <div className="text-xs text-text-secondary uppercase tracking-widest font-black mt-1">
-                                    {char.job || 'عاطل'} • مستوى {char.level}
+                                    {char.job_name || 'عاطل'} • {char.faction_name || 'بدون منظمة'}
+                                  </div>
+                                  <div className="text-[10px] text-brand-cyan/60 font-bold mt-1">
+                                    مستوى {char.level} • {char.age} سنة ({char.dob})
                                   </div>
                                 </div>
                               </div>
@@ -497,7 +500,9 @@ const ProfilePage: React.FC = () => {
                               <div key={vehicle.id} className="p-4 bg-white/5 rounded-2xl border border-white/5 flex justify-between items-center">
                                 <div>
                                   <div className="text-white font-bold">{vehicle.model}</div>
-                                  <div className="text-[10px] text-brand-cyan font-black uppercase tracking-widest">{vehicle.plate}</div>
+                                  <div className="text-[10px] text-brand-cyan font-black uppercase tracking-widest">
+                                    {vehicle.plate} • ID: {vehicle.id}
+                                  </div>
                                 </div>
                                 <Car size={16} className="text-white/20" />
                               </div>
@@ -521,7 +526,9 @@ const ProfilePage: React.FC = () => {
                               <div key={prop.id} className="p-4 bg-white/5 rounded-2xl border border-white/5 flex justify-between items-center">
                                 <div>
                                   <div className="text-white font-bold">{prop.name}</div>
-                                  <div className="text-[10px] text-brand-cyan font-black uppercase tracking-widest">{prop.address}</div>
+                                  <div className="text-[10px] text-brand-cyan font-black uppercase tracking-widest">
+                                    {prop.address} • ID: {prop.id}
+                                  </div>
                                 </div>
                                 <Home size={16} className="text-white/20" />
                               </div>
