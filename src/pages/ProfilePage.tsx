@@ -2,12 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { getSubmissionsByUserId, forceRefreshUserProfile, getMtaAccountInfo, unlinkMtaAccount } from '../lib/api';
-import type { QuizSubmission, SubmissionStatus, DiscordRole, MtaAccountInfo } from '../types';
+import type { QuizSubmission, SubmissionStatus, DiscordRole, MtaAccountInfo, MtaCharacter } from '../types';
 import { useNavigate, Link } from 'react-router-dom';
 import { 
   User as UserIcon, Loader2, FileText, ExternalLink, Shield, RefreshCw,
   Gamepad2, Users, ChevronRight, Star, CreditCard, Link2, LogOut, ShieldCheck,
-  Wallet, Landmark, Trophy, History, Settings, Bell, AlertCircle, Car, Home
+  Wallet, Landmark, Trophy, History, Settings, Bell, AlertCircle, Car, Home, X,
+  Calendar, User as UserIcon2, Briefcase, MapPin
 } from 'lucide-react';
 import { useConfig } from '../contexts/ConfigContext';
 import SEO from '../components/SEO';
@@ -34,6 +35,162 @@ const ProfilePage: React.FC = () => {
   const [mtaLinkLoading, setMtaLinkLoading] = useState(false);
 
   const [activeTab, setActiveTab] = useState<'discord' | 'mta'>('discord');
+  const [selectedCharacter, setSelectedCharacter] = useState<MtaCharacter | null>(null);
+
+  const CharacterDetailModal = ({ character, onClose }: { character: MtaCharacter, onClose: () => void }) => {
+    return (
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6"
+      >
+        <div className="absolute inset-0 bg-brand-dark/90 backdrop-blur-xl" onClick={onClose}></div>
+        
+        <motion.div 
+          initial={{ scale: 0.9, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.9, opacity: 0, y: 20 }}
+          className="bg-white/[0.03] border border-white/10 rounded-[40px] w-full max-w-4xl max-h-[90vh] overflow-y-auto relative z-10 shadow-2xl"
+        >
+          {/* Modal Header */}
+          <div className="sticky top-0 bg-brand-dark/80 backdrop-blur-md border-b border-white/10 p-6 md:p-8 flex justify-between items-center z-20">
+            <div className="flex items-center gap-6">
+              <div className="w-16 h-16 bg-brand-cyan/10 rounded-2xl flex items-center justify-center text-brand-cyan font-black text-3xl border border-brand-cyan/20">
+                {character.name.charAt(0)}
+              </div>
+              <div>
+                <h2 className="text-3xl font-black text-white tracking-tight">{character.name}</h2>
+                <p className="text-brand-cyan font-bold text-sm">ID: {character.id} • {character.job}</p>
+              </div>
+            </div>
+            <button onClick={onClose} className="p-3 bg-white/5 rounded-2xl text-text-secondary hover:text-white hover:bg-white/10 transition-all">
+              <X size={24} />
+            </button>
+          </div>
+
+          <div className="p-6 md:p-10 space-y-10">
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-white/5 border border-white/5 p-6 rounded-[32px] text-center">
+                <div className="w-12 h-12 bg-green-500/10 rounded-2xl flex items-center justify-center text-green-400 mx-auto mb-4">
+                  <Wallet size={24} />
+                </div>
+                <div className="text-[10px] text-text-secondary uppercase font-black tracking-widest mb-1">الأموال (كاش)</div>
+                <div className="text-2xl font-black text-white">${character.cash.toLocaleString()}</div>
+              </div>
+              <div className="bg-white/5 border border-white/5 p-6 rounded-[32px] text-center">
+                <div className="w-12 h-12 bg-brand-cyan/10 rounded-2xl flex items-center justify-center text-brand-cyan mx-auto mb-4">
+                  <Landmark size={24} />
+                </div>
+                <div className="text-[10px] text-text-secondary uppercase font-black tracking-widest mb-1">الأموال (بنك)</div>
+                <div className="text-2xl font-black text-white">${character.bank.toLocaleString()}</div>
+              </div>
+              <div className="bg-white/5 border border-white/5 p-6 rounded-[32px] text-center">
+                <div className="w-12 h-12 bg-brand-purple/10 rounded-2xl flex items-center justify-center text-brand-purple mx-auto mb-4">
+                  <Trophy size={24} />
+                </div>
+                <div className="text-[10px] text-text-secondary uppercase font-black tracking-widest mb-1">ساعات اللعب</div>
+                <div className="text-2xl font-black text-white">{character.playtime_hours} ساعة</div>
+              </div>
+            </div>
+
+            {/* Detailed Info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+              <div className="space-y-6">
+                <h3 className="text-xl font-black text-white flex items-center gap-3">
+                  <UserIcon size={20} className="text-brand-cyan" />
+                  المعلومات الشخصية
+                </h3>
+                <div className="space-y-4 bg-white/5 p-6 rounded-[32px] border border-white/5">
+                  <div className="flex justify-between items-center">
+                    <span className="text-text-secondary text-sm">الجنس</span>
+                    <span className="text-white font-bold">{character.gender === 'Male' ? 'ذكر' : 'أنثى'}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-text-secondary text-sm">العمر</span>
+                    <span className="text-white font-bold">{character.age} سنة</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-text-secondary text-sm">تاريخ الميلاد</span>
+                    <span className="text-white font-bold">{character.dob}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-text-secondary text-sm">المستوى (Level)</span>
+                    <span className="text-brand-cyan font-black">{character.level}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-text-secondary text-sm">رقم السكن (Skin)</span>
+                    <span className="text-white font-bold">{character.skin}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <h3 className="text-xl font-black text-white flex items-center gap-3">
+                  <Briefcase size={20} className="text-brand-cyan" />
+                  العمل والمنظمة
+                </h3>
+                <div className="space-y-4 bg-white/5 p-6 rounded-[32px] border border-white/5">
+                  <div className="flex justify-between items-center">
+                    <span className="text-text-secondary text-sm">الوظيفة</span>
+                    <span className="text-white font-bold">{character.job}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-text-secondary text-sm">المنظمة (Faction)</span>
+                    <span className="text-brand-cyan font-black">{character.faction}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Assets Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+              <div className="space-y-6">
+                <h3 className="text-xl font-black text-white flex items-center gap-3">
+                  <Car size={20} className="text-brand-cyan" />
+                  المركبات الخاصة ({character.vehicles.length})
+                </h3>
+                <div className="space-y-3">
+                  {character.vehicles.length > 0 ? character.vehicles.map(v => (
+                    <div key={v.id} className="p-4 bg-white/5 rounded-2xl border border-white/5 flex justify-between items-center group hover:border-brand-cyan/30 transition-all">
+                      <div>
+                        <div className="text-white font-bold">{v.model}</div>
+                        <div className="text-[10px] text-brand-cyan font-black uppercase tracking-widest">ID: {v.id}</div>
+                      </div>
+                      <Car size={16} className="text-white/20 group-hover:text-brand-cyan transition-colors" />
+                    </div>
+                  )) : (
+                    <div className="text-text-secondary italic text-sm p-4 bg-white/5 rounded-2xl border border-white/5 text-center">لا يمتلك أي مركبات</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <h3 className="text-xl font-black text-white flex items-center gap-3">
+                  <Home size={20} className="text-brand-cyan" />
+                  العقارات والممتلكات ({character.properties.length})
+                </h3>
+                <div className="space-y-3">
+                  {character.properties.length > 0 ? character.properties.map(p => (
+                    <div key={p.id} className="p-4 bg-white/5 rounded-2xl border border-white/5 flex justify-between items-center group hover:border-brand-cyan/30 transition-all">
+                      <div>
+                        <div className="text-white font-bold">{p.name}</div>
+                        <div className="text-[10px] text-brand-cyan font-black uppercase tracking-widest">ID: {p.id} • ${p.cost.toLocaleString()}</div>
+                      </div>
+                      <Home size={16} className="text-white/20 group-hover:text-brand-cyan transition-colors" />
+                    </div>
+                  )) : (
+                    <div className="text-text-secondary italic text-sm p-4 bg-white/5 rounded-2xl border border-white/5 text-center">لا يمتلك أي عقارات</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+    );
+  };
 
   const fetchMtaAccountData = useCallback(async () => {
       if (!user?.mta_serial) {
@@ -66,9 +223,20 @@ const ProfilePage: React.FC = () => {
       setMtaLinkLoading(true);
       try {
           await unlinkMtaAccount(user.mta_serial);
-          await forceRefreshUserProfile();
+          
+          // تحديث فوري للواجهة (Optimistic Update)
+          if (user) {
+            const updatedUser = { ...user, mta_serial: null, mta_linked_at: null };
+            updateUser(updatedUser);
+          }
+          
           setIsMtaLinked(false);
           setMtaAccountInfo(null);
+
+          // تحديث البيانات من السيرفر للتأكيد
+          const { user: freshUser } = await forceRefreshUserProfile();
+          updateUser(freshUser);
+          
           showToast('تم إلغاء ربط الحساب بنجاح', 'success');
       } catch (err) {
           console.error("Failed to unlink MTA account:", err);
@@ -76,7 +244,7 @@ const ProfilePage: React.FC = () => {
       } finally {
           setMtaLinkLoading(false);
       }
-  }, [user?.mta_serial, showToast]);
+  }, [user, showToast, updateUser]);
 
   useEffect(() => {
       if (user?.mta_serial) {
@@ -162,6 +330,14 @@ const ProfilePage: React.FC = () => {
       />
       
       <div className="min-h-screen bg-brand-dark font-['Cairo'] pb-24" dir="rtl">
+        <AnimatePresence>
+          {selectedCharacter && (
+            <CharacterDetailModal 
+              character={selectedCharacter} 
+              onClose={() => setSelectedCharacter(null)} 
+            />
+          )}
+        </AnimatePresence>
         {/* Profile Hero Header */}
         <div className="relative h-80 overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-b from-brand-cyan/20 to-brand-dark z-0"></div>
@@ -395,7 +571,11 @@ const ProfilePage: React.FC = () => {
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                           {mtaAccountInfo.characters.map(char => (
-                            <div key={char.id} className="group bg-black/30 border border-white/5 rounded-[32px] p-8 hover:border-brand-cyan/40 transition-all relative overflow-hidden">
+                            <div 
+                              key={char.id} 
+                              onClick={() => setSelectedCharacter(char)}
+                              className="group bg-black/30 border border-white/5 rounded-[32px] p-8 hover:border-brand-cyan/40 transition-all relative overflow-hidden cursor-pointer hover:bg-white/5"
+                            >
                               <div className="absolute top-0 right-0 w-32 h-32 bg-brand-cyan/5 blur-3xl rounded-full -translate-y-1/2 translate-x-1/2"></div>
                               
                               <div className="flex items-center gap-5 mb-8 relative z-10">
@@ -405,30 +585,11 @@ const ProfilePage: React.FC = () => {
                                 <div>
                                   <div className="text-xl font-black text-white group-hover:text-brand-cyan transition-colors">{char.name}</div>
                                   <div className="text-xs text-text-secondary uppercase tracking-widest font-black mt-1">
-                                    {char.job_name || 'عاطل'} • {char.faction_name || 'بدون منظمة'}
-                                  </div>
-                                  <div className="text-[10px] text-brand-cyan/60 font-bold mt-1">
-                                    مستوى {char.level} • {char.age} سنة ({char.dob})
+                                    {char.job} • {char.faction}
                                   </div>
                                 </div>
                               </div>
-
-                              <div className="grid grid-cols-2 gap-4 relative z-10">
-                                <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                                  <div className="flex items-center gap-2 text-[10px] text-text-secondary uppercase font-black mb-2">
-                                    <Wallet size={12} />
-                                    كاش
-                                  </div>
-                                  <div className="text-green-400 font-black text-lg">${char.cash.toLocaleString()}</div>
-                                </div>
-                                <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
-                                  <div className="flex items-center gap-2 text-[10px] text-text-secondary uppercase font-black mb-2">
-                                    <Landmark size={12} />
-                                    البنك
-                                  </div>
-                                  <div className="text-brand-cyan font-black text-lg">${char.bank.toLocaleString()}</div>
-                                </div>
-                              </div>
+                              <div className="text-center text-brand-cyan text-sm font-bold">اضغط لعرض التفاصيل الكاملة</div>
                             </div>
                           ))}
                         </div>

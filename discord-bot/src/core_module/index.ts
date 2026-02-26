@@ -120,22 +120,64 @@ export const setupCoreModule = (client: Client) => {
 
             const account = accounts[0];
 
-            // 2. Fetch Characters
+            // 2. Fetch Characters with detailed info
             let characters: any[] = [];
             try {
                 const [charRows]: any = await pool.execute(
-                    "SELECT c.*, j.name as job_name, f.name as faction_name FROM characters c LEFT JOIN jobs j ON c.job = j.id LEFT JOIN factions f ON c.faction_id = f.id WHERE c.account = ?",
+                    `SELECT c.*, 
+                            j.name as job_name, 
+                            f.name as faction_name 
+                     FROM characters c 
+                     LEFT JOIN jobs j ON c.job = j.id 
+                     LEFT JOIN factions f ON c.faction_id = f.id 
+                     WHERE c.account = ?`,
                     [account.id]
                 );
-                characters = charRows.map((c: any) => ({
-                    ...c,
-                    name: c.charactername,
-                    cash: c.money,
-                    bank: c.bankmoney,
-                    playtime_hours: c.hoursplayed,
-                    dob: c.day + '/' + c.month + '/' + (c.year || '?'),
-                    age: c.age || 'Unknown'
-                }));
+
+                // Fetch vehicles for all characters of this account
+                const [vehicleRows]: any = await pool.execute(
+                    "SELECT id, model, owner FROM vehicles WHERE owner IN (SELECT id FROM characters WHERE account = ?)",
+                    [account.id]
+                );
+
+                // Fetch interiors for all characters of this account
+                const [interiorRows]: any = await pool.execute(
+                    "SELECT id, name, owner, cost FROM interiors WHERE owner IN (SELECT id FROM characters WHERE account = ?)",
+                    [account.id]
+                );
+
+                characters = charRows.map((c: any) => {
+                    // Filter vehicles belonging to this character
+                    const charVehicles = vehicleRows.filter((v: any) => v.owner === c.id);
+                    // Filter interiors belonging to this character
+                    const charInteriors = interiorRows.filter((i: any) => i.owner === c.id);
+
+                    return {
+                        id: c.id,
+                        name: c.charactername,
+                        skin: c.skin,
+                        gender: c.gender === 0 ? 'Male' : 'Female', // Assuming 0 is Male, 1 is Female
+                        age: c.age || 'Unknown',
+                        dob: c.day + '/' + c.month + '/' + (c.year || '?'),
+                        level: c.level || 1,
+                        job: c.job_name || 'Unemployed',
+                        faction: c.faction_name || 'Civilian',
+                        cash: c.money,
+                        bank: c.bankmoney,
+                        playtime_hours: c.hoursplayed,
+                        vehicles: charVehicles.map((v: any) => ({
+                            id: v.id,
+                            model: v.model,
+                            owner: v.owner
+                        })),
+                        properties: charInteriors.map((i: any) => ({
+                            id: i.id,
+                            name: i.name,
+                            cost: i.cost,
+                            owner: i.owner
+                        }))
+                    };
+                });
             } catch (e: any) {
                 console.error('[BOT API] Error fetching characters: ' + e.message);
             }
@@ -159,43 +201,13 @@ export const setupCoreModule = (client: Client) => {
                 console.error('[BOT API] Error fetching admin history: ' + e.message);
             }
 
-            // 4. Fetch Vehicles
-            let vehicles: any[] = [];
-            try {
-                const [vehicleRows]: any = await pool.execute(
-                    "SELECT id, model, plate, owner FROM vehicles WHERE owner IN (SELECT id FROM characters WHERE account = ?)",
-                    [account.id]
-                );
-                vehicles = vehicleRows;
-            } catch (e: any) {
-                console.error('[BOT API] Error fetching vehicles: ' + e.message);
-            }
-
-            // 5. Fetch Interiors
-            let interiors: any[] = [];
-            try {
-                const [interiorRows]: any = await pool.execute(
-                    "SELECT id, name, owner FROM interiors WHERE owner IN (SELECT id FROM characters WHERE account = ?)",
-                    [account.id]
-                );
-                interiors = interiorRows.map((i: any) => ({
-                    id: i.id,
-                    name: i.name,
-                    address: 'Interior ID: ' + i.id
-                }));
-            } catch (e: any) {
-                console.error('[BOT API] Error fetching interiors: ' + e.message);
-            }
-
             res.json({
                 id: account.id,
                 username: account.username,
                 serial: account.mtaserial,
                 character_count: characters.length,
                 admin_record: mappedAdminRecord,
-                characters: characters,
-                vehicles: vehicles,
-                properties: interiors
+                characters: characters
             });
 
         } catch (error: any) {

@@ -49,40 +49,39 @@ export interface DiscordRole {
   position: number;
 }
 
-export interface MtaCharacter {
-  id: number;
-  charactername: string;
-  name: string; // Mapped from charactername
-  gender: string;
-  dob: string;
-  age: number;
-  nationality: string;
-  hoursplayed: number;
-  playtime_hours: number; // Mapped from hoursplayed
-  level: number;
-  job: number;
-  job_name?: string;
-  faction_id: number;
-  faction_name?: string;
-  money: number;
-  cash: number; // Mapped from money
-  bankmoney: number;
-  bank: number; // Mapped from bankmoney
-  day: number;
-  month: number;
-  year?: number;
-}
-
 export interface MtaVehicle {
   id: number;
   model: string;
-  plate: string;
+  owner: number; // Character ID
 }
 
 export interface MtaProperty {
   id: number;
   name: string;
-  address: string;
+  cost: number;
+  owner: number; // Character ID
+}
+
+export interface MtaCharacter {
+  id: number;
+  charactername: string;
+  name: string; // Mapped from charactername
+  skin: number;
+  gender: string;
+  dob: string;
+  age: number | string;
+  nationality: string;
+  hoursplayed: number;
+  playtime_hours: number; // Mapped from hoursplayed
+  level: number;
+  job: string; // Job Name
+  faction: string; // Faction Name
+  money: number;
+  cash: number; // Mapped from money
+  bankmoney: number;
+  bank: number; // Mapped from bankmoney
+  vehicles: MtaVehicle[]; // Vehicles owned by this character
+  properties: MtaProperty[]; // Properties owned by this character
 }
 
 export interface MtaAccountInfo {
@@ -99,8 +98,6 @@ export interface MtaAccountInfo {
     duration?: string | number;
   }[];
   characters: MtaCharacter[];
-  vehicles: MtaVehicle[];
-  properties: MtaProperty[];
 }
 
 export interface User {
