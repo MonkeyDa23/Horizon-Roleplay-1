@@ -1,40 +1,45 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL!,
-  process.env.VITE_SUPABASE_ANON_KEY!
-);
 
 export default async function (req: VercelRequest, res: VercelResponse) {
-  console.log(`[API] Received unlink request for serial: ${req.body.serial}`);
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
+  }
+
   try {
-    if (req.method !== 'POST') {
-      res.setHeader('Allow', ['POST']);
-      return res.status(405).end('Method Not Allowed');
-    }
-
     const { serial } = req.body;
+    console.log(`[API] Forwarding unlink request for ${serial} to Bot API`);
 
-    if (!serial) {
-      console.log("[API] Missing serial parameter for unlink.");
-      return res.status(400).json({ error: "Missing serial parameter" });
-    }
-    
-    const { error } = await supabase
-      .from('profiles')
-      .update({ mta_serial: null, mta_name: null, mta_linked_at: null, mta_account_id: null })
-      .eq('mta_serial', serial);
+    const botApiUrl = process.env.VITE_DISCORD_BOT_API_URL;
+    const botApiKey = process.env.VITE_DISCORD_BOT_API_KEY;
 
-    if (error) {
-      console.error("[API] Supabase error during unlink:", error);
-      throw error;
+    if (!botApiUrl || !botApiKey) {
+      console.error("[API] Missing Bot API configuration");
+      return res.status(500).json({ error: "Server configuration error" });
     }
-    
-    console.log(`[API] Successfully unlinked serial: ${serial}`);
-    res.json({ success: true });
-  } catch (error) {
-    console.error("[API] General error in /api/mta/unlink:", error);
-    res.status(500).json({ error: "Unlink failed" });
+
+    const response = await fetch(`${botApiUrl}/mta/unlink`, {
+      method: 'POST',
+      headers: {
+        'Authorization': botApiKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ serial })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[API] Bot API error: ${response.status} - ${errorText}`);
+      return res.status(response.status).json({ 
+        error: "Failed to unlink account", 
+        details: errorText 
+      });
+    }
+
+    const data = await response.json();
+    res.json(data);
+
+  } catch (error: any) {
+    console.error('[API] MTA Unlink API Error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 }

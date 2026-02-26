@@ -204,6 +204,41 @@ export const setupCoreModule = (client: Client) => {
         }
     });
 
+    // 5. Unlink MTA Account
+    app.post('/mta/unlink', authenticate, async (req: any, res: any) => {
+        const { serial } = req.body;
+        console.log('[BOT API] Received unlink request for serial: ' + serial);
+
+        try {
+            // Get account info before unlinking for logging
+            const [rows]: any = await pool.execute('SELECT username, discord_id, discord_username FROM accounts WHERE mtaserial = ?', [serial]);
+            
+            if (rows.length === 0) {
+                return res.status(404).json({ error: "Account not found" });
+            }
+
+            const account = rows[0];
+
+            // Perform Unlink
+            await pool.execute('UPDATE accounts SET discord_id = NULL, discord_username = NULL, discord_avatar = NULL WHERE mtaserial = ?', [serial]);
+
+            // Log to Discord
+            if (account.discord_id) {
+                await logToDiscord(client, 'WARNING', '🔓 إلغاء ربط حساب (عبر الموقع)', 'تم إلغاء ربط حساب MTA من خلال لوحة تحكم الموقع.', 'MTA', [
+                    { name: 'المستخدم', value: (account.discord_username || 'Unknown') + ' (' + account.discord_id + ')', inline: true },
+                    { name: 'حساب اللعبة', value: account.username, inline: true },
+                    { name: 'السيريال', value: '`' + serial + '`', inline: true }
+                ]);
+            }
+
+            res.json({ success: true });
+
+        } catch (error: any) {
+            console.error('[BOT API] Unlink Error: ' + error.message);
+            res.status(500).json({ error: "Internal Server Error", details: error.message });
+        }
+    });
+
     app.listen(Number(env.PORT), '0.0.0.0', () => {
         console.log('🚀 Core API Module online on port ' + env.PORT);
     });

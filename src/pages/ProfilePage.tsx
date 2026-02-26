@@ -449,25 +449,30 @@ const ProfilePage: React.FC = () => {
                         <div className="space-y-4">
                           {mtaAccountInfo.admin_record.length > 0 ? (
                             mtaAccountInfo.admin_record.map((record, idx) => (
-                              <div key={idx} className="flex items-start gap-6 p-6 rounded-[24px] bg-black/20 border border-white/5">
+                              <div key={idx} className="flex items-start gap-6 p-6 rounded-[24px] bg-black/20 border border-white/5 hover:border-white/10 transition-colors">
                                 <div className={`p-4 rounded-2xl flex-shrink-0 ${record.type === 'Ban' ? 'bg-red-500/10 text-red-500' : 'bg-yellow-500/10 text-yellow-500'}`}>
                                   <Shield size={24} />
                                 </div>
                                 <div className="flex-1">
                                   <div className="flex justify-between items-start mb-3">
                                     <div>
-                                      <span className="font-black text-white text-xl uppercase tracking-tight">
-                                        {record.type === 'Ban' ? 'حظر' : record.type === 'Kick' ? 'طرد' : record.type === 'Warn' ? 'تحذير' : record.type}
+                                      <span className="font-black text-white text-xl uppercase tracking-tight ml-3">
+                                        {record.type === 'Ban' ? 'حظر' : 
+                                         record.type === 'Kick' ? 'طرد' : 
+                                         record.type === 'Warn' ? 'تحذير' : 
+                                         record.type === 'Penalty' ? 'عقوبة' : record.type}
                                       </span>
                                       {record.duration && record.duration !== '0' && (
-                                        <span className="text-xs font-black text-text-secondary mr-4 bg-white/5 px-3 py-1 rounded-lg">
+                                        <span className="text-xs font-black text-text-secondary bg-white/5 px-3 py-1 rounded-lg">
                                           {record.duration} دقيقة
                                         </span>
                                       )}
                                     </div>
-                                    <span className="text-xs font-mono text-text-secondary">{new Date(record.date).toLocaleDateString('ar-EG')}</span>
+                                    <span className="text-xs font-mono text-text-secondary" dir="ltr">{new Date(record.date).toLocaleDateString('en-GB')}</span>
                                   </div>
-                                  <p className="text-text-secondary text-sm leading-relaxed mb-4 p-4 bg-white/5 rounded-xl border border-white/5">{record.reason}</p>
+                                  <p className="text-text-secondary text-sm leading-relaxed mb-4 p-4 bg-white/5 rounded-xl border border-white/5">
+                                    {record.reason}
+                                  </p>
                                   <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-brand-cyan">
                                     <UserIcon size={12} />
                                     بواسطة الأدمن: {record.admin}
