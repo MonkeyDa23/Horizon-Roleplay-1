@@ -94,15 +94,117 @@ export const setupCoreModule = (client: Client) => {
     // 3. MTA Code Generation Log
     app.post('/log/mta-code', authenticate, async (req: any, res: any) => {
         const { mtaserial, code, playerName } = req.body;
-        await logToDiscord(client, 'INFO', '🔑 إنشاء كود ربط جديد', `قام لاعب بإنشاء كود ربط من داخل اللعبة.`, 'MTA', [
+        await logToDiscord(client, 'INFO', '🔑 إنشاء كود ربط جديد', 'قام لاعب بإنشاء كود ربط من داخل اللعبة.', 'MTA', [
             { name: 'اللاعب', value: playerName || 'غير معروف', inline: true },
-            { name: 'الكود', value: `\`${code}\``, inline: true },
-            { name: 'السيريال', value: `\`${mtaserial}\``, inline: false }
+            { name: 'الكود', value: '`' + code + '`', inline: true },
+            { name: 'السيريال', value: '`' + mtaserial + '`', inline: false }
         ]);
         res.json({ success: true });
     });
 
+    // 4. MTA Account Info Endpoint
+    app.get('/mta/account/:serial', authenticate, async (req: any, res: any) => {
+        const { serial } = req.params;
+        console.log('[BOT API] Fetching account for serial: ' + serial);
+        
+        try {
+            // 1. Fetch Account
+            const [accounts]: any = await pool.execute(
+                "SELECT id, username, mtaserial FROM accounts WHERE mtaserial = ? LIMIT 1",
+                [serial]
+            );
+
+            if (accounts.length === 0) {
+                return res.status(404).json({ error: "Account not found" });
+            }
+
+            const account = accounts[0];
+
+            // 2. Fetch Characters
+            let characters: any[] = [];
+            try {
+                const [charRows]: any = await pool.execute(
+                    "SELECT c.*, j.name as job_name, f.name as faction_name FROM characters c LEFT JOIN jobs j ON c.job = j.id LEFT JOIN factions f ON c.faction_id = f.id WHERE c.account = ?",
+                    [account.id]
+                );
+                characters = charRows.map((c: any) => ({
+                    ...c,
+                    name: c.charactername,
+                    cash: c.money,
+                    bank: c.bankmoney,
+                    playtime_hours: c.hoursplayed,
+                    dob: c.day + '/' + c.month + '/' + (c.year || '?'),
+                    age: c.age || 'Unknown'
+                }));
+            } catch (e: any) {
+                console.error('[BOT API] Error fetching characters: ' + e.message);
+            }
+
+            // 3. Fetch Admin History
+            let mappedAdminRecord: any[] = [];
+            try {
+                const [adminRows]: any = await pool.execute(
+                    "SELECT h.*, a.username as admin_name FROM adminhistory h LEFT JOIN accounts a ON h.admin = a.id WHERE h.user = ? ORDER BY h.date DESC LIMIT 15",
+                    [account.id]
+                );
+                mappedAdminRecord = adminRows.map((r: any) => ({
+                    id: r.id,
+                    type: r.type || 'Penalty',
+                    reason: r.reason || 'No reason',
+                    admin: r.admin_name || 'Admin ID: ' + r.admin,
+                    date: r.date,
+                    duration: r.duration
+                }));
+            } catch (e: any) {
+                console.error('[BOT API] Error fetching admin history: ' + e.message);
+            }
+
+            // 4. Fetch Vehicles
+            let vehicles: any[] = [];
+            try {
+                const [vehicleRows]: any = await pool.execute(
+                    "SELECT id, model, plate, owner FROM vehicles WHERE owner IN (SELECT id FROM characters WHERE account = ?)",
+                    [account.id]
+                );
+                vehicles = vehicleRows;
+            } catch (e: any) {
+                console.error('[BOT API] Error fetching vehicles: ' + e.message);
+            }
+
+            // 5. Fetch Interiors
+            let interiors: any[] = [];
+            try {
+                const [interiorRows]: any = await pool.execute(
+                    "SELECT id, name, owner FROM interiors WHERE owner IN (SELECT id FROM characters WHERE account = ?)",
+                    [account.id]
+                );
+                interiors = interiorRows.map((i: any) => ({
+                    id: i.id,
+                    name: i.name,
+                    address: 'Interior ID: ' + i.id
+                }));
+            } catch (e: any) {
+                console.error('[BOT API] Error fetching interiors: ' + e.message);
+            }
+
+            res.json({
+                id: account.id,
+                username: account.username,
+                serial: account.mtaserial,
+                character_count: characters.length,
+                admin_record: mappedAdminRecord,
+                characters: characters,
+                vehicles: vehicles,
+                properties: interiors
+            });
+
+        } catch (error: any) {
+            console.error('[BOT API] Global error: ' + error.message);
+            res.status(500).json({ error: "Internal Server Error", details: error.message });
+        }
+    });
+
     app.listen(Number(env.PORT), '0.0.0.0', () => {
-        console.log(`🚀 Core API Module online on port ${env.PORT}`);
+        console.log('🚀 Core API Module online on port ' + env.PORT);
     });
 };
