@@ -17,7 +17,7 @@ export const env = {
   LOG_CHANNEL_SUBMISSIONS: process.env.LOG_CHANNEL_SUBMISSIONS,
   LOG_CHANNEL_VISITS: process.env.LOG_CHANNEL_VISITS,
   DISCORD_ADMIN_ROLE_ID: process.env.DISCORD_ADMIN_ROLE_ID,
-  API_SECRET_KEY: process.env.VITE_DISCORD_BOT_API_KEY || 'FL-RP_9x2KzL8!vQpmWn5&7ZtY2uBvR1_VXL',
+  API_SECRET_KEY: process.env.API_SECRET_KEY || process.env.VITE_DISCORD_BOT_API_KEY || 'FL-RP_9x2KzL8!vQpmWn5&7ZtY2uBvR1_VXL',
 
   // MySQL / phpMyAdmin Connection
   MTA_DB_HOST: process.env.MTA_DB_HOST,

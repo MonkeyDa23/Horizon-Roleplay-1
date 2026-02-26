@@ -54,7 +54,7 @@ const DRAFT_KEY = 'vixel_admin_quiz_draft';
 const QuizzesPanel: React.FC = () => {
     const { t } = useLocalization();
     const { showToast } = useToast();
-    const { translations, refreshTranslations } = useTranslations();
+    const { translations, refetch: refreshTranslations } = useTranslations();
     const { config } = useConfig();
     const { user } = useAuth();
     

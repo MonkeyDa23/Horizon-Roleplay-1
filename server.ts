@@ -21,46 +21,59 @@ async function startServer() {
 
   app.use(express.json());
 
-  // MTA API Routes
-  app.get('/api/mta/account/:serial', async (req, res) => {
-    try {
-      const { serial } = req.params;
-      console.log(`[Server] Forwarding request for /api/mta/account/${serial} to Bot API`);
+  // --- PROXY FOR DISCORD BOT ---
+  app.all('/api/proxy/*', async (req, res) => {
+    const botUrl = process.env.VITE_DISCORD_BOT_API_URL;
+    const apiKey = process.env.VITE_DISCORD_BOT_API_KEY;
 
-      const botApiUrl = process.env.VITE_DISCORD_BOT_API_URL;
-      const botApiKey = process.env.VITE_DISCORD_BOT_API_KEY;
-
-      if (!botApiUrl || !botApiKey) {
-        console.error("[Server] Missing Bot API configuration");
-        return res.status(500).json({ error: "Server configuration error" });
+    // 1. Special Route: Direct Discord Invite Lookup
+    if (req.url.includes('/discord-invite/')) {
+      try {
+        const parts = req.url.split('/discord-invite/');
+        const code = parts[1].split('?')[0];
+        const discordRes = await fetch(`https://discord.com/api/v9/invites/${code}?with_counts=true`);
+        if (!discordRes.ok) return res.status(discordRes.status).json({ error: 'Discord API Error' });
+        const data = await discordRes.json();
+        return res.json({
+          guild: {
+            name: data.guild.name,
+            id: data.guild.id,
+            iconURL: data.guild.icon ? `https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png` : null
+          },
+          memberCount: data.approximate_member_count,
+          presenceCount: data.approximate_presence_count
+        });
+      } catch (e: any) {
+        return res.status(500).json({ error: 'Discord fetch failed', details: e.message });
       }
+    }
 
-      const response = await fetch(`${botApiUrl}/mta/account/${serial}`, {
-        method: 'GET',
+    // 2. Standard Bot Proxy
+    if (!botUrl || !apiKey) {
+      return res.status(500).json({ error: 'Proxy not configured (Missing Env Vars)' });
+    }
+
+    const targetPath = req.url.replace('/api/proxy', '');
+    const targetUrl = new URL(targetPath, botUrl).toString();
+
+    try {
+      const response = await fetch(targetUrl, {
+        method: req.method,
         headers: {
-          'Authorization': botApiKey,
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+          'Authorization': apiKey,
+        },
+        body: ['POST', 'PUT', 'PATCH'].includes(req.method) ? JSON.stringify(req.body) : undefined,
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`[Server] Bot API error: ${response.status} - ${errorText}`);
-        return res.status(response.status).json({ 
-          error: "Failed to fetch data from game server", 
-          details: errorText 
-        });
-      }
-
-      const data = await response.json();
-      res.json(data);
-
+      res.status(response.status).send(await response.text());
     } catch (error: any) {
-      console.error('[Server] MTA Account API Error:', error);
-      res.status(500).json({ error: 'Internal server error', details: error.message });
+      console.error(`[PROXY] Error forwarding to ${targetUrl}:`, error);
+      res.status(502).json({ error: 'Bad Gateway', details: error.message, targetUrl });
     }
   });
 
+  // MTA API Routes (Direct to DB)
   app.get('/api/mta/status/:serial', async (req, res) => {
     try {
       const { serial } = req.params;

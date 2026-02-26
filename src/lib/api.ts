@@ -5,7 +5,8 @@ import { env } from '../env';
 import type { 
   AppConfig, Product, Quiz, QuizSubmission, RuleCategory, Translations, 
   User, DiscordRole, UserLookupResult, Invoice, InvoiceItem,
-  MtaServerStatus, AuditLogEntry, DiscordAnnouncement, RolePermission, DiscordWidget, StaffMember, ProductCategory
+  MtaServerStatus, AuditLogEntry, DiscordAnnouncement, RolePermission, DiscordWidget, StaffMember, ProductCategory,
+  MtaAccountInfo
 } from '../types';
 
 // --- BOT API HELPERS ---
@@ -103,7 +104,7 @@ export const sendDiscordLog = async (
 export const fetchUserProfile = async (): Promise<{ user: User, syncError: string | null, isNewUser: boolean }> => {
   if (!supabase) throw new Error("Supabase client is not initialized.");
   
-  const { data, error: sessionError } = await (supabase.auth as any).getSession();
+  const { data, error: sessionError } = await supabase.auth.getSession();
   if (sessionError) throw new ApiError(sessionError.message, 500);
   
   const session = data?.session;
@@ -175,21 +176,21 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
 
 export const verifyCaptcha = async (token: string): Promise<any> => {
     if (!supabase) throw new Error("Supabase client is not initialized.");
-    const { data, error } = await supabase.functions.invoke('verify-captcha', { body: { token } });
+    const { data, error } = await (supabase as any).functions.invoke('verify-captcha', { body: { token } });
     if (error || !data.success) throw new Error(data?.error || error?.message || 'Captcha failed');
     return data;
 };
 
 export const verifyAdminPassword = async (password: string): Promise<boolean> => {
     if (!supabase) return false;
-    const { data } = await supabase.rpc('verify_admin_password', { p_password: password });
+    const { data } = await (supabase as any).rpc('verify_admin_password', { p_password: password });
     return data as boolean;
 };
 
 // --- LOGGING HELPERS ---
 export const logAdminPageVisit = async (pageName: string): Promise<void> => {
   if (!supabase) return;
-  await supabase.rpc('log_page_visit', { p_page_name: pageName });
+  await (supabase as any).rpc('log_page_visit', { p_page_name: pageName });
 };
 
 export const logAdminAction = async (config: AppConfig, user: User, action: string, details: string, type: 'SUCCESS' | 'ERROR' | 'INFO' | 'WARNING' = 'INFO') => {
@@ -259,25 +260,29 @@ export const logFinanceAction = async (config: AppConfig, admin: User, target: {
 
 // --- FINANCIAL API ---
 export const addBalance = async (targetUserId: string, amount: number, reason?: string): Promise<number> => {
-    const { data, error } = await supabase!.rpc('add_user_balance', { p_target_user_id: targetUserId, p_amount: amount, p_reason: reason });
+    if (!supabase) throw new Error("Supabase not initialized");
+    const { data, error } = await (supabase as any).rpc('add_user_balance', { p_target_user_id: targetUserId, p_amount: amount, p_reason: reason });
     if (error) throw new Error(error.message);
     return data as number; // Returns new balance
 };
 
 export const createInvoice = async (targetUserId: string, products: InvoiceItem[], totalAmount: number): Promise<Invoice> => {
-    const { data, error } = await supabase!.rpc('create_invoice', { p_target_user_id: targetUserId, p_products: products, p_total_amount: totalAmount });
+    if (!supabase) throw new Error("Supabase not initialized");
+    const { data, error } = await (supabase as any).rpc('create_invoice', { p_target_user_id: targetUserId, p_products: products, p_total_amount: totalAmount });
     if (error) throw new Error(error.message);
     return data as Invoice;
 };
 
 export const getUserInvoices = async (userId: string): Promise<Invoice[]> => {
-    const { data, error } = await supabase!.from('invoices').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+    if (!supabase) return [];
+    const { data, error } = await supabase.from('invoices').select('*').eq('user_id', userId).order('created_at', { ascending: false });
     if (error) throw error;
     return data as Invoice[];
 };
 
 export const processPurchase = async (amount: number, details: string): Promise<boolean> => {
-    const { data, error } = await supabase!.rpc('process_purchase', { p_amount: amount, p_details: details });
+    if (!supabase) throw new Error("Supabase not initialized");
+    const { data, error } = await (supabase as any).rpc('process_purchase', { p_amount: amount, p_details: details });
     if (error) throw new Error(error.message);
     return data as boolean;
 };
@@ -292,7 +297,7 @@ export const getConfig = async (): Promise<AppConfig> => {
 
 export const saveConfig = async (configData: Partial<AppConfig>): Promise<void> => {
     if (!supabase) return;
-    const { error } = await supabase.rpc('update_config', { new_config: configData });
+    const { error } = await (supabase as any).rpc('update_config', { new_config: configData });
     if (error) throw new ApiError(error.message, 500);
 };
 

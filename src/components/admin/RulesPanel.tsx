@@ -27,7 +27,7 @@ interface EditableRuleCategory {
 const RulesPanel: React.FC = () => {
     const { t } = useLocalization();
     const { showToast } = useToast();
-    const { translations, loading: translationsLoading, refreshTranslations } = useTranslations();
+    const { translations, loading: translationsLoading, refetch: refreshTranslations } = useTranslations();
     const { config } = useConfig();
     const { user } = useAuth();
     
