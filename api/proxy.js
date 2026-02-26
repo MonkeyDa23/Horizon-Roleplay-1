@@ -5,7 +5,7 @@
 
 export default async function handler(req, res) {
   // Vercel populates process.env from your project's environment variables
-  const botUrl = process.env.VITE_DISCORD_BOT_URL;
+  const botUrl = process.env.VITE_DISCORD_BOT_API_URL;
   const apiKey = process.env.VITE_DISCORD_BOT_API_KEY;
 
   // Helper to check if string is valid URL
