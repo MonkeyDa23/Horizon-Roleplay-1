@@ -4,7 +4,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { getSubmissionById, updateSubmissionStatus, sendDiscordLog, lookupUser } from '../lib/api';
+import { getSubmissionById, updateSubmissionStatus, sendDiscordLog, lookupUser, logSubmissionAction } from '../lib/api';
 import { supabase } from '../lib/supabaseClient';
 import type { QuizSubmission } from '../types';
 import { Loader2, Check, X, ArrowLeft, User, Calendar, Shield, AlertTriangle, ListChecks } from 'lucide-react';
@@ -56,57 +56,15 @@ const SubmissionDetailPage: React.FC = () => {
             const updatedSub = await updateSubmissionStatus(submission.id, status, decisionReason);
             setSubmission(updatedSub);
             
-            const adminName = user.username;
-            const applicantName = submission.username;
-            const quizName = submission.quizTitle;
-            const reasonText = decisionReason || 'لم يتم تحديد سبب';
-
-            // 2. Send Public Log (To Submissions/Log Channel)
-            const logEmbed = {
-                title: status === 'accepted' ? '✅ تم قبول التقديم' : '❌ تم رفض التقديم',
-                description: `**المتقدم:** ${applicantName}\n**الإداري:** ${adminName}\n**التقديم:** ${quizName}\n**السبب:** ${reasonText}`,
-                color: status === 'accepted' ? 0x22C55E : 0xEF4444,
-                author: { name: adminName, icon_url: user.avatar },
-                timestamp: new Date().toISOString(),
-                footer: { text: 'سجلات التقديمات' }
-            };
-            await sendDiscordLog(config, logEmbed, 'submission');
-
-            // 3. Send Detailed DM to Applicant
-            let targetId = (submission as any).discord_id; 
-            if (!targetId && submission.user_id && supabase) {
-                const { data } = await supabase.from('profiles').select('discord_id').eq('id', submission.user_id).single();
-                if (data) targetId = data.discord_id;
-            }
-            
-            if (targetId) {
-                // Use default logo if lookup fails or to avoid delay, but try to use submission data/user avatar if stored
-                // We will try to get the user avatar if possible, otherwise fallback
-                let applicantAvatarUrl = config.LOGO_URL;
-                try {
-                    // We can reuse the 'user_id' to fetch profile avatar from Supabase directly which is faster
-                    const { data } = await supabase!.from('profiles').select('avatar_url').eq('id', submission.user_id).single();
-                    if (data?.avatar_url) applicantAvatarUrl = data.avatar_url;
-                } catch {
-                    // Ignore avatar fetch errors, fallback to default logo
-                }
-
-                const dmEmbed = {
-                    title: status === 'accepted' ? '🎉 مبروك! تم قبول تقديمك' : '❌ نأسف، تم رفض تقديمك',
-                    color: status === 'accepted' ? 0x22C55E : 0xEF4444,
-                    thumbnail: { url: applicantAvatarUrl },
-                    fields: [
-                        { name: "👤 الاسم", value: applicantName, inline: true },
-                        { name: "📄 التقديم", value: quizName, inline: true },
-                        { name: "📅 التاريخ", value: new Date(submission.submittedAt).toLocaleDateString('en-GB'), inline: true },
-                        { name: "📝 الحالة", value: status === 'accepted' ? "مقبول" : "مرفوض", inline: true },
-                        { name: "📋 الملاحظات", value: reasonText }
-                    ],
-                    timestamp: new Date().toISOString(),
-                    footer: { text: config.COMMUNITY_NAME }
-                };
-                await sendDiscordLog(config, dmEmbed, 'dm', targetId);
-            }
+            // 2. Log Action (Public & DM)
+            await logSubmissionAction(
+                config, 
+                user, 
+                { id: submission.user_id || '', name: submission.username }, 
+                submission.quizTitle, 
+                status === 'accepted' ? 'Accepted' : 'Rejected', 
+                decisionReason
+            );
 
             showToast(`تم ${status === 'accepted' ? 'قبول' : 'رفض'} التقديم وإرسال السجلات.`, 'success');
             navigate('/admin');

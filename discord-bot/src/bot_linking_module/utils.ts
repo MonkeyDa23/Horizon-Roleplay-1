@@ -27,7 +27,12 @@ export const logToDiscord = async (client: Client, type: 'SUCCESS' | 'ERROR' | '
         const channelId = channelMap[category] || env.WEBSITE_BOT_CHANNEL_ID;
         if (!channelId) return;
 
-        const channel = await client.channels.fetch(channelId) as TextChannel;
+        // Use Log Guild if configured, otherwise default guild
+        const guildId = env.LOG_GUILD_ID || env.DISCORD_GUILD_ID;
+        const guild = await client.guilds.fetch(guildId).catch(() => null);
+        if (!guild) return;
+
+        const channel = await guild.channels.fetch(channelId).catch(() => null) as TextChannel;
         if (!channel) return;
 
         const embed = new EmbedBuilder()
@@ -36,10 +41,26 @@ export const logToDiscord = async (client: Client, type: 'SUCCESS' | 'ERROR' | '
             .setColor(COLORS[type])
             .addFields(fields)
             .setTimestamp()
-            .setFooter({ text: `Florida RP | ${category} Logs`, iconURL: client.user?.displayAvatarURL() });
+            .setThumbnail('https://cdn-icons-png.flaticon.com/512/2910/2910768.png') // Default log icon
+            .setFooter({ text: `Florida RP | ${category} Logs`, iconURL: guild.iconURL() || undefined });
 
         await channel.send({ embeds: [embed] });
     } catch (error) {
         console.error(`[LOG ERROR - ${category}]:`, error);
+    }
+};
+
+export const sendDM = async (client: Client, userId: string, embedData: any) => {
+    try {
+        const user = await client.users.fetch(userId).catch(() => null);
+        if (!user) return;
+
+        const embed = new EmbedBuilder(embedData)
+            .setTimestamp()
+            .setFooter({ text: 'Florida Roleplay - نظام الإشعارات التلقائي' });
+
+        await user.send({ embeds: [embed] }).catch(err => console.warn(`Could not send DM to ${userId}:`, err.message));
+    } catch (error) {
+        console.error(`[DM ERROR]:`, error);
     }
 };

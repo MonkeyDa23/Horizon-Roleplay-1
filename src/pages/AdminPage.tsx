@@ -7,7 +7,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { PermissionKey } from '../types';
 import SEO from '../components/SEO';
 import { UserCog, FileText, Server, BookCopy, Store, Languages, Palette, Search, ShieldCheck, ShieldQuestion, Bell, LayoutGrid, Users } from 'lucide-react';
-import { logAdminPageVisit, sendDiscordLog } from '../lib/api'; 
+import { logAdminPageVisit, sendDiscordLog, logAdminAction } from '../lib/api'; 
 import { useConfig } from '../contexts/ConfigContext';
 
 // Import Panels
@@ -85,16 +85,13 @@ const AdminPage: React.FC = () => {
             logAdminPageVisit(translatedPage).catch(err => console.error("Failed to log visit:", err));
             
             // 2. Log to Discord (Admin Channel) - Stealthy navigation log
-            const embed = {
-                title: "👀 تصفح لوحة التحكم",
-                description: `قام المشرف **${user.username}** بالانتقال إلى صفحة: **${translatedPage}**`,
-                color: 0x95A5A6, // Greyish
-                author: { name: user.username, icon_url: user.avatar },
-                timestamp: new Date().toISOString(),
-                footer: { text: "نظام المراقبة" }
-            };
-            // Use 'admin' log type which maps to log_channel_admin
-            sendDiscordLog(config, embed, 'admin').catch(console.error);
+            logAdminAction(
+                config, 
+                user, 
+                "تصفح لوحة التحكم", 
+                `انتقل المسؤول إلى صفحة: **${translatedPage}**`, 
+                'INFO'
+            ).catch(console.error);
         }
     }, [activeTab, user, hasPermission, config, t]);
 

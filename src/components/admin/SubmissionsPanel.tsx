@@ -5,7 +5,7 @@ import { useLocalization } from '../../contexts/LocalizationContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfig } from '../../contexts/ConfigContext';
-import { getSubmissions, deleteSubmission, updateSubmissionStatus, sendDiscordLog } from '../../lib/api';
+import { getSubmissions, deleteSubmission, updateSubmissionStatus, sendDiscordLog, logSubmissionAction } from '../../lib/api';
 import { supabase } from '../../lib/supabaseClient';
 import type { QuizSubmission, SubmissionStatus } from '../../types';
 import { Eye, Loader2, Trash2, Search, Filter } from 'lucide-react';
@@ -75,15 +75,13 @@ const SubmissionsPanel: React.FC = () => {
                 fetchData();
 
                 // --- LOG ---
-                const embed = {
-                    title: "🗑️ حذف تقديم",
-                    description: `قام المشرف **${user.username}** بحذف تقديم **${submission.quizTitle}** الخاص بالمستخدم **${submission.username}**.`,
-                    color: 0xEF4444, // Red
-                    author: { name: user.username, icon_url: user.avatar },
-                    timestamp: new Date().toISOString(),
-                    footer: { text: "سجل التقديمات" }
-                };
-                await sendDiscordLog(config, embed, 'admin');
+                await logSubmissionAction(
+                    config, 
+                    user, 
+                    submission, 
+                    'DELETED', 
+                    `قام المسؤول بحذف التقديم نهائياً.`
+                );
 
             } catch (e) {
                 showToast((e as Error).message, 'error');
@@ -97,34 +95,14 @@ const SubmissionsPanel: React.FC = () => {
             await updateSubmissionStatus(id, 'taken');
             showToast('Order taken successfully.', 'success');
             
-            // --- LOG (Channel) ---
-            const embed = {
-                title: "✋ استلام تقديم",
-                description: `قام المشرف **${user.username}** باستلام تقديم **${submission.quizTitle}** الخاص بـ **${submission.username}**.`,
-                color: 0xFFA500, // Orange
-                author: { name: user.username, icon_url: user.avatar },
-                timestamp: new Date().toISOString(),
-                footer: { text: "سجل التقديمات" }
-            };
-            await sendDiscordLog(config, embed, 'submission');
-
-            // --- DM to User ---
-            let targetId = (submission as any).discord_id; 
-            if (!targetId && submission.user_id && supabase) {
-                const { data } = await supabase.from('profiles').select('discord_id').eq('id', submission.user_id).single();
-                if (data) targetId = data.discord_id;
-            }
-
-            if (targetId) {
-                const dmEmbed = {
-                    title: `👨‍💻 تم استلام طلبك`,
-                    description: `مرحباً، تم استلام تقديمك لـ **${submission.quizTitle}** وهو الآن قيد المراجعة من قبل المشرف **${user.username}**.`,
-                    color: 0xFFA500,
-                    footer: { text: config.COMMUNITY_NAME },
-                    timestamp: new Date().toISOString(),
-                };
-                await sendDiscordLog(config, dmEmbed, 'dm', targetId);
-            }
+            // --- LOG ---
+            await logSubmissionAction(
+                config, 
+                user, 
+                submission, 
+                'TAKEN', 
+                `قام المسؤول باستلام التقديم للمراجعة.`
+            );
 
             fetchData();
         } catch (e) {

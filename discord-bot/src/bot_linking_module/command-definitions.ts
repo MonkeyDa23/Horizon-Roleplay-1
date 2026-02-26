@@ -12,8 +12,8 @@ const unlinkCommand = new SlashCommandBuilder()
     .setName('unlink')
     .setDescription('Unlink your MTA account from your Discord account.');
 
-const showLinkStatusCommand = new SlashCommandBuilder()
-    .setName('showlinkstatus')
+const showStatusCommand = new SlashCommandBuilder()
+    .setName('showstatus')
     .setDescription('[Admin] Show the link status of a user.')
     .addUserOption(option =>
         option.setName('user')
@@ -31,6 +31,6 @@ const forceUnlinkCommand = new SlashCommandBuilder()
 export const commands = [
     linkCommand.toJSON(),
     unlinkCommand.toJSON(),
-    showLinkStatusCommand.toJSON(),
+    showStatusCommand.toJSON(),
     forceUnlinkCommand.toJSON(),
 ];

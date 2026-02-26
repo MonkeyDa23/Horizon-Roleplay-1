@@ -8,17 +8,20 @@ export const handleShowLinkStatusCommand = async (interaction: CommandInteractio
     const member = interaction.member as GuildMember;
     const adminRoleId = env.DISCORD_ADMIN_ROLE_ID;
 
-    // Check for admin permissions
+    // Strict permission check
     const hasRole = adminRoleId ? member.roles.cache.has(adminRoleId) : false;
     const isOwner = member.permissions.has('Administrator');
 
     if (!hasRole && !isOwner) {
-        await interaction.reply({ content: '❌ ليس لديك صلاحية لاستخدام هذا الأمر.', ephemeral: true });
+        await interaction.reply({ content: '❌ ليس لديك صلاحية لاستخدام هذا الأمر. يتطلب رتبة الإدارة العليا.', ephemeral: true });
         return;
     }
 
     const targetUser = interaction.options.getUser('user', true);
     const adminUser = interaction.user;
+    
+    await interaction.deferReply({ ephemeral: true });
+
     let connection;
     try {
         connection = await pool.getConnection();
@@ -29,25 +32,30 @@ export const handleShowLinkStatusCommand = async (interaction: CommandInteractio
 
         if (Array.isArray(rows) && rows.length > 0) {
             const account = (rows as any)[0];
-            await interaction.reply({ content: `User ${targetUser.tag} is linked to MTA account: **${account.username}** (Serial: \`${account.mtaserial}\`)`, ephemeral: true });
+            await interaction.editReply({ 
+                content: `🔍 **معلومات الربط لـ ${targetUser.tag}:**\n\n` +
+                         `• **حساب اللعبة:** \`${account.username}\`\n` +
+                         `• **السيريال:** \`${account.mtaserial}\`\n` +
+                         `• **الآيدي:** <@${targetUser.id}>`
+            });
             
             await logToDiscord(client, 'INFO', '🔍 استعلام عن حالة ربط', `قام مسؤول بالاستعلام عن حالة ربط مستخدم.`, 'ADMIN', [
-                { name: 'المسؤول', value: `${adminUser.tag} (${adminUser.id})`, inline: true },
-                { name: 'المستهدف', value: `${targetUser.tag} (${targetUser.id})`, inline: true },
+                { name: 'المسؤول', value: `${adminUser.tag} (<@${adminUser.id}>)`, inline: true },
+                { name: 'المستهدف', value: `${targetUser.tag} (<@${targetUser.id}>)`, inline: true },
                 { name: 'النتيجة', value: `مربوط بـ \`${account.username}\``, inline: false }
             ]);
         } else {
-            await interaction.reply({ content: `User ${targetUser.tag} is not linked.`, ephemeral: true });
+            await interaction.editReply({ content: `❌ المستخدم **${targetUser.tag}** غير مربوط بأي حساب MTA حالياً.` });
             
             await logToDiscord(client, 'INFO', '🔍 استعلام عن حالة ربط', `قام مسؤول بالاستعلام عن حالة ربط مستخدم.`, 'ADMIN', [
-                { name: 'المسؤول', value: `${adminUser.tag} (${adminUser.id})`, inline: true },
-                { name: 'المستهدف', value: `${targetUser.tag} (${targetUser.id})`, inline: true },
+                { name: 'المسؤول', value: `${adminUser.tag} (<@${adminUser.id}>)`, inline: true },
+                { name: 'المستهدف', value: `${targetUser.tag} (<@${targetUser.id}>)`, inline: true },
                 { name: 'النتيجة', value: `غير مربوط`, inline: false }
             ]);
         }
     } catch (error) {
         console.error('ShowLinkStatus error:', error);
-        await interaction.reply({ content: 'An error occurred.', ephemeral: true });
+        await interaction.editReply({ content: '❌ حدث خطأ أثناء الاستعلام عن الحالة.' });
     } finally {
         if (connection) connection.release();
     }

@@ -6,7 +6,7 @@ import { setupCoreModule } from './core_module/index.js';
 // Import command handlers
 import { handleLinkCommand } from './bot_linking_module/commands/link.js';
 import { handleUnlinkCommand } from './bot_linking_module/commands/unlink.js';
-import { handleShowLinkStatusCommand } from './bot_linking_module/commands/showlinkstatus.js';
+import { handleShowLinkStatusCommand } from './bot_linking_module/commands/showstatus.js';
 import { handleForceUnlinkCommand } from './bot_linking_module/commands/forceunlink.js';
 import { logToDiscord } from './bot_linking_module/utils.js';
 
@@ -55,7 +55,7 @@ client.on(Events.InteractionCreate, async (interaction: Interaction<CacheType>) 
 
         if (commandName === 'link') await handleLinkCommand(interaction, client);
         else if (commandName === 'unlink') await handleUnlinkCommand(interaction, client);
-        else if (commandName === 'showlinkstatus') await handleShowLinkStatusCommand(interaction, client);
+        else if (commandName === 'showstatus') await handleShowLinkStatusCommand(interaction, client);
         else if (commandName === 'forceunlink') await handleForceUnlinkCommand(interaction, client);
     } catch (error) {
         console.error(error);

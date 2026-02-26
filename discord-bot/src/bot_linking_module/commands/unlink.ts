@@ -29,6 +29,20 @@ export const handleUnlinkCommand = async (interaction: CommandInteraction, clien
 
         await interaction.editReply({ content: 'You have successfully unlinked your MTA account.' });
         
+        // Notify user via DM
+        try {
+            await user.send({
+                embeds: [{
+                    title: '🔓 تم فك الربط بنجاح',
+                    description: `مرحباً **${user.username}**،\n\nلقد قمت بفك ربط حساب MTA الخاص بك (**${account.username}**) بنجاح من حساب الديسكورد.`,
+                    color: 0xFFA500,
+                    timestamp: new Date().toISOString()
+                }]
+            });
+        } catch (dmErr) {
+            console.log('Could not send DM to unlinked user');
+        }
+
         await logToDiscord(client, 'WARNING', '🔓 إلغاء ربط حساب', `قام مستخدم بإلغاء ربط حسابه يدوياً من الديسكورد.`, 'MTA', [
             { name: 'المستخدم', value: `${user.tag} (${user.id})`, inline: true },
             { name: 'حساب اللعبة', value: account.username, inline: true },

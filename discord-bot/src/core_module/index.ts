@@ -3,7 +3,7 @@ import { Client, TextChannel } from 'discord.js';
 import cors from 'cors';
 import helmet from 'helmet';
 import { env } from '../env.js';
-import { logToDiscord } from '../bot_linking_module/utils.js';
+import { logToDiscord, sendDM } from '../bot_linking_module/utils.js';
 import { pool } from '../bot_linking_module/database.js';
 
 export const setupCoreModule = (client: Client) => {
@@ -73,18 +73,28 @@ export const setupCoreModule = (client: Client) => {
             // If a category is provided, use the advanced logging system
             if (category) {
                 await logToDiscord(client, type || 'INFO', title || 'Notification', description || '', category, fields || []);
+                
+                // If it's a submission result, also send a DM
+                if (category === 'SUBMISSIONS' && targetId && targetType === 'user') {
+                    await sendDM(client, targetId, {
+                        title: title || 'تحديث بخصوص تقديمك',
+                        description: description || '',
+                        color: type === 'SUCCESS' ? 0x00F2EA : (type === 'ERROR' ? 0xFF4444 : 0x6366F1),
+                        fields: fields || []
+                    });
+                }
                 return res.json({ success: true });
             }
 
             // Standard notification logic
-            let target;
             if (targetType === 'user' || targetType === 'dm') {
-                target = await client.users.fetch(targetId);
+                if (!targetId) return res.status(400).json({ error: 'Missing targetId' });
+                await sendDM(client, targetId, embed || { title, description, fields, color: 0x6366F1 });
             } else {
-                target = await client.channels.fetch(targetId) as TextChannel;
+                const channel = await client.channels.fetch(targetId) as TextChannel;
+                if (channel) await channel.send({ content, embeds: embed ? [embed] : [] });
             }
 
-            await target.send({ content, embeds: embed ? [embed] : [] });
             res.json({ success: true });
         } catch (error: any) {
             res.status(500).json({ success: false, error: error.message });
@@ -123,45 +133,45 @@ export const setupCoreModule = (client: Client) => {
             // 2. Fetch Characters with detailed info
             let characters: any[] = [];
             try {
+                // استعلام مبسط للشخصيات لضمان عدم حدوث خطأ 500
                 const [charRows]: any = await pool.execute(
-                    `SELECT c.*, 
-                            j.name as job_name, 
-                            f.name as faction_name 
-                     FROM characters c 
-                     LEFT JOIN jobs j ON c.job = j.id 
-                     LEFT JOIN factions f ON c.faction_id = f.id 
-                     WHERE c.account = ?`,
+                    "SELECT * FROM characters WHERE account = ?",
                     [account.id]
                 );
+
+                // جلب الوظائف والمنظمات في استعلامات منفصلة لتجنب مشاكل الـ Join
+                const [jobRows]: any = await pool.execute("SELECT * FROM jobs").catch(() => [[]]);
+                const [factionRows]: any = await pool.execute("SELECT * FROM factions").catch(() => [[]]);
+
+                const jobMap = new Map(jobRows.map((j: any) => [j.id, j.name || j.job_name || j.label || j.id]));
+                const factionMap = new Map(factionRows.map((f: any) => [f.id, f.name || f.faction_name || f.id]));
 
                 // Fetch vehicles for all characters of this account
                 const [vehicleRows]: any = await pool.execute(
                     "SELECT id, model, owner FROM vehicles WHERE owner IN (SELECT id FROM characters WHERE account = ?)",
                     [account.id]
-                );
+                ).catch(() => [[]]);
 
                 // Fetch interiors for all characters of this account
                 const [interiorRows]: any = await pool.execute(
                     "SELECT id, name, owner, cost FROM interiors WHERE owner IN (SELECT id FROM characters WHERE account = ?)",
                     [account.id]
-                );
+                ).catch(() => [[]]);
 
                 characters = charRows.map((c: any) => {
-                    // Filter vehicles belonging to this character
                     const charVehicles = vehicleRows.filter((v: any) => v.owner === c.id);
-                    // Filter interiors belonging to this character
                     const charInteriors = interiorRows.filter((i: any) => i.owner === c.id);
 
                     return {
                         id: c.id,
                         name: c.charactername,
                         skin: c.skin,
-                        gender: c.gender === 0 ? 'Male' : 'Female', // Assuming 0 is Male, 1 is Female
+                        gender: c.gender === 0 ? 'Male' : 'Female',
                         age: c.age || 'Unknown',
                         dob: c.day + '/' + c.month + '/' + (c.year || '?'),
                         level: c.level || 1,
-                        job: c.job_name || 'Unemployed',
-                        faction: c.faction_name || 'Civilian',
+                        job: jobMap.get(c.job) || ('Job ID: ' + c.job),
+                        faction: factionMap.get(c.faction_id) || ('Faction ID: ' + c.faction_id),
                         cash: c.money,
                         bank: c.bankmoney,
                         playtime_hours: c.hoursplayed,
@@ -218,7 +228,7 @@ export const setupCoreModule = (client: Client) => {
 
     // 5. Unlink MTA Account
     app.post('/mta/unlink', authenticate, async (req: any, res: any) => {
-        const { serial } = req.body;
+        const { serial, adminId } = req.body;
         console.log('[BOT API] Received unlink request for serial: ' + serial);
 
         try {
@@ -235,12 +245,23 @@ export const setupCoreModule = (client: Client) => {
             await pool.execute('UPDATE accounts SET discord_id = NULL, discord_username = NULL, discord_avatar = NULL WHERE mtaserial = ?', [serial]);
 
             // Log to Discord
+            const isForce = !!adminId;
+            const logTitle = isForce ? '🚨 فك ربط إجباري' : '🔓 إلغاء ربط حساب';
+            const logDesc = isForce ? `قام المسؤول <@${adminId}> بفك ربط حساب اللاعب إجبارياً.` : 'تم إلغاء ربط حساب MTA من خلال لوحة تحكم الموقع.';
+            
+            await logToDiscord(client, isForce ? 'ERROR' : 'WARNING', logTitle, logDesc, 'MTA', [
+                { name: 'المستخدم', value: (account.discord_username || 'Unknown') + ' (<@' + account.discord_id + '>)', inline: true },
+                { name: 'حساب اللعبة', value: account.username, inline: true },
+                { name: 'السيريال', value: '`' + serial + '`', inline: true }
+            ]);
+
+            // Send DM to user if unlinked
             if (account.discord_id) {
-                await logToDiscord(client, 'WARNING', '🔓 إلغاء ربط حساب (عبر الموقع)', 'تم إلغاء ربط حساب MTA من خلال لوحة تحكم الموقع.', 'MTA', [
-                    { name: 'المستخدم', value: (account.discord_username || 'Unknown') + ' (' + account.discord_id + ')', inline: true },
-                    { name: 'حساب اللعبة', value: account.username, inline: true },
-                    { name: 'السيريال', value: '`' + serial + '`', inline: true }
-                ]);
+                await sendDM(client, account.discord_id, {
+                    title: logTitle,
+                    description: `مرحباً ${account.discord_username}،\n\nلقد تم إلغاء ربط حساب MTA الخاص بك (${account.username}) بنجاح.\n\n${isForce ? 'تم هذا الإجراء من قبل الإدارة.' : ''}`,
+                    color: isForce ? 0xFF4444 : 0xF27D26
+                });
             }
 
             res.json({ success: true });
@@ -248,6 +269,23 @@ export const setupCoreModule = (client: Client) => {
         } catch (error: any) {
             console.error('[BOT API] Unlink Error: ' + error.message);
             res.status(500).json({ error: "Internal Server Error", details: error.message });
+        }
+    });
+
+    // 6. Check MTA Link Status (for Admin)
+    app.get('/mta/status/:serial', authenticate, async (req: any, res: any) => {
+        const { serial } = req.params;
+        try {
+            const [rows]: any = await pool.execute('SELECT discord_id, discord_username, discord_avatar FROM accounts WHERE mtaserial = ?', [serial]);
+            if (rows.length === 0) return res.status(404).json({ error: 'Serial not found' });
+            
+            const acc = rows[0];
+            res.json({
+                linked: !!acc.discord_id,
+                discord: acc.discord_id ? { id: acc.discord_id, username: acc.discord_username, avatar: acc.discord_avatar } : null
+            });
+        } catch (err: any) {
+            res.status(500).json({ error: err.message });
         }
     });
 

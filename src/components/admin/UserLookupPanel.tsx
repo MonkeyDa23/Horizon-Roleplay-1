@@ -5,7 +5,7 @@ import { useLocalization } from '../../contexts/LocalizationContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useConfig } from '../../contexts/ConfigContext';
-import { lookupUser, banUser, unbanUser, addBalance, createInvoice, getUserInvoices, sendDiscordLog, getProducts } from '../../lib/api';
+import { lookupUser, banUser, unbanUser, addBalance, createInvoice, getUserInvoices, sendDiscordLog, getProducts, logAdminAction, logFinanceAction } from '../../lib/api';
 import type { UserLookupResult, DiscordRole, Invoice, Product } from '../../types';
 import Modal from '../Modal';
 import { Loader2, Search, User, Ban, CheckCircle, Coins, Receipt, PlusCircle, Trash2 } from 'lucide-react';
@@ -74,17 +74,14 @@ const UserLookupPanel: React.FC = () => {
         try {
             await banUser(searchResult.id, banReason, banDuration);
             
-            // Log to Ban Channel
-            const logEmbed = {
-                title: "🔒 حظر مستخدم",
-                description: `قام المشرف **${adminUser?.username}** بحظر العضو **${searchResult.username}**.\n\n**السبب:** ${banReason}\n**المدة:** ${banDuration ? banDuration + ' ساعة' : 'مؤبد'}`,
-                color: 0xEF4444,
-                author: { name: adminUser?.username, icon_url: adminUser?.avatar },
-                thumbnail: { url: searchResult.avatar },
-                timestamp: new Date().toISOString(),
-                footer: { text: "نظام الحماية" }
-            };
-            await sendDiscordLog(config, logEmbed, 'ban');
+            // Log Action
+            await logAdminAction(
+                config, 
+                adminUser!, 
+                "حظر مستخدم", 
+                `تم حظر العضو **${searchResult.username}**.\n**السبب:** ${banReason}\n**المدة:** ${banDuration ? banDuration + ' ساعة' : 'مؤبد'}`, 
+                'ERROR'
+            );
 
             // DM Notification to User
             const dmEmbed = {
@@ -115,14 +112,13 @@ const UserLookupPanel: React.FC = () => {
             try {
                 await unbanUser(searchResult.id);
                 
-                const logEmbed = {
-                    title: "🔓 رفع حظر",
-                    description: `قام المشرف **${adminUser?.username}** برفع الحظر عن العضو **${searchResult.username}**.`,
-                    color: 0x22C55E,
-                    author: { name: adminUser?.username, icon_url: adminUser?.avatar },
-                    timestamp: new Date().toISOString()
-                };
-                await sendDiscordLog(config, logEmbed, 'ban');
+                await logAdminAction(
+                    config, 
+                    adminUser!, 
+                    "رفع حظر", 
+                    `تم رفع الحظر عن العضو **${searchResult.username}**.`, 
+                    'SUCCESS'
+                );
 
                 showToast('User unbanned successfully.', 'success');
                 handleSearch();
@@ -139,37 +135,15 @@ const UserLookupPanel: React.FC = () => {
         try {
             const newBalance = await addBalance(searchResult.id, balanceAmount, `Added by admin ${adminUser?.username}`);
             
-            // Log to FINANCE Channel
-            const logEmbed = {
-                title: "💰 إضافة رصيد",
-                description: `قام المشرف **${adminUser?.username}** بإضافة رصيد لحساب **${searchResult.username}**.`,
-                color: 0x22C55E, // Green
-                fields: [
-                    { name: "المبلغ المضاف", value: `$${balanceAmount.toLocaleString()}`, inline: true },
-                    { name: "الرصيد الجديد", value: `$${newBalance.toLocaleString()}`, inline: true }
-                ],
-                author: { name: adminUser?.username, icon_url: adminUser?.avatar },
-                thumbnail: { url: searchResult.avatar },
-                timestamp: new Date().toISOString(),
-                footer: { text: "السجل المالي" }
-            };
-            // CHANGED: Log to 'finance' instead of 'admin'
-            await sendDiscordLog(config, logEmbed, 'finance');
-
-            // DM Notification to User
-            const dmEmbed = {
-                title: "✅ تم شحن رصيدك",
-                description: `مرحباً **${searchResult.username}**،\n\nتمت إضافة مبلغ إلى محفظتك بنجاح.`,
-                color: 0x22C55E,
-                thumbnail: { url: config.LOGO_URL },
-                fields: [
-                    { name: "المبلغ المضاف", value: `$${balanceAmount.toLocaleString()}`, inline: true },
-                    { name: "رصيدك الحالي", value: `$${newBalance.toLocaleString()}`, inline: true }
-                ],
-                timestamp: new Date().toISOString(),
-                footer: { text: config.COMMUNITY_NAME }
-            };
-            await sendDiscordLog(config, dmEmbed, 'dm', searchResult.discordId);
+            // Log Action (Public & DM)
+            await logFinanceAction(
+                config, 
+                adminUser!, 
+                { id: searchResult.discordId, name: searchResult.username }, 
+                balanceAmount, 
+                'Add Balance', 
+                `شحن رصيد من قبل الإدارة`
+            );
 
             showToast(t('balance_added_success'), 'success');
             setBalanceModalOpen(false);
@@ -214,36 +188,15 @@ const UserLookupPanel: React.FC = () => {
         try {
             await createInvoice(searchResult.id, invoiceItems, totalAmount);
             
-            // Send DM Notification
-            const dmEmbed = {
-                title: "🧾 فاتورة شراء جديدة",
-                description: `مرحباً **${searchResult.username}**،\n\nتم إصدار فاتورة جديدة لحسابك من قبل الإدارة.`,
-                color: 0x00F2EA,
-                fields: [
-                    { name: "🛒 المنتجات", value: invoiceItems.map(i => `- ${i.productName}`).join('\n') },
-                    { name: "💰 الإجمالي", value: `$${totalAmount.toFixed(2)}` },
-                    { name: "📅 التاريخ", value: new Date().toLocaleDateString() }
-                ],
-                thumbnail: { url: invoiceItems[0]?.imageUrl || config.LOGO_URL },
-                timestamp: new Date().toISOString(),
-                footer: { text: config.COMMUNITY_NAME }
-            };
-            await sendDiscordLog(config, dmEmbed, 'dm', searchResult.discordId);
-
-            // Log to FINANCE Channel
-            const logEmbed = {
-                title: "🧾 إنشاء فاتورة",
-                description: `قام المشرف **${adminUser?.username}** بإنشاء فاتورة للمستخدم **${searchResult.username}**.`,
-                color: 0x3B82F6, // Blue
-                fields: [
-                    { name: "عدد المنتجات", value: `${invoiceItems.length}`, inline: true },
-                    { name: "قيمة الفاتورة", value: `$${totalAmount.toFixed(2)}`, inline: true }
-                ],
-                author: { name: adminUser?.username, icon_url: adminUser?.avatar },
-                timestamp: new Date().toISOString()
-            };
-            // CHANGED: Log to 'finance' instead of 'admin'
-            await sendDiscordLog(config, logEmbed, 'finance');
+            // Log Action (Public & DM)
+            await logFinanceAction(
+                config, 
+                adminUser!, 
+                { id: searchResult.discordId, name: searchResult.username }, 
+                totalAmount, 
+                'Invoice Created', 
+                `فاتورة لمنتجات: ${invoiceItems.map(i => i.productName).join(', ')}`
+            );
 
             showToast(t('invoice_created_success'), 'success');
             setInvoiceModalOpen(false);

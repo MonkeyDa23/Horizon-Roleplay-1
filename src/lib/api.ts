@@ -192,6 +192,71 @@ export const logAdminPageVisit = async (pageName: string): Promise<void> => {
   await supabase.rpc('log_page_visit', { p_page_name: pageName });
 };
 
+export const logAdminAction = async (config: AppConfig, user: User, action: string, details: string, type: 'SUCCESS' | 'ERROR' | 'INFO' | 'WARNING' = 'INFO') => {
+    const embed = {
+        title: `🛠️ إجراء إداري: ${action}`,
+        description: `قام المسؤول **${user.username}** بإجراء تعديل.\n\n**التفاصيل:**\n${details}`,
+        color: type === 'SUCCESS' ? 0x00F2EA : (type === 'ERROR' ? 0xFF4444 : 0x6366F1),
+        author: { name: user.username, icon_url: user.avatar },
+        timestamp: new Date().toISOString(),
+        footer: { text: "نظام مراقبة الإدارة" }
+    };
+    return sendDiscordLog(config, embed, 'admin');
+};
+
+export const logSubmissionAction = async (config: AppConfig, admin: User, applicant: { id: string, name: string }, quizName: string, status: 'Accepted' | 'Rejected', reason?: string) => {
+    const isAccepted = status === 'Accepted';
+    const embed = {
+        title: isAccepted ? '✅ قبول تقديم' : '❌ رفض تقديم',
+        description: `تمت مراجعة تقديم **${applicant.name}** على **${quizName}**.`,
+        color: isAccepted ? 0x00F2EA : 0xFF4444,
+        fields: [
+            { name: 'المسؤول', value: admin.username, inline: true },
+            { name: 'صاحب التقديم', value: `<@${applicant.id}>`, inline: true },
+            { name: 'الحالة', value: isAccepted ? 'مقبول' : 'مرفوض', inline: true },
+            { name: 'السبب', value: reason || 'لا يوجد سبب محدد', inline: false }
+        ],
+        timestamp: new Date().toISOString()
+    };
+    
+    // Log to channel
+    await sendDiscordLog(config, embed, 'submission');
+    
+    // Send DM to user
+    const dmEmbed = {
+        title: isAccepted ? `🎉 تهانينا! تم قبول تقديمك في ${config.COMMUNITY_NAME}` : `⚠️ نعتذر، تم رفض تقديمك في ${config.COMMUNITY_NAME}`,
+        description: `مرحباً **${applicant.name}**،\n\nتمت مراجعة طلبك بخصوص **${quizName}**.\n\n**الحالة:** ${isAccepted ? 'مقبول ✅' : 'مرفوض ❌'}\n${reason ? `**السبب:** ${reason}` : ''}\n\n${isAccepted ? 'يرجى التوجه للسيرفر للمتابعة.' : 'يمكنك المحاولة مرة أخرى لاحقاً.'}`,
+        color: isAccepted ? 0x00F2EA : 0xFF4444,
+        thumbnail: { url: config.LOGO_URL }
+    };
+    await sendDiscordLog(config, dmEmbed, 'submission_dm', applicant.id);
+};
+
+export const logFinanceAction = async (config: AppConfig, admin: User, target: { id: string, name: string }, amount: number, action: 'Add Balance' | 'Invoice Created', reason?: string) => {
+    const embed = {
+        title: action === 'Add Balance' ? '💰 إضافة رصيد' : '🧾 إنشاء فاتورة',
+        description: `تم إجراء عملية مالية للمستخدم **${target.name}**.`,
+        color: 0x2ECC71,
+        fields: [
+            { name: 'المسؤول', value: admin.username, inline: true },
+            { name: 'المستهدف', value: `<@${target.id}>`, inline: true },
+            { name: 'المبلغ', value: `$${amount.toLocaleString()}`, inline: true },
+            { name: 'السبب', value: reason || 'غير محدد', inline: false }
+        ],
+        timestamp: new Date().toISOString()
+    };
+    
+    await sendDiscordLog(config, embed, 'finance');
+    
+    // DM to user
+    const dmEmbed = {
+        title: action === 'Add Balance' ? '💸 تم إضافة رصيد لحسابك' : '📑 تم إصدار فاتورة جديدة',
+        description: `مرحباً **${target.name}**،\n\n${action === 'Add Balance' ? `لقد تم إضافة **$${amount.toLocaleString()}** إلى رصيدك بنجاح.` : `لقد تم إصدار فاتورة جديدة بقيمة **$${amount.toLocaleString()}**.`}\n\n**السبب:** ${reason || 'غير محدد'}`,
+        color: 0x2ECC71
+    };
+    await sendDiscordLog(config, dmEmbed, 'dm', target.id);
+};
+
 // --- FINANCIAL API ---
 export const addBalance = async (targetUserId: string, amount: number, reason?: string): Promise<number> => {
     const { data, error } = await supabase!.rpc('add_user_balance', { p_target_user_id: targetUserId, p_amount: amount, p_reason: reason });

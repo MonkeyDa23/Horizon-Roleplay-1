@@ -5,7 +5,7 @@ import { useLocalization } from '../../contexts/LocalizationContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useConfig } from '../../contexts/ConfigContext';
-import { getProducts, saveProduct, deleteProduct, getProductCategories, saveProductCategories, sendDiscordLog } from '../../lib/api';
+import { getProducts, saveProduct, deleteProduct, getProductCategories, saveProductCategories, sendDiscordLog, logAdminAction } from '../../lib/api';
 import type { Product, ProductCategory } from '../../types';
 import { useTranslations } from '../../contexts/TranslationsContext';
 import { usePersistentState } from '../../hooks/usePersistentState'; // Imported Hook
@@ -107,16 +107,13 @@ const StorePanel: React.FC = () => {
             showToast('Product saved!', 'success');
 
             // --- DETAILED LOG ---
-            const embed = {
-                title: isNew ? "🆕 منتج جديد" : "🛒 تحديث منتج",
-                description: `قام المشرف **${user.username}** ${isNew ? 'بإضافة' : 'بتعديل'} منتج في المتجر.\n\n**الاسم:** ${editingProduct.nameAr || editingProduct.nameEn}\n**السعر:** $${editingProduct.price}\n**الوصف:** ${editingProduct.descriptionAr || editingProduct.descriptionEn}`,
-                color: isNew ? 0x22C55E : 0xFFA500,
-                author: { name: user.username, icon_url: user.avatar },
-                thumbnail: { url: editingProduct.imageUrl },
-                timestamp: new Date().toISOString(),
-                footer: { text: "سجل المتجر" }
-            };
-            await sendDiscordLog(config, embed, 'admin');
+            await logAdminAction(
+                config, 
+                user, 
+                isNew ? "إضافة منتج جديد" : "تحديث منتج", 
+                `**الاسم:** ${editingProduct.nameAr || editingProduct.nameEn}\n**السعر:** $${editingProduct.price}\n**القسم:** ${editingProduct.category_id ? t(categories.find(c => c.id === editingProduct.category_id)?.nameKey || '') : 'بدون قسم'}`, 
+                isNew ? 'SUCCESS' : 'WARNING'
+            );
 
         } catch (error) {
             showToast(`Error: ${(error as Error).message}`, 'error');
@@ -131,16 +128,13 @@ const StorePanel: React.FC = () => {
             try {
                 await deleteProduct(product.id);
                 
-                const embed = {
-                    title: "🗑️ حذف منتج",
-                    description: `قام المشرف **${user.username}** بحذف المنتج **${t(product.nameKey)}** نهائياً من المتجر.`,
-                    color: 0xEF4444, // Red
-                    author: { name: user.username, icon_url: user.avatar },
-                    thumbnail: { url: product.imageUrl },
-                    timestamp: new Date().toISOString(),
-                    footer: { text: "سجل المتجر" }
-                };
-                await sendDiscordLog(config, embed, 'admin');
+                await logAdminAction(
+                    config, 
+                    user, 
+                    "حذف منتج", 
+                    `قام المسؤول بحذف المنتج **${t(product.nameKey)}** نهائياً من المتجر.`, 
+                    'ERROR'
+                );
 
                 showToast('Product deleted!', 'success');
                 // Refresh list

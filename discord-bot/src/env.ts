@@ -6,6 +6,7 @@ export const env = {
   DISCORD_BOT_TOKEN: process.env.GAME_BOT_TOKEN || process.env.DISCORD_BOT_TOKEN,
   DISCORD_CLIENT_ID: process.env.GAME_BOT_CLIENT_ID || process.env.DISCORD_CLIENT_ID,
   DISCORD_GUILD_ID: process.env.DISCORD_GUILD_ID || '1340118833914249258',
+  LOG_GUILD_ID: process.env.LOG_GUILD_ID, // Dedicated logging server ID
   WEBSITE_BOT_CHANNEL_ID: process.env.WEBSITE_BOT_CHANNEL_ID,
   LOG_CHANNEL_MTA: process.env.LOG_CHANNEL_MTA,
   LOG_CHANNEL_COMMANDS: process.env.LOG_CHANNEL_COMMANDS,

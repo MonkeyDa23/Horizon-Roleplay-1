@@ -5,7 +5,7 @@ import { useLocalization } from '../../contexts/LocalizationContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfig } from '../../contexts/ConfigContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { saveConfig, sendDiscordLog } from '../../lib/api';
+import { saveConfig, sendDiscordLog, logAdminAction } from '../../lib/api';
 import { supabase } from '../../lib/supabaseClient';
 import type { AppConfig } from '../../types';
 import { Loader2 } from 'lucide-react';
@@ -40,15 +40,15 @@ const AppearancePanel: React.FC = () => {
             showToast(t('config_updated_success'), 'success');
 
             // --- DETAILED LOG ---
-            const embed = {
-                title: "⚙️ تحديث الإعدادات العامة",
-                description: `قام المشرف **${user.username}** بتحديث إعدادات المظهر والربط.\n\n**التغييرات:**\n${changes.length > 0 ? changes.join('\n') : 'لم يتم تغيير أي شيء ملموس'}`,
-                color: 0xFFA500, // Orange
-                author: { name: user.username, icon_url: user.avatar },
-                timestamp: new Date().toISOString(),
-                footer: { text: "سجل الإعدادات" }
-            };
-            await sendDiscordLog(config, embed, 'admin');
+            if (changes.length > 0) {
+                await logAdminAction(
+                    config, 
+                    user, 
+                    "تحديث الإعدادات العامة", 
+                    changes.join('\n'), 
+                    'WARNING'
+                );
+            }
 
         } catch (error) {
             showToast((error as Error).message, 'error');

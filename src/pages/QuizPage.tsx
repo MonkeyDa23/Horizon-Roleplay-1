@@ -4,7 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { getQuizById, addSubmission, verifyCaptcha, sendDiscordLog } from '../lib/api';
+import { getQuizById, addSubmission, verifyCaptcha, sendDiscordLog, logSubmissionAction } from '../lib/api';
 import type { Quiz, Answer, CheatAttempt } from '../types';
 import { CheckCircle, Loader2, AlertCircle } from 'lucide-react';
 import { useConfig } from '../contexts/ConfigContext';
@@ -183,43 +183,14 @@ const QuizPage: React.FC = () => {
       // Clear draft
       clearDraft();
 
-      // 2. Log to Admin Channel (Detailed with Direct Link)
-      const hasCheated = cheatLog.length > 0;
-      const adminLink = `${window.location.origin}/admin/submissions/${submission.id}`;
-      const roleName = user.highestRole?.name || 'عضو';
-      
-      const adminEmbed = {
-        title: "📝 تقديم جديد وصل!",
-        description: `قام **${user.username}** بإرسال تقديم جديد.`,
-        color: hasCheated ? 0xEF4444 : 0x3B82F6, 
-        thumbnail: { url: user.avatar },
-        fields: [
-            { name: "👤 الاسم", value: user.username, inline: true },
-            { name: "🔰 الرتبة", value: roleName, inline: true },
-            { name: "📄 التقديم", value: t(quiz.titleKey), inline: true },
-            { name: "⚠️ حالة الغش", value: hasCheated ? `**مشبوه (${cheatLog.length})**` : "نظيف", inline: true },
-            { name: "🔗 الرابط", value: `[**عرض التقديم في لوحة التحكم**](${adminLink})` }
-        ],
-        timestamp: new Date().toISOString(),
-        footer: { text: "نظام التقديمات الذكي" }
-      };
-      sendDiscordLog(config, adminEmbed, 'submission');
-
-      // 3. Send Receipt DM to User (Strict Format: Name, Avatar, Quiz, Date)
-      const userReceiptEmbed = {
-          title: `✅ تم استلام تقديمك بنجاح`,
-          description: `تم استلام طلبك وهو الآن قيد الانتظار للمراجعة.`,
-          color: 0x22C55E, // Green
-          thumbnail: { url: user.avatar },
-          fields: [
-              { name: "👤 الاسم", value: user.username, inline: true },
-              { name: "📄 التقديم", value: t(quiz.titleKey), inline: true },
-              { name: "📅 التاريخ", value: new Date().toLocaleDateString('en-GB'), inline: true }
-          ],
-          timestamp: new Date().toISOString(),
-          footer: { text: config.COMMUNITY_NAME }
-      };
-      sendDiscordLog(config, userReceiptEmbed, 'dm', user.discordId);
+      // 2. Log Action (Admin & User Receipt)
+      await logSubmissionAction(
+          config, 
+          user, 
+          submission, 
+          'NEW', 
+          `قام المستخدم بإرسال تقديم جديد.`
+      );
 
       setQuizState('submitted');
       

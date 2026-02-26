@@ -45,9 +45,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // 1. Login Log (For ALL users)
             const loginEmbed = {
                 title: isNewUser ? '✨ عضو جديد انضم للموقع' : '🔓 تسجيل دخول',
-                description: `**اللاعب:** ${fullUserProfile.username}\n**الآيدي:** \`${fullUserProfile.discordId}\`\n\n${isNewUser ? 'تم تسجيل الدخول للمرة الأولى.' : 'قام اللاعب بتسجيل الدخول للموقع.'}`,
+                description: `**اللاعب:** ${fullUserProfile.username}\n**الآيدي:** \`${fullUserProfile.discordId}\`\n\n${isNewUser ? 'تم تسجيل الدخول للمرة الأولى وإنشاء حساب جديد.' : 'قام اللاعب بتسجيل الدخول للموقع.'}`,
                 color: isNewUser ? 0x00F2EA : 0x6366F1,
                 thumbnail: { url: fullUserProfile.avatar },
+                fields: [
+                    { name: 'اسم المستخدم', value: fullUserProfile.username, inline: true },
+                    { name: 'الآيدي', value: `\`${fullUserProfile.discordId}\``, inline: true },
+                    { name: 'الحالة', value: isNewUser ? 'حساب جديد' : 'مستخدم حالي', inline: true }
+                ],
                 timestamp: new Date().toISOString()
             };
             sendDiscordLog(config, loginEmbed, 'auth').catch(console.error);
@@ -56,7 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (isNewUser) {
                 const dmEmbed = {
                     title: `أهلاً بك في ${config.COMMUNITY_NAME}!`,
-                    description: `مرحباً **${fullUserProfile.username}**،\n\nشكراً لتسجيلك في موقعنا الرسمي. حسابك الآن مفعل ويمكنك التقديم على الوظائف، تصفح المتجر، ومتابعة حالة طلباتك.\n\nنتمنى لك وقتاً ممتعاً!`,
+                    description: `مرحباً **${fullUserProfile.username}**،\n\nشكراً لتسجيلك في موقعنا الرسمي. حسابك الآن مفعل ويمكنك التقديم على الوظائف، تصفح المتجر، ومتابعة حالة طلباتك.\n\n**معلومات حسابك:**\n- **الاسم:** ${fullUserProfile.username}\n- **الآيدي:** \`${fullUserProfile.discordId}\`\n\nنتمنى لك وقتاً ممتعاً!`,
                     color: 0x00A9FF,
                     thumbnail: { url: config.LOGO_URL },
                     timestamp: new Date().toISOString()

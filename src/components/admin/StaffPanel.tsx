@@ -5,7 +5,7 @@ import { useLocalization } from '../../contexts/LocalizationContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfig } from '../../contexts/ConfigContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { getStaff, saveStaff, lookupUser, sendDiscordLog } from '../../lib/api';
+import { getStaff, saveStaff, lookupUser, sendDiscordLog, logAdminAction } from '../../lib/api';
 import { useTranslations } from '../../contexts/TranslationsContext';
 import { usePersistentState } from '../../hooks/usePersistentState';
 import type { StaffMember, UserLookupResult } from '../../types';
@@ -100,15 +100,13 @@ const StaffPanel: React.FC = () => {
                 role_ar: translations[s.role_key]?.ar || ''
             })));
 
-            const embed = {
-                title: "👥 تحديث فريق العمل",
-                description: `قام المشرف **${user.username}** بتحديث قائمة فريق العمل المعروضة في صفحة 'من نحن'.\n\n**عدد الأعضاء الحالي:** ${staff.length}`,
-                color: 0xFFA500, // Orange
-                author: { name: user.username, icon_url: user.avatar },
-                timestamp: new Date().toISOString(),
-                footer: { text: "سجل الإدارة" }
-            };
-            await sendDiscordLog(config, embed, 'admin');
+            await logAdminAction(
+                config, 
+                user, 
+                "تحديث فريق العمل", 
+                `تم تحديث قائمة فريق العمل المعروضة في صفحة 'من نحن'.\n**عدد الأعضاء الحالي:** ${staff.length}`, 
+                'WARNING'
+            );
 
         } catch (error) {
             showToast((error as Error).message, 'error');
