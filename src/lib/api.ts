@@ -4,7 +4,6 @@
  */
 
 import { supabase } from './supabaseClient';
-import { env } from '../env';
 import type { 
   AppConfig, Product, Quiz, QuizSubmission, RuleCategory, Translations, 
   User, DiscordRole, UserLookupResult, Invoice, InvoiceItem,
@@ -59,7 +58,8 @@ export const sendDiscordLog = async (
     config: AppConfig, 
     embed: any, 
     logType: 'admin' | 'ban' | 'submission' | 'submission_dm' | 'auth' | 'dm' | 'finance' | 'store' | 'visit', 
-    targetId?: string
+    targetId?: string,
+    status?: string
 ): Promise<void> => {
   
   let finalTargetId: string | null | undefined = null;
@@ -94,6 +94,7 @@ export const sendDiscordLog = async (
         title: embed.title,
         description: embed.description,
         type,
+        status,
         fields: embed.fields || [],
         embed: targetType === 'user' ? embed : undefined // Only send full embed for DMs
       }),
@@ -223,9 +224,11 @@ export const logSubmissionAction = async (
 
     let embed: any;
     let dmEmbed: any;
+    let status: string | undefined;
 
     switch (action) {
         case 'NEW':
+            status = 'received';
             embed = {
                 title: '📝 تقديم جديد',
                 description: `قام **${applicantName}** بإرسال تقديم جديد على **${quizName}**.`,
@@ -250,6 +253,7 @@ export const logSubmissionAction = async (
             break;
 
         case 'TAKEN':
+            status = 'taken';
             embed = {
                 title: '✋ استلام تقديم',
                 description: `قام المشرف **${admin.username}** باستلام تقديم **${quizName}** الخاص بـ **${applicantName}** للمراجعة.`,
@@ -268,6 +272,7 @@ export const logSubmissionAction = async (
         case 'ACCEPTED':
         case 'REFUSED': {
             const isAccepted = action === 'ACCEPTED';
+            status = isAccepted ? 'accepted' : 'rejected';
             embed = {
                 title: isAccepted ? '✅ قبول تقديم' : '❌ رفض تقديم',
                 description: `تمت مراجعة تقديم **${applicantName}** على **${quizName}**.`,
@@ -290,8 +295,8 @@ export const logSubmissionAction = async (
         }
     }
 
-    if (embed) await sendDiscordLog(config, embed, 'submission');
-    if (dmEmbed && targetId) await sendDiscordLog(config, dmEmbed, 'dm', targetId);
+    if (embed) await sendDiscordLog(config, embed, 'submission', undefined, status);
+    if (dmEmbed && targetId) await sendDiscordLog(config, dmEmbed, 'dm', targetId, status);
 };
 
 export const logFinanceAction = async (config: AppConfig, admin: User, target: { id: string, name: string }, amount: number, action: 'Add Balance' | 'Invoice Created', reason?: string) => {

@@ -24,7 +24,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useCurrency } from '../contexts/CurrencyContext';
 
 const ProfilePage: React.FC = () => {
-  const { user, loading: authLoading, updateUser } = useAuth();
+  const { user, loading: authLoading, refreshUser } = useAuth();
   const { t } = useLocalization();
   const { formatPrice } = useCurrency();
   const navigate = useNavigate();
@@ -40,13 +40,13 @@ const ProfilePage: React.FC = () => {
   const [mtaAccountLoading, setMtaAccountLoading] = useState(false);
   const [mtaAccountError, setMtaAccountError] = useState<string | null>(null);
 
-  const [isMtaLinked, setIsMtaLinked] = useState<boolean | null>(null);
   const [mtaLinkLoading, setMtaLinkLoading] = useState(false);
 
   const [activeTab, setActiveTab] = useState<'discord' | 'mta'>('discord');
   const [selectedCharacter, setSelectedCharacter] = useState<MtaCharacter | null>(null);
 
   const CharacterDetailModal = ({ character, onClose }: { character: MtaCharacter, onClose: () => void }) => {
+    const { formatPrice } = useCurrency();
     return (
       <motion.div 
         initial={{ opacity: 0 }}
@@ -233,18 +233,10 @@ const ProfilePage: React.FC = () => {
       try {
           await unlinkMtaAccount(user.mta_serial);
           
-          // تحديث فوري للواجهة (Optimistic Update)
-          if (user) {
-            const updatedUser = { ...user, mta_serial: null, mta_linked_at: null };
-            updateUser(updatedUser);
-          }
-          
-          setIsMtaLinked(false);
           setMtaAccountInfo(null);
 
           // تحديث البيانات من السيرفر للتأكيد
-          const { user: freshUser } = await forceRefreshUserProfile();
-          updateUser(freshUser);
+          await refreshUser();
           
           showToast('تم إلغاء ربط الحساب بنجاح', 'success');
       } catch (err) {
@@ -253,7 +245,7 @@ const ProfilePage: React.FC = () => {
       } finally {
           setMtaLinkLoading(false);
       }
-  }, [user, showToast, updateUser]);
+  }, [user?.mta_serial, refreshUser, showToast]);
 
   useEffect(() => {
       if (user?.mta_serial) {
@@ -730,10 +722,17 @@ const ProfilePage: React.FC = () => {
                         
                         <div className="mt-12">
                           <div className="p-6 rounded-2xl bg-brand-cyan/5 border border-brand-cyan/20 text-center">
-                            <p className="text-brand-cyan font-bold text-sm mb-2">إلغاء ربط الحساب</p>
-                            <p className="text-text-secondary text-xs leading-relaxed">
-                              لإلغاء ربط حسابك، يرجى استخدام أمر <code className="bg-white/5 px-2 py-1 rounded text-brand-cyan">/unlink</code> داخل سيرفر الديسكورد الخاص بنا.
+                            <p className="text-brand-cyan font-bold text-sm mb-4">إلغاء ربط الحساب</p>
+                            <p className="text-text-secondary text-xs leading-relaxed mb-6">
+                              عند إلغاء ربط حسابك، سيتم مسح جميع بيانات الربط من قاعدة البيانات. يمكنك إعادة الربط لاحقاً من داخل اللعبة.
                             </p>
+                            <button 
+                              onClick={handleUnlinkMta}
+                              disabled={mtaLinkLoading}
+                              className="w-full py-3 rounded-xl bg-red-500/10 text-red-400 font-bold text-sm hover:bg-red-500 hover:text-white transition-all border border-red-500/20 flex items-center justify-center gap-2"
+                            >
+                              {mtaLinkLoading ? <Loader2 className="animate-spin" size={18} /> : <><LogOut size={18} /> إلغاء ربط حساب MTA</>}
+                            </button>
                           </div>
                         </div>
                       </section>
