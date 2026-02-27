@@ -1,4 +1,9 @@
-// src/pages/ProductDetailPage.tsx
+/**
+ * Florida Roleplay - Official Website
+ * Product Detail Page
+ * Copyright (c) 2024 Florida Roleplay. All rights reserved.
+ */
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLocalization } from '../contexts/LocalizationContext';

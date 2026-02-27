@@ -1,3 +1,8 @@
+/**
+ * Florida Roleplay - Official Website
+ * SEO Component
+ * Copyright (c) 2024 Florida Roleplay. All rights reserved.
+ */
 
 import React, { useEffect } from 'react';
 import { useConfig } from '../contexts/ConfigContext';

@@ -180,7 +180,6 @@ const QuizzesPanel: React.FC = () => {
             
             showToast(t('save_quiz') + ' success!', 'success');
 
-            // --- DETAILED LOG ---
             const embed = {
                 title: isNew ? "📝 إنشاء تقديم جديد" : "📝 تعديل تقديم",
                 description: `قام المشرف **${user.username}** ${isNew ? 'بإنشاء' : 'بتعديل'} نموذج التقديم **${editingQuiz.titleAr || editingQuiz.titleEn}**.\n\n**الحالة:** ${editingQuiz.isOpen ? 'مفتوح ✅' : 'مغلق ⛔'}\n**عدد الأسئلة:** ${editingQuiz.questions.length}\n**الرتب المسموحة:** ${editingQuiz.allowedTakeRoles.length > 0 ? editingQuiz.allowedTakeRoles.join(', ') : 'الكل'}`,
@@ -204,7 +203,6 @@ const QuizzesPanel: React.FC = () => {
             try {
                 await deleteQuiz(quiz.id);
                 
-                // --- DETAILED LOG ---
                 const embed = {
                     title: "🗑️ حذف تقديم",
                     description: `قام المشرف **${user.username}** بحذف نموذج التقديم **${t(quiz.titleKey)}** وجميع البيانات المرتبطة به نهائياً.`,

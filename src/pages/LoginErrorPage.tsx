@@ -1,5 +1,9 @@
+/**
+ * Florida Roleplay - Official Website
+ * Login Error Page
+ * Copyright (c) 2024 Florida Roleplay. All rights reserved.
+ */
 
-// src/pages/LoginErrorPage.tsx
 import React from 'react';
 import { AlertTriangle, RefreshCw, LogOut, Wrench, ChevronsRight } from 'lucide-react';
 import { Link } from 'react-router-dom';

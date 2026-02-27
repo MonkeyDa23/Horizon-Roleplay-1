@@ -1,3 +1,9 @@
+/**
+ * Florida Roleplay - Official Website
+ * Navigation Bar Component
+ * Copyright (c) 2024 Florida Roleplay. All rights reserved.
+ */
+
 import React, { useState } from 'react';
 import { NavLink as RouterNavLink, Link, useNavigate } from 'react-router-dom';
 import { useLocalization } from '../contexts/LocalizationContext';

@@ -1,3 +1,9 @@
+/**
+ * Florida Roleplay - Official Website
+ * Character Detail Page
+ * Copyright (c) 2024 Florida Roleplay. All rights reserved.
+ */
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLocalization } from '../contexts/LocalizationContext';

@@ -39,7 +39,6 @@ const AppearancePanel: React.FC = () => {
             await refreshConfig(); // Refresh global config context
             showToast(t('config_updated_success'), 'success');
 
-            // --- DETAILED LOG ---
             if (changes.length > 0) {
                 await logAdminAction(
                     config, 

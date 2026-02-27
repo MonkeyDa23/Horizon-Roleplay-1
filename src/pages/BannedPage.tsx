@@ -1,4 +1,9 @@
-// src/pages/BannedPage.tsx
+/**
+ * Florida Roleplay - Official Website
+ * Banned Page
+ * Copyright (c) 2024 Florida Roleplay. All rights reserved.
+ */
+
 import React from 'react';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { Ban, LogOut } from 'lucide-react';

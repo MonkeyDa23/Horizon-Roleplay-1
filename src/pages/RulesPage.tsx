@@ -1,3 +1,8 @@
+/**
+ * Florida Roleplay - Official Website
+ * Rules Page
+ * Copyright (c) 2024 Florida Roleplay. All rights reserved.
+ */
 
 import React, { useState, useEffect } from 'react';
 import { useLocalization } from '../contexts/LocalizationContext';

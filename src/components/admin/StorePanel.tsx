@@ -106,7 +106,6 @@ const StorePanel: React.FC = () => {
             
             showToast('Product saved!', 'success');
 
-            // --- DETAILED LOG ---
             await logAdminAction(
                 config, 
                 user, 

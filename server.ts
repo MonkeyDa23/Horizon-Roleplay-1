@@ -1,9 +1,13 @@
 import express from 'express';
-import { createServer as createViteServer } from 'vite';
 import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const pool = mysql.createPool({
   host: process.env.MTA_DB_HOST || 'localhost',
@@ -17,9 +21,14 @@ const pool = mysql.createPool({
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3000;
 
   app.use(express.json());
+
+  // Serve static files in production
+  if (process.env.NODE_ENV === 'production') {
+    app.use(express.static(path.join(__dirname, 'dist')));
+  }
 
   // --- PROXY FOR DISCORD BOT ---
   app.all('/api/proxy/*', async (req, res) => {
@@ -101,36 +110,43 @@ async function startServer() {
   app.post('/api/mta/unlink', async (req, res) => {
     try {
       const { serial } = req.body;
-      console.log(`[Server] Forwarding unlink request for ${serial} to Bot API`);
+      console.log(`[Server] Processing unlink request for serial: ${serial}`);
 
+      if (!serial) {
+        return res.status(400).json({ error: 'Serial is required' });
+      }
+
+      // 1. Direct Database Unlink (Primary Action)
+      const [result] = await pool.execute(
+        'UPDATE accounts SET discord_id = NULL, discord_username = NULL, discord_avatar = NULL, discord_discriminator = NULL WHERE mtaserial = ?',
+        [serial]
+      );
+
+      const affectedRows = (result as any).affectedRows;
+
+      // 2. Notify Bot (Secondary/Optional)
       const botApiUrl = process.env.VITE_DISCORD_BOT_API_URL;
       const botApiKey = process.env.VITE_DISCORD_BOT_API_KEY;
 
-      if (!botApiUrl || !botApiKey) {
-        console.error("[Server] Missing Bot API configuration");
-        return res.status(500).json({ error: "Server configuration error" });
+      if (botApiUrl && botApiKey) {
+        fetch(`${botApiUrl}/mta/unlink`, {
+          method: 'POST',
+          headers: {
+            'Authorization': botApiKey,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ serial })
+        }).catch(err => console.error('[Server] Failed to notify bot of unlink:', err));
       }
 
-      const response = await fetch(`${botApiUrl}/mta/unlink`, {
-        method: 'POST',
-        headers: {
-          'Authorization': botApiKey,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ serial })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`[Server] Bot API error: ${response.status} - ${errorText}`);
-        return res.status(response.status).json({ 
-          error: "Failed to unlink account", 
-          details: errorText 
-        });
+      if (affectedRows > 0) {
+        console.log(`[Server] Successfully unlinked account with serial: ${serial}`);
+        res.json({ success: true, message: 'Account unlinked successfully' });
+      } else {
+        // Even if no rows affected (maybe already unlinked), we consider it a success state for the UI
+        console.log(`[Server] No account found or already unlinked for serial: ${serial}`);
+        res.json({ success: true, message: 'Account unlinked (or was not linked)' });
       }
-
-      const data = await response.json();
-      res.json(data);
 
     } catch (error: any) {
       console.error('[Server] MTA Unlink API Error:', error);
@@ -140,11 +156,17 @@ async function startServer() {
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
+  } else {
+    // SPA Fallback for production
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+    });
   }
 
   app.listen(PORT, '0.0.0.0', () => {

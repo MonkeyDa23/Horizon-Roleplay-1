@@ -1,3 +1,8 @@
+/**
+ * Florida Roleplay - Official Website
+ * Quiz/Application Page
+ * Copyright (c) 2024 Florida Roleplay. All rights reserved.
+ */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -188,8 +193,7 @@ const QuizPage: React.FC = () => {
           config, 
           user, 
           submission, 
-          'NEW', 
-          `قام المستخدم بإرسال تقديم جديد.`
+          'NEW'
       );
 
       setQuizState('submitted');

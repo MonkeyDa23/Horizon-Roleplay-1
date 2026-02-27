@@ -61,7 +61,6 @@ const TranslationsPanel: React.FC = () => {
             // Clear draft
             localStorage.removeItem('vixel_admin_translations_draft');
 
-            // --- DETAILED LOG ---
             const embed = {
                 title: "🌐 تحديث الترجمات",
                 description: `قام المشرف **${user.username}** بتحديث نصوص وترجمات الموقع.`,

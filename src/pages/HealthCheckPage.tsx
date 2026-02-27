@@ -1,5 +1,9 @@
+/**
+ * Florida Roleplay - Official Website
+ * Health Check Page
+ * Copyright (c) 2024 Florida Roleplay. All rights reserved.
+ */
 
-// src/pages/HealthCheckPage.tsx
 import React, { useState } from 'react';
 import { Loader2, CheckCircle, XCircle, User, Server, Bot, ArrowRight, RefreshCw } from 'lucide-react';
 import { useLocalization } from '../contexts/LocalizationContext';

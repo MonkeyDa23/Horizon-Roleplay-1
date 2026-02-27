@@ -1,3 +1,8 @@
+/**
+ * Florida Roleplay - Official Website
+ * Admin Gate Component
+ * Copyright (c) 2024 Florida Roleplay. All rights reserved.
+ */
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useAdminGate } from '../contexts/AdminGateContext';

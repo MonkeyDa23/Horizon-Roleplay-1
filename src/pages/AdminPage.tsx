@@ -1,5 +1,9 @@
+/**
+ * Florida Roleplay - Official Website
+ * Admin Dashboard
+ * Copyright (c) 2024 Florida Roleplay. All rights reserved.
+ */
 
-// src/pages/AdminPage.tsx
 import React, { useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocalization } from '../contexts/LocalizationContext';
@@ -71,7 +75,6 @@ const AdminPage: React.FC = () => {
         setSearchParams({ tab });
     };
 
-    // --- AUDIT TRAIL: LOG ADMIN NAVIGATION ---
     // Using a ref to prevent double logging on mount due to StrictMode
     const lastLoggedTab = useRef<string | null>(null);
 

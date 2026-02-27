@@ -1,5 +1,9 @@
+/**
+ * Florida Roleplay - Official Website
+ * About Us Page
+ * Copyright (c) 2024 Florida Roleplay. All rights reserved.
+ */
 
-// src/pages/AboutUsPage.tsx
 import React, { useState, useEffect } from 'react';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { useTranslations } from '../contexts/TranslationsContext';

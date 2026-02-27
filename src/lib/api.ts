@@ -1,5 +1,8 @@
+/**
+ * Florida Roleplay - Official Website API Client
+ * Copyright (c) 2024 Florida Roleplay. All rights reserved.
+ */
 
-// src/lib/api.ts
 import { supabase } from './supabaseClient';
 import { env } from '../env';
 import type { 
@@ -205,32 +208,87 @@ export const logAdminAction = async (config: AppConfig, user: User, action: stri
     return sendDiscordLog(config, embed, 'admin');
 };
 
-export const logSubmissionAction = async (config: AppConfig, admin: User, applicant: { id: string, name: string }, quizName: string, status: 'Accepted' | 'Rejected', reason?: string) => {
-    const isAccepted = status === 'Accepted';
-    const embed = {
-        title: isAccepted ? '✅ قبول تقديم' : '❌ رفض تقديم',
-        description: `تمت مراجعة تقديم **${applicant.name}** على **${quizName}**.`,
-        color: isAccepted ? 0x00F2EA : 0xFF4444,
-        fields: [
-            { name: 'المسؤول', value: admin.username, inline: true },
-            { name: 'صاحب التقديم', value: `<@${applicant.id}>`, inline: true },
-            { name: 'الحالة', value: isAccepted ? 'مقبول' : 'مرفوض', inline: true },
-            { name: 'السبب', value: reason || 'لا يوجد سبب محدد', inline: false }
-        ],
-        timestamp: new Date().toISOString()
-    };
-    
-    // Log to channel
-    await sendDiscordLog(config, embed, 'submission');
-    
-    // Send DM to user
-    const dmEmbed = {
-        title: isAccepted ? `🎉 تهانينا! تم قبول تقديمك في ${config.COMMUNITY_NAME}` : `⚠️ نعتذر، تم رفض تقديمك في ${config.COMMUNITY_NAME}`,
-        description: `مرحباً **${applicant.name}**،\n\nتمت مراجعة طلبك بخصوص **${quizName}**.\n\n**الحالة:** ${isAccepted ? 'مقبول ✅' : 'مرفوض ❌'}\n${reason ? `**السبب:** ${reason}` : ''}\n\n${isAccepted ? 'يرجى التوجه للسيرفر للمتابعة.' : 'يمكنك المحاولة مرة أخرى لاحقاً.'}`,
-        color: isAccepted ? 0x00F2EA : 0xFF4444,
-        thumbnail: { url: config.LOGO_URL }
-    };
-    await sendDiscordLog(config, dmEmbed, 'submission_dm', applicant.id);
+export const logSubmissionAction = async (
+    config: AppConfig, 
+    admin: User, 
+    submission: QuizSubmission, 
+    action: 'NEW' | 'TAKEN' | 'ACCEPTED' | 'REFUSED', 
+    reason?: string
+) => {
+    const targetId = submission.discord_id || (submission as any).user_id;
+    const applicantName = submission.username;
+    const quizName = submission.quizTitle;
+
+    let embed: any;
+    let dmEmbed: any;
+
+    switch (action) {
+        case 'NEW':
+            embed = {
+                title: '📝 تقديم جديد',
+                description: `قام **${applicantName}** بإرسال تقديم جديد على **${quizName}**.`,
+                color: 0x6366F1,
+                fields: [
+                    { name: 'صاحب التقديم', value: `<@${targetId}>`, inline: true },
+                    { name: 'الرتبة', value: submission.user_highest_role || 'عضو', inline: true },
+                    ...submission.answers.map((a, i) => ({
+                        name: `سؤال ${i + 1}: ${a.questionText}`,
+                        value: a.answer.length > 1024 ? a.answer.substring(0, 1021) + '...' : a.answer,
+                        inline: false
+                    }))
+                ],
+                timestamp: new Date().toISOString()
+            };
+            dmEmbed = {
+                title: `✅ تم إرسال تقديمك بنجاح في ${config.COMMUNITY_NAME}`,
+                description: `مرحباً **${applicantName}**،\n\nلقد تم استلام تقديمك لـ **${quizName}** بنجاح. سيتم مراجعته من قبل الإدارة قريباً.\n\nشكراً لك!`,
+                color: 0x6366F1,
+                thumbnail: { url: config.LOGO_URL }
+            };
+            break;
+
+        case 'TAKEN':
+            embed = {
+                title: '✋ استلام تقديم',
+                description: `قام المشرف **${admin.username}** باستلام تقديم **${quizName}** الخاص بـ **${applicantName}** للمراجعة.`,
+                color: 0xFFA500,
+                author: { name: admin.username, icon_url: admin.avatar },
+                timestamp: new Date().toISOString()
+            };
+            dmEmbed = {
+                title: `👨‍💻 تم استلام طلبك في ${config.COMMUNITY_NAME}`,
+                description: `مرحباً **${applicantName}**،\n\nتم استلام تقديمك لـ **${quizName}** وهو الآن قيد المراجعة من قبل المشرف **${admin.username}**.`,
+                color: 0xFFA500,
+                timestamp: new Date().toISOString()
+            };
+            break;
+
+        case 'ACCEPTED':
+        case 'REFUSED':
+            const isAccepted = action === 'ACCEPTED';
+            embed = {
+                title: isAccepted ? '✅ قبول تقديم' : '❌ رفض تقديم',
+                description: `تمت مراجعة تقديم **${applicantName}** على **${quizName}**.`,
+                color: isAccepted ? 0x00F2EA : 0xFF4444,
+                fields: [
+                    { name: 'المسؤول', value: admin.username, inline: true },
+                    { name: 'صاحب التقديم', value: `<@${targetId}>`, inline: true },
+                    { name: 'الحالة', value: isAccepted ? 'مقبول' : 'مرفوض', inline: true },
+                    { name: 'السبب', value: reason || 'لا يوجد سبب محدد', inline: false }
+                ],
+                timestamp: new Date().toISOString()
+            };
+            dmEmbed = {
+                title: isAccepted ? `🎉 تهانينا! تم قبول تقديمك في ${config.COMMUNITY_NAME}` : `⚠️ نعتذر، تم رفض تقديمك في ${config.COMMUNITY_NAME}`,
+                description: `مرحباً **${applicantName}**،\n\nتمت مراجعة طلبك بخصوص **${quizName}**.\n\n**الحالة:** ${isAccepted ? 'مقبول ✅' : 'مرفوض ❌'}\n${reason ? `**السبب:** ${reason}` : ''}\n\n${isAccepted ? 'يرجى التوجه للسيرفر للمتابعة.' : 'يمكنك المحاولة مرة أخرى لاحقاً.'}`,
+                color: isAccepted ? 0x00F2EA : 0xFF4444,
+                thumbnail: { url: config.LOGO_URL }
+            };
+            break;
+    }
+
+    if (embed) await sendDiscordLog(config, embed, 'submission');
+    if (dmEmbed && targetId) await sendDiscordLog(config, dmEmbed, 'dm', targetId);
 };
 
 export const logFinanceAction = async (config: AppConfig, admin: User, target: { id: string, name: string }, amount: number, action: 'Add Balance' | 'Invoice Created', reason?: string) => {

@@ -1,3 +1,8 @@
+/**
+ * Florida Roleplay - Official Website
+ * Submission Detail Page
+ * Copyright (c) 2024 Florida Roleplay. All rights reserved.
+ */
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
@@ -60,9 +65,8 @@ const SubmissionDetailPage: React.FC = () => {
             await logSubmissionAction(
                 config, 
                 user, 
-                { id: submission.user_id || '', name: submission.username }, 
-                submission.quizTitle, 
-                status === 'accepted' ? 'Accepted' : 'Rejected', 
+                submission, 
+                status === 'accepted' ? 'ACCEPTED' : 'REFUSED', 
                 decisionReason
             );
 
@@ -83,34 +87,8 @@ const SubmissionDetailPage: React.FC = () => {
             await updateSubmissionStatus(submission.id, 'taken');
             showToast('تم استلام الطلب.', 'success');
             
-            // Log that admin took the ticket
-            const logEmbed = {
-                title: '✋ استلام تقديم',
-                description: `قام المشرف **${user?.username}** باستلام تقديم **${submission.quizTitle}** الخاص بـ **${submission.username}** للمراجعة.`,
-                color: 0xFFA500, // Orange
-                author: { name: user?.username, icon_url: user?.avatar },
-                timestamp: new Date().toISOString(),
-                footer: { text: "سجل التقديمات" }
-            };
-            sendDiscordLog(config, logEmbed, 'submission');
-
-            // Send DM to user
-            let targetId = (submission as any).discord_id; 
-            if (!targetId && submission.user_id && supabase) {
-                const { data } = await supabase.from('profiles').select('discord_id').eq('id', submission.user_id).single();
-                if (data) targetId = data.discord_id;
-            }
-
-            if (targetId) {
-                 const dmEmbed = {
-                    title: `👨‍💻 تم استلام طلبك`,
-                    description: `مرحباً، تم استلام تقديمك لـ **${submission.quizTitle}** وهو الآن قيد المراجعة من قبل المشرف **${user?.username}**.`,
-                    color: 0xFFA500,
-                    timestamp: new Date().toISOString(),
-                    footer: { text: config.COMMUNITY_NAME }
-                };
-                await sendDiscordLog(config, dmEmbed, 'dm', targetId);
-            }
+            // Log that admin took the ticket & Send DM
+            await logSubmissionAction(config, user, submission, 'TAKEN');
 
             fetchSubmission();
         } catch (e) {

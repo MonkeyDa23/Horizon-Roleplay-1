@@ -1,3 +1,9 @@
+/**
+ * Florida Roleplay - Official Website
+ * Logo Component
+ * Copyright (c) 2024 Florida Roleplay. All rights reserved.
+ */
+
 import React from 'react';
 import { useConfig } from '../contexts/ConfigContext';
 
