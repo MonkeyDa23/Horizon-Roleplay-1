@@ -204,7 +204,6 @@ const ProfilePage: React.FC = () => {
   const fetchMtaAccountData = useCallback(async () => {
       if (!user?.mta_serial) {
           setMtaAccountInfo(null);
-          setIsMtaLinked(false);
           return;
       }
 
@@ -213,12 +212,10 @@ const ProfilePage: React.FC = () => {
       try {
           const info = await getMtaAccountInfo(user.mta_serial);
           setMtaAccountInfo(info);
-          setIsMtaLinked(true);
       } catch (err) {
           console.error("Failed to fetch MTA account info:", err);
           setMtaAccountError((err as Error).message);
           setMtaAccountInfo(null);
-          setIsMtaLinked(false);
       } finally {
           setMtaAccountLoading(false);
       }
