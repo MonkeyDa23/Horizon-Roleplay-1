@@ -497,15 +497,36 @@ export const checkMtaLinkStatus = async (serial: string): Promise<{ linked: bool
 };
 
 export const unlinkMtaAccount = async (serial: string): Promise<{ success: boolean }> => {
+    // 1. Unlink from MySQL via Proxy
     const response = await fetch(`/api/mta/unlink`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ serial }),
     });
+    
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: `Error ${response.status}` }));
         throw new ApiError(errorData.error || `Failed to unlink MTA account (${response.status})`, response.status);
     }
+
+    // 2. Clear Supabase Profile Fields
+    const { data: { user: authUser } } = await supabase!.auth.getUser();
+    if (authUser) {
+        const { error: supabaseError } = await supabase!
+            .from('profiles')
+            .update({
+                mta_serial: null,
+                mta_name: null,
+                mta_linked_at: null
+            })
+            .eq('id', authUser.id);
+            
+        if (supabaseError) {
+            console.error('[API Client] Failed to clear Supabase profile during unlink:', supabaseError);
+            // We don't throw here because the primary unlink (MySQL) succeeded
+        }
+    }
+
     return response.json();
 };
 
