@@ -167,13 +167,17 @@ const AppContent: React.FC = () => {
   );
 }
 
+import { CurrencyProvider } from './contexts/CurrencyContext';
+
 const App: React.FC = () => {
   return (
     <BrowserRouter>
         <AppProviders>
+          <CurrencyProvider>
             <SessionWatcher />
             <CosmicBackground />
             <AppContent />
+          </CurrencyProvider>
         </AppProviders>
     </BrowserRouter>
   );

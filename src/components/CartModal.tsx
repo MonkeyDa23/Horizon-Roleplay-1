@@ -12,6 +12,8 @@ import { Trash2, ShoppingBag, Plus, Minus, Send, CreditCard, CheckCircle, Loader
 import DiscordLogo from './icons/DiscordLogo';
 
 
+import { useCurrency } from '../contexts/CurrencyContext';
+
 interface CartModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -23,6 +25,7 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
   const { config } = useConfig();
   const { user, updateUser } = useAuth();
   const { showToast } = useToast();
+  const { formatPrice } = useCurrency();
   const [isCheckoutModalOpen, setCheckoutModalOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   
@@ -111,7 +114,7 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
                   <img src={item.imageUrl} alt={t(item.nameKey)} className="w-20 h-20 rounded-md object-cover border border-border-color" />
                   <div className="flex-grow">
                     <h3 className="text-lg font-semibold text-white">{t(item.nameKey)}</h3>
-                    <p className="text-primary-blue font-bold text-lg">${item.price.toFixed(2)}</p>
+                    <p className="text-primary-blue font-bold text-lg">{formatPrice(item.price)}</p>
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="flex items-center border border-border-color rounded-md bg-background-light">
@@ -131,25 +134,25 @@ const CartModal: React.FC<CartModalProps> = ({ isOpen, onClose }) => {
             <div className="mt-6 pt-6 border-t border-border-color space-y-3 bg-background-dark/30 p-5 rounded-lg border border-white/5">
                 <div className="flex justify-between items-center text-gray-400 text-lg">
                     <span>{t('subtotal')}</span>
-                    <span className="font-bold text-white">${totalPrice.toFixed(2)}</span>
+                    <span className="font-bold text-white">{formatPrice(totalPrice)}</span>
                 </div>
                 
                 {user && userBalance > 0 && (
                     <>
                         <div className="flex justify-between items-center text-accent-cyan text-lg">
                             <span className="flex items-center gap-2"><CreditCard size={20}/> {t('pay_from_balance')}</span>
-                            <span className="font-bold">-${deduction.toFixed(2)}</span>
+                            <span className="font-bold">-{formatPrice(deduction)}</span>
                         </div>
                         <div className="flex justify-between items-center text-sm text-gray-500 pt-2 border-t border-white/5">
                             <span>{t('remaining_balance')}</span>
-                            <span className="font-mono">${remainingBalance.toFixed(2)}</span>
+                            <span className="font-mono">{formatPrice(remainingBalance)}</span>
                         </div>
                     </>
                 )}
                 
                 <div className="flex justify-between items-center pt-4 border-t border-white/10 mt-2">
                     <span className="text-xl font-bold text-white">{t('amount_to_pay')}</span>
-                    <span className={`text-4xl font-extrabold ${remainingToPay === 0 ? 'text-green-400' : 'text-primary-blue'}`}>${remainingToPay.toFixed(2)}</span>
+                    <span className={`text-4xl font-extrabold ${remainingToPay === 0 ? 'text-green-400' : 'text-primary-blue'}`}>{formatPrice(remainingToPay)}</span>
                 </div>
             </div>
 

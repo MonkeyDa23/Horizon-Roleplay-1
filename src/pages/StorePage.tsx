@@ -16,10 +16,13 @@ import { useToast } from '../contexts/ToastContext';
 import SEO from '../components/SEO';
 import { Link } from 'react-router-dom';
 
+import { useCurrency } from '../contexts/CurrencyContext';
+
 const ProductCard: React.FC<{ product: Product, index: number }> = ({ product, index }) => {
   const { t } = useLocalization();
   const { addToCart } = useCart();
   const { showToast } = useToast();
+  const { formatPrice } = useCurrency();
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -43,7 +46,7 @@ const ProductCard: React.FC<{ product: Product, index: number }> = ({ product, i
               <h2 className="text-2xl font-bold text-white mb-2 leading-tight">{t(product.nameKey)}</h2>
               <p className="text-text-secondary flex-grow mb-4 text-sm line-clamp-3 leading-relaxed">{t(product.descriptionKey)}</p>
               <div className="flex justify-between items-center mt-auto pt-4 border-t border-white/10">
-                  <p className="text-3xl font-bold text-primary-blue">${product.price.toFixed(2)}</p>
+                  <p className="text-3xl font-bold text-primary-blue">{formatPrice(product.price)}</p>
                   <button 
                       onClick={handleAddToCart}
                       className="bg-gradient-to-r from-primary-blue to-accent-cyan text-background-dark font-bold py-2 px-5 rounded-xl hover:opacity-90 transition-all duration-300 flex items-center gap-2 z-10 transform group-hover:scale-105 text-base shadow-lg shadow-primary-blue/20"
@@ -63,6 +66,7 @@ const StorePage: React.FC = () => {
   const { t } = useLocalization();
   const { config } = useConfig();
   const { user, updateUser } = useAuth();
+  const { formatPrice } = useCurrency();
   const [categories, setCategories] = useState<ProductCategory[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -176,7 +180,7 @@ const StorePage: React.FC = () => {
                     </div>
                     <div>
                         <p className="text-sm text-text-secondary uppercase font-bold tracking-wider mb-1">{t('your_balance')}</p>
-                        <p className="text-4xl font-bold text-white leading-none">${user.balance.toLocaleString()}</p>
+                        <p className="text-4xl font-bold text-white leading-none">{formatPrice(user.balance)}</p>
                     </div>
                 </div>
             )}

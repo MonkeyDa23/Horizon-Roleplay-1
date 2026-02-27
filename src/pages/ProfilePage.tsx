@@ -21,9 +21,12 @@ import SEO from '../components/SEO';
 import { useToast } from '../contexts/ToastContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { useCurrency } from '../contexts/CurrencyContext';
+
 const ProfilePage: React.FC = () => {
   const { user, loading: authLoading, updateUser } = useAuth();
   const { t } = useLocalization();
+  const { formatPrice } = useCurrency();
   const navigate = useNavigate();
   const { config } = useConfig();
   const { showToast } = useToast();
@@ -390,7 +393,7 @@ const ProfilePage: React.FC = () => {
                   <div className="text-right">
                     <div className="text-[10px] text-text-secondary uppercase font-black tracking-widest mb-1">الرصيد الحالي</div>
                     <div className="text-3xl font-black text-brand-cyan tracking-tight">
-                      {user.balance.toLocaleString()} <span className="text-xs font-normal text-text-secondary">VXL</span>
+                      {formatPrice(user.balance)}
                     </div>
                   </div>
                   <div className="w-14 h-14 rounded-2xl bg-brand-cyan/20 flex items-center justify-center">
@@ -726,14 +729,12 @@ const ProfilePage: React.FC = () => {
                         </div>
                         
                         <div className="mt-12">
-                          <button 
-                            onClick={handleUnlinkMta}
-                            disabled={mtaLinkLoading}
-                            className="flex items-center justify-center gap-3 w-full py-5 rounded-2xl bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500 hover:text-white transition-all font-black text-sm group"
-                          >
-                            {mtaLinkLoading ? <Loader2 className="animate-spin" size={20} /> : <LogOut size={20} className="group-hover:-translate-x-1 transition-transform" />}
-                            إلغاء ربط الحساب
-                          </button>
+                          <div className="p-6 rounded-2xl bg-brand-cyan/5 border border-brand-cyan/20 text-center">
+                            <p className="text-brand-cyan font-bold text-sm mb-2">إلغاء ربط الحساب</p>
+                            <p className="text-text-secondary text-xs leading-relaxed">
+                              لإلغاء ربط حسابك، يرجى استخدام أمر <code className="bg-white/5 px-2 py-1 rounded text-brand-cyan">/unlink</code> داخل سيرفر الديسكورد الخاص بنا.
+                            </p>
+                          </div>
                         </div>
                       </section>
 

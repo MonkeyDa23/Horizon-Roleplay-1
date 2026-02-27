@@ -15,6 +15,8 @@ import { useToast } from '../contexts/ToastContext';
 import SEO from '../components/SEO';
 import { useConfig } from '../contexts/ConfigContext';
 
+import { useCurrency } from '../contexts/CurrencyContext';
+
 const ProductDetailPage: React.FC = () => {
     const { productId } = useParams<{ productId: string }>();
     const navigate = useNavigate();
@@ -22,6 +24,7 @@ const ProductDetailPage: React.FC = () => {
     const { addToCart } = useCart();
     const { showToast } = useToast();
     const { config } = useConfig();
+    const { formatPrice } = useCurrency();
     const [product, setProduct] = useState<Product | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -91,7 +94,7 @@ const ProductDetailPage: React.FC = () => {
                         <p className="text-lg text-gray-300 mb-6">{t(product.descriptionKey)}</p>
                         
                         <div className="mt-auto flex items-center gap-8 pt-6 border-t border-brand-light-blue/50">
-                            <p className="text-4xl font-bold text-brand-cyan">${product.price.toFixed(2)}</p>
+                            <p className="text-4xl font-bold text-brand-cyan">{formatPrice(product.price)}</p>
                             <button
                                 onClick={handleAddToCart}
                                 className="bg-brand-cyan text-brand-dark font-bold py-3 px-8 rounded-md hover:bg-white hover:shadow-glow-cyan transition-all duration-300 flex items-center gap-2 text-lg"

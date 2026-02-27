@@ -37,17 +37,21 @@ const UserMenuLink: React.FC<{ to: string; children: React.ReactNode; icon: Reac
 );
 
 
+import { useCurrency, Currency } from '../contexts/CurrencyContext';
+import { Globe, ChevronDown, LogOut, Loader2, ShoppingCart, UserCog, FileText, User, Menu, X, Link2, Coins } from 'lucide-react';
+
 const Navbar: React.FC = () => {
   const { language, setLanguage, t } = useLocalization();
+  const { currency, setCurrency } = useCurrency();
   const { user, login, logout, loading, hasPermission } = useAuth();
   const { totalItems } = useCart();
   const { config } = useConfig();
   const [langDropdownOpen, setLangDropdownOpen] = useState(false);
+  const [currencyDropdownOpen, setCurrencyDropdownOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isCartOpen, setCartOpen] = useState(false);
   const [isLoginCaptchaOpen, setLoginCaptchaOpen] = useState(false);
-
 
   const navLinks = [
     { to: '/', text: t('home') },
@@ -62,6 +66,7 @@ const Navbar: React.FC = () => {
     setMobileMenuOpen(false);
     setUserDropdownOpen(false);
     setLangDropdownOpen(false);
+    setCurrencyDropdownOpen(false);
   }
 
   return (
@@ -94,6 +99,31 @@ const Navbar: React.FC = () => {
                     )}
                   </button>
                 
+                <div className="relative">
+                  <button
+                    onClick={() => setCurrencyDropdownOpen(!currencyDropdownOpen)}
+                    onBlur={() => setTimeout(() => setCurrencyDropdownOpen(false), 200)}
+                    className="flex items-center gap-1 text-text-primary hover:text-white transition-colors p-2 rounded-md"
+                  >
+                    <Coins size={20} />
+                    <span className="text-xs font-bold hidden sm:inline">{currency}</span>
+                    <ChevronDown size={16} className={`transition-transform duration-300 ${currencyDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {currencyDropdownOpen && (
+                    <div className="absolute top-full mt-3 end-0 glass-panel p-2 w-36 animate-fade-in-up origin-top-right">
+                      {(['USD', 'JOD', 'SAR', 'EGP'] as Currency[]).map((cur) => (
+                        <button 
+                          key={cur}
+                          onClick={() => { setCurrency(cur); closeAllMenus(); }} 
+                          className={`block w-full text-start px-3 py-2 text-sm rounded-md transition-colors ${currency === cur ? 'bg-primary-blue text-background-dark font-bold' : 'text-text-primary hover:bg-primary-blue/20 hover:text-white'}`}
+                        >
+                          {cur}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div className="relative">
                   <button
                     onClick={() => setLangDropdownOpen(!langDropdownOpen)}

@@ -264,7 +264,7 @@ export const logSubmissionAction = async (
             break;
 
         case 'ACCEPTED':
-        case 'REFUSED':
+        case 'REFUSED': {
             const isAccepted = action === 'ACCEPTED';
             embed = {
                 title: isAccepted ? '✅ قبول تقديم' : '❌ رفض تقديم',
@@ -285,6 +285,7 @@ export const logSubmissionAction = async (
                 thumbnail: { url: config.LOGO_URL }
             };
             break;
+        }
     }
 
     if (embed) await sendDiscordLog(config, embed, 'submission');
