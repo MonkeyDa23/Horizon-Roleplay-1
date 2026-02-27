@@ -67,7 +67,7 @@ export const setupCoreModule = (client: Client) => {
 
     // 2. Notification & Logging Gateway
     app.post('/notify', authenticate, async (req: any, res: any) => {
-        const { targetId, targetType, content, embed, category, title, description, fields, type, status } = req.body;
+        const { targetId, targetType, content, embed, category, title, description, fields, type, status, username } = req.body;
         
         try {
             // If a category is provided, use the advanced logging system
@@ -75,36 +75,64 @@ export const setupCoreModule = (client: Client) => {
                 await logToDiscord(client, type || 'INFO', title || 'Notification', description || '', category, fields || []);
                 
                 // If it's a submission result, also send a DM
-                if (category === 'SUBMISSIONS' && targetId && targetType === 'user') {
-                    let finalTitle = title || 'تحديث بخصوص تقديمك';
-                    let finalColor = type === 'SUCCESS' ? 0x00F2EA : (type === 'ERROR' ? 0xFF4444 : 0x6366F1);
-                    
-                    // Specific handling for submission statuses
-                    if (status === 'accepted' || status === 'accepted_final') {
-                        finalTitle = '✅ تم قبول تقديمك!';
-                        finalColor = 0x00F2EA;
-                    } else if (status === 'rejected') {
-                        finalTitle = '❌ تم رفض تقديمك';
-                        finalColor = 0xFF4444;
-                    } else if (status === 'received' || status === 'pending') {
-                        finalTitle = '📩 تم استلام تقديمك بنجاح';
-                        finalColor = 0x6366F1;
+                if (category === 'SUBMISSIONS' && targetType === 'user') {
+                    let finalTargetId = targetId;
+
+                    // If targetId is missing, try to find by username
+                    if (!finalTargetId && username) {
+                        const guild = client.guilds.cache.get(env.DISCORD_GUILD_ID);
+                        if (guild) {
+                            const members = await guild.members.fetch({ query: username, limit: 1 });
+                            const member = members.first();
+                            if (member) {
+                                finalTargetId = member.id;
+                            }
+                        }
                     }
 
-                    await sendDM(client, targetId, {
-                        title: finalTitle,
-                        description: description || 'تم تحديث حالة طلبك في النظام.',
-                        color: finalColor,
-                        fields: fields || []
-                    });
+                    if (finalTargetId) {
+                        let finalTitle = title || 'تحديث بخصوص تقديمك';
+                        let finalColor = type === 'SUCCESS' ? 0x00F2EA : (type === 'ERROR' ? 0xFF4444 : 0x6366F1);
+                        
+                        // Specific handling for submission statuses
+                        if (status === 'accepted' || status === 'accepted_final') {
+                            finalTitle = '✅ تم قبول تقديمك!';
+                            finalColor = 0x00F2EA;
+                        } else if (status === 'rejected') {
+                            finalTitle = '❌ تم رفض تقديمك';
+                            finalColor = 0xFF4444;
+                        } else if (status === 'taken') {
+                            finalTitle = '👨‍💻 طلبك قيد المراجعة';
+                            finalColor = 0xFFA500;
+                        } else if (status === 'received' || status === 'pending') {
+                            finalTitle = '📩 تم استلام تقديمك بنجاح';
+                            finalColor = 0x6366F1;
+                        }
+
+                        await sendDM(client, finalTargetId, {
+                            title: finalTitle,
+                            description: description || 'تم تحديث حالة طلبك في النظام.',
+                            color: finalColor,
+                            fields: fields || []
+                        });
+                    }
                 }
                 return res.json({ success: true });
             }
 
             // Standard notification logic
             if (targetType === 'user' || targetType === 'dm') {
-                if (!targetId) return res.status(400).json({ error: 'Missing targetId' });
-                await sendDM(client, targetId, embed || { title, description, fields, color: 0x6366F1 });
+                let finalTargetId = targetId;
+                if (!finalTargetId && username) {
+                    const guild = client.guilds.cache.get(env.DISCORD_GUILD_ID);
+                    if (guild) {
+                        const members = await guild.members.fetch({ query: username, limit: 1 });
+                        const member = members.first();
+                        if (member) finalTargetId = member.id;
+                    }
+                }
+                if (!finalTargetId) return res.status(400).json({ error: 'Missing targetId and could not find user by username' });
+                await sendDM(client, finalTargetId, embed || { title, description, fields, color: 0x6366F1 });
             } else {
                 const channel = await client.channels.fetch(targetId) as TextChannel;
                 if (channel) await channel.send({ content, embeds: embed ? [embed] : [] });

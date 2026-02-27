@@ -52,14 +52,21 @@ export const logToDiscord = async (client: Client, type: 'SUCCESS' | 'ERROR' | '
 
 export const sendDM = async (client: Client, userId: string, embedData: any) => {
     try {
-        const user = await client.users.fetch(userId).catch(() => null);
-        if (!user) return;
+        const guild = client.guilds.cache.get(env.DISCORD_GUILD_ID);
+        if (!guild) return;
+
+        // Try to fetch as a member first to ensure they are in the server
+        const member = await guild.members.fetch(userId).catch(() => null);
+        if (!member) {
+            console.warn(`[DM SKIP]: User ${userId} is not in the guild.`);
+            return;
+        }
 
         const embed = new EmbedBuilder(embedData)
             .setTimestamp()
             .setFooter({ text: 'Florida Roleplay - نظام الإشعارات التلقائي' });
 
-        await user.send({ embeds: [embed] }).catch(err => console.warn(`Could not send DM to ${userId}:`, err.message));
+        await member.send({ embeds: [embed] }).catch(err => console.warn(`Could not send DM to ${userId}:`, err.message));
     } catch (error) {
         console.error(`[DM ERROR]:`, error);
     }

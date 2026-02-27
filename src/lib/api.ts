@@ -59,7 +59,8 @@ export const sendDiscordLog = async (
     embed: any, 
     logType: 'admin' | 'ban' | 'submission' | 'submission_dm' | 'auth' | 'dm' | 'finance' | 'store' | 'visit', 
     targetId?: string,
-    status?: string
+    status?: string,
+    username?: string
 ): Promise<void> => {
   
   let finalTargetId: string | null | undefined = null;
@@ -78,7 +79,8 @@ export const sendDiscordLog = async (
   }
 
   if (logType === 'dm' || logType === 'submission_dm') {
-      if (!targetId) return;
+      // If targetId is missing, we still want to try sending if username is provided
+      if (!targetId && !username) return;
       finalTargetId = targetId;
       targetType = 'user';
   }
@@ -95,6 +97,7 @@ export const sendDiscordLog = async (
         description: embed.description,
         type,
         status,
+        username,
         fields: embed.fields || [],
         embed: targetType === 'user' ? embed : undefined // Only send full embed for DMs
       }),
@@ -295,8 +298,9 @@ export const logSubmissionAction = async (
         }
     }
 
-    if (embed) await sendDiscordLog(config, embed, 'submission', undefined, status);
-    if (dmEmbed && targetId) await sendDiscordLog(config, dmEmbed, 'submission_dm', targetId, status);
+    if (embed) await sendDiscordLog(config, embed, 'submission', undefined, status, applicantName);
+    if (dmEmbed && targetId) await sendDiscordLog(config, dmEmbed, 'submission_dm', targetId, status, applicantName);
+    else if (dmEmbed && applicantName) await sendDiscordLog(config, dmEmbed, 'submission_dm', undefined, status, applicantName);
 };
 
 export const logFinanceAction = async (config: AppConfig, admin: User, target: { id: string, name: string }, amount: number, action: 'Add Balance' | 'Invoice Created', reason?: string) => {

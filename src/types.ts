@@ -239,6 +239,7 @@ export interface QuizSubmission {
   updatedAt?: string;
   cheatAttempts?: CheatAttempt[];
   user_highest_role?: string;
+  discord_id?: string;
   reason?: string; // Reason for accept/refuse
 }
 
