@@ -74,7 +74,7 @@ export const sendDiscordLog = async (
       case 'store': category = 'STORE'; break;
       case 'finance': category = 'FINANCE'; break;
       case 'visit': category = 'VISITS'; break;
-      case 'submission': category = 'SUBMISSIONS'; break;
+      case 'submission': case 'submission_dm': category = 'SUBMISSIONS'; break;
   }
 
   if (logType === 'dm' || logType === 'submission_dm') {
@@ -296,7 +296,7 @@ export const logSubmissionAction = async (
     }
 
     if (embed) await sendDiscordLog(config, embed, 'submission', undefined, status);
-    if (dmEmbed && targetId) await sendDiscordLog(config, dmEmbed, 'dm', targetId, status);
+    if (dmEmbed && targetId) await sendDiscordLog(config, dmEmbed, 'submission_dm', targetId, status);
 };
 
 export const logFinanceAction = async (config: AppConfig, admin: User, target: { id: string, name: string }, amount: number, action: 'Add Balance' | 'Invoice Created', reason?: string) => {
