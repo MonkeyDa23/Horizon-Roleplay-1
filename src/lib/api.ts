@@ -215,7 +215,9 @@ export const logSubmissionAction = async (
     action: 'NEW' | 'TAKEN' | 'ACCEPTED' | 'REFUSED', 
     reason?: string
 ) => {
-    const targetId = submission.discord_id || (submission as any).user_id;
+    // Ensure we have a Discord ID for DMs. 
+    // If submission.discord_id is missing, we might not be able to send a DM.
+    const targetId = submission.discord_id;
     const applicantName = submission.username;
     const quizName = submission.quizTitle;
 
@@ -229,7 +231,7 @@ export const logSubmissionAction = async (
                 description: `قام **${applicantName}** بإرسال تقديم جديد على **${quizName}**.`,
                 color: 0x6366F1,
                 fields: [
-                    { name: 'صاحب التقديم', value: `<@${targetId}>`, inline: true },
+                    { name: 'صاحب التقديم', value: targetId ? `<@${targetId}>` : applicantName, inline: true },
                     { name: 'الرتبة', value: submission.user_highest_role || 'عضو', inline: true },
                     ...submission.answers.map((a, i) => ({
                         name: `سؤال ${i + 1}: ${a.questionText}`,
@@ -272,7 +274,7 @@ export const logSubmissionAction = async (
                 color: isAccepted ? 0x00F2EA : 0xFF4444,
                 fields: [
                     { name: 'المسؤول', value: admin.username, inline: true },
-                    { name: 'صاحب التقديم', value: `<@${targetId}>`, inline: true },
+                    { name: 'صاحب التقديم', value: targetId ? `<@${targetId}>` : applicantName, inline: true },
                     { name: 'الحالة', value: isAccepted ? 'مقبول' : 'مرفوض', inline: true },
                     { name: 'السبب', value: reason || 'لا يوجد سبب محدد', inline: false }
                 ],

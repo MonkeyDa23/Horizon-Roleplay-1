@@ -125,6 +125,9 @@ const AppliesPage: React.FC = () => {
       );
   };
 
+  const openQuizzes = quizzes.filter(q => q.isOpen);
+  const closedQuizzes = quizzes.filter(q => !q.isOpen);
+
   return (
     <>
       <SEO 
@@ -140,45 +143,109 @@ const AppliesPage: React.FC = () => {
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-4">{t('page_title_applies')}</h1>
         </div>
 
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-5xl mx-auto space-y-16">
           {isLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   <SkeletonCard />
                   <SkeletonCard />
               </div>
           ) : quizzes.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {quizzes.map((quiz, index) => (
-                  <div key={quiz.id} className={`relative glass-panel p-8 flex flex-col transition-all duration-300 group ${quiz.isOpen ? 'hover:shadow-glow-blue hover:-translate-y-2' : 'opacity-80 grayscale-[0.5]'} animate-stagger`} style={{ animationDelay: `${index * 150}ms` }}>
-                    {!quiz.isOpen && (
-                      <div className="absolute top-4 right-4 z-10">
-                        <span className="flex items-center gap-1 text-xs font-bold text-red-400 bg-red-900/30 px-2 py-1 rounded border border-red-500/30">
-                          <Lock size={12} /> {t('closed')}
-                        </span>
-                      </div>
-                    )}
-                    <div className="flex-grow">
-                          <div className="flex items-center gap-5 mb-5">
-                              <div className="p-2 glass-panel rounded-xl w-24 h-24 flex items-center justify-center flex-shrink-0 group-hover:bg-primary-blue/10 transition-colors">
-                                  {quiz.logoUrl ? (
-                                      <img src={quiz.logoUrl} alt={`${t(quiz.titleKey)} Logo`} className="w-full h-full object-contain" />
-                                  ) : (
-                                      <ImageIcon className="w-10 h-10 text-primary-blue" />
-                                  )}
-                              </div>
-                              <div>
-                                  <h2 className="text-2xl font-bold text-white leading-tight">{t(quiz.titleKey)}</h2>
-                                  <p className="text-sm text-text-secondary mt-1">{(quiz.questions || []).length} {t('questions')}</p>
-                              </div>
-                          </div>
-                          <p className="text-text-secondary mb-6 min-h-[40px] text-base leading-relaxed">{t(quiz.descriptionKey)}</p>
-                    </div>
-                    <div className="mt-auto pt-6 border-t border-border-color">
-                          {getApplyButton(quiz)}
-                    </div>
+              <>
+                {/* Open Applications Section */}
+                <div className="space-y-8">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                    <h2 className="text-2xl font-black text-white flex items-center gap-3">
+                      <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                      إجمالي التقديمات المفتوحة
+                    </h2>
+                    <span className="bg-green-500/10 text-green-400 px-4 py-1 rounded-full text-sm font-black border border-green-500/20">
+                      {openQuizzes.length}
+                    </span>
                   </div>
-              ))}
-              </div>
+                  
+                  {openQuizzes.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      {openQuizzes.map((quiz, index) => (
+                        <div key={quiz.id} className="relative glass-panel p-8 flex flex-col transition-all duration-300 group hover:shadow-glow-blue hover:-translate-y-2 animate-stagger" style={{ animationDelay: `${index * 150}ms` }}>
+                          <div className="flex-grow">
+                                <div className="flex items-center gap-5 mb-5">
+                                    <div className="p-2 glass-panel rounded-xl w-24 h-24 flex items-center justify-center flex-shrink-0 group-hover:bg-primary-blue/10 transition-colors">
+                                        {quiz.logoUrl ? (
+                                            <img src={quiz.logoUrl} alt={`${t(quiz.titleKey)} Logo`} className="w-full h-full object-contain" />
+                                        ) : (
+                                            <ImageIcon className="w-10 h-10 text-primary-blue" />
+                                        )}
+                                    </div>
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-white leading-tight">{index + 1}. {t(quiz.titleKey)}</h2>
+                                        <p className="text-sm text-text-secondary mt-1">{(quiz.questions || []).length} {t('questions')}</p>
+                                    </div>
+                                </div>
+                                <p className="text-text-secondary mb-6 min-h-[40px] text-base leading-relaxed">{t(quiz.descriptionKey)}</p>
+                          </div>
+                          <div className="mt-auto pt-6 border-t border-border-color">
+                                {getApplyButton(quiz)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-10 bg-white/5 rounded-3xl border border-white/5">
+                      <p className="text-text-secondary">لا توجد تقديمات مفتوحة حالياً</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Closed Applications Section */}
+                <div className="space-y-8">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                    <h2 className="text-2xl font-black text-white flex items-center gap-3">
+                      <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                      إجمالي التقديمات المغلقة
+                    </h2>
+                    <span className="bg-red-500/10 text-red-400 px-4 py-1 rounded-full text-sm font-black border border-red-500/20">
+                      {closedQuizzes.length}
+                    </span>
+                  </div>
+
+                  {closedQuizzes.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      {closedQuizzes.map((quiz, index) => (
+                        <div key={quiz.id} className="relative glass-panel p-8 flex flex-col transition-all duration-300 group opacity-80 grayscale-[0.5] animate-stagger" style={{ animationDelay: `${index * 150}ms` }}>
+                          <div className="absolute top-4 right-4 z-10">
+                            <span className="flex items-center gap-1 text-xs font-bold text-red-400 bg-red-900/30 px-2 py-1 rounded border border-red-500/30">
+                              <Lock size={12} /> {t('closed')}
+                            </span>
+                          </div>
+                          <div className="flex-grow">
+                                <div className="flex items-center gap-5 mb-5">
+                                    <div className="p-2 glass-panel rounded-xl w-24 h-24 flex items-center justify-center flex-shrink-0">
+                                        {quiz.logoUrl ? (
+                                            <img src={quiz.logoUrl} alt={`${t(quiz.titleKey)} Logo`} className="w-full h-full object-contain" />
+                                        ) : (
+                                            <ImageIcon className="w-10 h-10 text-primary-blue" />
+                                        )}
+                                    </div>
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-white leading-tight">{index + 1}. {t(quiz.titleKey)}</h2>
+                                        <p className="text-sm text-text-secondary mt-1">{(quiz.questions || []).length} {t('questions')}</p>
+                                    </div>
+                                </div>
+                                <p className="text-text-secondary mb-6 min-h-[40px] text-base leading-relaxed">{t(quiz.descriptionKey)}</p>
+                          </div>
+                          <div className="mt-auto pt-6 border-t border-border-color">
+                                {getApplyButton(quiz)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-10 bg-white/5 rounded-3xl border border-white/5">
+                      <p className="text-text-secondary">لا توجد تقديمات مغلقة حالياً</p>
+                    </div>
+                  )}
+                </div>
+              </>
           ) : (
             <div className="text-center glass-panel p-10 flex flex-col items-center">
               <AlertCircle size={48} className="text-text-secondary mb-4"/>
