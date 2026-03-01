@@ -4,6 +4,9 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+// Start the Discord Bot
+import './discord-bot/src/bot.ts';
+
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
@@ -32,8 +35,8 @@ async function startServer() {
 
   // --- PROXY FOR DISCORD BOT ---
   app.all('/api/proxy/*', async (req, res) => {
-    const botUrl = process.env.VITE_DISCORD_BOT_API_URL;
-    const apiKey = process.env.VITE_DISCORD_BOT_API_KEY;
+    const botUrl = process.env.VITE_DISCORD_BOT_API_URL || 'http://127.0.0.1:15139';
+    const apiKey = process.env.VITE_DISCORD_BOT_API_KEY || '201119851976lockdiscord54377rugjrtg754g5uiugjyijhj596jh6j0jj60oij6okjk6ojk60j6k0k0i67j';
 
     // 1. Special Route: Direct Discord Invite Lookup
     if (req.url.includes('/discord-invite/')) {
@@ -64,6 +67,8 @@ async function startServer() {
 
     const targetPath = req.url.replace('/api/proxy', '');
     const targetUrl = new URL(targetPath, botUrl).toString();
+
+    console.log(`[PROXY] Forwarding ${req.method} ${req.url} -> ${targetUrl}`);
 
     try {
       const response = await fetch(targetUrl, {

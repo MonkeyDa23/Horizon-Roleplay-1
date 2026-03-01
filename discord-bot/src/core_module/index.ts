@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import { env } from '../env.js';
 import { logToDiscord, sendDM } from '../bot_linking_module/utils.js';
 import { pool } from '../bot_linking_module/database.js';
+import { logFactionEvent, FactionEventData, syncMemberFactionRole, removeAllFactionRoles } from './faction_logger.js';
 
 export const setupCoreModule = (client: Client) => {
     const app = express();
@@ -335,6 +336,49 @@ export const setupCoreModule = (client: Client) => {
             });
         } catch (err: any) {
             res.status(500).json({ error: err.message });
+        }
+    });
+
+    // 7. Faction Event Logging (Direct from MTA)
+    app.post('/faction/event', authenticate, async (req: any, res: any) => {
+        const eventData: FactionEventData = req.body;
+        console.log('[BOT API] Received Faction Event:', eventData.type, 'for Faction:', eventData.factionId);
+        
+        if (!eventData.type || !eventData.factionId) {
+            console.error('[BOT API] Missing required fields in Faction Event');
+            return res.status(400).json({ error: 'Missing required fields: type, factionId' });
+        }
+
+        try {
+            // Try to find discord IDs if not provided
+            if (!eventData.discordId && eventData.playerAccount) {
+                const [rows]: any = await pool.execute('SELECT discord_id FROM accounts WHERE username = ?', [eventData.playerAccount]);
+                if (rows.length > 0) eventData.discordId = rows[0].discord_id;
+            }
+
+            if (!eventData.officerDiscordId && eventData.officerAccount) {
+                const [rows]: any = await pool.execute('SELECT discord_id FROM accounts WHERE username = ?', [eventData.officerAccount]);
+                if (rows.length > 0) eventData.officerDiscordId = rows[0].discord_id;
+            }
+
+            // Log the event
+            await logFactionEvent(client, eventData);
+
+            // --- INSTANT ROLE SYNC ---
+            if (eventData.discordId) {
+                if (['JOIN', 'RANK_UP', 'RANK_DOWN', 'LEADER_ASSIGN'].includes(eventData.type)) {
+                    const fName = eventData.factionName || 'Faction';
+                    const rName = eventData.newRankName || eventData.rankName || 'Rank';
+                    await syncMemberFactionRole(client, eventData.discordId, fName, rName, eventData.factionId);
+                } else if (['KICK', 'LEAVE', 'LEADER_REMOVE'].includes(eventData.type)) {
+                    await removeAllFactionRoles(client, eventData.discordId);
+                }
+            }
+            
+            res.json({ success: true });
+        } catch (error: any) {
+            console.error('[BOT API] Faction Event Error:', error);
+            res.status(500).json({ error: 'Internal Server Error', details: error.message });
         }
     });
 
