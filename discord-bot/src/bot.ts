@@ -2,7 +2,6 @@ import { Client, GatewayIntentBits, Events, Interaction, CacheType, Partials, RE
 import { env } from './env.js';
 import { commands } from './bot_linking_module/command-definitions.js';
 import { setupCoreModule } from './core_module/index.js';
-import { setupFactionSync } from './core_module/faction_sync.js';
 
 // Import command handlers
 import { handleLinkCommand } from './bot_linking_module/commands/link.js';
@@ -34,14 +33,10 @@ const registerCommands = async () => {
 
 client.once(Events.ClientReady, async (c) => {
     console.log(`✅ Merged Bot is online! Logged in as ${c.user.tag}`);
-    console.log(`📡 API URL: ${env.VITE_DISCORD_BOT_API_URL || 'Not Set'}`);
-    console.log(`🔑 API KEY: ${env.API_SECRET_KEY ? 'Set (Hidden)' : 'Not Set'}`);
-    
     await registerCommands();
     setupCoreModule(client); // Start the Express API
-    setupFactionSync(client); // Start the Faction Sync System
     
-    await logToDiscord(client, 'SUCCESS', '🚀 تشغيل النظام المدمج', 'تم تشغيل البوت بنجاح ودمج نظام الربط مع نظام الموقع واللوجات ونظام مزامنة الرتب التلقائي.', 'ADMIN', [
+    await logToDiscord(client, 'SUCCESS', '🚀 تشغيل النظام المدمج', 'تم تشغيل البوت بنجاح ودمج نظام الربط مع نظام الموقع واللوجات.', 'ADMIN', [
         { name: 'الحالة', value: 'متصل', inline: true },
         { name: 'المنفذ', value: env.PORT.toString(), inline: true }
     ]);

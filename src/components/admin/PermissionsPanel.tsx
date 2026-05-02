@@ -41,8 +41,8 @@ const BotConnectionErrorHelp: React.FC<{ error: string }> = ({ error }) => {
                         <li><strong>Is the bot running?</strong> Make sure you have started your bot (e.g., with `node index.js` in the `bot` directory) and that it is online.</li>
                         <li><strong>Are the frontend `.env` variables correct?</strong>
                             <ul className="list-disc list-inside ml-6 my-2 font-mono bg-brand-dark p-2 rounded">
-                                <li>`VITE_DISCORD_BOT_URL` must point to where your bot is hosted (e.g., `http://localhost:3001`).</li>
-                                <li>`VITE_DISCORD_BOT_API_KEY` must match the `API_SECRET_KEY` in your bot's `.env` file.</li>
+                                <li>`DISCORD_BOT_API_URL` must point to where your bot is hosted (e.g., `http://your-ip:3001`).</li>
+                                <li>`API_SECRET_KEY` must match the `API_SECRET_KEY` in your bot's `.env` file.</li>
                             </ul>
                         </li>
                         <li><strong>Check the bot's console logs</strong> for any startup errors or specific error messages when the request was made.</li>

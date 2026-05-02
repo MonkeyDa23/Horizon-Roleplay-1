@@ -479,7 +479,12 @@ export const getMtaAccountInfo = async (serial: string): Promise<MtaAccountInfo>
 };
 
 export const getMtaCharacterDetails = async (characterId: string): Promise<any> => {
-    const response = await fetch(`/api/mta/character/${characterId}`);
+    const { data: { session } } = await supabase!.auth.getSession();
+    const response = await fetch(`/api/mta/character/${characterId}`, {
+        headers: {
+            'Authorization': `Bearer ${session?.access_token}`
+        }
+    });
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: `Error ${response.status}` }));
         throw new ApiError(errorData.error || `Failed to fetch MTA character details (${response.status})`, response.status);
@@ -497,10 +502,14 @@ export const checkMtaLinkStatus = async (serial: string): Promise<{ linked: bool
 };
 
 export const unlinkMtaAccount = async (serial: string): Promise<{ success: boolean }> => {
+    const { data: { session } } = await supabase!.auth.getSession();
     // 1. Unlink from MySQL via Proxy
     const response = await fetch(`/api/mta/unlink`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`
+        },
         body: JSON.stringify({ serial }),
     });
     

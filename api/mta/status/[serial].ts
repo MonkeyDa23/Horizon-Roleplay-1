@@ -3,18 +3,25 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL!,
-  process.env.VITE_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 export default async function (req: VercelRequest, res: VercelResponse) {
-  console.log(`[API] Received request for /api/mta/status/${req.query.serial}`);
   try {
     const { serial } = req.query;
     
-    if (!serial) {
-      console.log("[API] Missing serial parameter.");
+    if (!serial || typeof serial !== 'string') {
       return res.status(400).json({ error: "Missing serial parameter" });
     }
+
+    // Vulnerability Check: Is user authenticated?
+    const authHeader = req.headers['authorization'];
+    if (!authHeader) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace('Bearer ', '')
+    );
+    if (authError || !user) return res.status(401).json({ error: 'Unauthorized' });
 
     // Check Supabase for a profile with this serial
     const { data: profile, error } = await supabase
@@ -24,26 +31,27 @@ export default async function (req: VercelRequest, res: VercelResponse) {
       .maybeSingle();
     
     if (error) {
-      console.error("[API] Supabase error in /api/mta/status:", error);
-      return res.json({ linked: false, discord: null, error: error.message });
-    }
-
-    if (!profile) {
-      console.log(`[API] No linked profile found for serial: ${serial}`);
+      console.error("[API] Supabase error in /api/mta/status:", error.message);
       return res.json({ linked: false, discord: null });
     }
 
-    console.log(`[API] Linked profile found for serial ${serial}: ${JSON.stringify(profile)}`);
+    if (!profile) {
+      return res.json({ linked: false, discord: null });
+    }
+
+    // Only return username if it belongs to the current user
+    const isOwner = profile.id === user.id;
+
     res.json({
       linked: true,
       discord: {
         id: profile.id,
-        username: profile.mta_name || "Linked User",
-        avatar: null // You'd need a discord bot or oauth to get the real avatar
+        username: isOwner ? (profile.mta_name || "Linked User") : "Hidden",
+        avatar: null
       }
     });
-  } catch (error) {
-    console.error("[API] General error in /api/mta/status:", error);
-    res.status(500).json({ error: "Error checking status" });
+  } catch (error: any) {
+    console.error("[API] General error in /api/mta/status:", error.message);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 }

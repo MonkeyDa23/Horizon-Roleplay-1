@@ -1,4 +1,10 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.VITE_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export default async function (req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -6,11 +12,30 @@ export default async function (req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { serial } = req.body;
-    console.log(`[API] Forwarding unlink request for ${serial} to Bot API`);
+    // Vulnerability #4: Authentication Check
+    const authHeader = req.headers['authorization'];
+    if (!authHeader) return res.status(401).json({ error: 'Unauthorized' });
 
-    const botApiUrl = process.env.VITE_DISCORD_BOT_API_URL;
-    const botApiKey = process.env.VITE_DISCORD_BOT_API_KEY;
+    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { serial } = req.body;
+    
+    // Verify that the serial belongs to this user
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('mta_serial')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile || profile.mta_serial !== serial) {
+      return res.status(403).json({ error: 'Forbidden: You can only unlink your own account' });
+    }
+
+    const botApiUrl = process.env.DISCORD_BOT_API_URL;
+    const botApiKey = process.env.API_SECRET_KEY;
 
     if (!botApiUrl || !botApiKey) {
       console.error("[API] Missing Bot API configuration");
@@ -27,11 +52,9 @@ export default async function (req: VercelRequest, res: VercelResponse) {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[API] Bot API error: ${response.status} - ${errorText}`);
+      console.error(`[API] Bot API error: ${response.status}`);
       return res.status(response.status).json({ 
-        error: "Failed to unlink account", 
-        details: errorText 
+        error: "Failed to unlink account"
       });
     }
 
@@ -39,7 +62,7 @@ export default async function (req: VercelRequest, res: VercelResponse) {
     res.json(data);
 
   } catch (error: any) {
-    console.error('[API] MTA Unlink API Error:', error);
-    res.status(500).json({ error: 'Internal server error', details: error.message });
+    console.error('[API] MTA Unlink API Error:', error.message);
+    res.status(500).json({ error: 'Internal server error' });
   }
 }

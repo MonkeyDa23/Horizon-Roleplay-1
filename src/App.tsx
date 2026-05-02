@@ -68,24 +68,6 @@ const AppContent: React.FC = () => {
   const { user, profile, isInitialLoading, loading, permissionWarning, syncError, logout, retrySync } = useAuth();
   const location = useLocation();
 
-  // Global Visit Logger
-  useEffect(() => {
-    if (!profile || !config) return;
-    
-    const logVisit = async () => {
-      await sendDiscordLog(config, {
-        title: '📍 زيارة صفحة',
-        description: `قام اللاعب بزيارة صفحة جديدة.`,
-        fields: [
-          { name: 'اللاعب', value: `${profile.username} (${profile.id})`, inline: true },
-          { name: 'الصفحة', value: location.pathname, inline: true }
-        ]
-      }, 'visit');
-    };
-
-    logVisit();
-  }, [location.pathname, profile, config]);
-  
   if (isInitialLoading || configLoading) {
     return (
       <div className="flex flex-col gap-4 justify-center items-center h-screen w-screen bg-brand-dark">

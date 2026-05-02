@@ -143,12 +143,12 @@ h1 {
     align-items: center;
     border: 1px dashed var(--accent);
     width: 100%;
-    max-width: 340px;
     margin: 0 auto;
     gap: 10px;
     cursor: pointer;
     transition: 0.2s;
     animation: pulse 2s infinite;
+    word-break: break-all;
 }
 
 @keyframes pulse {
@@ -163,13 +163,11 @@ h1 {
 }
 
 #linking-code {
-    font-size: 14px;
-    font-weight: 900;
+    font-size: 14px; /* تصغير الخط ليتناسب مع 32 حرفاً */
+    font-weight: 700;
     letter-spacing: 1px;
     color: var(--accent);
-    word-break: break-all;
-    text-align: center;
-    flex: 1;
+    font-family: 'Courier New', Courier, monospace;
 }
 
 .timer-text {

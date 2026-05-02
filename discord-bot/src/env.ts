@@ -3,13 +3,11 @@ import 'dotenv/config';
 
 export const env = {
   // Discord Bot
-  DISCORD_BOT_TOKEN: process.env.DISCORD_BOT_TOKEN,
-  DISCORD_CLIENT_ID: process.env.DISCORD_CLIENT_ID,
+  DISCORD_BOT_TOKEN: process.env.GAME_BOT_TOKEN || process.env.DISCORD_BOT_TOKEN,
+  DISCORD_CLIENT_ID: process.env.GAME_BOT_CLIENT_ID || process.env.DISCORD_CLIENT_ID,
   DISCORD_GUILD_ID: process.env.DISCORD_GUILD_ID,
-  LOG_GUILD_ID: process.env.LOG_GUILD_ID,
-  DISCORD_ADMIN_ROLE_ID: process.env.DISCORD_ADMIN_ROLE_ID,
-  
-  // Channels
+  LOG_GUILD_ID: process.env.LOG_GUILD_ID, // Dedicated logging server ID
+  WEBSITE_BOT_CHANNEL_ID: process.env.WEBSITE_BOT_CHANNEL_ID,
   LOG_CHANNEL_MTA: process.env.LOG_CHANNEL_MTA,
   LOG_CHANNEL_COMMANDS: process.env.LOG_CHANNEL_COMMANDS,
   LOG_CHANNEL_AUTH: process.env.LOG_CHANNEL_AUTH,
@@ -18,19 +16,13 @@ export const env = {
   LOG_CHANNEL_FINANCE: process.env.LOG_CHANNEL_FINANCE,
   LOG_CHANNEL_SUBMISSIONS: process.env.LOG_CHANNEL_SUBMISSIONS,
   LOG_CHANNEL_VISITS: process.env.LOG_CHANNEL_VISITS,
-  WEBSITE_BOT_CHANNEL_ID: process.env.WEBSITE_BOT_CHANNEL_ID,
-  
-  // Faction Sync
-  GANGS_GUILD_ID: process.env.GANGS_GUILD_ID,
-  FACTIONS_GUILD_ID: process.env.FACTIONS_GUILD_ID,
-  GANG_FACTION_IDS: process.env.GANG_FACTION_IDS || '',
+  DISCORD_ADMIN_ROLE_ID: process.env.DISCORD_ADMIN_ROLE_ID,
+  API_SECRET_KEY: process.env.API_SECRET_KEY,
 
-  API_SECRET_KEY: process.env.VITE_DISCORD_BOT_API_KEY || process.env.API_SECRET_KEY || 'FL-RP_9x2KzL8!vQpmWn5&7ZtY2uBvR1_VXL',
-
-  // MySQL Connection
-  MTA_DB_HOST: process.env.MTA_DB_HOST || '51.38.205.167',
-  MTA_DB_USER: process.env.MTA_DB_USER || 'u80078_Xpie51qdR4',
-  MTA_DB_PASSWORD: process.env.MTA_DB_PASSWORD || 'SI^B=+4Tvm@xNGABLh1bZ^Jf',
-  MTA_DB_NAME: process.env.MTA_DB_NAME || 's80078_db1771579900188',
-  PORT: process.env.PORT || 15139
+  // MySQL / phpMyAdmin Connection
+  MTA_DB_HOST: process.env.MTA_DB_HOST,
+  MTA_DB_USER: process.env.MTA_DB_USER,
+  MTA_DB_PASSWORD: process.env.MTA_DB_PASSWORD,
+  MTA_DB_NAME: process.env.MTA_DB_NAME,
+  PORT: process.env.PORT || 3001
 };

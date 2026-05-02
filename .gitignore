@@ -9,3 +9,4 @@
 
 # Environment variables
 .env
+mta_mod/config.lua

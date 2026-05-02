@@ -32,10 +32,12 @@ export const handleShowLinkStatusCommand = async (interaction: CommandInteractio
 
         if (Array.isArray(rows) && rows.length > 0) {
             const account = (rows as any)[0];
+            const maskedSerial = account.mtaserial ? account.mtaserial.substring(0, 8) + '...' + account.mtaserial.substring(account.mtaserial.length - 4) : 'Unknown';
+            
             await interaction.editReply({ 
                 content: `🔍 **معلومات الربط لـ ${targetUser.tag}:**\n\n` +
                          `• **حساب اللعبة:** \`${account.username}\`\n` +
-                         `• **السيريال:** \`${account.mtaserial}\`\n` +
+                         `• **السيريال:** \`${maskedSerial}\`\n` +
                          `• **الآيدي:** <@${targetUser.id}>`
             });
             

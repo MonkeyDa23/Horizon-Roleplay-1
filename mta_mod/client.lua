@@ -5,6 +5,7 @@ local isUIVisible = false
 local isBrowserReady = false
 
 function toggleLinkingUI()
+    -- التأكد من أن اللاعب ليس في حالة انتقال أو انتظار
     if isUIVisible then
         if isElement(guiBrowser) then destroyElement(guiBrowser) end
         showCursor(false)
@@ -12,12 +13,16 @@ function toggleLinkingUI()
         webBrowser = nil
         isUIVisible = false
         isBrowserReady = false
+        -- outputChatBox("Linking-Mod: تم إغلاق القائمة.", 255, 255, 255)
     else
+        -- outputChatBox("Linking-Mod: جاري فتح القائمة...", 255, 255, 0)
         guiBrowser = guiCreateBrowser(0, 0, sx, sy, true, true, false)
-        if not guiBrowser then return end
+        if not guiBrowser then 
+            outputChatBox("Linking-Mod: فشل إنشاء المتصفح! تأكد من إعطاء الصلاحيات.", 255, 0, 0)
+            return 
+        end
         
         guiSetAlpha(guiBrowser, 0)
-        
         webBrowser = guiGetBrowser(guiBrowser)
         
         addEventHandler("onClientBrowserCreated", webBrowser, function()
@@ -40,7 +45,14 @@ function toggleLinkingUI()
     end
 end
 
-bindKey("f5", "down", toggleLinkingUI)
+-- ربط المفتاح F5 والأمر /link عند تشغيل المود
+addEventHandler("onClientResourceStart", resourceRoot, function()
+    bindKey("f5", "down", toggleLinkingUI)
+    -- outputChatBox("Linking-Mod: اضغط F5 أو اكتب /link لفتح قائمة الربط.", 0, 255, 0)
+end)
+
+addCommandHandler("link", toggleLinkingUI)
+addCommandHandler("ربط", toggleLinkingUI)
 
 addEvent("onClientRequestNewCode", true)
 addEventHandler("onClientRequestNewCode", root, function()
@@ -55,14 +67,23 @@ end)
 addEvent("onReceiveNewCode", true)
 addEventHandler("onReceiveNewCode", root, function(code, expiresAt)
     if isElement(webBrowser) and isBrowserReady then
-        local safeCode = tostring(code):gsub("'", "\\'")
-        executeBrowserJavascript(webBrowser, "updateUI({isLinked: false, code: '" .. safeCode .. "', expiresAt: " .. tostring(expiresAt) .. "})")
+        -- الثغرة #5: تعقيم الكود عبر تحويله لـ JSON بالكامل
+        local data = {
+            isLinked = false,
+            code = code,
+            expiresAt = expiresAt
+        }
+        local json = toJSON(data)
+        -- تنظيف الـ JSON من الأقواس المربعة التي يضيفها MTA
+        json = string.sub(json, 2, #json - 1)
+        executeBrowserJavascript(webBrowser, "updateUI(" .. json .. ")")
     end
 end)
 
 addEvent("onReceiveStatusUpdate", true)
 addEventHandler("onReceiveStatusUpdate", root, function(data)
     if isElement(webBrowser) and isBrowserReady then
+        -- الثغرة #6: تعقيم البيانات القادمة من السيرفر بالكامل
         local json = toJSON(data)
         json = string.sub(json, 2, #json - 1)
         executeBrowserJavascript(webBrowser, "updateUI(" .. json .. ")")

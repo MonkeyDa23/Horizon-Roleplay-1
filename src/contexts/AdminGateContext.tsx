@@ -10,29 +10,9 @@ interface AdminGateContextType {
 const AdminGateContext = createContext<AdminGateContextType | undefined>(undefined);
 
 export const AdminGateProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isVerified, setIsVerified] = useState<boolean>(() => {
-    // FIX: Guard against window/sessionStorage access in non-browser environments.
-    try {
-      if (typeof window !== 'undefined') {
-        // FIX: Cast window to any to bypass potential tsconfig lib errors for 'sessionStorage'.
-        return (window as any).sessionStorage.getItem('isAdminVerified') === 'true';
-      }
-      return false;
-    } catch {
-      return false;
-    }
-  });
+  const [isVerified, setIsVerified] = useState<boolean>(false);
 
   const verify = () => {
-    try {
-      // FIX: Guard against window/sessionStorage access in non-browser environments.
-      if (typeof window !== 'undefined') {
-        // FIX: Cast window to any to bypass potential tsconfig lib errors for 'sessionStorage'.
-        (window as any).sessionStorage.setItem('isAdminVerified', 'true');
-      }
-    } catch {
-      // Ignore storage errors
-    }
     setIsVerified(true);
   };
 

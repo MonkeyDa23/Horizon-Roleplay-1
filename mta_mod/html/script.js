@@ -112,7 +112,30 @@ window.updateUI = function(data) {
         if (linkedView) linkedView.classList.remove('hidden');
 
         const avatar = document.getElementById('user-avatar');
-        if (avatar) avatar.src = data.avatar || 'https://cdn.discordapp.com/embed/avatars/0.png';
+        if (avatar) {
+            // الثغرة #8: التحقق من أن الرابط من ديسكورد فقط
+            const avatarUrl = data.avatar || 'https://cdn.discordapp.com/embed/avatars/0.png';
+            const allowedDomains = [
+                'https://cdn.discordapp.com/',
+                'https://media.discordapp.net/',
+                'https://images.discordapp.net/',
+                'https://cdn.discord.com/'
+            ];
+            
+            let isAllowed = false;
+            for (const domain of allowedDomains) {
+                if (avatarUrl.startsWith(domain)) {
+                    isAllowed = true;
+                    break;
+                }
+            }
+            
+            if (isAllowed) {
+                avatar.src = avatarUrl;
+            } else {
+                avatar.src = 'https://cdn.discordapp.com/embed/avatars/0.png';
+            }
+        }
         
         const name = document.getElementById('user-name');
         if (name) name.innerText = data.username || 'Unknown';

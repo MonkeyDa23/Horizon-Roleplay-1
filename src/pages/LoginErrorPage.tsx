@@ -24,7 +24,7 @@ const ApiKeyMismatchHelp: React.FC = () => {
             <h2 className="font-bold text-yellow-300 text-lg">{t('login_error_api_key_title')}</h2>
             <p className="text-gray-300 mt-2 mb-4" dangerouslySetInnerHTML={{ __html: t('login_error_api_key_intro').replace('in both `.env` files', 'in your website and bot environment variables') }}></p>
             <div className="bg-brand-dark-blue p-4 rounded-md text-sm text-center">
-                The value for <code className="text-yellow-300">VITE_DISCORD_BOT_API_KEY</code> in your website's environment (e.g., Vercel settings) must exactly match <code className="text-yellow-300">API_SECRET_KEY</code> in your bot's <code>.env</code> file.
+                The value for <code className="text-yellow-300">API_SECRET_KEY</code> in your website's environment (e.g., Vercel settings) must exactly match <code className="text-yellow-300">API_SECRET_KEY</code> in your bot's <code>.env</code> file.
             </div>
         </div>
     );
@@ -35,7 +35,7 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
     const { t } = useLocalization();
     const { config } = useConfig();
     
-    const botUrl = env.VITE_DISCORD_BOT_URL;
+    const botUrl = env.VITE_DISCORD_BOT_URL || "Proxy Controlled";
 
     const getTroubleshootingContent = () => {
         const errorMessage = (error && typeof error.message === 'string') ? error.message : '';
@@ -63,7 +63,7 @@ const LoginErrorPage: React.FC<LoginErrorPageProps> = ({ error, onRetry, onLogou
                         <p className="text-sm font-bold text-white mb-2">Solution Checklist:</p>
                         <ol className="list-decimal list-inside text-sm text-gray-300 space-y-2">
                             <li><strong>Check Bot Console:</strong> Restart your bot. It will print the correct port. Make sure it says listening on <code>0.0.0.0</code>.</li>
-                            <li><strong>Verify Vercel Env:</strong> Does <code>VITE_DISCORD_BOT_URL</code> match that IP & Port?</li>
+                            <li><strong>Verify Vercel Env:</strong> Does <code>DISCORD_BOT_API_URL</code> match that IP & Port?</li>
                             <li><strong className="text-yellow-400">DID YOU REDEPLOY?</strong> Changing Env Vars in Vercel DOES NOT work until you go to Deployments and click <strong>Redeploy</strong>.</li>
                         </ol>
                     </div>

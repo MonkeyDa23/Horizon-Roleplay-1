@@ -1,5 +1,6 @@
 import { VercelRequest, VercelResponse } from '@vercel/node';
 import mysql from 'mysql2/promise';
+import { createClient } from '@supabase/supabase-js';
 
 const pool = mysql.createPool({
   host: process.env.MTA_DB_HOST,
@@ -9,42 +10,66 @@ const pool = mysql.createPool({
   port: parseInt(process.env.MTA_DB_PORT || '3306', 10),
 });
 
+const supabase = createClient(
+  process.env.VITE_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
 export default async function (req: VercelRequest, res: VercelResponse) {
-  console.log(`[API] Received request for /api/mta/character/${req.query.id}`);
   try {
+    // Vulnerability #1: Authentication Check via Supabase Session
+    const authHeader = req.headers['authorization'];
+    if (!authHeader) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
     const { id } = req.query;
 
     if (!id) {
-      console.log("[API] Missing character ID parameter.");
       return res.status(400).json({ error: "Missing character ID parameter" });
     }
 
-    // 1. Fetch Character Info
+    // Check if the character belongs to the authenticated user
+    // We need to check the 'profiles' table for the user's serial, then check characters table
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('mta_serial')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile || !profile.mta_serial) {
+      return res.status(403).json({ error: 'Forbidden: No linked MTA account' });
+    }
+
+    // 1. Fetch Character Info and verify ownership via serial
+    // Assuming 'characters' table has 'owner_serial' or similar. 
+    // If it only has 'owner_id' (account id in MTA), we'd need to join with accounts.
+    // For now, we'll just check if the character exists. 
+    // Ideally, we'd verify ownership here.
     const [chars]: any = await pool.execute(
-      "SELECT * FROM characters WHERE id = ? LIMIT 1",
-      [id]
+      "SELECT c.* FROM characters c JOIN accounts a ON c.account_id = a.id WHERE c.id = ? AND a.mtaserial = ? LIMIT 1",
+      [id, profile.mta_serial]
     );
 
     if (chars.length === 0) {
-      console.log(`[API] Character not found for ID: ${id}`);
-      return res.status(404).json({ error: "Character not found" });
+      return res.status(404).json({ error: "Character not found or access denied" });
     }
     const character = chars[0];
-    console.log(`[API] Found character: ${JSON.stringify(character)}`);
 
     // 2. Fetch Vehicles
     const [vehicles]: any = await pool.execute(
       "SELECT id, model, plate FROM vehicles WHERE owner_id = ?",
       [id]
     );
-    console.log(`[API] Found ${vehicles.length} vehicles for character ${id}`);
 
     // 3. Fetch Properties
     const [properties]: any = await pool.execute(
       "SELECT id, name, address FROM properties WHERE owner_id = ?",
       [id]
     );
-    console.log(`[API] Found ${properties.length} properties for character ${id}`);
 
     res.json({
       character,
@@ -52,7 +77,7 @@ export default async function (req: VercelRequest, res: VercelResponse) {
       properties
     });
   } catch (error) {
-    console.error("[API] MySQL Error in /api/mta/character:", error);
+    console.error("[API] MySQL Error in /api/mta/character");
     res.status(500).json({ error: "Internal Server Error" });
   }
 }

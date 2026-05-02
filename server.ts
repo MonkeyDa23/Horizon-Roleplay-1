@@ -3,14 +3,17 @@ import mysql from 'mysql2/promise';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-
-// Start the Discord Bot
-import './discord-bot/src/bot.ts';
+import { createClient } from '@supabase/supabase-js';
 
 dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const supabase = createClient(
+  process.env.VITE_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 const pool = mysql.createPool({
   host: process.env.MTA_DB_HOST || 'localhost',
@@ -34,15 +37,29 @@ async function startServer() {
   }
 
   // --- PROXY FOR DISCORD BOT ---
+  const ALLOWED_PATHS = [
+    '/mta/account/',
+    '/mta/character/',
+    '/mta/unlink',
+    '/mta/code',
+    '/discord-invite/'
+  ];
+
   app.all('/api/proxy/*', async (req, res) => {
-    const botUrl = process.env.VITE_DISCORD_BOT_API_URL || 'http://127.0.0.1:15139';
-    const apiKey = process.env.VITE_DISCORD_BOT_API_KEY || '201119851976lockdiscord54377rugjrtg754g5uiugjyijhj596jh6j0jj60oij6okjk6ojk60j6k0k0i67j';
+    const botUrl = process.env.DISCORD_BOT_API_URL;
+    const apiKey = process.env.API_SECRET_KEY;
 
     // 1. Special Route: Direct Discord Invite Lookup
     if (req.url.includes('/discord-invite/')) {
       try {
         const parts = req.url.split('/discord-invite/');
         const code = parts[1].split('?')[0];
+        
+        // Vulnerability #7: Format Validation
+        if (!code || !/^[a-zA-Z0-9-]+$/.test(code)) {
+          return res.status(400).json({ error: 'Invalid invite code format' });
+        }
+
         const discordRes = await fetch(`https://discord.com/api/v9/invites/${code}?with_counts=true`);
         if (!discordRes.ok) return res.status(discordRes.status).json({ error: 'Discord API Error' });
         const data = await discordRes.json();
@@ -56,7 +73,7 @@ async function startServer() {
           presenceCount: data.approximate_presence_count
         });
       } catch (e: any) {
-        return res.status(500).json({ error: 'Discord fetch failed', details: e.message });
+        return res.status(500).json({ error: 'Discord fetch failed' });
       }
     }
 
@@ -66,9 +83,14 @@ async function startServer() {
     }
 
     const targetPath = req.url.replace('/api/proxy', '');
-    const targetUrl = new URL(targetPath, botUrl).toString();
+    
+    // Vulnerability #3: SSRF Whitelist
+    const isAllowed = ALLOWED_PATHS.some(path => targetPath.startsWith(path));
+    if (!isAllowed) {
+      return res.status(403).json({ error: 'Forbidden: Path not whitelisted' });
+    }
 
-    console.log(`[PROXY] Forwarding ${req.method} ${req.url} -> ${targetUrl}`);
+    const targetUrl = new URL(targetPath, botUrl).toString();
 
     try {
       const response = await fetch(targetUrl, {
@@ -82,14 +104,24 @@ async function startServer() {
 
       res.status(response.status).send(await response.text());
     } catch (error: any) {
-      console.error(`[PROXY] Error forwarding to ${targetUrl}:`, error);
-      res.status(502).json({ error: 'Bad Gateway', details: error.message, targetUrl });
+      console.error(`[PROXY] Error forwarding to bot API:`, error.message);
+      // Vulnerability #8: Information Disclosure
+      res.status(502).json({ error: 'Bad Gateway' });
     }
   });
 
   // MTA API Routes (Direct to DB)
   app.get('/api/mta/status/:serial', async (req, res) => {
     try {
+      // Vulnerability #4: Authentication Check
+      const authHeader = req.headers['authorization'];
+      if (!authHeader) return res.status(401).json({ error: 'Unauthorized' });
+
+      const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+      if (authError || !user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
       const { serial } = req.params;
       const [rows] = await pool.execute('SELECT discord_id, discord_username, discord_avatar FROM accounts WHERE mtaserial = ?', [serial]);
       const account = (rows as any[])[0];
@@ -114,11 +146,31 @@ async function startServer() {
 
   app.post('/api/mta/unlink', async (req, res) => {
     try {
+      // Vulnerability #5: Authentication Check
+      const authHeader = req.headers['authorization'];
+      if (!authHeader) return res.status(401).json({ error: 'Unauthorized' });
+
+      const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+      if (authError || !user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+
       const { serial } = req.body;
       console.log(`[Server] Processing unlink request for serial: ${serial}`);
 
       if (!serial) {
         return res.status(400).json({ error: 'Serial is required' });
+      }
+
+      // Verify ownership
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('mta_serial')
+        .eq('id', user.id)
+        .single();
+
+      if (!profile || profile.mta_serial !== serial) {
+        return res.status(403).json({ error: 'Forbidden: You can only unlink your own account' });
       }
 
       // 1. Direct Database Unlink (Primary Action)
@@ -130,8 +182,8 @@ async function startServer() {
       const affectedRows = (result as any).affectedRows;
 
       // 2. Notify Bot (Secondary/Optional)
-      const botApiUrl = process.env.VITE_DISCORD_BOT_API_URL;
-      const botApiKey = process.env.VITE_DISCORD_BOT_API_KEY;
+      const botApiUrl = process.env.DISCORD_BOT_API_URL;
+      const botApiKey = process.env.API_SECRET_KEY;
 
       if (botApiUrl && botApiKey) {
         fetch(`${botApiUrl}/mta/unlink`, {
@@ -154,8 +206,8 @@ async function startServer() {
       }
 
     } catch (error: any) {
-      console.error('[Server] MTA Unlink API Error:', error);
-      res.status(500).json({ error: 'Internal server error', details: error.message });
+      console.error('[Server] MTA Unlink API Error:', error.message);
+      res.status(500).json({ error: 'Internal server error' });
     }
   });
 
