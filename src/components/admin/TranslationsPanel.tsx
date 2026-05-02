@@ -19,7 +19,7 @@ const TranslationsPanel: React.FC = () => {
     
     // PERSISTENT STATE
     const [editableTranslations, setEditableTranslations] = usePersistentState<Translations>('nova_admin_translations_draft', {});
-    const [searchTerm, setSearchTerm] = usePersistentState<string>('vixel_admin_translations_search', '');
+    const [searchTerm, setSearchTerm] = usePersistentState<string>('nova_admin_translations_search', '');
     
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -59,7 +59,7 @@ const TranslationsPanel: React.FC = () => {
             showToast(t('save_translations'), 'success');
             
             // Clear draft
-            localStorage.removeItem('vixel_admin_translations_draft');
+            localStorage.removeItem('nova_admin_translations_draft');
 
             const embed = {
                 title: "🌐 تحديث الترجمات",
@@ -118,7 +118,7 @@ const TranslationsPanel: React.FC = () => {
                             {filteredKeys.map(key => (
                                 <tr key={key} className="border-b border-brand-light-blue/50 last:border-none hover:bg-brand-light-blue/20 transition-colors">
                                     <td className="p-4 font-mono text-sm text-brand-cyan align-top pt-5">{key}</td>
-                                    <td className="p-4"><textarea value={editableTranslations[key]?.en || ''} onChange={(e) => handleTranslationChange(key, 'en', e.currentTarget.value)} className="vixel-input h-24" /></td>
+                                    <td className="p-4"><textarea value={editableTranslations[key]?.en || ''} onChange={(e) => handleTranslationChange(key, 'en', e.currentTarget.value)} className="nova-input h-24" /></td>
                                     <td className="p-4"><textarea value={editableTranslations[key]?.ar || ''} onChange={(e) => handleTranslationChange(key, 'ar', e.currentTarget.value)} className="vixel-input h-24" dir="rtl" /></td>
                                 </tr>
                             ))}

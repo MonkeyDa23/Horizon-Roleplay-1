@@ -31,6 +31,7 @@ const AppearancePanel: React.FC = () => {
             const changes: string[] = [];
             if (settings.COMMUNITY_NAME !== config?.COMMUNITY_NAME) changes.push(`- اسم المجتمع: ${config?.COMMUNITY_NAME} ➔ ${settings.COMMUNITY_NAME}`);
             if (settings.LOGO_URL !== config?.LOGO_URL) changes.push(`- رابط الشعار: ${settings.LOGO_URL}`);
+            if (settings.MAINTENANCE_MODE !== config?.MAINTENANCE_MODE) changes.push(`- وضع الصيانة: ${settings.MAINTENANCE_MODE ? 'تفعيل' : 'تعطيل'}`);
             if (settings.BACKGROUND_IMAGE_URL !== config?.BACKGROUND_IMAGE_URL) changes.push(`- رابط الخلفية: ${settings.BACKGROUND_IMAGE_URL}`);
             if (settings.DISCORD_GUILD_ID !== config?.DISCORD_GUILD_ID) changes.push(`- آيدي السيرفر: ${settings.DISCORD_GUILD_ID}`);
             if (settings.admin_password !== config?.admin_password) changes.push(`- كلمة مرور لوحة التحكم: [تغيرت]`);
@@ -90,6 +91,35 @@ const AppearancePanel: React.FC = () => {
                 </button>
             </div>
             <div className="bg-brand-dark-blue p-8 rounded-lg border border-brand-light-blue/50 space-y-8">
+                <div>
+                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">وضع الصيانة (Maintenance Mode)</h3>
+                    <div className="bg-brand-dark/40 p-6 rounded-2xl border border-white/5 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-white font-bold text-lg">تفعيل وضع الصيانة</p>
+                                <p className="text-gray-400 text-sm">سيتم منع جميع الزوار من دخول الموقع وإظهار صفحة الصيانة، باستثناء الطاقم الإداري.</p>
+                            </div>
+                            <button 
+                                onClick={() => handleChange('MAINTENANCE_MODE', !settings.MAINTENANCE_MODE)}
+                                className={`w-16 h-8 rounded-full transition-all duration-300 relative ${settings.MAINTENANCE_MODE ? 'bg-brand-cyan' : 'bg-gray-600'}`}
+                            >
+                                <div className={`absolute top-1 w-6 h-6 rounded-full bg-white transition-all duration-300 ${settings.MAINTENANCE_MODE ? 'right-1' : 'right-9'}`} />
+                            </button>
+                        </div>
+                        {settings.MAINTENANCE_MODE && (
+                            <div className="pt-4 animate-fade-in">
+                                <label className="block text-sm font-bold text-brand-cyan mb-2">رسالة الصيانة (تظهر للزوار)</label>
+                                <textarea 
+                                    value={settings.MAINTENANCE_MESSAGE_AR || ''} 
+                                    onChange={(e) => handleChange('MAINTENANCE_MESSAGE_AR', e.target.value)}
+                                    className="nova-input min-h-[100px]"
+                                    placeholder="اكتب هنا الرسالة التي ستظهر للزوار..."
+                                />
+                            </div>
+                        )}
+                    </div>
+                </div>
+
                 <div>
                     <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">General Settings</h3>
                     <div className="space-y-6">

@@ -309,8 +309,8 @@ const UserLookupPanel: React.FC = () => {
             {/* Ban Modal */}
             <Modal isOpen={isBanModalOpen} onClose={() => setBanModalOpen(false)} title={t('ban')}>
                 <div className="space-y-4">
-                    <input type="text" placeholder={t('reason')} value={banReason} onChange={(e) => setBanReason(e.target.value)} className="vixel-input" />
-                    <input type="number" placeholder={`${t('duration')} (hours) - Leave empty for permanent`} value={banDuration || ''} onChange={(e) => setBanDuration(parseInt(e.target.value) || null)} className="vixel-input" />
+                    <input type="text" placeholder={t('reason')} value={banReason} onChange={(e) => setBanReason(e.target.value)} className="nova-input" />
+                    <input type="number" placeholder={`${t('duration')} (hours) - Leave empty for permanent`} value={banDuration || ''} onChange={(e) => setBanDuration(parseInt(e.target.value) || null)} className="nova-input" />
                     <button onClick={handleBan} className="w-full bg-red-600 text-white font-bold py-3 rounded-lg hover:bg-red-500">{t('confirm_ban')}</button>
                 </div>
             </Modal>

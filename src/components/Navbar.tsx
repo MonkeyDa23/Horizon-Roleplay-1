@@ -56,7 +56,6 @@ const Navbar: React.FC = () => {
   const navLinks = [
     { to: '/', text: t('home') },
     { to: '/store', text: t('store') },
-    { to: '/link-account', text: 'ربط الحساب' },
     { to: '/rules', text: t('rules') },
     { to: '/applies', text: t('applies') },
     { to: '/about', text: t('about_us') },
@@ -158,7 +157,6 @@ const Navbar: React.FC = () => {
                             <p className="font-semibold text-white truncate">{user.username}</p>
                          </div>
                          <UserMenuLink to="/profile" icon={User} onClick={closeAllMenus}>{t('my_profile')}</UserMenuLink>
-                         <UserMenuLink to="/link-account" icon={Link2} onClick={closeAllMenus}>ربط الحساب</UserMenuLink>
                          <UserMenuLink to="/my-applications" icon={FileText} onClick={closeAllMenus}>{t('my_applications')}</UserMenuLink>
                          {hasPermission('admin_panel') && (
                             <UserMenuLink to="/admin" icon={UserCog} onClick={closeAllMenus}>{t('admin_panel')}</UserMenuLink>

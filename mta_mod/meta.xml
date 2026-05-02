@@ -1,0 +1,22 @@
+<meta>
+    <info author="Nova RP" type="script" version="3.0.0" name="Secure Linking System" />
+    
+    <script src="config.lua" type="server" />
+    <script src="server.lua" type="server" />
+    <script src="client.lua" type="client" cache="false" />
+    
+    <file src="html/index.html" download="true" />
+    <file src="html/style.css" download="true" />
+    <file src="html/script.js" download="true" />
+    
+    <aclrequest>
+        <right name="function.createBrowser" access="true" />
+        <right name="function.loadBrowserURL" access="true" />
+    </aclrequest>
+    
+    <settings>
+        <!-- تم نقل الإعدادات لتُسحب من مود mysql ومود mta_mod عبر الكونسول -->
+    </settings>
+
+    <min_mta_version client="1.5.8" server="1.5.8" />
+</meta>

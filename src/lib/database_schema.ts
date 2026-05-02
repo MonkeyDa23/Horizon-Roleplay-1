@@ -88,6 +88,8 @@ CREATE TABLE public.config (
     id smallint PRIMARY KEY DEFAULT 1,
     "COMMUNITY_NAME" text NOT NULL DEFAULT 'Nova Roleplay',
     "LOGO_URL" text,
+    "MAINTENANCE_MODE" boolean NOT NULL DEFAULT false,
+    "MAINTENANCE_MESSAGE_AR" text DEFAULT 'الموقع حالياً تحت الصيانة لتحسين تجربتكم. سنعود قريباً!',
     "DISCORD_GUILD_ID" text,
     "DISCORD_INVITE_URL" text,
     "MTA_SERVER_URL" text,

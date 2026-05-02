@@ -307,12 +307,12 @@ const QuizzesPanel: React.FC = () => {
                         </div>
                         <div>
                             <label className="block mb-1 font-semibold text-gray-300">{t('title_ar')}</label>
-                            <input type="text" dir="rtl" value={editingQuiz.titleAr} onChange={(e) => setEditingQuiz({ ...editingQuiz, titleAr: e.currentTarget.value })} className="vixel-input" />
+                            <input type="text" dir="rtl" value={editingQuiz.titleAr} onChange={(e) => setEditingQuiz({ ...editingQuiz, titleAr: e.currentTarget.value })} className="nova-input" />
                         </div>
                     </div>
                      <div>
                         <label className="block mb-1 font-semibold text-gray-300">{t('description_en')}</label>
-                        <textarea value={editingQuiz.descriptionEn} onChange={(e) => setEditingQuiz({ ...editingQuiz, descriptionEn: e.currentTarget.value })} className="vixel-input h-24" />
+                        <textarea value={editingQuiz.descriptionEn} onChange={(e) => setEditingQuiz({ ...editingQuiz, descriptionEn: e.currentTarget.value })} className="nova-input h-24" />
                     </div>
                      <div>
                         <label className="block mb-1 font-semibold text-gray-300">{t('description_ar')}</label>

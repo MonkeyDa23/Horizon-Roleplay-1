@@ -15,6 +15,8 @@ interface ConfigContextType {
 const defaultConfig: AppConfig = {
     COMMUNITY_NAME: 'Nova Roleplay',
     LOGO_URL: 'https://cdn.discordapp.com/attachments/1424465148055257109/1500036309723385926/27f5d244b02e1b6a9ef659711901656a.png?ex=69f6f92d&is=69f5a7ad&hm=e1825f49a40b63d043803dacacd6fe900651782a1c23224a2289b74e58cf1423&',
+    MAINTENANCE_MODE: false,
+    MAINTENANCE_MESSAGE_AR: 'الموقع حالياً تحت الصيانة لتحسين تجربتكم. سنعود قريباً!',
     DISCORD_GUILD_ID: '',
     DISCORD_INVITE_URL: 'https://discord.gg/u3CazwhxVa',
     MTA_SERVER_URL: 'mtasa://134.255.216.22:22041',

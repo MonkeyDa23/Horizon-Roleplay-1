@@ -80,7 +80,7 @@ const RulesPanel: React.FC = () => {
             await refreshTranslations();
             
             // Clear draft on success
-            localStorage.removeItem('vixel_admin_rules_draft');
+            localStorage.removeItem('nova_admin_rules_draft');
             // Refresh to get clean state from server
             const updatedRules = await getRules();
              // Force update state to match server (removes drift)
@@ -204,7 +204,7 @@ const RulesPanel: React.FC = () => {
                                     <span className="text-gray-500 font-bold pt-2">{ruleIndex + 1}.</span>
                                     <div className="w-full grid grid-cols-2 gap-2">
                                         <textarea value={rule.textEn} onChange={(e) => handleRuleChange(catIndex, ruleIndex, 'textEn', e.currentTarget.value)} placeholder="Rule Text (EN)" className="nova-input h-20"/>
-                                        <textarea dir="rtl" value={rule.textAr} onChange={(e) => handleRuleChange(catIndex, ruleIndex, 'textAr', e.currentTarget.value)} placeholder="نص القانون (AR)" className="vixel-input h-20"/>
+                                        <textarea dir="rtl" value={rule.textAr} onChange={(e) => handleRuleChange(catIndex, ruleIndex, 'textAr', e.currentTarget.value)} placeholder="نص القانون (AR)" className="nova-input h-20"/>
                                     </div>
                                     <button onClick={() => deleteRule(catIndex, ruleIndex)} className="text-red-500 hover:text-red-400 pt-2"><Trash2 size={18} /></button>
                                 </div>

@@ -40,7 +40,7 @@ const NotificationsPanel: React.FC = () => {
     
     // PERSISTENT STATE
     const [allTranslations, setAllTranslations] = usePersistentState<Translations>('nova_admin_notifs_trans_draft', {});
-    const [settings, setSettings] = usePersistentState<Partial<AppConfig>>('vixel_admin_notifs_settings_draft', {});
+    const [settings, setSettings] = usePersistentState<Partial<AppConfig>>('nova_admin_notifs_settings_draft', {});
     
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -79,7 +79,7 @@ const NotificationsPanel: React.FC = () => {
             ]);
             
             // Clear drafts
-            localStorage.removeItem('vixel_admin_notifs_trans_draft');
+            localStorage.removeItem('nova_admin_notifs_trans_draft');
             localStorage.removeItem('vixel_admin_notifs_settings_draft');
             
             await refreshConfig();
@@ -169,7 +169,7 @@ const NotificationsPanel: React.FC = () => {
         <div>
             <label className="block text-md font-semibold text-white mb-1">{t(labelKey)}</label>
             <p className="text-sm text-gray-400 mb-2">{t(descKey)}</p>
-            <input type="text" value={value || ''} onChange={(e) => onChange(e.currentTarget.value)} className="vixel-input !p-2 font-mono !text-sm" />
+            <input type="text" value={value || ''} onChange={(e) => onChange(e.currentTarget.value)} className="nova-input !p-2 font-mono !text-sm" />
         </div>
     );
 

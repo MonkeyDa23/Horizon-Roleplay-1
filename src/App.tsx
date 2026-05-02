@@ -34,6 +34,7 @@ import BannedPage from './pages/BannedPage';
 import LoginErrorPage from './pages/LoginErrorPage';
 import SubmissionDetailPage from './pages/SubmissionDetailPage'; // New Import
 import AdminGate from './components/AdminGate';
+import MaintenancePage from './pages/MaintenancePage';
 
 
 import { Loader2, AlertTriangle } from 'lucide-react';
@@ -63,9 +64,11 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; permission?: Permiss
   return <>{children}</>;
 };
   
+import { motion, AnimatePresence } from 'motion/react';
+
 const AppContent: React.FC = () => {
   const { config, configLoading, configError } = useConfig();
-  const { user, profile, isInitialLoading, loading, permissionWarning, syncError, logout, retrySync } = useAuth();
+  const { user, profile, isInitialLoading, loading, hasPermission, permissionWarning, syncError, logout, retrySync } = useAuth();
   const location = useLocation();
 
   if (isInitialLoading || configLoading) {
@@ -121,28 +124,44 @@ const AppContent: React.FC = () => {
   if (user?.is_banned) {
     return <BannedPage reason={user.ban_reason || 'No reason provided.'} expires_at={user.ban_expires_at} onLogout={logout} />;
   }
+
+  // Maintenance Guard: Only allow admins to bypass maintenance mode
+  const isManagement = hasPermission('admin_panel') || hasPermission('_super_admin');
+  if (config.MAINTENANCE_MODE && !isManagement) {
+    return <MaintenancePage />;
+  }
   
   return (
-    <div className="flex flex-col min-h-screen bg-brand-dark text-white font-sans relative z-10">
+    <div className="flex flex-col min-h-screen bg-brand-dark text-white font-sans relative z-10 transition-all duration-500">
       <Navbar />
       {permissionWarning && <PermissionWarningBanner message={permissionWarning} />}
       <main className="flex-grow">
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/store" element={<StorePage />} />
-          <Route path="/store/:productId" element={<ProductDetailPage />} />
-          <Route path="/rules" element={<RulesPage />} />
-          <Route path="/applies" element={<AppliesPage />} />
-          <Route path="/about" element={<AboutUsPage />} />
-          <Route path="/applies/:quizId" element={<ProtectedRoute><QuizPage /></ProtectedRoute>} />
-          <Route path="/my-applications" element={<ProtectedRoute><MyApplicationsPage /></ProtectedRoute>} />
-          <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-          <Route path="/character/:id" element={<ProtectedRoute><CharacterDetailPage /></ProtectedRoute>} />
-          <Route path="/link-account" element={<ProtectedRoute><LinkAccountPage /></ProtectedRoute>} />
-          <Route path="/admin" element={<ProtectedRoute permission="admin_panel"><AdminGate><AdminPage /></AdminGate></ProtectedRoute>} />
-          <Route path="/admin/submissions/:submissionId" element={<ProtectedRoute permission="admin_submissions"><AdminGate><SubmissionDetailPage /></AdminGate></ProtectedRoute>} />
-          <Route path="/health-check" element={<ProtectedRoute permission="_super_admin"><HealthCheckPage /></ProtectedRoute>} />
-        </Routes>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0, scale: 0.99 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.01 }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <Routes location={location}>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/store" element={<StorePage />} />
+              <Route path="/store/:productId" element={<ProductDetailPage />} />
+              <Route path="/rules" element={<RulesPage />} />
+              <Route path="/applies" element={<AppliesPage />} />
+              <Route path="/about" element={<AboutUsPage />} />
+              <Route path="/applies/:quizId" element={<ProtectedRoute><QuizPage /></ProtectedRoute>} />
+              <Route path="/my-applications" element={<ProtectedRoute><MyApplicationsPage /></ProtectedRoute>} />
+              <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+              <Route path="/character/:id" element={<ProtectedRoute><CharacterDetailPage /></ProtectedRoute>} />
+              <Route path="/link-account" element={<ProtectedRoute><LinkAccountPage /></ProtectedRoute>} />
+              <Route path="/admin" element={<ProtectedRoute permission="admin_panel"><AdminGate><AdminPage /></AdminGate></ProtectedRoute>} />
+              <Route path="/admin/submissions/:submissionId" element={<ProtectedRoute permission="admin_submissions"><AdminGate><SubmissionDetailPage /></AdminGate></ProtectedRoute>} />
+              <Route path="/health-check" element={<ProtectedRoute permission="_super_admin"><HealthCheckPage /></ProtectedRoute>} />
+            </Routes>
+          </motion.div>
+        </AnimatePresence>
       </main>
       <Footer />
     </div>

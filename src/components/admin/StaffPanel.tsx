@@ -27,10 +27,10 @@ const StaffPanel: React.FC = () => {
     
     // PERSISTENT STATE
     const [staff, setStaff] = usePersistentState<EditingStaffMember[]>('nova_admin_staff_draft', []);
-    const [isAddModalOpen, setIsAddModalOpen] = usePersistentState<boolean>('vixel_admin_staff_modal_open', false);
+    const [isAddModalOpen, setIsAddModalOpen] = usePersistentState<boolean>('nova_admin_staff_modal_open', false);
     
     // Modal Field State (Persistent)
-    const [lookupDiscordId, setLookupDiscordId] = usePersistentState<string>('vixel_admin_staff_lookup_id', '');
+    const [lookupDiscordId, setLookupDiscordId] = usePersistentState<string>('nova_admin_staff_lookup_id', '');
     const [newStaffRoleEn, setNewStaffRoleEn] = usePersistentState<string>('vixel_admin_staff_new_role_en', '');
     const [newStaffRoleAr, setNewStaffRoleAr] = usePersistentState<string>('vixel_admin_staff_new_role_ar', '');
     
@@ -216,7 +216,7 @@ const StaffPanel: React.FC = () => {
                             <p className="font-bold text-white">{member.username}</p>
                             <div className="flex gap-2 mt-1">
                                 <input type="text" value={member.role_en} onChange={(e) => handleRoleChange(index, 'en', e.target.value)} placeholder={t('staff_role_en')} className="nova-input !p-1 !text-sm" />
-                                <input type="text" value={member.role_ar} onChange={(e) => handleRoleChange(index, 'ar', e.target.value)} placeholder={t('staff_role_ar')} className="vixel-input !p-1 !text-sm" dir="rtl" />
+                                <input type="text" value={member.role_ar} onChange={(e) => handleRoleChange(index, 'ar', e.target.value)} placeholder={t('staff_role_ar')} className="nova-input !p-1 !text-sm" dir="rtl" />
                             </div>
                         </div>
                         <div className="flex flex-col gap-1">

@@ -140,7 +140,7 @@ const SubmissionsPanel: React.FC = () => {
                     <select 
                         value={filterStatus} 
                         onChange={(e) => setFilterStatus(e.target.value as SubmissionStatus | 'all')}
-                        className="vixel-input !pl-10 appearance-none"
+                        className="nova-input !pl-10 appearance-none"
                     >
                         <option value="all">{t('filter_all')}</option>
                         <option value="pending">{t('filter_pending')}</option>
