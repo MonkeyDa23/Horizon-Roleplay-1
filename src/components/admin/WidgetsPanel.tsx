@@ -25,7 +25,7 @@ const WidgetsPanel: React.FC = () => {
     const { user } = useAuth();
     
     // PERSISTENT STATE
-    const [widgets, setWidgets] = usePersistentState<DiscordWidget[]>('vixel_admin_widgets_draft', []);
+    const [widgets, setWidgets] = usePersistentState<DiscordWidget[]>('nova_admin_widgets_draft', []);
     const [editingWidget, setEditingWidget] = usePersistentState<EditingWidget | null>('vixel_admin_widget_edit_draft', null);
     
     const [isLoading, setIsLoading] = useState(true);

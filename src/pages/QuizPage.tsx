@@ -295,7 +295,7 @@ const QuizPage: React.FC = () => {
                     <div className="bg-brand-dark/50 p-6 rounded-lg mb-8 border-l-4 border-brand-cyan">
                         <p className="text-xl text-white">{t(quiz.questions[currentQuestionIndex].textKey)}</p>
                     </div>
-                    <textarea value={currentAnswer} onChange={(e) => setCurrentAnswer(e.target.value)} className="vixel-input text-lg h-48 focus:ring-2 focus:ring-brand-cyan" placeholder="اكتب إجابتك هنا..." autoFocus />
+                    <textarea value={currentAnswer} onChange={(e) => setCurrentAnswer(e.target.value)} className="nova-input text-lg h-48 focus:ring-2 focus:ring-brand-cyan" placeholder="اكتب إجابتك هنا..." autoFocus />
                     <div className="mt-8 text-end">
                         <button onClick={handleNextQuestion} disabled={!currentAnswer.trim()} className="bg-gradient-to-r from-primary-blue to-accent-cyan text-background-dark font-bold py-3 px-8 rounded-lg text-lg hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                              {currentQuestionIndex < quiz.questions.length - 1 ? t('next_question') : t('submit_application')}

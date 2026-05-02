@@ -132,7 +132,7 @@ const SubmissionsPanel: React.FC = () => {
                         placeholder={t('filter_search_placeholder')} 
                         value={searchTerm} 
                         onChange={(e) => setSearchTerm(e.target.value)} 
-                        className="vixel-input !pl-10"
+                        className="nova-input !pl-10"
                     />
                 </div>
                 <div className="relative w-full md:w-64 flex-shrink-0">

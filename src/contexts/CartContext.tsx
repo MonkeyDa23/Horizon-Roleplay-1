@@ -11,7 +11,7 @@ const getInitialCart = (): CartItem[] => {
   }
   try {
     // FIX: Cast window to any to bypass potential tsconfig lib errors for 'localStorage'.
-    const localData = (window as any).localStorage.getItem('vixel_cart');
+    const localData = (window as any).localStorage.getItem('nova_cart');
     return localData ? JSON.parse(localData) : [];
   } catch (error) {
     console.error("Could not load cart from localStorage", error);
@@ -27,7 +27,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (typeof window !== 'undefined') {
       try {
         // FIX: Cast window to any to bypass potential tsconfig lib errors for 'localStorage'.
-        (window as any).localStorage.setItem('vixel_cart', JSON.stringify(cartItems));
+        (window as any).localStorage.setItem('nova_cart', JSON.stringify(cartItems));
       } catch (error) {
         console.error("Could not save cart to localStorage", error);
       }

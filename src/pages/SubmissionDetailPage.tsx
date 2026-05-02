@@ -185,7 +185,7 @@ const SubmissionDetailPage: React.FC = () => {
                             <div className="flex flex-col md:flex-row gap-6 items-start">
                                 <div className="flex-grow w-full">
                                     <label className="block text-gray-300 mb-2 font-bold text-sm uppercase tracking-wider">{t('reason')} (سيتم إرساله للمستخدم)</label>
-                                    <textarea value={decisionReason} onChange={(e) => setDecisionReason(e.target.value)} placeholder="اكتب سبب القبول أو الرفض هنا..." className="vixel-input min-h-[80px] !bg-brand-dark" />
+                                    <textarea value={decisionReason} onChange={(e) => setDecisionReason(e.target.value)} placeholder="اكتب سبب القبول أو الرفض هنا..." className="nova-input min-h-[80px] !bg-brand-dark" />
                                 </div>
                                 <div className="flex md:flex-col gap-3 w-full md:w-auto pt-7 md:pt-0 min-w-[200px]">
                                     <button onClick={() => handleDecision('accepted')} disabled={isProcessing} className="flex-1 bg-green-600/90 text-white font-bold py-4 px-6 rounded-lg hover:bg-green-500 transition-all flex justify-center items-center gap-2 text-lg shadow-lg">

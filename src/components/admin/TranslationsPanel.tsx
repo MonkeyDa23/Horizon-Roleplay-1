@@ -18,7 +18,7 @@ const TranslationsPanel: React.FC = () => {
     const { config } = useConfig();
     
     // PERSISTENT STATE
-    const [editableTranslations, setEditableTranslations] = usePersistentState<Translations>('vixel_admin_translations_draft', {});
+    const [editableTranslations, setEditableTranslations] = usePersistentState<Translations>('nova_admin_translations_draft', {});
     const [searchTerm, setSearchTerm] = usePersistentState<string>('vixel_admin_translations_search', '');
     
     const [isLoading, setIsLoading] = useState(true);
@@ -101,7 +101,7 @@ const TranslationsPanel: React.FC = () => {
                 </div>
                 <div className="relative w-full md:max-w-md">
                     <Search className="absolute top-1/2 -translate-y-1/2 left-3 text-gray-400" size={20} />
-                    <input type="text" placeholder="Search keys..." value={searchTerm} onChange={(e) => setSearchTerm(e.currentTarget.value)} className="vixel-input !pl-10" />
+                    <input type="text" placeholder="Search keys..." value={searchTerm} onChange={(e) => setSearchTerm(e.currentTarget.value)} className="nova-input !pl-10" />
                 </div>
                 <button onClick={handleSave} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white transition-colors min-w-[9rem] flex justify-center">
                     {isSaving ? <Loader2 className="animate-spin" /> : t('save_translations')}

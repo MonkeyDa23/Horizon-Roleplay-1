@@ -39,7 +39,7 @@ const NotificationsPanel: React.FC = () => {
     const { user } = useAuth();
     
     // PERSISTENT STATE
-    const [allTranslations, setAllTranslations] = usePersistentState<Translations>('vixel_admin_notifs_trans_draft', {});
+    const [allTranslations, setAllTranslations] = usePersistentState<Translations>('nova_admin_notifs_trans_draft', {});
     const [settings, setSettings] = usePersistentState<Partial<AppConfig>>('vixel_admin_notifs_settings_draft', {});
     
     const [isLoading, setIsLoading] = useState(true);
@@ -151,7 +151,7 @@ const NotificationsPanel: React.FC = () => {
                         value={targetId}
                         onChange={e => setTargetId(e.currentTarget.value)}
                         placeholder={configuredChannelId || `${t('target_id')}...`}
-                        className="vixel-input !p-2 font-mono !text-sm"
+                        className="nova-input !p-2 font-mono !text-sm"
                     />
                     <button onClick={handleSendTest} disabled={isTesting} className="bg-blue-600 text-white font-bold p-2 rounded-md hover:bg-blue-500 w-28 flex justify-center items-center">
                         {isTesting ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}

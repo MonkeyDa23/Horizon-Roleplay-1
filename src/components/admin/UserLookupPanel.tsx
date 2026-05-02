@@ -218,7 +218,7 @@ const UserLookupPanel: React.FC = () => {
                         placeholder={t('discord_id_placeholder')} 
                         value={discordId} 
                         onChange={(e) => setDiscordId(e.target.value)} 
-                        className="vixel-input flex-grow"
+                        className="nova-input flex-grow"
                     />
                     <button onClick={handleSearch} disabled={!discordId || isLoading} className="bg-brand-cyan text-brand-dark font-bold py-3 px-8 rounded-md hover:bg-white transition-colors flex items-center justify-center gap-2 disabled:opacity-50 min-w-[120px]">
                         {isLoading ? <Loader2 className="animate-spin" /> : <><Search size={20} /> {t('search')}</>}

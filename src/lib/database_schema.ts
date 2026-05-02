@@ -3,8 +3,8 @@
 
 export const databaseSchema = `
 /*
- Vixel Roleplay Community Hub - Full Database Schema
- Copyright © 2024 Vixel Roleplay. All Rights Reserved.
+ Nova Roleplay Community Hub - Full Database Schema
+ Copyright © 2024 Nova Roleplay. All Rights Reserved.
 
  !! WARNING !!
  This script is DESTRUCTIVE. It will completely DROP all existing website-related tables,
@@ -86,7 +86,7 @@ CREATE SCHEMA private;
 -- =================================================================
 CREATE TABLE public.config (
     id smallint PRIMARY KEY DEFAULT 1,
-    "COMMUNITY_NAME" text NOT NULL DEFAULT 'Vixel Roleplay',
+    "COMMUNITY_NAME" text NOT NULL DEFAULT 'Nova Roleplay',
     "LOGO_URL" text,
     "DISCORD_GUILD_ID" text,
     "DISCORD_INVITE_URL" text,

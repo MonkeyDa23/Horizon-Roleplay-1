@@ -26,7 +26,7 @@ const StaffPanel: React.FC = () => {
     const { user } = useAuth();
     
     // PERSISTENT STATE
-    const [staff, setStaff] = usePersistentState<EditingStaffMember[]>('vixel_admin_staff_draft', []);
+    const [staff, setStaff] = usePersistentState<EditingStaffMember[]>('nova_admin_staff_draft', []);
     const [isAddModalOpen, setIsAddModalOpen] = usePersistentState<boolean>('vixel_admin_staff_modal_open', false);
     
     // Modal Field State (Persistent)
@@ -215,7 +215,7 @@ const StaffPanel: React.FC = () => {
                         <div className="flex-grow">
                             <p className="font-bold text-white">{member.username}</p>
                             <div className="flex gap-2 mt-1">
-                                <input type="text" value={member.role_en} onChange={(e) => handleRoleChange(index, 'en', e.target.value)} placeholder={t('staff_role_en')} className="vixel-input !p-1 !text-sm" />
+                                <input type="text" value={member.role_en} onChange={(e) => handleRoleChange(index, 'en', e.target.value)} placeholder={t('staff_role_en')} className="nova-input !p-1 !text-sm" />
                                 <input type="text" value={member.role_ar} onChange={(e) => handleRoleChange(index, 'ar', e.target.value)} placeholder={t('staff_role_ar')} className="vixel-input !p-1 !text-sm" dir="rtl" />
                             </div>
                         </div>

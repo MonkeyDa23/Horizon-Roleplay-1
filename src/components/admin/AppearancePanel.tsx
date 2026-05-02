@@ -77,7 +77,7 @@ const AppearancePanel: React.FC = () => {
                 value={value || ''}
                 onChange={(e) => onChange(e.currentTarget.value)}
                 placeholder={placeholder}
-                className="vixel-input"
+                className="nova-input"
             />
         </div>
     );

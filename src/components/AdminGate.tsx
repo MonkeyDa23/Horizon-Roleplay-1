@@ -99,7 +99,7 @@ const AdminGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 </div>
                 <p className="text-gray-300 mb-6">{t('admin_gate_prompt')}</p>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <input type="password" value={password} onChange={(e) => setPassword(e.currentTarget.value)} className="vixel-input text-center text-lg tracking-widest" autoFocus />
+                    <input type="password" value={password} onChange={(e) => setPassword(e.currentTarget.value)} className="nova-input text-center text-lg tracking-widest" autoFocus />
                     <div className="flex justify-center py-2">
                         {env.VITE_HCAPTCHA_SITE_KEY ? <HCaptcha onVerify={setHcaptchaToken} sitekey={env.VITE_HCAPTCHA_SITE_KEY} /> : null}
                     </div>

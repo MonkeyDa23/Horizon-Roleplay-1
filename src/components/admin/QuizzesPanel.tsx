@@ -49,7 +49,7 @@ interface EditingQuizData {
     questions: EditableQuestion[];
 }
 
-const DRAFT_KEY = 'vixel_admin_quiz_draft';
+const DRAFT_KEY = 'nova_admin_quiz_draft';
 
 const QuizzesPanel: React.FC = () => {
     const { t } = useLocalization();
@@ -303,7 +303,7 @@ const QuizzesPanel: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block mb-1 font-semibold text-gray-300">{t('title_en')}</label>
-                            <input type="text" value={editingQuiz.titleEn} onChange={(e) => setEditingQuiz({ ...editingQuiz, titleEn: e.currentTarget.value })} className="vixel-input" />
+                            <input type="text" value={editingQuiz.titleEn} onChange={(e) => setEditingQuiz({ ...editingQuiz, titleEn: e.currentTarget.value })} className="nova-input" />
                         </div>
                         <div>
                             <label className="block mb-1 font-semibold text-gray-300">{t('title_ar')}</label>
