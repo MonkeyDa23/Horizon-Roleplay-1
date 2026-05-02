@@ -1,7 +1,7 @@
 /**
- * Florida Roleplay - Official Website
+ * Nova Roleplay - Official Website
  * Home Page
- * Copyright (c) 2024 Florida Roleplay. All rights reserved.
+ * Copyright (c) 2024 Nova Roleplay. All rights reserved.
  */
 
 import React, { useState } from 'react';
@@ -16,8 +16,8 @@ const HomePage: React.FC = () => {
   const { t } = useLocalization();
   const { config } = useConfig();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const communityName = config.COMMUNITY_NAME || 'Vixel Roleplay';
-  const description = "A visually stunning website for the Vixel Roleplay community, featuring multilingual support, Discord integration, and pages for community rules, applications, and store.";
+  const communityName = config.COMMUNITY_NAME || 'Nova Roleplay';
+  const description = "A visually stunning website for the Nova Roleplay community, featuring multilingual support, Discord integration, and pages for community rules, applications, and store.";
 
 
   return (
@@ -25,7 +25,7 @@ const HomePage: React.FC = () => {
       <SEO 
         title={`${communityName} - ${t('home')}`}
         description={description}
-        keywords={`roleplay, community, ${communityName.toLowerCase()}, mta, gta, gaming, vixel`}
+        keywords={`roleplay, community, ${communityName.toLowerCase()}, mta, gta, gaming, nova`}
         image={config.BACKGROUND_IMAGE_URL || config.LOGO_URL}
       />
       {/* Reduced height from 90vh to 85vh to ensure footer/bottom line is visible on standard screens */}

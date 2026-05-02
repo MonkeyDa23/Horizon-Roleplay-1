@@ -1,7 +1,7 @@
 /**
- * Florida Roleplay - Official Website
+ * Nova Roleplay - Official Website
  * User Profile Page
- * Copyright (c) 2024 Florida Roleplay. All rights reserved.
+ * Copyright (c) 2024 Nova Roleplay. All rights reserved.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -512,7 +512,7 @@ const ProfilePage: React.FC = () => {
                   <section className="bg-gradient-to-br from-brand-cyan/10 to-transparent border border-brand-cyan/20 rounded-[40px] p-8">
                     <h3 className="text-white font-black text-xl mb-4">هل تحتاج لمساعدة؟</h3>
                     <p className="text-text-secondary text-sm leading-relaxed mb-8">إذا واجهت أي مشكلة في حسابك أو في عملية الربط، لا تتردد في فتح تذكرة دعم فني في الديسكورد.</p>
-                    <a href="https://discord.gg/vixel" target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl bg-brand-cyan text-brand-dark font-black text-sm hover:bg-white transition-all">
+                    <a href="https://discord.gg/u3CazwhxVa" target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl bg-brand-cyan text-brand-dark font-black text-sm hover:bg-white transition-all">
                       الدعم الفني
                       <ExternalLink size={16} />
                     </a>
@@ -533,7 +533,7 @@ const ProfilePage: React.FC = () => {
                       <Gamepad2 size={48} className="text-brand-cyan" />
                     </div>
                     <h2 className="text-4xl font-black text-white mb-6 tracking-tight">حساب اللعبة غير مربوط</h2>
-                    <p className="text-text-secondary mb-8 max-w-md mx-auto leading-relaxed text-lg">يرجى الدخول إلى سيرفر Florida Roleplay واستخدام أمر <code className="bg-white/5 px-2 py-1 rounded text-brand-cyan">/link</code> للحصول على كود التوثيق وإتمام الربط من داخل اللعبة.</p>
+                    <p className="text-text-secondary mb-8 max-w-md mx-auto leading-relaxed text-lg">يرجى الدخول إلى سيرفر Nova Roleplay واستخدام أمر <code className="bg-white/5 px-2 py-1 rounded text-brand-cyan">/link</code> للحصول على كود التوثيق وإتمام الربط من داخل اللعبة.</p>
                     <div className="bg-brand-cyan/5 border border-brand-cyan/20 p-6 rounded-3xl inline-block">
                         <p className="text-brand-cyan font-bold">يتم الربط حصرياً من داخل اللعبة لضمان الأمان</p>
                     </div>

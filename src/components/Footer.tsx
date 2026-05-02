@@ -1,7 +1,7 @@
 /**
- * Florida Roleplay - Official Website
+ * Nova Roleplay - Official Website
  * Footer Component
- * Copyright (c) 2024 Florida Roleplay. All rights reserved.
+ * Copyright (c) 2024 Nova Roleplay. All rights reserved.
  */
 
 import React from 'react';
@@ -14,7 +14,7 @@ const Footer: React.FC = () => {
   const { config, configLoading } = useConfig();
 
   const year = new Date().getFullYear();
-  const communityName = configLoading ? 'Vixel Roleplay' : config.COMMUNITY_NAME;
+  const communityName = configLoading ? 'Nova Roleplay' : config.COMMUNITY_NAME;
 
   return (
     <footer className="relative mt-24 border-t border-border-color">

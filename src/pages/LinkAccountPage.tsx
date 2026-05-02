@@ -1,7 +1,7 @@
 /**
- * Florida Roleplay - Official Website
+ * Nova Roleplay - Official Website
  * Link Account Page
- * Copyright (c) 2024 Florida Roleplay. All rights reserved.
+ * Copyright (c) 2024 Nova Roleplay. All rights reserved.
  */
 
 import React, { useState, useEffect } from 'react';
@@ -64,7 +64,7 @@ const LinkAccountPage: React.FC = () => {
 
     return (
         <>
-            <SEO title="حالة الربط" description="تحقق من حالة ربط حسابك في Florida Roleplay" />
+            <SEO title="حالة الربط" description="تحقق من حالة ربط حسابك في Nova Roleplay" />
             
             <div className="container mx-auto px-6 py-16 font-['Cairo']" dir="rtl">
                 <div className="max-w-3xl mx-auto">
@@ -139,7 +139,7 @@ const LinkAccountPage: React.FC = () => {
                                             <Gamepad2 size={40} />
                                         </div>
                                         <h3 className="text-3xl font-black text-white mb-4">لم يتم الربط بعد</h3>
-                                        <p className="text-gray-400 leading-relaxed max-w-md mx-auto">يرجى الدخول إلى سيرفر Florida Roleplay واستخدام أمر <code className="bg-white/5 px-2 py-1 rounded text-brand-cyan">/link</code> للحصول على كود التوثيق.</p>
+                                        <p className="text-gray-400 leading-relaxed max-w-md mx-auto">يرجى الدخول إلى سيرفر Nova Roleplay واستخدام أمر <code className="bg-white/5 px-2 py-1 rounded text-brand-cyan">/link</code> للحصول على كود التوثيق.</p>
                                         <p className="text-gray-500 text-sm mt-6">يتم الربط حصرياً من داخل اللعبة عبر الديسكورد لضمان أعلى مستويات الأمان.</p>
                                     </div>
                                     

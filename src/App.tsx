@@ -1,6 +1,6 @@
 /**
- * Florida Roleplay - Official Website
- * Copyright (c) 2024 Florida Roleplay. All rights reserved.
+ * Nova Roleplay - Official Website
+ * Copyright (c) 2024 Nova Roleplay. All rights reserved.
  */
 
 import React, { useEffect } from 'react';

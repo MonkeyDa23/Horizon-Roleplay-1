@@ -1,6 +1,6 @@
 /**
- * Florida Roleplay - Official Website API Client
- * Copyright (c) 2024 Florida Roleplay. All rights reserved.
+ * Nova Roleplay - Official Website API Client
+ * Copyright (c) 2024 Nova Roleplay. All rights reserved.
  */
 
 import { supabase } from './supabaseClient';

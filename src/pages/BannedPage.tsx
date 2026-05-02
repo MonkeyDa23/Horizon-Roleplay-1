@@ -1,7 +1,7 @@
 /**
- * Florida Roleplay - Official Website
+ * Nova Roleplay - Official Website
  * Banned Page
- * Copyright (c) 2024 Florida Roleplay. All rights reserved.
+ * Copyright (c) 2024 Nova Roleplay. All rights reserved.
  */
 
 import React from 'react';

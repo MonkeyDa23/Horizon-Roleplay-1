@@ -1,7 +1,7 @@
 /**
- * Florida Roleplay - Official Website
+ * Nova Roleplay - Official Website
  * Quiz/Application Page
- * Copyright (c) 2024 Florida Roleplay. All rights reserved.
+ * Copyright (c) 2024 Nova Roleplay. All rights reserved.
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -86,7 +86,7 @@ const QuizPage: React.FC = () => {
               setQuiz(fetchedQuiz);
               
               // --- CHECK FOR DRAFT ---
-              const draftKey = `vixel_quiz_draft_${user.id}_${quizId}`;
+              const draftKey = `nova_quiz_draft_${user.id}_${quizId}`;
               const savedDraft = localStorage.getItem(draftKey);
               
               if (savedDraft) {
@@ -124,7 +124,7 @@ const QuizPage: React.FC = () => {
   // --- AUTO SAVE DRAFT ---
   useEffect(() => {
       if (quizState === 'taking' && user && quiz) {
-          const draftKey = `vixel_quiz_draft_${user.id}_${quiz.id}`;
+          const draftKey = `nova_quiz_draft_${user.id}_${quiz.id}`;
           const draftData = {
               answers,
               currentQuestionIndex,
@@ -136,7 +136,7 @@ const QuizPage: React.FC = () => {
 
   const clearDraft = () => {
       if (user && quiz) {
-          const draftKey = `vixel_quiz_draft_${user.id}_${quiz.id}`;
+          const draftKey = `nova_quiz_draft_${user.id}_${quiz.id}`;
           localStorage.removeItem(draftKey);
       }
   };

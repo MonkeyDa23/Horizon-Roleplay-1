@@ -1,7 +1,7 @@
 /**
- * Florida Roleplay - Official Website
+ * Nova Roleplay - Official Website
  * Admin Dashboard
- * Copyright (c) 2024 Florida Roleplay. All rights reserved.
+ * Copyright (c) 2024 Nova Roleplay. All rights reserved.
  */
 
 import React, { useEffect, useRef } from 'react';
@@ -121,7 +121,7 @@ const AdminPage: React.FC = () => {
 
     return (
         <>
-            <SEO title={`${t('admin_panel')} - ${t(currentTab?.labelKey || '')}`} noIndex={true} description="Vixel Roleplay Administration Panel"/>
+            <SEO title={`${t('admin_panel')} - ${t(currentTab?.labelKey || '')}`} noIndex={true} description="Nova Roleplay Administration Panel"/>
             <AdminLayout 
                 tabs={accessibleTabs}
                 activeTab={activeTab}
