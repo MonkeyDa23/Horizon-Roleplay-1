@@ -36,6 +36,19 @@ export const logToDiscord = async (client: Client, type: 'SUCCESS' | 'ERROR' | '
         const channel = await guild.channels.fetch(channelId).catch(() => null) as TextChannel;
         if (!channel) return;
 
+        const roleMap: Record<LogCategory, string | undefined> = {
+            MTA: env.LOG_PING_ROLE_MTA,
+            COMMANDS: env.LOG_PING_ROLE_COMMANDS,
+            AUTH: env.LOG_PING_ROLE_AUTH,
+            ADMIN: env.LOG_PING_ROLE_ADMIN,
+            STORE: env.LOG_PING_ROLE_STORE,
+            FINANCE: env.LOG_PING_ROLE_FINANCE,
+            SUBMISSIONS: env.LOG_PING_ROLE_SUBMISSIONS,
+            VISITS: env.LOG_PING_ROLE_VISITS
+        };
+        const pingRoleId = roleMap[category];
+        const content = pingRoleId ? `<@&${pingRoleId}>` : undefined;
+
         const embed = new EmbedBuilder()
             .setTitle(title)
             .setDescription(description)
@@ -45,7 +58,7 @@ export const logToDiscord = async (client: Client, type: 'SUCCESS' | 'ERROR' | '
             .setThumbnail('https://cdn-icons-png.flaticon.com/512/2910/2910768.png') // Default log icon
             .setFooter({ text: `Nova RP | ${category} Logs`, iconURL: guild.iconURL() || undefined });
 
-        await channel.send({ embeds: [embed] });
+        await channel.send({ content, embeds: [embed] });
     } catch (error) {
         console.error(`[LOG ERROR - ${category}]:`, error);
     }

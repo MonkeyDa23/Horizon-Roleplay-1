@@ -34,7 +34,7 @@ export const setupCoreModule = (client: Client) => {
         const timestamp = req.headers['x-timestamp'];
 
         if (!apiKey || apiKey !== env.API_SECRET_KEY) {
-            logToDiscord(client, 'CRITICAL', '🚨 unauthorized access', `IP: ${req.ip}`, 'ADMIN').catch(() => {});
+            logToDiscord(client, 'ERROR', '🚨 unauthorized access', `IP: ${req.ip}`, 'ADMIN').catch(() => {});
             return res.status(401).json({ error: 'Unauthorized' });
         }
 

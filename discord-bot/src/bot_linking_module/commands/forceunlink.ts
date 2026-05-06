@@ -6,10 +6,10 @@ import { env } from '../../env.js';
 export const handleForceUnlinkCommand = async (interaction: CommandInteraction, client: Client) => {
     if (!interaction.isChatInputCommand()) return;
     const member = interaction.member as GuildMember;
-    const adminRoleId = env.DISCORD_ADMIN_ROLE_ID;
+    const forceUnlinkRoleId = env.FORCE_UNLINK_ROLE_ID || env.DISCORD_ADMIN_ROLE_ID;
 
     // Strict permission check
-    const hasRole = adminRoleId ? member.roles.cache.has(adminRoleId) : false;
+    const hasRole = forceUnlinkRoleId ? member.roles.cache.has(forceUnlinkRoleId) : false;
     const isOwner = member.permissions.has('Administrator');
 
     if (!hasRole && !isOwner) {
