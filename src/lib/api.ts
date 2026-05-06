@@ -325,7 +325,7 @@ export const getUserInvoices = async (userId: string): Promise<Invoice[]> => {
     if (!supabase) return [];
     const { data, error } = await supabase.from('invoices').select('*').eq('user_id', userId).order('created_at', { ascending: false });
     if (error) throw error;
-    return data as Invoice[];
+    return (data as Invoice[]) || [];
 };
 
 export const processPurchase = async (amount: number, details: string): Promise<boolean> => {
@@ -336,9 +336,17 @@ export const processPurchase = async (amount: number, details: string): Promise<
 };
 
 export const getConfig = async (): Promise<AppConfig> => {
-  if (!supabase) throw new Error("Supabase client not initialized.");
-  const { data } = await supabase.rpc('get_config');
-  return (data as AppConfig) || {} as AppConfig;
+  if (!supabase) return {} as AppConfig;
+  try {
+    const { data, error } = await supabase.rpc('get_config');
+    if (error) {
+       console.warn('getConfig rpc error (safe to ignore if setup not complete):', error.message);
+       return {} as AppConfig;
+    }
+    return (data as AppConfig) || {} as AppConfig;
+  } catch (e) {
+    return {} as AppConfig;
+  }
 };
 
 export const saveConfig = async (configData: Partial<AppConfig>): Promise<void> => {
@@ -394,12 +402,12 @@ export const deleteQuiz = async (id: string): Promise<void> => {
 export const getProducts = async (): Promise<Product[]> => {
     if (!supabase) return [];
     const { data } = await supabase.from('products').select('*');
-    return data as Product[];
+    return (data as Product[]) || [];
 };
 export const getProductCategories = async (): Promise<ProductCategory[]> => {
     if (!supabase) return [];
     const { data } = await supabase.from('product_categories').select('*').order('position');
-    return data as ProductCategory[];
+    return (data as ProductCategory[]) || [];
 };
 export const saveProduct = async (productData: any): Promise<Product> => {
     const { data, error } = await supabase!.rpc('save_product_with_translations', { p_product_data: productData });
@@ -410,26 +418,26 @@ export const saveProductCategories = async (cats: any[]) => { await supabase!.rp
 
 export const getRules = async (): Promise<RuleCategory[]> => {
     const { data } = await supabase!.from('rules').select('*').order('position');
-    return data as RuleCategory[];
+    return (data as RuleCategory[]) || [];
 };
 export const saveRules = async (rules: any[]) => { await supabase!.rpc('save_rules', { p_rules_data: rules }); };
 
 export const getDiscordWidgets = async (): Promise<DiscordWidget[]> => {
     const { data } = await supabase!.from('discord_widgets').select('*');
-    return data as DiscordWidget[];
+    return (data as DiscordWidget[]) || [];
 };
 export const saveDiscordWidgets = async (widgets: any[]) => { await supabase!.rpc('save_discord_widgets', { p_widgets_data: widgets }); };
 
 export const getStaff = async (): Promise<StaffMember[]> => {
     const { data } = await supabase!.rpc('get_staff');
-    return data as StaffMember[];
+    return (data as StaffMember[]) || [];
 };
 export const saveStaff = async (staff: any[]) => { await supabase!.rpc('save_staff', { p_staff_data: staff }); };
 
 export const getGuildRoles = () => callBotApi<DiscordRole[]>('/guild-roles');
 export const getRolePermissions = async (): Promise<RolePermission[]> => {
     const { data } = await supabase!.from('role_permissions').select('*');
-    return data as RolePermission[];
+    return (data as RolePermission[]) || [];
 };
 export const saveRolePermissions = async (data: RolePermission) => {
     await supabase!.rpc('save_role_permissions', { p_role_id: data.role_id, p_permissions: data.permissions });
@@ -448,7 +456,7 @@ export const unbanUser = async (targetUserId: string) => {
 };
 export const getAuditLogs = async () => {
     const { data } = await supabase!.from('audit_log').select('*').order('timestamp', { ascending: false }).limit(100);
-    return data as AuditLogEntry[];
+    return (data as AuditLogEntry[]) || [];
 };
 
 export const testNotification = (key: string, targetId: string) => callBotApi('/notify', { method: 'POST', body: JSON.stringify({ targetId, targetType: key === 'submission_result' ? 'user' : 'channel', content: 'Test Notification' }) });
@@ -529,7 +537,7 @@ export const addSubmission = async (submissionData: any): Promise<QuizSubmission
 };
 export const getSubmissions = async (): Promise<QuizSubmission[]> => {
     const { data } = await supabase!.rpc('get_all_submissions');
-    return data as QuizSubmission[];
+    return (data as QuizSubmission[]) || [];
 };
 export const getSubmissionById = async (id: string): Promise<QuizSubmission> => {
     const { data } = await supabase!.from('submissions').select('*').eq('id', id).single();
@@ -537,7 +545,7 @@ export const getSubmissionById = async (id: string): Promise<QuizSubmission> => 
 };
 export const getSubmissionsByUserId = async (userId: string): Promise<QuizSubmission[]> => {
     const { data } = await supabase!.from('submissions').select('*').eq('user_id', userId);
-    return data as QuizSubmission[];
+    return (data as QuizSubmission[]) || [];
 };
 export const updateSubmissionStatus = async (id: string, status: string, reason?: string): Promise<QuizSubmission> => {
     const { data, error } = await supabase!.rpc('update_submission_status', { p_submission_id: id, p_new_status: status, p_reason: reason });
@@ -552,7 +560,7 @@ export const getProductById = async (id: string): Promise<Product> => {
 };
 export const getProductsWithCategories = async () => {
     const { data } = await supabase!.rpc('get_products_with_categories');
-    return data as ProductCategory[];
+    return (data as ProductCategory[]) || [];
 };
 export const enable2FA = async (secret: string, backupCodes: string[]): Promise<void> => {
     if (!supabase) throw new Error("Supabase not initialized");

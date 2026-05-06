@@ -8,6 +8,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProviders } from './contexts/AppProviders';
 import { useConfig } from './contexts/ConfigContext';
 import { useAuth } from './contexts/AuthContext';
+import { CurrencyProvider } from './contexts/CurrencyContext';
+import { InitialCaptchaGate } from './components/InitialCaptchaGate';
 
 
 import Navbar from './components/Navbar';
@@ -163,9 +165,6 @@ const AppContent: React.FC = () => {
     </div>
   );
 }
-
-import { CurrencyProvider } from './contexts/CurrencyContext';
-import { InitialCaptchaGate } from './components/InitialCaptchaGate';
 
 const App: React.FC = () => {
   return (

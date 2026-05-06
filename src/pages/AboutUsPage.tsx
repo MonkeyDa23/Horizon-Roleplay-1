@@ -122,7 +122,7 @@ const AboutUsPage: React.FC = () => {
             <SEO 
                 title={`${communityName} - ${t('about_us')}`}
                 description={`Learn more about the ${communityName} roleplay community, our mission, and what makes our server unique. Join our Discord to become a part of our story.`}
-                keywords={`about, about us, community, mission, history, roleplay, ${communityName.toLowerCase()}`}
+                keywords={`about, about us, community, mission, history, roleplay, ${(communityName || "").toLowerCase()}`}
             />
             <div className="container mx-auto px-6 py-16">
                 <div className="text-center mb-16 animate-fade-in-up">

@@ -108,7 +108,7 @@ const RulesPage: React.FC = () => {
       <SEO 
         title={`${communityName} - ${t('rules')}`}
         description={t('rules_seo_desc', { communityName })}
-        keywords={`rules, server rules, guidelines, community guidelines, ${communityName.toLowerCase()}`}
+        keywords={`rules, server rules, guidelines, community guidelines, ${(communityName || "").toLowerCase()}`}
       />
       <div className="container mx-auto px-6 py-24 max-w-[1000px]" dir={dir}>
         <div className="text-center mb-24 animate-fade-in-up">

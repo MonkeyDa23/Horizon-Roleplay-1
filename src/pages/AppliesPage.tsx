@@ -133,7 +133,7 @@ const AppliesPage: React.FC = () => {
       <SEO 
         title={`${communityName} - ${t('applies')}`}
         description={`Apply to join official factions like the Police Department or EMS on the ${communityName} server. View all open applications here.`}
-        keywords={`apply, applications, jobs, police, ems, medic, faction, ${communityName.toLowerCase()}`}
+        keywords={`apply, applications, jobs, police, ems, medic, faction, ${(communityName || "").toLowerCase()}`}
       />
       <div className="container mx-auto px-6 py-16">
         <div className="text-center mb-16 animate-fade-in-up">

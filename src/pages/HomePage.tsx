@@ -25,7 +25,7 @@ const HomePage: React.FC = () => {
       <SEO 
         title={`${communityName} - ${t('home')}`}
         description={description}
-        keywords={`roleplay, community, ${communityName.toLowerCase()}, mta, gta, gaming, nova`}
+        keywords={`roleplay, community, ${(communityName || "").toLowerCase()}, mta, gta, gaming, nova`}
         image={branding.logoUrl}
       />
       {/* Reduced height from 90vh to 85vh to ensure footer/bottom line is visible on standard screens */}

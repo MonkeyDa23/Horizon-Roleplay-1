@@ -28,8 +28,6 @@ export const LocalizationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, [language]);
 
   const t = useCallback((key: string, replacements?: { [key: string]: string | number }): string => {
-    if (loading) return '...';
-    
     let translation = translations[key]?.[language] || key;
     if (replacements) {
       for (const placeholder in replacements) {
@@ -40,7 +38,7 @@ export const LocalizationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
     }
     return translation;
-  }, [language, translations, loading]);
+  }, [language, translations]);
 
   const value = {
     language,

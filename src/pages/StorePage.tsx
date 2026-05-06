@@ -164,7 +164,7 @@ const StorePage: React.FC = () => {
       <SEO 
         title={`${communityName} - ${t('store')}`}
         description={t('store_seo_desc', { communityName })}
-        keywords={`store, shop, vip, cash, items, perks, ${communityName.toLowerCase()}`}
+        keywords={`store, shop, vip, cash, items, perks, ${(communityName || "").toLowerCase()}`}
       />
       <div className="container mx-auto px-6 py-24 max-w-[1400px]" dir={dir}>
         <div className="flex flex-col xl:flex-row justify-between items-center mb-24 gap-12">
