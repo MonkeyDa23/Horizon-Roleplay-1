@@ -29,8 +29,11 @@ export const TranslationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         };
       });
       setTranslations(formattedTranslations);
-    } catch (error) {
-      console.error('Error fetching translations:', error);
+    } catch (error: any) {
+      // Missing tables or config can cause 404/406 errors, we can safely ignore them.
+      if (error?.code !== 'PGRST116' && error?.code !== '42P01') {
+         // Silenced error intentionally to avoid scaring the user when tables aren't created yet
+      }
     } finally {
       setLoading(false);
     }

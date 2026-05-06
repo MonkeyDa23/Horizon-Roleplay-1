@@ -10,6 +10,8 @@ import { useLocalization } from '../contexts/LocalizationContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useCart } from '../contexts/CartContext';
 import { useConfig } from '../contexts/ConfigContext';
+import { useCurrency } from '../contexts/CurrencyContext';
+import type { Currency } from '../types';
 import CartModal from './CartModal';
 import LoginCaptchaModal from './LoginCaptchaModal';
 import { Globe, ChevronDown, LogOut, Loader2, ShoppingCart, UserCog, FileText, User, Menu, X, Link2, Coins, CheckCircle } from 'lucide-react';
