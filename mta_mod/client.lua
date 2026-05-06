@@ -14,16 +14,19 @@ function toggleLinkingUI()
         isBrowserReady = false
     else
         guiBrowser = guiCreateBrowser(0, 0, sx, sy, true, true, false)
-        if not guiBrowser then return end
+        if not guiBrowser then 
+            outputChatBox("تأكد من تفعيل المتصفح (CEF) من إعدادات اللعبة!", 255, 0, 0)
+            return 
+        end
         
         guiSetAlpha(guiBrowser, 0)
         webBrowser = guiGetBrowser(guiBrowser)
         
-        addEventHandler("onClientBrowserCreated", webBrowser, function()
-            loadBrowserURL(source, "http://mta/local/html/index.html")
+        addEventHandler("onClientBrowserCreated", guiBrowser, function()
+            loadBrowserURL(webBrowser, "http://mta/local/html/index.html")
         end)
 
-        addEventHandler("onClientBrowserDocumentReady", webBrowser, function()
+        addEventHandler("onClientBrowserDocumentReady", guiBrowser, function()
             isBrowserReady = true
             showCursor(true)
             isUIVisible = true

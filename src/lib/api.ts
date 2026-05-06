@@ -338,7 +338,7 @@ export const processPurchase = async (amount: number, details: string): Promise<
 export const getConfig = async (): Promise<AppConfig> => {
   if (!supabase) throw new Error("Supabase client not initialized.");
   const { data } = await supabase.rpc('get_config');
-  return data as AppConfig;
+  return (data as AppConfig) || {} as AppConfig;
 };
 
 export const saveConfig = async (configData: Partial<AppConfig>): Promise<void> => {

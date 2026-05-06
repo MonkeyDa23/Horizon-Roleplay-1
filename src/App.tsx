@@ -132,7 +132,7 @@ const AppContent: React.FC = () => {
 
   // Maintenance Mode Check
   const isAdmin = user && (hasPermission('admin_panel') || hasPermission('_super_admin'));
-  if (config.MAINTENANCE_MODE && !isAdmin) {
+  if (config && config.MAINTENANCE_MODE && !isAdmin) {
     return <MaintenancePage />;
   }
   

@@ -89,7 +89,7 @@ function generateNewCodeForPlayer(player)
     local bodyData = toJSON({ mtaserial = serial, playerName = playerName })
     local sig = hmac_sha256(secretKey, bodyData .. timestamp)
 
-    fetchRemote("http://localhost:3000/api/mta/internal/generate-code", {
+    fetchRemote(botUrl .. "generate-code", {
         headers = {
             ["Authorization"] = apiKey,
             ["Content-Type"] = "application/json",
@@ -110,9 +110,29 @@ function generateNewCodeForPlayer(player)
     end)
 end
 
-addEvent("requestNewLinkCode", true)
-addEventHandler("requestNewLinkCode", root, function()
+addEvent("onRequestNewCode", true)
+addEventHandler("onRequestNewCode", root, function()
     generateNewCodeForPlayer(client)
+end)
+
+addEvent("onRequestStatusUpdate", true)
+addEventHandler("onRequestStatusUpdate", root, function()
+    local player = client
+    local serial = getPlayerSerial(player)
+    fetchRemote(botUrl .. "status/" .. serial, {
+        headers = { ["Authorization"] = apiKey }
+    }, function(data, err)
+        if err == 0 then
+            local res = fromJSON(data)
+            if res and res.linked then
+                triggerClientEvent(player, "onReceiveStatusUpdate", player, { isLinked = true, username = res.username })
+            else
+                triggerClientEvent(player, "onReceiveStatusUpdate", player, { isLinked = false })
+            end
+        else
+            triggerClientEvent(player, "onReceiveStatusUpdate", player, { isLinked = false })
+        end
+    end)
 end)
 
 addEventHandler("onPlayerLogin", root, function()

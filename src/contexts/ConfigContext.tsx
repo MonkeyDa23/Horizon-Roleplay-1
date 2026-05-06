@@ -80,7 +80,7 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     try {
       const configData = await getConfig();
-      setConfig(configData);
+      setConfig({ ...defaultConfig, ...(configData || {}) });
 
       const { data: brandingData } = await supabase
         .from('config')
