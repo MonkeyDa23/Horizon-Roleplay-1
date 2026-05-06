@@ -3,12 +3,11 @@
  * Copyright (c) 2024 Nova Roleplay. All rights reserved.
  */
 
-import React, { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProviders } from './contexts/AppProviders';
 import { useConfig } from './contexts/ConfigContext';
 import { useAuth } from './contexts/AuthContext';
-import { sendDiscordLog } from './lib/api';
 
 
 import Navbar from './components/Navbar';
@@ -35,8 +34,10 @@ import LoginErrorPage from './pages/LoginErrorPage';
 import SubmissionDetailPage from './pages/SubmissionDetailPage'; // New Import
 import AdminGate from './components/AdminGate';
 import MaintenancePage from './pages/MaintenancePage';
+import TwoFactorModal from './components/auth/TwoFactorModal';
 
 
+import { useLocalization } from './contexts/LocalizationContext';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { env } from './env';
 import type { PermissionKey } from './types';
@@ -64,20 +65,22 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode; permission?: Permiss
   return <>{children}</>;
 };
   
-import { motion, AnimatePresence } from 'motion/react';
-
 const AppContent: React.FC = () => {
-  const { config, configLoading, configError } = useConfig();
-  const { user, profile, isInitialLoading, loading, hasPermission, permissionWarning, syncError, logout, retrySync } = useAuth();
-  const location = useLocation();
+  const { branding, config, configLoading, configError } = useConfig();
+  const { user, isInitialLoading, permissionWarning, syncError, logout, retrySync, hasPermission } = useAuth();
+  const { t, dir } = useLocalization();
 
   if (isInitialLoading || configLoading) {
     return (
-      <div className="flex flex-col gap-4 justify-center items-center h-screen w-screen bg-brand-dark">
-        <Loader2 size={48} className="text-brand-cyan animate-spin" />
-        <p className="text-xl text-gray-300">
-            {isInitialLoading ? 'Connecting...' : 'Loading Community Hub...'}
-        </p>
+      <div className="flex flex-col gap-8 justify-center items-center h-screen w-screen bg-brand-dark" dir={dir}>
+        <div className="w-24 h-24 bg-white/5 rounded-[32px] flex items-center justify-center border border-white/10 shadow-2xl relative">
+            <div className="absolute inset-0 blur-2xl opacity-20 rounded-full" style={{ backgroundColor: branding.primaryColor }}></div>
+            <Loader2 style={{ color: branding.primaryColor }} size={48} className="animate-spin relative z-10" />
+        </div>
+        <div className="text-center">
+            <h2 className="text-2xl font-black text-white tracking-tighter mb-2">{isInitialLoading ? t('connecting') : t('loading_community_hub')}</h2>
+            <p className="text-text-secondary font-medium opacity-60">{t('please_wait')}</p>
+        </div>
       </div>
     )
   }
@@ -86,33 +89,35 @@ const AppContent: React.FC = () => {
     const isMissingEnvVars = !env.VITE_SUPABASE_URL || !env.VITE_SUPABASE_ANON_KEY || env.VITE_SUPABASE_URL === 'YOUR_SUPABASE_URL';
 
     return (
-       <div className="flex flex-col gap-4 justify-center items-center h-screen w-screen bg-brand-dark p-8">
-          <AlertTriangle size={60} className="text-yellow-400" />
-          <h1 className="text-3xl font-bold text-white mt-4 text-center">
-            {isMissingEnvVars ? 'Environment Setup Incomplete' : 'Database Connection Error'}
+       <div className="flex flex-col gap-6 justify-center items-center h-screen w-screen bg-brand-dark p-8 text-center" dir={dir}>
+          <div className="w-24 h-24 bg-red-500/10 rounded-[32px] flex items-center justify-center border border-red-500/20 shadow-2xl">
+            <AlertTriangle size={48} className="text-red-500" />
+          </div>
+          <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter mt-4">
+            {isMissingEnvVars ? t('setup_incomplete') : t('db_connection_error')}
           </h1>
-          <p className="text-lg text-gray-300 max-w-3xl text-center">
+          <p className="text-xl text-text-secondary max-w-2xl font-medium opacity-80 leading-relaxed">
             {isMissingEnvVars 
-              ? "The application is missing essential Supabase credentials. Please follow the steps below to connect to your database."
-              : "The application could not connect to the database to load essential settings. This usually means the database schema has not been set up yet."
+              ? t('missing_env_desc')
+              : t('db_conn_error_desc')
             }
           </p>
           
-          {isMissingEnvVars ? (
-            <div className="bg-brand-dark-blue p-6 rounded-lg mt-4 max-w-3xl w-full text-left">
-              <p className="font-semibold text-brand-cyan mb-3 text-lg">How to fix:</p>
-              <ol className="list-decimal list-inside text-gray-200 space-y-2">
-                  <li>In your Supabase project, go to <strong className="text-white">Project Settings {'>'} API</strong>.</li>
-                  <li>In the root of this project, find the file named <code className="bg-brand-dark px-2 py-1 rounded">.env.example</code>.</li>
-                  <li>Create a copy of this file and rename it to <code className="bg-brand-dark px-2 py-1 rounded">.env</code>.</li>
-                  <li>Paste your <strong className="text-white">Project URL</strong> and <strong className="text-white">anon public API Key</strong> into the <code className="bg-brand-dark px-2 py-1 rounded">.env</code> file.</li>
-                  <li><strong className="text-white">Restart the development server</strong> to apply the changes.</li>
+          {isMissingEnvVars && (
+            <div className="bg-white/[0.03] border border-white/10 p-10 rounded-[40px] mt-8 max-w-3xl w-full text-start">
+              <p className="font-black text-white mb-6 text-xl tracking-tight flex items-center gap-3">
+                <div className="w-2 h-8 rounded-full" style={{ backgroundColor: branding.primaryColor }}></div>
+                {t('how_to_fix')}
+              </p>
+              <ol className="list-decimal list-inside text-text-secondary space-y-4 font-medium opacity-90">
+                  <li>{t('fix_step_1')}</li>
+                  <li>{t('fix_step_2')}</li>
+                  <li>{t('fix_step_3')}</li>
+                  <li>{t('fix_step_4')}</li>
+                  <li><strong className="text-white">{t('fix_step_5')}</strong></li>
               </ol>
             </div>
-          ) : (
-            <p className="text-gray-400 mt-4">Please run the database schema script in your Supabase SQL Editor to initialize the required tables and functions.</p>
           )}
-
        </div>
     );
   }
@@ -122,46 +127,37 @@ const AppContent: React.FC = () => {
   }
 
   if (user?.is_banned) {
-    return <BannedPage reason={user.ban_reason || 'No reason provided.'} expires_at={user.ban_expires_at} onLogout={logout} />;
+    return <BannedPage reason={user.ban_reason || t('no_reason_provided')} expires_at={user.ban_expires_at} onLogout={logout} />;
   }
 
-  // Maintenance Guard: Only allow admins to bypass maintenance mode
-  const isManagement = hasPermission('admin_panel') || hasPermission('_super_admin');
-  if (config.MAINTENANCE_MODE && !isManagement) {
+  // Maintenance Mode Check
+  const isAdmin = user && (hasPermission('admin_panel') || hasPermission('_super_admin'));
+  if (config.MAINTENANCE_MODE && !isAdmin) {
     return <MaintenancePage />;
   }
   
   return (
-    <div className="flex flex-col min-h-screen bg-brand-dark text-white font-sans relative z-10 transition-all duration-500">
+    <div className="flex flex-col min-h-screen bg-brand-dark text-white font-sans relative z-10" dir={dir}>
+      <TwoFactorModal />
       <Navbar />
       {permissionWarning && <PermissionWarningBanner message={permissionWarning} />}
       <main className="flex-grow">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={location.pathname}
-            initial={{ opacity: 0, scale: 0.99 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.01 }}
-            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-          >
-            <Routes location={location}>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/store" element={<StorePage />} />
-              <Route path="/store/:productId" element={<ProductDetailPage />} />
-              <Route path="/rules" element={<RulesPage />} />
-              <Route path="/applies" element={<AppliesPage />} />
-              <Route path="/about" element={<AboutUsPage />} />
-              <Route path="/applies/:quizId" element={<ProtectedRoute><QuizPage /></ProtectedRoute>} />
-              <Route path="/my-applications" element={<ProtectedRoute><MyApplicationsPage /></ProtectedRoute>} />
-              <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-              <Route path="/character/:id" element={<ProtectedRoute><CharacterDetailPage /></ProtectedRoute>} />
-              <Route path="/link-account" element={<ProtectedRoute><LinkAccountPage /></ProtectedRoute>} />
-              <Route path="/admin" element={<ProtectedRoute permission="admin_panel"><AdminGate><AdminPage /></AdminGate></ProtectedRoute>} />
-              <Route path="/admin/submissions/:submissionId" element={<ProtectedRoute permission="admin_submissions"><AdminGate><SubmissionDetailPage /></AdminGate></ProtectedRoute>} />
-              <Route path="/health-check" element={<ProtectedRoute permission="_super_admin"><HealthCheckPage /></ProtectedRoute>} />
-            </Routes>
-          </motion.div>
-        </AnimatePresence>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/store" element={<StorePage />} />
+          <Route path="/store/:productId" element={<ProductDetailPage />} />
+          <Route path="/rules" element={<RulesPage />} />
+          <Route path="/applies" element={<AppliesPage />} />
+          <Route path="/about" element={<AboutUsPage />} />
+          <Route path="/applies/:quizId" element={<ProtectedRoute><QuizPage /></ProtectedRoute>} />
+          <Route path="/my-applications" element={<ProtectedRoute><MyApplicationsPage /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+          <Route path="/character/:id" element={<ProtectedRoute><CharacterDetailPage /></ProtectedRoute>} />
+          <Route path="/link-account" element={<ProtectedRoute><LinkAccountPage /></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute permission="admin_panel"><AdminGate><AdminPage /></AdminGate></ProtectedRoute>} />
+          <Route path="/admin/submissions/:submissionId" element={<ProtectedRoute permission="admin_submissions"><AdminGate><SubmissionDetailPage /></AdminGate></ProtectedRoute>} />
+          <Route path="/health-check" element={<ProtectedRoute permission="_super_admin"><HealthCheckPage /></ProtectedRoute>} />
+        </Routes>
       </main>
       <Footer />
     </div>
@@ -169,15 +165,18 @@ const AppContent: React.FC = () => {
 }
 
 import { CurrencyProvider } from './contexts/CurrencyContext';
+import { InitialCaptchaGate } from './components/InitialCaptchaGate';
 
 const App: React.FC = () => {
   return (
     <BrowserRouter>
         <AppProviders>
           <CurrencyProvider>
-            <SessionWatcher />
-            <CosmicBackground />
-            <AppContent />
+            <InitialCaptchaGate>
+              <SessionWatcher />
+              <CosmicBackground />
+              <AppContent />
+            </InitialCaptchaGate>
           </CurrencyProvider>
         </AppProviders>
     </BrowserRouter>

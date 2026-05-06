@@ -61,14 +61,14 @@ export default async function (req: VercelRequest, res: VercelResponse) {
 
     // 2. Fetch Vehicles
     const [vehicles]: any = await pool.execute(
-      "SELECT id, model, plate FROM vehicles WHERE owner_id = ?",
-      [id]
+      "SELECT v.id, v.model, v.plate FROM vehicles v JOIN characters c ON v.owner_id = c.id JOIN accounts a ON c.account_id = a.id WHERE v.owner_id = ? AND a.mtaserial = ?",
+      [id, profile.mta_serial]
     );
 
     // 3. Fetch Properties
     const [properties]: any = await pool.execute(
-      "SELECT id, name, address FROM properties WHERE owner_id = ?",
-      [id]
+      "SELECT i.id, i.name, i.address FROM properties i JOIN characters c ON i.owner_id = c.id JOIN accounts a ON c.account_id = a.id WHERE i.owner_id = ? AND a.mtaserial = ?",
+      [id, profile.mta_serial]
     );
 
     res.json({

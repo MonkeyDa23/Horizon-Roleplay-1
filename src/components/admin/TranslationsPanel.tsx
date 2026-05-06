@@ -9,7 +9,7 @@ import { getTranslations, saveTranslations, sendDiscordLog } from '../../lib/api
 import { translations as fallbackTranslations } from '../../lib/translations';
 import { usePersistentState } from '../../hooks/usePersistentState';
 import type { Translations } from '../../types';
-import { Loader2, Search, AlertCircle } from 'lucide-react';
+import { Loader2, Search, AlertCircle, Globe } from 'lucide-react';
 
 const TranslationsPanel: React.FC = () => {
     const { t } = useLocalization();
@@ -17,9 +17,8 @@ const TranslationsPanel: React.FC = () => {
     const { user } = useAuth();
     const { config } = useConfig();
     
-    // PERSISTENT STATE
-    const [editableTranslations, setEditableTranslations] = usePersistentState<Translations>('nova_admin_translations_draft', {});
-    const [searchTerm, setSearchTerm] = usePersistentState<string>('nova_admin_translations_search', '');
+    const [editableTranslations, setEditableTranslations] = usePersistentState<Translations>('vixel_admin_translations_draft', {});
+    const [searchTerm, setSearchTerm] = usePersistentState<string>('vixel_admin_translations_search', '');
     
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -38,9 +37,7 @@ const TranslationsPanel: React.FC = () => {
                 };
             });
             
-            // Use draft if not empty, else load from DB
             setEditableTranslations(prev => Object.keys(prev).length > 0 ? prev : mergedTranslations);
-
         } catch (error) {
             showToast('Failed to load translations.', 'error');
             setEditableTranslations(prev => Object.keys(prev).length > 0 ? prev : fallbackTranslations);
@@ -55,22 +52,21 @@ const TranslationsPanel: React.FC = () => {
         if (!user) return;
         setIsSaving(true);
         try {
-            await saveTranslations(editableTranslations);
+            const result = await saveTranslations(editableTranslations);
+            if (result.translations) {
+                setEditableTranslations(result.translations);
+            }
             showToast(t('save_translations'), 'success');
-            
-            // Clear draft
-            localStorage.removeItem('nova_admin_translations_draft');
-
+            localStorage.removeItem('vixel_admin_translations_draft');
             const embed = {
                 title: "🌐 تحديث الترجمات",
                 description: `قام المشرف **${user.username}** بتحديث نصوص وترجمات الموقع.`,
-                color: 0xFFA500, // Orange
+                color: 0xFFA500,
                 author: { name: user.username, icon_url: user.avatar },
                 timestamp: new Date().toISOString(),
                 footer: { text: "سجل الإعدادات" }
             };
             await sendDiscordLog(config, embed, 'admin');
-
         } catch (error) {
             showToast((error as Error).message, 'error');
         } finally {
@@ -97,29 +93,42 @@ const TranslationsPanel: React.FC = () => {
             <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-6">
                 <div className="flex items-center gap-2 text-gray-400 bg-brand-dark p-2 rounded">
                     <AlertCircle size={16} />
-                    <span className="text-sm">المسودة محفوظة تلقائياً.</span>
+                    <span className="text-sm">يقوم النظام بتطبيق الترجمات تلقائياً للمستخدمين. يمكنك تعديل النصوص هنا وستظهر فوراً باللغة المختارة.</span>
                 </div>
                 <div className="relative w-full md:max-w-md">
                     <Search className="absolute top-1/2 -translate-y-1/2 left-3 text-gray-400" size={20} />
-                    <input type="text" placeholder="Search keys..." value={searchTerm} onChange={(e) => setSearchTerm(e.currentTarget.value)} className="nova-input !pl-10" />
+                    <input type="text" placeholder="Search keys..." value={searchTerm} onChange={(e) => setSearchTerm(e.currentTarget.value)} className="vixel-input !pl-10" />
                 </div>
-                <button onClick={handleSave} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white transition-colors min-w-[9rem] flex justify-center">
-                    {isSaving ? <Loader2 className="animate-spin" /> : t('save_translations')}
+                <button onClick={handleSave} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:scale-105 transition-all flex items-center justify-center gap-2">
+                    {isSaving ? <Loader2 className="animate-spin" /> : <Globe size={18} />}
+                    {t('save_translations')}
                 </button>
             </div>
             
-            <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50 overflow-hidden">
+            <div className="bg-brand-dark-blue rounded-xl border border-brand-light-blue/50 overflow-hidden shadow-2xl">
                 <div className="overflow-x-auto max-h-[65vh]">
                     <table className="w-full text-left min-w-[800px] relative">
                         <thead className="sticky top-0 border-b border-brand-light-blue/50 text-gray-300 bg-brand-dark-blue z-10">
-                            <tr><th className="p-4 w-1/4">Key</th><th className="p-4 w-2/5">English</th><th className="p-4 w-2/5">العربية</th></tr>
+                            <tr><th className="p-4 w-1/4">Key</th><th className="p-4 w-2/5">English (EN)</th><th className="p-4 w-2/5">العربية (AR)</th></tr>
                         </thead>
                         <tbody>
                             {filteredKeys.map(key => (
-                                <tr key={key} className="border-b border-brand-light-blue/50 last:border-none hover:bg-brand-light-blue/20 transition-colors">
-                                    <td className="p-4 font-mono text-sm text-brand-cyan align-top pt-5">{key}</td>
-                                    <td className="p-4"><textarea value={editableTranslations[key]?.en || ''} onChange={(e) => handleTranslationChange(key, 'en', e.currentTarget.value)} className="nova-input h-24" /></td>
-                                    <td className="p-4"><textarea value={editableTranslations[key]?.ar || ''} onChange={(e) => handleTranslationChange(key, 'ar', e.currentTarget.value)} className="vixel-input h-24" dir="rtl" /></td>
+                                <tr key={key} className="border-b border-brand-light-blue/50 last:border-none hover:bg-white/5 transition-colors group">
+                                    <td className="p-4 font-mono text-sm text-brand-cyan align-top pt-5">
+                                        <div className="sticky top-20">{key}</div>
+                                    </td>
+                                    <td className="p-4 space-y-2">
+                                        <div className="flex justify-between items-center text-xs text-gray-500 px-1">
+                                            <span>English Text</span>
+                                        </div>
+                                        <textarea value={editableTranslations[key]?.en || ''} onChange={(e) => handleTranslationChange(key, 'en', e.currentTarget.value)} className="vixel-input h-24 text-sm" />
+                                    </td>
+                                    <td className="p-4 space-y-2">
+                                        <div className="flex justify-between items-center text-xs text-gray-500 px-1">
+                                            <span>النص العربي</span>
+                                        </div>
+                                        <textarea value={editableTranslations[key]?.ar || ''} onChange={(e) => handleTranslationChange(key, 'ar', e.currentTarget.value)} className="vixel-input h-24 text-sm font-arabic" dir="rtl" />
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>

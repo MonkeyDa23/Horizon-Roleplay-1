@@ -5,7 +5,17 @@ import type { Language, LocalizationContextType } from '../types';
 export const LocalizationContext = createContext<LocalizationContextType | undefined>(undefined);
 
 export const LocalizationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [language, setLanguage] = useState<Language>('ar');
+  const [language, setLanguage] = useState<Language>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('nova_lang') as Language;
+      if (saved) return saved;
+      
+      const browserLang = navigator.language.split('-')[0];
+      return browserLang === 'ar' ? 'ar' : 'en';
+    }
+    return 'ar';
+  });
+
   const { translations, loading } = useTranslations();
 
   useEffect(() => {
@@ -13,6 +23,7 @@ export const LocalizationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       const dir = language === 'ar' ? 'rtl' : 'ltr';
       document.documentElement.lang = language;
       document.documentElement.dir = dir;
+      localStorage.setItem('nova_lang', language);
     }
   }, [language]);
 

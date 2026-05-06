@@ -1,9 +1,3 @@
-
-// src/types.ts
-
-// =============================================
-// LANGUAGE & TRANSLATION
-// =============================================
 export type Language = 'ar' | 'en';
 
 export interface Translations {
@@ -15,14 +9,10 @@ export interface Translations {
 export interface LocalizationContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
-  // FIX: Replaced Record<T, U> with an index signature for broader compatibility.
   t: (key: string, replacements?: { [key: string]: string | number }) => string;
   dir: 'rtl' | 'ltr';
 }
 
-// =============================================
-// AUTH, USER & PERMISSIONS
-// =============================================
 export type PermissionKey =
   | '_super_admin'
   | 'page_store'
@@ -52,36 +42,36 @@ export interface DiscordRole {
 export interface MtaVehicle {
   id: number;
   model: string;
-  owner: number; // Character ID
+  owner: number;
 }
 
 export interface MtaProperty {
   id: number;
   name: string;
   cost: number;
-  owner: number; // Character ID
+  owner: number;
 }
 
 export interface MtaCharacter {
   id: number;
   charactername: string;
-  name: string; // Mapped from charactername
+  name: string;
   skin: number;
   gender: string;
   dob: string;
   age: number | string;
   nationality: string;
   hoursplayed: number;
-  playtime_hours: number; // Mapped from hoursplayed
+  playtime_hours: number;
   level: number;
-  job: string; // Job Name
-  faction: string; // Faction Name
+  job: string;
+  faction: string;
   money: number;
-  cash: number; // Mapped from money
+  cash: number;
   bankmoney: number;
-  bank: number; // Mapped from bankmoney
-  vehicles: MtaVehicle[]; // Vehicles owned by this character
-  properties: MtaProperty[]; // Properties owned by this character
+  bank: number;
+  vehicles: MtaVehicle[];
+  properties: MtaProperty[];
 }
 
 export interface MtaAccountInfo {
@@ -101,7 +91,7 @@ export interface MtaAccountInfo {
 }
 
 export interface User {
-  id: string; // Supabase Auth User ID
+  id: string;
   discordId: string;
   username: string;
   avatar: string;
@@ -111,11 +101,12 @@ export interface User {
   is_banned: boolean;
   ban_reason: string | null;
   ban_expires_at: string | null;
-  balance: number; // New: User Balance
+  balance: number;
   mta_serial: string | null;
   mta_name: string | null;
   mta_linked_at: string | null;
-  mta_data?: MtaAccountInfo; // New: Detailed MTA data from MySQL
+  two_factor_enabled: boolean;
+  mta_data?: MtaAccountInfo;
 }
 
 export interface AuthContextType {
@@ -123,18 +114,19 @@ export interface AuthContextType {
   login: (captchaToken: string) => void;
   logout: () => void;
   loading: boolean;
-  isInitialLoading: boolean; // New: For the very first load
+  isInitialLoading: boolean;
   updateUser: (user: User) => void;
   hasPermission: (key: PermissionKey) => boolean;
   permissionWarning: string | null;
   syncError: Error | null;
   retrySync?: () => Promise<void>;
   refreshUser?: () => Promise<void>;
+  isTwoFactorVerified: boolean;
+  verifyTwoFactor: (code: string) => Promise<boolean>;
 }
 
 export interface UserLookupResult {
-    id: string | null; // Can be null if user hasn't logged in yet
-    // FIX: Added missing `discordId` property. The lookupUser API returns this field.
+    id: string | null;
     discordId: string;
     username: string;
     avatar: string;
@@ -143,7 +135,7 @@ export interface UserLookupResult {
     is_banned: boolean;
     ban_reason: string | null;
     ban_expires_at: string | null;
-    balance: number; // New
+    balance: number;
 }
 
 export interface RolePermission {
@@ -152,9 +144,6 @@ export interface RolePermission {
 }
 
 
-// =============================================
-// STORE & CART & INVOICES
-// =============================================
 export interface ProductCategory {
   id: string;
   nameKey: string;
@@ -202,20 +191,17 @@ export interface CartContextType {
   totalPrice: number;
 }
 
-// =============================================
-// QUIZ & SUBMISSION SYSTEM
-// =============================================
 export interface QuizQuestion {
   id: string;
   textKey: string;
-  timeLimit: number; // in seconds
+  timeLimit: number;
 }
 
 export interface Answer {
   questionId: string;
   questionText: string;
   answer: string;
-  timeTaken: number; // Time taken in seconds for this question
+  timeTaken: number;
 }
 
 export interface CheatAttempt {
@@ -229,7 +215,7 @@ export interface QuizSubmission {
   id: string;
   quizId: string;
   quizTitle: string;
-  user_id: string; // Matches DB column name
+  user_id: string;
   username: string;
   answers: Answer[];
   submittedAt: string;
@@ -240,7 +226,7 @@ export interface QuizSubmission {
   cheatAttempts?: CheatAttempt[];
   user_highest_role?: string;
   discord_id?: string;
-  reason?: string; // Reason for accept/refuse
+  reason?: string;
 }
 
 export interface Quiz {
@@ -253,13 +239,9 @@ export interface Quiz {
   allowedTakeRoles?: string[];
   logoUrl?: string;
   bannerUrl?: string;
-  lastOpenedAt?: string; // To track "application seasons"
+  lastOpenedAt?: string;
 }
 
-
-// =============================================
-// RULES & CONFIG
-// =============================================
 export interface Rule {
     id: string;
     textKey: string;
@@ -281,8 +263,8 @@ export interface DiscordWidget {
 }
 
 export interface StaffMember {
-  id: string; // staff table id
-  user_id: string; // profiles table id
+  id: string;
+  user_id: string;
   role_key: string;
   position: number;
   username: string;
@@ -292,43 +274,35 @@ export interface StaffMember {
 
 
 export interface AppConfig {
-    COMMUNITY_NAME: string;
+    siteName: string;
     LOGO_URL: string;
     DISCORD_GUILD_ID: string;
     DISCORD_INVITE_URL: string;
     MTA_SERVER_URL: string;
     BACKGROUND_IMAGE_URL: string;
     SHOW_HEALTH_CHECK: boolean;
+    MAINTENANCE_MODE: boolean;
     admin_password: string | null;
-
-    // New Webhook logging settings
     DISCORD_PROXY_URL: string | null;
     DISCORD_PROXY_SECRET: string | null;
-
-    // Notification Channel IDs
     submissions_channel_id: string | null;
     log_channel_submissions: string | null;
     log_channel_bans: string | null;
     log_channel_admin: string | null;
-    log_channel_auth: string | null; // New: New Members Log
-    log_channel_finance: string | null; // New: Finance Log (Balance/Invoices)
-    log_channel_store: string | null; // New: Store Log (User Purchases)
+    log_channel_auth: string | null;
+    log_channel_finance: string | null;
+    log_channel_store: string | null;
     audit_log_channel_id: string | null;
-
-    // Mention Roles
     mention_role_submissions: string | null;
     mention_role_audit_log_submissions: string | null;
     mention_role_audit_log_bans: string | null;
     mention_role_audit_log_admin: string | null;
-    mention_role_auth: string | null; // New: New Members Role
-    mention_role_finance: string | null; // New
-    mention_role_store: string | null; // New
+    mention_role_auth: string | null;
+    mention_role_finance: string | null;
+    mention_role_store: string | null;
     mention_role_audit_log_general: string | null;
 }
 
-// =============================================
-// MISC & EXTERNAL
-// =============================================
 export interface AuditLogEntry {
   id: number;
   timestamp: string;

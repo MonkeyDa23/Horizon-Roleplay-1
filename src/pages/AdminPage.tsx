@@ -1,20 +1,13 @@
-/**
- * Nova Roleplay - Official Website
- * Admin Dashboard
- * Copyright (c) 2024 Nova Roleplay. All rights reserved.
- */
-
 import React, { useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { PermissionKey } from '../types';
 import SEO from '../components/SEO';
-import { UserCog, FileText, Server, BookCopy, Store, Languages, Palette, Search, ShieldCheck, ShieldQuestion, Bell, LayoutGrid, Users } from 'lucide-react';
-import { logAdminPageVisit, sendDiscordLog, logAdminAction } from '../lib/api'; 
+import { UserCog, FileText, Server, BookCopy, Store, Languages, Palette, Search, ShieldCheck, ShieldQuestion, Bell, LayoutGrid, Users, Shield } from 'lucide-react';
+import { logAdminPageVisit, logAdminAction } from '../lib/api'; 
 import { useConfig } from '../contexts/ConfigContext';
 
-// Import Panels
 import AdminLayout from '../components/admin/AdminLayout';
 import SubmissionsPanel from '../components/admin/SubmissionsPanel';
 import QuizzesPanel from '../components/admin/QuizzesPanel';
@@ -29,8 +22,9 @@ import AdminDashboard from '../components/admin/AdminDashboard';
 import NotificationsPanel from '../components/admin/NotificationsPanel';
 import WidgetsPanel from '../components/admin/WidgetsPanel'; 
 import StaffPanel from '../components/admin/StaffPanel'; 
+import SecurityPanel from '../components/admin/SecurityPanel';
 
-export type AdminTab = 'dashboard' | 'submissions' | 'quizzes' | 'rules' | 'store' | 'translations' | 'appearance' | 'lookup' | 'permissions' | 'audit' | 'notifications' | 'widgets' | 'staff';
+export type AdminTab = 'dashboard' | 'submissions' | 'quizzes' | 'rules' | 'store' | 'translations' | 'appearance' | 'lookup' | 'permissions' | 'audit' | 'notifications' | 'widgets' | 'staff' | 'security';
 
 export const TABS: { id: AdminTab; labelKey: string; icon: React.ElementType; permission: PermissionKey }[] = [
     { id: 'dashboard', labelKey: 'dashboard', icon: UserCog, permission: 'admin_panel' },
@@ -39,6 +33,7 @@ export const TABS: { id: AdminTab; labelKey: string; icon: React.ElementType; pe
     { id: 'rules', labelKey: 'rules_management', icon: BookCopy, permission: 'admin_rules' },
     { id: 'store', labelKey: 'store_management', icon: Store, permission: 'admin_store' },
     { id: 'staff', labelKey: 'staff_management', icon: Users, permission: 'admin_staff' },
+    { id: 'security', labelKey: 'security_monitor', icon: Shield, permission: 'admin_audit_log' },
     { id: 'notifications', labelKey: 'notifications_management', icon: Bell, permission: 'admin_notifications' },
     { id: 'translations', labelKey: 'translations_management', icon: Languages, permission: 'admin_translations' },
     { id: 'appearance', labelKey: 'appearance_settings', icon: Palette, permission: 'admin_appearance' },
@@ -51,13 +46,11 @@ export const TABS: { id: AdminTab; labelKey: string; icon: React.ElementType; pe
 const AdminPage: React.FC = () => {
     const { t } = useLocalization();
     const { hasPermission, user, loading } = useAuth();
-    const { config } = useConfig();
+    const { branding } = useConfig();
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     
-    // Get active tab from URL or default to dashboard
     const activeTab = (searchParams.get('tab') as AdminTab) || 'dashboard';
-    
     const accessibleTabs = TABS.filter(tab => hasPermission(tab.permission));
 
     useEffect(() => {
@@ -65,7 +58,6 @@ const AdminPage: React.FC = () => {
     }, [user, loading, navigate]);
     
     useEffect(() => {
-        // If current tab is not accessible, redirect to first accessible tab
         if (accessibleTabs.length > 0 && !accessibleTabs.find(t => t.id === activeTab)) {
             setSearchParams({ tab: accessibleTabs[0].id });
         }
@@ -75,7 +67,6 @@ const AdminPage: React.FC = () => {
         setSearchParams({ tab });
     };
 
-    // Using a ref to prevent double logging on mount due to StrictMode
     const lastLoggedTab = useRef<string | null>(null);
 
     useEffect(() => {
@@ -84,19 +75,17 @@ const AdminPage: React.FC = () => {
             const pageName = TABS.find(t => t.id === activeTab)?.labelKey || activeTab;
             const translatedPage = t(pageName);
             
-            // 1. Log to Database
-            logAdminPageVisit(translatedPage).catch(err => console.error("Failed to log visit:", err));
+            logAdminPageVisit(translatedPage).catch(() => {});
             
-            // 2. Log to Discord (Admin Channel) - Stealthy navigation log
             logAdminAction(
-                config, 
+                branding.siteName, 
                 user, 
                 "تصفح لوحة التحكم", 
                 `انتقل المسؤول إلى صفحة: **${translatedPage}**`, 
                 'INFO'
-            ).catch(console.error);
+            ).catch(() => {});
         }
-    }, [activeTab, user, hasPermission, config, t]);
+    }, [activeTab, user, hasPermission, branding.siteName, t]);
 
     const renderActivePanel = () => {
         switch(activeTab) {
@@ -111,6 +100,7 @@ const AdminPage: React.FC = () => {
             case 'appearance': return <AppearancePanel />;
             case 'widgets': return <WidgetsPanel />;
             case 'lookup': return <UserLookupPanel />;
+            case 'security': return <SecurityPanel />;
             case 'permissions': return <PermissionsPanel />;
             case 'audit': return <AuditLogPanel />;
             default: return <AdminDashboard />;
@@ -121,7 +111,7 @@ const AdminPage: React.FC = () => {
 
     return (
         <>
-            <SEO title={`${t('admin_panel')} - ${t(currentTab?.labelKey || '')}`} noIndex={true} description="Nova Roleplay Administration Panel"/>
+            <SEO title={`${t('admin_panel')} - ${t(currentTab?.labelKey || '')}`} noIndex={true} description="Administration Panel"/>
             <AdminLayout 
                 tabs={accessibleTabs}
                 activeTab={activeTab}

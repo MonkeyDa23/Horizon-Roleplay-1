@@ -2,9 +2,11 @@
 // src/contexts/AuthContext.tsx
 import React, { createContext, useState, useEffect, useCallback, useContext, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { fetchUserProfile, sendDiscordLog, getConfig } from '../lib/api';
+import { fetchUserProfile, sendDiscordLog, getConfig, getTwoFactorSecret, getBackupCodes } from '../lib/api';
 import type { User, AuthContextType, PermissionKey } from '../types';
 import { useLocalization } from './LocalizationContext';
+import * as otplib from 'otplib';
+const { authenticator } = otplib;
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -14,6 +16,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isInitialLoading, setIsInitialLoading] = useState<boolean>(true);
   const [permissionWarning, setPermissionWarning] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<Error | null>(null);
+  const [isTwoFactorVerified, setIsTwoFactorVerified] = useState<boolean>(false);
   
   // Ref to track the last processed access token to prevent duplicate logs/DMs
   const processedTokenRef = useRef<string | null>(null);
@@ -34,6 +37,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { user: fullUserProfile, syncError: permWarning, isNewUser } = await fetchUserProfile();
         setPermissionWarning(permWarning);
         setUser(fullUserProfile);
+
+        // --- 2FA AUTO-VERIFY ---
+        // If 2FA is NOT enabled, it is considered "autoverified" for this session.
+        if (!fullUserProfile.two_factor_enabled) {
+          setIsTwoFactorVerified(true);
+        } else {
+          setIsTwoFactorVerified(false);
+        }
 
         // --- SMART NOTIFICATION SYSTEM (DEBOUNCED) ---
         // Only proceed if we haven't processed this specific session token yet.
@@ -170,7 +181,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await handleSession(data?.session || null);
   }, [handleSession]);
 
-  const value = { user, login, logout, loading, isInitialLoading, updateUser, hasPermission, permissionWarning, syncError, retrySync, refreshUser };
+const verifyTwoFactor = useCallback(async (code: string): Promise<boolean> => {
+    if (!user) return false;
+    try {
+      const { verifyTwoFactorServer, logSecurityEvent } = await import('../lib/api');
+      const isValid = await verifyTwoFactorServer(code);
+
+      if (isValid) {
+        setIsTwoFactorVerified(true);
+        logSecurityEvent('2FA_SUCCESS', 'INFO', { method: 'Server Verified' });
+        return true;
+      }
+
+      logSecurityEvent('2FA_FAILURE', 'WARNING', { attemptedCode: code });
+      return false;
+    } catch (err) {
+      console.error("2FA verification error:", err);
+      return false;
+    }
+  }, [user]);
+
+  const value = { user, login, logout, loading, isInitialLoading, updateUser, hasPermission, permissionWarning, syncError, retrySync, refreshUser, isTwoFactorVerified, verifyTwoFactor };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

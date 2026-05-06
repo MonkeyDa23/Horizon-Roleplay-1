@@ -1,6 +1,4 @@
-
-// src/components/admin/UserLookupPanel.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useLocalization } from '../../contexts/LocalizationContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -8,7 +6,7 @@ import { useConfig } from '../../contexts/ConfigContext';
 import { lookupUser, banUser, unbanUser, addBalance, createInvoice, getUserInvoices, sendDiscordLog, getProducts, logAdminAction, logFinanceAction } from '../../lib/api';
 import type { UserLookupResult, DiscordRole, Invoice, Product } from '../../types';
 import Modal from '../Modal';
-import { Loader2, Search, User, Ban, CheckCircle, Coins, Receipt, PlusCircle, Trash2 } from 'lucide-react';
+import { Loader2, Search, Ban, Coins, Receipt, PlusCircle, Trash2 } from 'lucide-react';
 
 const RoleBadge: React.FC<{ role: DiscordRole }> = ({ role }) => {
     const color = role.color ? `#${role.color.toString(16).padStart(6, '0')}` : '#99aab5';
@@ -32,17 +30,14 @@ const UserLookupPanel: React.FC = () => {
     const [invoices, setInvoices] = useState<Invoice[]>([]);
     const [error, setError] = useState<string | null>(null);
     
-    // Ban Modal
     const [isBanModalOpen, setBanModalOpen] = useState(false);
     const [banReason, setBanReason] = useState('');
     const [banDuration, setBanDuration] = useState<number | null>(null);
 
-    // Balance Modal
     const [isBalanceModalOpen, setBalanceModalOpen] = useState(false);
     const [balanceAmount, setBalanceAmount] = useState<number>(0);
     const [isProcessingBalance, setIsProcessingBalance] = useState(false);
 
-    // Invoice Modal
     const [isInvoiceModalOpen, setInvoiceModalOpen] = useState(false);
     const [availableProducts, setAvailableProducts] = useState<Product[]>([]);
     const [selectedInvoiceProducts, setSelectedInvoiceProducts] = useState<Product[]>([]);
@@ -68,13 +63,14 @@ const UserLookupPanel: React.FC = () => {
         }
     };
 
-    // --- Ban Handlers ---
     const handleBan = async () => {
         if (!searchResult || !searchResult.id) return;
         try {
             await banUser(searchResult.id, banReason, banDuration);
             
-            // Log Action
+            const { logSecurityEvent } = await import('../../lib/api');
+            logSecurityEvent('USER_BANNED', 'CRITICAL', { targetId: searchResult.id, targetName: searchResult.username, reason: banReason, duration: banDuration });
+
             await logAdminAction(
                 config, 
                 adminUser!, 
@@ -83,7 +79,6 @@ const UserLookupPanel: React.FC = () => {
                 'ERROR'
             );
 
-            // DM Notification to User
             const dmEmbed = {
                 title: "⛔ تم حظر حسابك",
                 description: `مرحباً **${searchResult.username}**،\n\nيؤسفنا إبلاغك بأنه تم حظر حسابك من الموقع.`,
@@ -94,7 +89,7 @@ const UserLookupPanel: React.FC = () => {
                     { name: "تاريخ الانتهاء", value: banDuration ? new Date(Date.now() + banDuration * 3600000).toLocaleString() : "غير محدد" }
                 ],
                 timestamp: new Date().toISOString(),
-                footer: { text: config.COMMUNITY_NAME }
+                footer: { text: config.siteName }
             };
             await sendDiscordLog(config, dmEmbed, 'dm', searchResult.discordId);
 
@@ -111,15 +106,7 @@ const UserLookupPanel: React.FC = () => {
         if (confirm('Are you sure you want to unban this user?')) {
             try {
                 await unbanUser(searchResult.id);
-                
-                await logAdminAction(
-                    config, 
-                    adminUser!, 
-                    "رفع حظر", 
-                    `تم رفع الحظر عن العضو **${searchResult.username}**.`, 
-                    'SUCCESS'
-                );
-
+                await logAdminAction(config, adminUser!, "رفع حظر", `تم رفع الحظر عن العضو **${searchResult.username}**.`, 'SUCCESS');
                 showToast('User unbanned successfully.', 'success');
                 handleSearch();
             } catch (err) {
@@ -128,14 +115,14 @@ const UserLookupPanel: React.FC = () => {
         }
     };
 
-    // --- Balance Handlers ---
     const handleAddBalance = async () => {
         if (!searchResult || !searchResult.id) return;
         setIsProcessingBalance(true);
         try {
-            const newBalance = await addBalance(searchResult.id, balanceAmount, `Added by admin ${adminUser?.username}`);
-            
-            // Log Action (Public & DM)
+            await addBalance(searchResult.id, balanceAmount, `Added by admin ${adminUser?.username}`);
+            const { logSecurityEvent } = await import('../../lib/api');
+            logSecurityEvent('BALANCE_MODIFIED', 'WARNING', { targetId: searchResult.id, amount: balanceAmount, action: 'ADD' });
+
             await logFinanceAction(
                 config, 
                 adminUser!, 
@@ -147,7 +134,7 @@ const UserLookupPanel: React.FC = () => {
 
             showToast(t('balance_added_success'), 'success');
             setBalanceModalOpen(false);
-            handleSearch(); // Refresh UI
+            handleSearch();
         } catch (err) {
             showToast((err as Error).message, 'error');
         } finally {
@@ -155,7 +142,6 @@ const UserLookupPanel: React.FC = () => {
         }
     };
 
-    // --- Invoice Handlers ---
     const openInvoiceModal = async () => {
         setInvoiceModalOpen(true);
         if (availableProducts.length === 0) {
@@ -187,8 +173,6 @@ const UserLookupPanel: React.FC = () => {
 
         try {
             await createInvoice(searchResult.id, invoiceItems, totalAmount);
-            
-            // Log Action (Public & DM)
             await logFinanceAction(
                 config, 
                 adminUser!, 
@@ -213,13 +197,7 @@ const UserLookupPanel: React.FC = () => {
         <div className="animate-fade-in-up">
             <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50 mb-8">
                 <div className="flex flex-col md:flex-row gap-4">
-                    <input 
-                        type="text" 
-                        placeholder={t('discord_id_placeholder')} 
-                        value={discordId} 
-                        onChange={(e) => setDiscordId(e.target.value)} 
-                        className="nova-input flex-grow"
-                    />
+                    <input type="text" placeholder={t('discord_id_placeholder')} value={discordId} onChange={(e) => setDiscordId(e.target.value)} className="vixel-input flex-grow" />
                     <button onClick={handleSearch} disabled={!discordId || isLoading} className="bg-brand-cyan text-brand-dark font-bold py-3 px-8 rounded-md hover:bg-white transition-colors flex items-center justify-center gap-2 disabled:opacity-50 min-w-[120px]">
                         {isLoading ? <Loader2 className="animate-spin" /> : <><Search size={20} /> {t('search')}</>}
                     </button>
@@ -229,14 +207,12 @@ const UserLookupPanel: React.FC = () => {
 
             {searchResult && (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Left Column: User Info */}
                     <div className="lg:col-span-1 space-y-6">
                         <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50 text-center">
                             <img src={searchResult.avatar} alt={searchResult.username} className="w-32 h-32 rounded-full mx-auto mb-4 border-4 border-brand-cyan shadow-glow-cyan" />
                             <h2 className="text-2xl font-bold text-white">{searchResult.username}</h2>
                             <p className="text-gray-400 mb-4 text-sm font-mono select-all bg-black/20 inline-block px-2 rounded mt-1">{searchResult.discordId}</p>
                             
-                            {/* Balance Display */}
                             <div className="bg-brand-dark p-3 rounded-lg border border-brand-light-blue/30 mb-6 flex items-center justify-center gap-2 text-accent-cyan">
                                 <Coins size={20} />
                                 <span className="font-bold text-xl">${searchResult.balance.toLocaleString()}</span>
@@ -255,21 +231,14 @@ const UserLookupPanel: React.FC = () => {
                                 </div>
                             ) : (
                                 <div className="space-y-3">
-                                    <button onClick={() => setBanModalOpen(true)} className="w-full bg-brand-dark border border-red-500 text-red-500 py-2 rounded font-bold hover:bg-red-500 hover:text-white transition-colors flex items-center justify-center gap-2">
-                                        <Ban size={18} /> {t('ban')}
-                                    </button>
-                                    <button onClick={() => setBalanceModalOpen(true)} className="w-full bg-brand-dark border border-accent-cyan text-accent-cyan py-2 rounded font-bold hover:bg-accent-cyan hover:text-black transition-colors flex items-center justify-center gap-2">
-                                        <PlusCircle size={18} /> {t('add_balance')}
-                                    </button>
-                                    <button onClick={openInvoiceModal} className="w-full bg-brand-dark border border-brand-light-blue text-brand-light-blue py-2 rounded font-bold hover:bg-brand-light-blue hover:text-white transition-colors flex items-center justify-center gap-2">
-                                        <Receipt size={18} /> {t('create_invoice')}
-                                    </button>
+                                    <button onClick={() => setBanModalOpen(true)} className="w-full bg-brand-dark border border-red-500 text-red-500 py-2 rounded font-bold hover:bg-red-500 hover:text-white transition-colors flex items-center justify-center gap-2"><Ban size={18} /> {t('ban')}</button>
+                                    <button onClick={() => setBalanceModalOpen(true)} className="w-full bg-brand-dark border border-accent-cyan text-accent-cyan py-2 rounded font-bold hover:bg-accent-cyan hover:text-black transition-colors flex items-center justify-center gap-2"><PlusCircle size={18} /> {t('add_balance')}</button>
+                                    <button onClick={openInvoiceModal} className="w-full bg-brand-dark border border-brand-light-blue text-brand-light-blue py-2 rounded font-bold hover:bg-brand-light-blue hover:text-white transition-colors flex items-center justify-center gap-2"><Receipt size={18} /> {t('create_invoice')}</button>
                                 </div>
                             )}
                         </div>
                     </div>
 
-                    {/* Right Column: Invoice History */}
                     <div className="lg:col-span-2">
                         <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50 h-full">
                             <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><Receipt /> {t('invoice_history')}</h3>
@@ -306,16 +275,14 @@ const UserLookupPanel: React.FC = () => {
                 </div>
             )}
 
-            {/* Ban Modal */}
             <Modal isOpen={isBanModalOpen} onClose={() => setBanModalOpen(false)} title={t('ban')}>
                 <div className="space-y-4">
-                    <input type="text" placeholder={t('reason')} value={banReason} onChange={(e) => setBanReason(e.target.value)} className="nova-input" />
-                    <input type="number" placeholder={`${t('duration')} (hours) - Leave empty for permanent`} value={banDuration || ''} onChange={(e) => setBanDuration(parseInt(e.target.value) || null)} className="nova-input" />
+                    <input type="text" placeholder={t('reason')} value={banReason} onChange={(e) => setBanReason(e.target.value)} className="vixel-input" />
+                    <input type="number" placeholder={`${t('duration')} (hours)`} value={banDuration || ''} onChange={(e) => setBanDuration(parseInt(e.target.value) || null)} className="vixel-input" />
                     <button onClick={handleBan} className="w-full bg-red-600 text-white font-bold py-3 rounded-lg hover:bg-red-500">{t('confirm_ban')}</button>
                 </div>
             </Modal>
 
-            {/* Add Balance Modal */}
             <Modal isOpen={isBalanceModalOpen} onClose={() => setBalanceModalOpen(false)} title={t('add_balance')}>
                 <div className="space-y-4">
                     <div className="text-center mb-4">
@@ -329,10 +296,8 @@ const UserLookupPanel: React.FC = () => {
                 </div>
             </Modal>
 
-            {/* Create Invoice Modal */}
             <Modal isOpen={isInvoiceModalOpen} onClose={() => setInvoiceModalOpen(false)} title={t('create_invoice')} maxWidth="3xl">
                 <div className="flex flex-col md:flex-row gap-6 max-h-[70vh]">
-                    {/* Product Selection */}
                     <div className="w-full md:w-1/2 space-y-4 overflow-y-auto pr-2 custom-scrollbar">
                         <h4 className="font-bold text-gray-300 border-b border-gray-600 pb-2">{t('select_products')}</h4>
                         {availableProducts.map(prod => (
@@ -349,7 +314,6 @@ const UserLookupPanel: React.FC = () => {
                         ))}
                     </div>
 
-                    {/* Invoice Cart */}
                     <div className="w-full md:w-1/2 bg-brand-dark-blue p-4 rounded border border-brand-light-blue flex flex-col">
                         <h4 className="font-bold text-white border-b border-gray-600 pb-2 mb-4">{t('products_in_invoice')}</h4>
                         <div className="flex-grow overflow-y-auto space-y-2 mb-4 custom-scrollbar">

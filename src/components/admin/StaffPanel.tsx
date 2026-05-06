@@ -1,19 +1,17 @@
-
-// src/components/admin/StaffPanel.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalization } from '../../contexts/LocalizationContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfig } from '../../contexts/ConfigContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { getStaff, saveStaff, lookupUser, sendDiscordLog, logAdminAction } from '../../lib/api';
+import { getStaff, saveStaff, lookupUser, logAdminAction } from '../../lib/api';
 import { useTranslations } from '../../contexts/TranslationsContext';
 import { usePersistentState } from '../../hooks/usePersistentState';
 import type { StaffMember, UserLookupResult } from '../../types';
-import { Loader2, Plus, GripVertical, Trash2, Search, ChevronUp, ChevronDown, AlertCircle } from 'lucide-react';
+import { Loader2, Plus, GripVertical, Trash2, ChevronUp, ChevronDown, AlertCircle } from 'lucide-react';
 import Modal from '../Modal';
 
 type EditingStaffMember = Omit<StaffMember, 'id'> & {
-    id?: string; // id can be missing for new members
+    id?: string;
     role_en: string;
     role_ar: string;
 };
@@ -25,12 +23,10 @@ const StaffPanel: React.FC = () => {
     const { config } = useConfig();
     const { user } = useAuth();
     
-    // PERSISTENT STATE
-    const [staff, setStaff] = usePersistentState<EditingStaffMember[]>('nova_admin_staff_draft', []);
-    const [isAddModalOpen, setIsAddModalOpen] = usePersistentState<boolean>('nova_admin_staff_modal_open', false);
+    const [staff, setStaff] = usePersistentState<EditingStaffMember[]>('vixel_admin_staff_draft', []);
+    const [isAddModalOpen, setIsAddModalOpen] = usePersistentState<boolean>('vixel_admin_staff_modal_open', false);
     
-    // Modal Field State (Persistent)
-    const [lookupDiscordId, setLookupDiscordId] = usePersistentState<string>('nova_admin_staff_lookup_id', '');
+    const [lookupDiscordId, setLookupDiscordId] = usePersistentState<string>('vixel_admin_staff_lookup_id', '');
     const [newStaffRoleEn, setNewStaffRoleEn] = usePersistentState<string>('vixel_admin_staff_new_role_en', '');
     const [newStaffRoleAr, setNewStaffRoleAr] = usePersistentState<string>('vixel_admin_staff_new_role_ar', '');
     
@@ -44,7 +40,6 @@ const StaffPanel: React.FC = () => {
         setIsLoading(true);
         try {
             const staffData = await getStaff();
-            
             setStaff((prev) => {
                 if (prev.length > 0) return prev;
                 return staffData.map(s => ({
@@ -65,14 +60,6 @@ const StaffPanel: React.FC = () => {
         else setIsLoading(false);
     }, [fetchStaff, staff.length]);
 
-    // Re-run lookup if modal opens and ID exists (restores state visually)
-    useEffect(() => {
-        if (isAddModalOpen && lookupDiscordId && !lookupResult) {
-            // Optional: Auto-lookup again or just let user click? 
-            // Let's let user click to avoid spamming API on reload
-        }
-    }, [isAddModalOpen, lookupDiscordId]);
-
     const handleSave = async () => {
         if (!user) return;
         setIsSaving(true);
@@ -86,28 +73,15 @@ const StaffPanel: React.FC = () => {
             }));
             await saveStaff(dataToSave);
             await refreshTranslations();
-            
-            // Clear draft
             localStorage.removeItem('vixel_admin_staff_draft');
-            
             showToast('Staff list saved successfully!', 'success');
-            
-            // Refresh list
             const staffData = await getStaff();
             setStaff(staffData.map(s => ({
                 ...s,
                 role_en: translations[s.role_key]?.en || '',
                 role_ar: translations[s.role_key]?.ar || ''
             })));
-
-            await logAdminAction(
-                config, 
-                user, 
-                "تحديث فريق العمل", 
-                `تم تحديث قائمة فريق العمل المعروضة في صفحة 'من نحن'.\n**عدد الأعضاء الحالي:** ${staff.length}`, 
-                'WARNING'
-            );
-
+            await logAdminAction(config, user, "تحديث فريق العمل", `تم تحديث قائمة فريق العمل المعروضة في صفحة 'من نحن'.\n**عدد الأعضاء الحالي:** ${staff.length}`, 'WARNING');
         } catch (error) {
             showToast((error as Error).message, 'error');
         } finally {
@@ -170,14 +144,11 @@ const StaffPanel: React.FC = () => {
     const handleMove = (index: number, direction: 'up' | 'down') => {
         if (direction === 'up' && index === 0) return;
         if (direction === 'down' && index === staff.length - 1) return;
-        
         const newList = [...staff];
         const item = newList[index];
         const swapIndex = direction === 'up' ? index - 1 : index + 1;
-        
         newList[index] = newList[swapIndex];
         newList[swapIndex] = item;
-        
         setStaff(newList);
     };
 
@@ -215,8 +186,8 @@ const StaffPanel: React.FC = () => {
                         <div className="flex-grow">
                             <p className="font-bold text-white">{member.username}</p>
                             <div className="flex gap-2 mt-1">
-                                <input type="text" value={member.role_en} onChange={(e) => handleRoleChange(index, 'en', e.target.value)} placeholder={t('staff_role_en')} className="nova-input !p-1 !text-sm" />
-                                <input type="text" value={member.role_ar} onChange={(e) => handleRoleChange(index, 'ar', e.target.value)} placeholder={t('staff_role_ar')} className="nova-input !p-1 !text-sm" dir="rtl" />
+                                <input type="text" value={member.role_en} onChange={(e) => handleRoleChange(index, 'en', e.target.value)} placeholder={t('staff_role_en')} className="vixel-input !p-1 !text-sm" />
+                                <input type="text" value={member.role_ar} onChange={(e) => handleRoleChange(index, 'ar', e.target.value)} placeholder={t('staff_role_ar')} className="vixel-input !p-1 !text-sm" dir="rtl" />
                             </div>
                         </div>
                         <div className="flex flex-col gap-1">

@@ -1,16 +1,12 @@
-
-// src/components/admin/SubmissionsPanel.tsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useLocalization } from '../../contexts/LocalizationContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfig } from '../../contexts/ConfigContext';
-import { getSubmissions, deleteSubmission, updateSubmissionStatus, sendDiscordLog, logSubmissionAction } from '../../lib/api';
-import { supabase } from '../../lib/supabaseClient';
+import { getSubmissions, deleteSubmission, updateSubmissionStatus, logSubmissionAction } from '../../lib/api';
 import type { QuizSubmission, SubmissionStatus } from '../../types';
 import { Eye, Loader2, Trash2, Search, Filter } from 'lucide-react';
 import { Link } from 'react-router-dom';
-
 
 const Panel: React.FC<{ children: React.ReactNode; isLoading: boolean, loadingText: string }> = ({ children, isLoading, loadingText }) => {
     if (isLoading) {
@@ -31,8 +27,6 @@ const SubmissionsPanel: React.FC = () => {
     const { showToast } = useToast();
     const [submissions, setSubmissions] = useState<QuizSubmission[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    
-    // Search & Filter State
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<SubmissionStatus | 'all'>('all');
 
@@ -52,19 +46,15 @@ const SubmissionsPanel: React.FC = () => {
         fetchData();
     }, [fetchData]);
 
-    // --- Filter & Search Logic ---
     const filteredSubmissions = useMemo(() => {
         return submissions.filter(sub => {
             const matchesSearch = 
                 sub.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 sub.quizTitle.toLowerCase().includes(searchTerm.toLowerCase());
-            
             const matchesFilter = filterStatus === 'all' || sub.status === filterStatus;
-
             return matchesSearch && matchesFilter;
         });
     }, [submissions, searchTerm, filterStatus]);
-
 
     const handleDelete = async (submission: QuizSubmission) => {
         if (!user) return;
@@ -73,16 +63,7 @@ const SubmissionsPanel: React.FC = () => {
                 await deleteSubmission(submission.id);
                 showToast(t('submission_deleted_success'), 'success');
                 fetchData();
-
-                // --- LOG ---
-                await logSubmissionAction(
-                    config, 
-                    user, 
-                    submission, 
-                    'DELETED', 
-                    `قام المسؤول بحذف التقديم نهائياً.`
-                );
-
+                await logSubmissionAction(config, user, submission, 'DELETED', `قام المسؤول بحذف التقديم نهائياً.`);
             } catch (e) {
                 showToast((e as Error).message, 'error');
             }
@@ -94,16 +75,7 @@ const SubmissionsPanel: React.FC = () => {
         try {
             await updateSubmissionStatus(id, 'taken');
             showToast('Order taken successfully.', 'success');
-            
-            // --- LOG ---
-            await logSubmissionAction(
-                config, 
-                user, 
-                submission, 
-                'TAKEN', 
-                `قام المسؤول باستلام التقديم للمراجعة.`
-            );
-
+            await logSubmissionAction(config, user, submission, 'TAKEN', `قام المسؤول باستلام التقديم للمراجعة.`);
             fetchData();
         } catch (e) {
             showToast((e as Error).message, 'error');
@@ -123,25 +95,14 @@ const SubmissionsPanel: React.FC = () => {
 
     return (
         <Panel isLoading={isLoading} loadingText={t('loading_submissions', {})}>
-            {/* Search & Filter Bar */}
             <div className="flex flex-col md:flex-row gap-4 mb-6">
                 <div className="relative flex-grow">
                     <Search className="absolute top-1/2 -translate-y-1/2 left-3 text-gray-400" size={20} />
-                    <input 
-                        type="text" 
-                        placeholder={t('filter_search_placeholder')} 
-                        value={searchTerm} 
-                        onChange={(e) => setSearchTerm(e.target.value)} 
-                        className="nova-input !pl-10"
-                    />
+                    <input type="text" placeholder={t('filter_search_placeholder')} value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="vixel-input !pl-10" />
                 </div>
                 <div className="relative w-full md:w-64 flex-shrink-0">
                     <Filter className="absolute top-1/2 -translate-y-1/2 left-3 text-gray-400" size={20} />
-                    <select 
-                        value={filterStatus} 
-                        onChange={(e) => setFilterStatus(e.target.value as SubmissionStatus | 'all')}
-                        className="nova-input !pl-10 appearance-none"
-                    >
+                    <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value as SubmissionStatus | 'all')} className="vixel-input !pl-10 appearance-none">
                         <option value="all">{t('filter_all')}</option>
                         <option value="pending">{t('filter_pending')}</option>
                         <option value="taken">{t('filter_taken')}</option>
@@ -174,26 +135,13 @@ const SubmissionsPanel: React.FC = () => {
                                     <td className="p-4">{renderStatusBadge(sub.status)}</td>
                                     <td className="p-4 text-right">
                                         <div className="inline-flex gap-4 items-center">
-                                            {/* Quick Take Action if Pending */}
                                             {sub.status === 'pending' && (
-                                                 <button 
-                                                    onClick={() => handleQuickTake(sub.id, sub)} 
-                                                    className="bg-brand-cyan/20 text-brand-cyan font-bold py-1 px-3 rounded-md text-sm transition-colors hover:bg-brand-cyan/40"
-                                                >
+                                                 <button onClick={() => handleQuickTake(sub.id, sub)} className="bg-brand-cyan/20 text-brand-cyan font-bold py-1 px-3 rounded-md text-sm transition-colors hover:bg-brand-cyan/40">
                                                     {t('take_order')}
                                                 </button>
                                             )}
-                                            
                                             {sub.status === 'taken' && <span className="text-xs text-gray-400 italic">{t('taken_by')} {sub.adminUsername === user?.username ? 'You' : sub.adminUsername}</span>}
-                                            
-                                            <Link 
-                                                to={`/admin/submissions/${sub.id}`} 
-                                                className="bg-brand-light-blue p-2 rounded-md text-white hover:bg-brand-cyan hover:text-brand-dark transition-all" 
-                                                title={t('view_submission')}
-                                            >
-                                                <Eye size={18}/> 
-                                            </Link>
-                                            
+                                            <Link to={`/admin/submissions/${sub.id}`} className="bg-brand-light-blue p-2 rounded-md text-white hover:bg-brand-cyan hover:text-brand-dark transition-all" title={t('view_submission')}><Eye size={18}/> </Link>
                                             {hasPermission('_super_admin') && (
                                                 <button onClick={() => handleDelete(sub)} className="text-gray-400 hover:text-red-500" title={t('delete_submission')}><Trash2 size={20}/></button>
                                             )}

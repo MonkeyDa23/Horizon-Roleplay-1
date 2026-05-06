@@ -25,8 +25,8 @@ const WidgetsPanel: React.FC = () => {
     const { user } = useAuth();
     
     // PERSISTENT STATE
-    const [widgets, setWidgets] = usePersistentState<DiscordWidget[]>('nova_admin_widgets_draft', []);
-    const [editingWidget, setEditingWidget] = usePersistentState<EditingWidget | null>('nova_admin_widget_edit_draft', null);
+    const [widgets, setWidgets] = usePersistentState<DiscordWidget[]>('vixel_admin_widgets_draft', []);
+    const [editingWidget, setEditingWidget] = usePersistentState<EditingWidget | null>('vixel_admin_widget_edit_draft', null);
     
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -62,7 +62,7 @@ const WidgetsPanel: React.FC = () => {
             await saveDiscordWidgets(widgetsToSave);
             
             // Clear draft
-            localStorage.removeItem('nova_admin_widgets_draft');
+            localStorage.removeItem('vixel_admin_widgets_draft');
             
             // Force Refresh
             const data = await getDiscordWidgets();

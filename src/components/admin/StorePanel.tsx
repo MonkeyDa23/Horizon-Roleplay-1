@@ -32,9 +32,9 @@ const StorePanel: React.FC = () => {
     const { user } = useAuth();
     
     // PERSISTENT STATE: Keeps active view and edits safe
-    const [activeView, setActiveView] = usePersistentState<'products' | 'categories'>('nova_admin_store_view', 'products');
-    const [categories, setCategories] = usePersistentState<EditableCategory[]>('nova_admin_store_categories_draft', []);
-    const [editingProduct, setEditingProduct] = usePersistentState<EditingProductData | null>('nova_admin_store_product_draft', null);
+    const [activeView, setActiveView] = usePersistentState<'products' | 'categories'>('vixel_admin_store_view', 'products');
+    const [categories, setCategories] = usePersistentState<EditableCategory[]>('vixel_admin_store_categories_draft', []);
+    const [editingProduct, setEditingProduct] = usePersistentState<EditingProductData | null>('vixel_admin_store_product_draft', null);
     
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -274,8 +274,8 @@ const StorePanel: React.FC = () => {
                             <div key={cat.id} className="bg-brand-dark-blue p-3 rounded-lg border border-brand-light-blue/50 flex items-center gap-4">
                                 <GripVertical className="cursor-grab text-gray-500" />
                                 <div className="flex-grow grid grid-cols-2 gap-3">
-                                    <input type="text" value={cat.nameEn} onChange={(e) => handleCategoryChange(index, 'nameEn', e.target.value)} placeholder={t('category_name_en')} className="nova-input" />
-                                    <input type="text" dir="rtl" value={cat.nameAr} onChange={(e) => handleCategoryChange(index, 'nameAr', e.target.value)} placeholder={t('category_name_ar')} className="nova-input" />
+                                    <input type="text" value={cat.nameEn} onChange={(e) => handleCategoryChange(index, 'nameEn', e.target.value)} placeholder={t('category_name_en')} className="vixel-input" />
+                                    <input type="text" dir="rtl" value={cat.nameAr} onChange={(e) => handleCategoryChange(index, 'nameAr', e.target.value)} placeholder={t('category_name_ar')} className="vixel-input" />
                                 </div>
                                 <button onClick={() => deleteCategory(index)} className="text-red-500 hover:text-red-400"><Trash2 size={20} /></button>
                             </div>

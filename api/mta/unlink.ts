@@ -35,7 +35,7 @@ export default async function (req: VercelRequest, res: VercelResponse) {
     }
 
     const botApiUrl = process.env.DISCORD_BOT_API_URL;
-    const botApiKey = process.env.API_SECRET_KEY;
+    const botApiKey = process.env.DISCORD_BOT_API_KEY;
 
     if (!botApiUrl || !botApiKey) {
       console.error("[API] Missing Bot API configuration");
@@ -62,7 +62,7 @@ export default async function (req: VercelRequest, res: VercelResponse) {
     res.json(data);
 
   } catch (error: any) {
-    console.error('[API] MTA Unlink API Error:', error.message);
+    console.error('[API] MTA Unlink API Error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 }

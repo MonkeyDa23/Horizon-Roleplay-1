@@ -7,7 +7,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, (process as any).cwd(), '');
 
   // Default to localhost:3001 if the env var isn't set, ensuring dev always works
-  const botUrl = env.DISCORD_BOT_API_URL || 'http://localhost:3001';
+  const botUrl = env.DISCORD_BOT_URL || env.VITE_DISCORD_BOT_URL || 'http://localhost:3001';
 
   return {
     plugins: [react()],
@@ -17,12 +17,10 @@ export default defineConfig(({ mode }) => {
           target: botUrl,
           changeOrigin: true,
           rewrite: (path) => path.replace(/^\/api\/proxy/, ''),
-          configure: (proxy, options) => {
-            (proxy as any).on('proxyReq', (proxyReq, req, res) => {
+          configure: (proxy, _options) => {
+            (proxy as any).on('proxyReq', (proxyReq, _req, _res) => {
               // Inject the secret key securely
-              if (env.API_SECRET_KEY) {
-                proxyReq.setHeader('Authorization', env.API_SECRET_KEY);
-              }
+              proxyReq.setHeader('Authorization', env.DISCORD_BOT_API_KEY || env.VITE_DISCORD_BOT_API_KEY || '');
             });
             (proxy as any).on('error', (err, req, res) => {
               console.error('Proxy Error:', err);

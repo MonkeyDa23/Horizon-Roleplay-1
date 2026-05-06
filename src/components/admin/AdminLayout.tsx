@@ -17,41 +17,48 @@ interface AdminLayoutProps {
 }
 
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children, tabs, activeTab, setActiveTab, pageTitle, pageIcon: PageIcon }) => {
-    const { t } = useLocalization();
-    const { config } = useConfig();
+    const { t, dir } = useLocalization();
+    const { branding } = useConfig();
 
     return (
-        <div className="container mx-auto px-6 py-12">
-            {config.SHOW_HEALTH_CHECK && (
-                <div className="bg-yellow-500/20 border-2 border-yellow-500/50 text-yellow-200 p-4 rounded-lg mb-8 animate-fade-in-up">
-                  <div className="flex items-center gap-4">
-                    <AlertTriangle className="h-10 w-10 flex-shrink-0" />
-                    <div className="text-sm font-semibold">
-                      <p>{t('admin_health_check_promo')}</p>
-                      <Link to="/health-check" className="underline hover:text-white font-bold text-base">
+        <div className="container mx-auto px-6 py-24 max-w-[1600px]" dir={dir}>
+            {branding.SHOW_HEALTH_CHECK && (
+                <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-200 p-8 rounded-[40px] mb-12 animate-fade-in-up flex items-center gap-8">
+                    <div className="w-16 h-16 bg-yellow-500/20 rounded-2xl flex items-center justify-center flex-shrink-0">
+                      <AlertTriangle className="h-10 w-10 text-yellow-500" />
+                    </div>
+                    <div>
+                      <p className="text-lg font-bold mb-1">{t('admin_health_check_promo')}</p>
+                      <Link to="/health-check" className="text-sm underline hover:text-white opacity-80" style={{ color: branding.primaryColor }}>
                         {t('admin_health_check_promo_link')}
                       </Link>
                     </div>
-                  </div>
                 </div>
             )}
-            <div className="md:flex md:gap-8">
+            <div className={`flex flex-col xl:flex-row gap-12`}>
                 {/* Sidebar Navigation */}
-                <aside className="w-full md:w-64 flex-shrink-0 mb-8 md:mb-0">
-                    <div className="bg-brand-dark-blue p-4 rounded-lg border border-brand-light-blue/50 sticky top-24">
-                        <h2 className="text-xl font-bold mb-4 px-2 text-white">{t('admin_panel')}</h2>
-                        <nav className="space-y-2">
+                <aside className="w-full xl:w-80 flex-shrink-0">
+                    <div className="bg-white/[0.03] p-4 rounded-[40px] border border-white/10 sticky top-32">
+                        <div className="px-6 py-8 border-b border-white/5 mb-4">
+                          <h2 className="text-xs font-black uppercase tracking-[0.2em] text-text-secondary mb-2">{t('management_panel')}</h2>
+                          <p className="text-xl font-black text-white">{branding.siteName}</p>
+                        </div>
+                        <nav className="space-y-1">
                             {tabs.map(tab => (
                                 <button
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
-                                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-semibold transition-colors ${
+                                    className={`w-full flex items-center gap-4 px-6 py-4 rounded-2xl text-sm font-black transition-all group ${
                                         activeTab === tab.id
-                                            ? 'bg-brand-cyan/20 text-brand-cyan'
-                                            : 'text-gray-300 hover:bg-brand-light-blue hover:text-white'
+                                            ? 'shadow-xl text-brand-dark'
+                                            : 'text-text-secondary hover:bg-white/5 hover:text-white'
                                     }`}
+                                    style={{ 
+                                      backgroundColor: activeTab === tab.id ? branding.primaryColor : undefined,
+                                      boxShadow: activeTab === tab.id ? `0 10px 25px -5px ${branding.primaryColor}33` : 'none'
+                                    }}
                                 >
-                                    <tab.icon size={20} />
+                                    <tab.icon size={20} className={activeTab === tab.id ? 'text-brand-dark' : 'opacity-40 group-hover:opacity-100'} />
                                     <span>{t(tab.labelKey)}</span>
                                 </button>
                             ))}
@@ -61,11 +68,18 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, tabs, activeTab, se
 
                 {/* Main Content Area */}
                 <main className="flex-1 min-w-0">
-                   <div className="flex items-center gap-4 mb-6">
-                        {PageIcon && <div className="p-3 bg-brand-light-blue rounded-lg"><PageIcon className="text-brand-cyan" size={28} /></div>}
-                        <h1 className="text-3xl md:text-4xl font-bold">{pageTitle}</h1>
+                   <div className="flex flex-col sm:flex-row items-center gap-6 mb-12">
+                        {PageIcon && (
+                          <div className="w-16 h-16 rounded-[24px] flex items-center justify-center bg-white/5 border border-white/10 shadow-2xl relative">
+                            <div className="absolute inset-0 blur-xl opacity-20" style={{ backgroundColor: branding.primaryColor }}></div>
+                            <PageIcon style={{ color: branding.primaryColor }} size={32} className="relative z-10" />
+                          </div>
+                        )}
+                        <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-white">{pageTitle}</h1>
                    </div>
-                   {children}
+                   <div className="animate-fade-in-up">
+                      {children}
+                   </div>
                 </main>
             </div>
         </div>

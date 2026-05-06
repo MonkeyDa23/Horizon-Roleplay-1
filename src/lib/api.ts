@@ -1,17 +1,11 @@
-/**
- * Nova Roleplay - Official Website API Client
- * Copyright (c) 2024 Nova Roleplay. All rights reserved.
- */
-
 import { supabase } from './supabaseClient';
+export { supabase };
 import type { 
   AppConfig, Product, Quiz, QuizSubmission, RuleCategory, Translations, 
   User, DiscordRole, UserLookupResult, Invoice, InvoiceItem,
   MtaServerStatus, AuditLogEntry, DiscordAnnouncement, RolePermission, DiscordWidget, StaffMember, ProductCategory,
   MtaAccountInfo
 } from '../types';
-
-// --- BOT API HELPERS ---
 
 export class ApiError extends Error {
   status: number;
@@ -48,12 +42,10 @@ async function callBotApi<T>(endpoint: string, options: RequestInit = {}): Promi
         return response.json();
     } catch (error) {
         if (error instanceof ApiError) throw error;
-        console.error(`[API Client] Error calling proxy at ${url}:`, error);
         throw new ApiError("Failed to communicate with the application server proxy.", 503);
     }
 }
 
-// --- SMART LOGGING SYSTEM ---
 export const sendDiscordLog = async (
     config: AppConfig, 
     embed: any, 
@@ -68,7 +60,6 @@ export const sendDiscordLog = async (
   let category: 'MTA' | 'COMMANDS' | 'AUTH' | 'ADMIN' | 'STORE' | 'VISITS' | 'FINANCE' | 'SUBMISSIONS' | null = null;
   const type: 'SUCCESS' | 'ERROR' | 'INFO' | 'WARNING' = logType === 'ban' ? 'ERROR' : (logType === 'store' ? 'SUCCESS' : 'INFO');
 
-  // Map logType to Bot Categories
   switch (logType) {
       case 'auth': category = 'AUTH'; break;
       case 'admin': case 'ban': category = 'ADMIN'; break;
@@ -79,13 +70,11 @@ export const sendDiscordLog = async (
   }
 
   if (logType === 'dm' || logType === 'submission_dm') {
-      // If targetId is missing, we still want to try sending if username is provided
       if (!targetId && !username) return;
       finalTargetId = targetId;
       targetType = 'user';
   }
 
-  // 4. Send to Bot
   try {
     await callBotApi('/notify', {
       method: 'POST',
@@ -99,15 +88,14 @@ export const sendDiscordLog = async (
         status,
         username,
         fields: embed.fields || [],
-        embed: targetType === 'user' ? embed : undefined // Only send full embed for DMs
+        embed: targetType === 'user' ? embed : undefined
       }),
     });
   } catch (error) {
-    console.warn(`[sendDiscordLog] Bot delivery failed:`, (error as Error).message);
+    console.error('sendDiscordLog error:', error);
   }
 };
 
-// --- AUTH & USER PROFILE API ---
 export const fetchUserProfile = async (): Promise<{ user: User, syncError: string | null, isNewUser: boolean }> => {
   if (!supabase) throw new Error("Supabase client is not initialized.");
   
@@ -123,10 +111,8 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
   try {
       discordProfile = await callBotApi<any>(`/sync-user/${session.user.user_metadata.provider_id}`, { method: 'POST' });
   } catch (e) {
-      console.error("Bot Sync Failed:", e);
       const err = e as ApiError;
       syncError = err.message;
-      // Fallback
       const meta = session.user.user_metadata;
       discordProfile = {
           discordId: meta.provider_id,
@@ -137,12 +123,10 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
       };
   }
 
-  // Check DB for existing profile to determine if new
-  const { data: existingProfiles } = await supabase.from('profiles').select('id, is_banned, ban_reason, ban_expires_at, balance, mta_serial, mta_name, mta_linked_at').eq('id', session.user.id);
+  const { data: existingProfiles } = await supabase.from('profiles').select('id, is_banned, ban_reason, ban_expires_at, balance, mta_serial, mta_name, mta_linked_at, two_factor_enabled').eq('id', session.user.id);
   const existingProfile = existingProfiles?.[0] || null;
   const isNewUser = !existingProfile;
 
-  // Helper to get permissions...
   const userPermissions = new Set<string>();
   if (discordProfile.roles.length > 0) {
       const { data: permsData } = await supabase.from('role_permissions').select('permissions').in('role_id', discordProfile.roles.map((r: any) => r.id));
@@ -162,9 +146,9 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
       mta_linked_at: (discordProfile.mtaLink && !existingProfile?.mta_linked_at) 
         ? new Date().toISOString() 
         : (existingProfile?.mta_linked_at ?? null),
+      two_factor_enabled: existingProfile?.two_factor_enabled ?? false,
   };
 
-  // Upsert Profile
   await supabase.from('profiles').upsert({
       id: finalUser.id, 
       discord_id: finalUser.discordId, 
@@ -194,7 +178,6 @@ export const verifyAdminPassword = async (password: string): Promise<boolean> =>
     return data as boolean;
 };
 
-// --- LOGGING HELPERS ---
 export const logAdminPageVisit = async (pageName: string): Promise<void> => {
   if (!supabase) return;
   await (supabase as any).rpc('log_page_visit', { p_page_name: pageName });
@@ -202,25 +185,23 @@ export const logAdminPageVisit = async (pageName: string): Promise<void> => {
 
 export const logAdminAction = async (config: AppConfig, user: User, action: string, details: string, type: 'SUCCESS' | 'ERROR' | 'INFO' | 'WARNING' = 'INFO') => {
     const embed = {
-        title: `🛠️ إجراء إداري: ${action}`,
-        description: `قام المسؤول **${user.username}** بإجراء تعديل.\n\n**التفاصيل:**\n${details}`,
+        title: `🛠️ Admin Action: ${action}`,
+        description: `Admin **${user.username}** made an update.\n\n**Details:**\n${details}`,
         color: type === 'SUCCESS' ? 0x00F2EA : (type === 'ERROR' ? 0xFF4444 : 0x6366F1),
         author: { name: user.username, icon_url: user.avatar },
         timestamp: new Date().toISOString(),
-        footer: { text: "نظام مراقبة الإدارة" }
+        footer: { text: "Security Logging" }
     };
     return sendDiscordLog(config, embed, 'admin');
 };
 
 export const logSubmissionAction = async (
-    config: AppConfig, 
+    siteName: string,
     admin: User, 
     submission: QuizSubmission, 
     action: 'NEW' | 'TAKEN' | 'ACCEPTED' | 'REFUSED', 
     reason?: string
 ) => {
-    // Ensure we have a Discord ID for DMs. 
-    // If submission.discord_id is missing, we might not be able to send a DM.
     const targetId = submission.discord_id;
     const applicantName = submission.username;
     const quizName = submission.quizTitle;
@@ -233,40 +214,39 @@ export const logSubmissionAction = async (
         case 'NEW':
             status = 'received';
             embed = {
-                title: '📝 تقديم جديد',
-                description: `قام **${applicantName}** بإرسال تقديم جديد على **${quizName}**.`,
+                title: '📝 New Application',
+                description: `**${applicantName}** sent a new application for **${quizName}**.`,
                 color: 0x6366F1,
                 fields: [
-                    { name: 'صاحب التقديم', value: targetId ? `<@${targetId}>` : applicantName, inline: true },
-                    { name: 'الرتبة', value: submission.user_highest_role || 'عضو', inline: true },
+                    { name: 'Applicant', value: targetId ? `<@${targetId}>` : applicantName, inline: true },
+                    { name: 'Rank', value: submission.user_highest_role || 'Member', inline: true },
                     ...submission.answers.map((a, i) => ({
-                        name: `سؤال ${i + 1}: ${a.questionText}`,
-                        value: a.answer.length > 1024 ? a.answer.substring(0, 1021) + '...' : a.answer,
+                        name: `Question ${i + 1}: ${a.questionText}`,
+                        value: a.answer.length > 1023 ? a.answer.substring(0, 1020) + '...' : a.answer,
                         inline: false
                     }))
                 ],
                 timestamp: new Date().toISOString()
             };
             dmEmbed = {
-                title: `✅ تم إرسال تقديمك بنجاح في ${config.COMMUNITY_NAME}`,
-                description: `مرحباً **${applicantName}**،\n\nلقد تم استلام تقديمك لـ **${quizName}** بنجاح. سيتم مراجعته من قبل الإدارة قريباً.\n\nشكراً لك!`,
-                color: 0x6366F1,
-                thumbnail: { url: config.LOGO_URL }
+                title: `✅ Application Received at ${siteName}`,
+                description: `Hello **${applicantName}**,\n\nYour application for **${quizName}** has been received successfully. Our staff will review it soon.\n\nThank you!`,
+                color: 0x6366F1
             };
             break;
 
         case 'TAKEN':
             status = 'taken';
             embed = {
-                title: '✋ استلام تقديم',
-                description: `قام المشرف **${admin.username}** باستلام تقديم **${quizName}** الخاص بـ **${applicantName}** للمراجعة.`,
+                title: '✋ Application Taken',
+                description: `Staff **${admin.username}** took **${applicantName}**'s **${quizName}** application for review.`,
                 color: 0xFFA500,
                 author: { name: admin.username, icon_url: admin.avatar },
                 timestamp: new Date().toISOString()
             };
             dmEmbed = {
-                title: `👨‍💻 تم استلام طلبك في ${config.COMMUNITY_NAME}`,
-                description: `مرحباً **${applicantName}**،\n\nتم استلام تقديمك لـ **${quizName}** وهو الآن قيد المراجعة من قبل المشرف **${admin.username}**.`,
+                title: `👨‍💻 Your Application is under review at ${siteName}`,
+                description: `Hello **${applicantName}**,\n\nYour application for **${quizName}** is now being reviewed by **${admin.username}**.`,
                 color: 0xFFA500,
                 timestamp: new Date().toISOString()
             };
@@ -277,27 +257,27 @@ export const logSubmissionAction = async (
             const isAccepted = action === 'ACCEPTED';
             status = isAccepted ? 'accepted' : 'rejected';
             embed = {
-                title: isAccepted ? '✅ قبول تقديم' : '❌ رفض تقديم',
-                description: `تمت مراجعة تقديم **${applicantName}** على **${quizName}**.`,
+                title: isAccepted ? '✅ Application Accepted' : '❌ Application Refused',
+                description: `Review for **${applicantName}**'s application for **${quizName}**.`,
                 color: isAccepted ? 0x00F2EA : 0xFF4444,
                 fields: [
-                    { name: 'المسؤول', value: admin.username, inline: true },
-                    { name: 'صاحب التقديم', value: targetId ? `<@${targetId}>` : applicantName, inline: true },
-                    { name: 'الحالة', value: isAccepted ? 'مقبول' : 'مرفوض', inline: true },
-                    { name: 'السبب', value: reason || 'لا يوجد سبب محدد', inline: false }
+                    { name: 'Admin', value: admin.username, inline: true },
+                    { name: 'Applicant', value: targetId ? `<@${targetId}>` : applicantName, inline: true },
+                    { name: 'Status', value: isAccepted ? 'Accepted' : 'Refused', inline: true },
+                    { name: 'Reason', value: reason || 'No reason provided', inline: false }
                 ],
                 timestamp: new Date().toISOString()
             };
             dmEmbed = {
-                title: isAccepted ? `🎉 تهانينا! تم قبول تقديمك في ${config.COMMUNITY_NAME}` : `⚠️ نعتذر، تم رفض تقديمك في ${config.COMMUNITY_NAME}`,
-                description: `مرحباً **${applicantName}**،\n\nتمت مراجعة طلبك بخصوص **${quizName}**.\n\n**الحالة:** ${isAccepted ? 'مقبول ✅' : 'مرفوض ❌'}\n${reason ? `**السبب:** ${reason}` : ''}\n\n${isAccepted ? 'يرجى التوجه للسيرفر للمتابعة.' : 'يمكنك المحاولة مرة أخرى لاحقاً.'}`,
-                color: isAccepted ? 0x00F2EA : 0xFF4444,
-                thumbnail: { url: config.LOGO_URL }
+                title: isAccepted ? `🎉 Congratulations! Your application at ${siteName} was accepted` : `⚠️ Sorry, your application at ${siteName} was refused`,
+                description: `Hello **${applicantName}**,\n\nYour application for **${quizName}** has been reviewed.\n\n**Status:** ${isAccepted ? 'Accepted ✅' : 'Refused ❌'}\n${reason ? `**Reason:** ${reason}` : ''}\n\n${isAccepted ? 'Please proceed to the server.' : 'You can try again later.'}`,
+                color: isAccepted ? 0x00F2EA : 0xFF4444
             };
             break;
         }
     }
 
+    const config = await getConfig();
     if (embed) await sendDiscordLog(config, embed, 'submission', undefined, status, applicantName);
     if (dmEmbed && targetId) await sendDiscordLog(config, dmEmbed, 'submission_dm', targetId, status, applicantName);
     else if (dmEmbed && applicantName) await sendDiscordLog(config, dmEmbed, 'submission_dm', undefined, status, applicantName);
@@ -305,35 +285,33 @@ export const logSubmissionAction = async (
 
 export const logFinanceAction = async (config: AppConfig, admin: User, target: { id: string, name: string }, amount: number, action: 'Add Balance' | 'Invoice Created', reason?: string) => {
     const embed = {
-        title: action === 'Add Balance' ? '💰 إضافة رصيد' : '🧾 إنشاء فاتورة',
-        description: `تم إجراء عملية مالية للمستخدم **${target.name}**.`,
+        title: action === 'Add Balance' ? '💰 Balance Added' : '🧾 Invoice Created',
+        description: `Financial operation for user **${target.name}**.`,
         color: 0x2ECC71,
         fields: [
-            { name: 'المسؤول', value: admin.username, inline: true },
-            { name: 'المستهدف', value: `<@${target.id}>`, inline: true },
-            { name: 'المبلغ', value: `$${amount.toLocaleString()}`, inline: true },
-            { name: 'السبب', value: reason || 'غير محدد', inline: false }
+            { name: 'Admin', value: admin.username, inline: true },
+            { name: 'Target', value: `<@${target.id}>`, inline: true },
+            { name: 'Amount', value: `$${amount.toLocaleString()}`, inline: true },
+            { name: 'Reason', value: reason || 'Not specified', inline: false }
         ],
         timestamp: new Date().toISOString()
     };
     
     await sendDiscordLog(config, embed, 'finance');
     
-    // DM to user
     const dmEmbed = {
-        title: action === 'Add Balance' ? '💸 تم إضافة رصيد لحسابك' : '📑 تم إصدار فاتورة جديدة',
-        description: `مرحباً **${target.name}**،\n\n${action === 'Add Balance' ? `لقد تم إضافة **$${amount.toLocaleString()}** إلى رصيدك بنجاح.` : `لقد تم إصدار فاتورة جديدة بقيمة **$${amount.toLocaleString()}**.`}\n\n**السبب:** ${reason || 'غير محدد'}`,
+        title: action === 'Add Balance' ? '💸 Balance Added' : '📑 New Invoice Issued',
+        description: `Hello **${target.name}**,\n\n${action === 'Add Balance' ? `**$${amount.toLocaleString()}** has been successfully added to your balance.` : `A new invoice has been issued for **$${amount.toLocaleString()}**.`}\n\n**Reason:** ${reason || 'Not specified'}`,
         color: 0x2ECC71
     };
     await sendDiscordLog(config, dmEmbed, 'dm', target.id);
 };
 
-// --- FINANCIAL API ---
 export const addBalance = async (targetUserId: string, amount: number, reason?: string): Promise<number> => {
     if (!supabase) throw new Error("Supabase not initialized");
     const { data, error } = await (supabase as any).rpc('add_user_balance', { p_target_user_id: targetUserId, p_amount: amount, p_reason: reason });
     if (error) throw new Error(error.message);
-    return data as number; // Returns new balance
+    return data as number;
 };
 
 export const createInvoice = async (targetUserId: string, products: InvoiceItem[], totalAmount: number): Promise<Invoice> => {
@@ -357,8 +335,6 @@ export const processPurchase = async (amount: number, details: string): Promise<
     return data as boolean;
 };
 
-// ... [Rest of the CRUD functions remain the same but imported types might have changed] ...
-
 export const getConfig = async (): Promise<AppConfig> => {
   if (!supabase) throw new Error("Supabase client not initialized.");
   const { data } = await supabase.rpc('get_config');
@@ -379,10 +355,22 @@ export const getTranslations = async (): Promise<Translations> => {
   return translations;
 };
 
-export const saveTranslations = async (translations: Translations): Promise<void> => {
-    if (!supabase) return;
-    const upsertData = Object.entries(translations).map(([key, value]) => ({ key, en: value.en, ar: value.ar }));
-    await supabase.from('translations').upsert(upsertData, { onConflict: 'key' });
+export const saveTranslations = async (translations: Translations): Promise<any> => {
+    if (!supabase) throw new Error("Supabase not initialized");
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    const response = await fetch('/api/admin/translations/save', {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({ translations })
+    });
+    
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Failed to save translations');
+    return result;
 };
 
 export const getQuizzes = async (): Promise<Quiz[]> => {
@@ -468,7 +456,6 @@ export const checkDiscordApiHealth = () => callBotApi('/health');
 export const getMtaServerStatus = () => callBotApi<MtaServerStatus>('/mta-status');
 export const getDiscordAnnouncements = () => callBotApi<DiscordAnnouncement[]>('/announcements');
 
-// MTA API
 export const getMtaAccountInfo = async (serial: string): Promise<MtaAccountInfo> => {
     const response = await fetch(`/api/mta/account/${serial}`);
     if (!response.ok) {
@@ -503,7 +490,6 @@ export const checkMtaLinkStatus = async (serial: string): Promise<{ linked: bool
 
 export const unlinkMtaAccount = async (serial: string): Promise<{ success: boolean }> => {
     const { data: { session } } = await supabase!.auth.getSession();
-    // 1. Unlink from MySQL via Proxy
     const response = await fetch(`/api/mta/unlink`, {
         method: 'POST',
         headers: { 
@@ -518,10 +504,9 @@ export const unlinkMtaAccount = async (serial: string): Promise<{ success: boole
         throw new ApiError(errorData.error || `Failed to unlink MTA account (${response.status})`, response.status);
     }
 
-    // 2. Clear Supabase Profile Fields
     const { data: { user: authUser } } = await supabase!.auth.getUser();
     if (authUser) {
-        const { error: supabaseError } = await supabase!
+        await supabase!
             .from('profiles')
             .update({
                 mta_serial: null,
@@ -529,17 +514,11 @@ export const unlinkMtaAccount = async (serial: string): Promise<{ success: boole
                 mta_linked_at: null
             })
             .eq('id', authUser.id);
-            
-        if (supabaseError) {
-            console.error('[API Client] Failed to clear Supabase profile during unlink:', supabaseError);
-            // We don't throw here because the primary unlink (MySQL) succeeded
-        }
     }
 
     return response.json();
 };
 
-// Submissions
 export const getQuizById = async (id: string): Promise<Quiz> => {
     const { data } = await supabase!.from('quizzes').select('*').eq('id', id).single();
     return data as Quiz;
@@ -575,10 +554,85 @@ export const getProductsWithCategories = async () => {
     const { data } = await supabase!.rpc('get_products_with_categories');
     return data as ProductCategory[];
 };
+export const enable2FA = async (secret: string, backupCodes: string[]): Promise<void> => {
+    if (!supabase) throw new Error("Supabase not initialized");
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    const response = await fetch('/api/auth/2fa/enable', {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({ secret, backupCodes })
+    });
+    
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error);
+};
+
+export const disable2FA = async (): Promise<void> => {
+    if (!supabase) throw new Error("Supabase not initialized");
+    const { error } = await (supabase as any).rpc('disable_2fa');
+    if (error) throw new Error(error.message);
+};
+
+export const verifyTwoFactorServer = async (code: string): Promise<boolean> => {
+    if (!supabase) return false;
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    const response = await fetch('/api/auth/2fa/verify', {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({ code })
+    });
+    
+    return response.ok;
+};
+
+export const logSecurityEvent = async (eventType: string, severity: 'INFO' | 'WARNING' | 'CRITICAL' = 'INFO', details: any = {}): Promise<void> => {
+    if (!supabase) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from('security_events').insert({
+        user_id: user?.id || null,
+        event_type: eventType,
+        severity,
+        details,
+        user_agent: navigator.userAgent
+    });
+
+    if (severity === 'CRITICAL' || severity === 'WARNING') {
+        const config = await getConfig();
+        const logChannel = config.log_channel_admin;
+        if (logChannel) {
+            await loginDiscordLog(
+                severity === 'CRITICAL' ? 'ERROR' : 'WARNING', 
+                `🛡️ Security Event: ${eventType}`,
+                `User: ${user?.id || 'Unknown'}\nDetails: ${JSON.stringify(details)}`,
+                'ADMIN'
+            );
+        }
+    }
+};
+
+const loginDiscordLog = async (type: string, title: string, description: string, category: string) => {
+    try {
+        await fetch('/api/proxy/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type, title, description, category })
+        });
+    } catch (e) {
+        console.error('loginDiscordLog error:', e);
+    }
+}
+
 export const forceRefreshUserProfile = fetchUserProfile;
 export const revalidateSession = async (): Promise<User> => { const { user } = await fetchUserProfile(); return user; };
 
-// --- INVITE & REAL STATS API ---
 export const getInviteDetails = (code: string) => callBotApi<{
     guild: { name: string; id: string; iconURL: string | null };
     memberCount: number;

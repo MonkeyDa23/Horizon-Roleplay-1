@@ -5,141 +5,124 @@ import { useLocalization } from '../../contexts/LocalizationContext';
 import { useToast } from '../../contexts/ToastContext';
 import { useConfig } from '../../contexts/ConfigContext';
 import { useAuth } from '../../contexts/AuthContext';
-import { saveConfig, sendDiscordLog, logAdminAction } from '../../lib/api';
+import { saveConfig, logAdminAction } from '../../lib/api';
 import { supabase } from '../../lib/supabaseClient';
 import type { AppConfig } from '../../types';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Palette, Globe, Shield } from 'lucide-react';
 
 const AppearancePanel: React.FC = () => {
     const { t } = useLocalization();
     const { showToast } = useToast();
-    const { config, configLoading, refreshConfig } = useConfig();
+    const { config, branding, configLoading, refreshConfig } = useConfig();
     const { user } = useAuth();
     const [settings, setSettings] = useState<Partial<AppConfig>>({});
+    const [brandingData, setBrandingData] = useState(branding);
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
         if (!configLoading) {
             setSettings(config);
+            setBrandingData(branding);
         }
-    }, [config, configLoading]);
+    }, [config, branding, configLoading]);
 
     const handleSave = async () => {
         if (!user) return;
         setIsSaving(true);
         try {
-            const changes: string[] = [];
-            if (settings.COMMUNITY_NAME !== config?.COMMUNITY_NAME) changes.push(`- اسم المجتمع: ${config?.COMMUNITY_NAME} ➔ ${settings.COMMUNITY_NAME}`);
-            if (settings.LOGO_URL !== config?.LOGO_URL) changes.push(`- رابط الشعار: ${settings.LOGO_URL}`);
-            if (settings.MAINTENANCE_MODE !== config?.MAINTENANCE_MODE) changes.push(`- وضع الصيانة: ${settings.MAINTENANCE_MODE ? 'تفعيل' : 'تعطيل'}`);
-            if (settings.BACKGROUND_IMAGE_URL !== config?.BACKGROUND_IMAGE_URL) changes.push(`- رابط الخلفية: ${settings.BACKGROUND_IMAGE_URL}`);
-            if (settings.DISCORD_GUILD_ID !== config?.DISCORD_GUILD_ID) changes.push(`- آيدي السيرفر: ${settings.DISCORD_GUILD_ID}`);
-            if (settings.admin_password !== config?.admin_password) changes.push(`- كلمة مرور لوحة التحكم: [تغيرت]`);
-
             await saveConfig(settings);
-            await refreshConfig(); // Refresh global config context
-            showToast(t('config_updated_success'), 'success');
-
-            if (changes.length > 0) {
-                await logAdminAction(
-                    config, 
-                    user, 
-                    "تحديث الإعدادات العامة", 
-                    changes.join('\n'), 
-                    'WARNING'
-                );
-            }
-
+            const { error: brandingError } = await supabase
+                .from('config')
+                .upsert({ key: 'branding', value: brandingData }, { onConflict: 'key' });
+            if (brandingError) throw brandingError;
+            await refreshConfig();
+            showToast(t('success'), 'success');
+            await logAdminAction(config, user, "تحديث هوية الموقع", "تم تحديث الألوان والشعارات والإعدادات العامة", 'INFO');
         } catch (error) {
             showToast((error as Error).message, 'error');
         } finally {
             setIsSaving(false);
         }
     };
-    
-    const handleChange = (key: keyof AppConfig, value: string | boolean) => {
-        setSettings(prev => ({ ...prev, [key]: value }));
-    };
 
-    if (configLoading) {
-        return (
-            <div className="flex justify-center items-center py-20">
-                <Loader2 size={40} className="text-brand-cyan animate-spin" />
-            </div>
-        );
-    }
-    
-    const InputField = ({ labelKey, descKey, value, onChange, placeholder, type = 'text' }: { labelKey: string, descKey?: string, value: string | null | undefined, onChange: (val: string) => void, placeholder?: string, type?: string }) => (
-        <div>
-            <label className="block text-lg font-semibold text-white mb-1">{t(labelKey)}</label>
-            {descKey && <p className="text-sm text-gray-400 mb-2">{t(descKey)}</p>}
-            <input 
-                type={type}
-                value={value || ''}
-                onChange={(e) => onChange(e.currentTarget.value)}
-                placeholder={placeholder}
-                className="nova-input"
-            />
-        </div>
-    );
+    if (configLoading) return <div className="flex justify-center p-20"><Loader2 className="animate-spin text-brand-cyan" size={40} /></div>;
 
     return (
-        <div className="animate-fade-in-up">
-             <div className="flex justify-end items-center mb-6">
-                 <button onClick={handleSave} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white transition-colors min-w-[9rem] flex justify-center">
-                    {isSaving ? <Loader2 className="animate-spin" /> : t('save_settings')}
+        <div className="space-y-8 animate-fade-in">
+            <div className="flex justify-between items-center bg-brand-dark/50 p-6 rounded-2xl border border-white/5">
+                <div>
+                    <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+                        <Palette className="text-brand-cyan" /> {t('site_settings')}
+                    </h2>
+                    <p className="text-gray-400 text-sm mt-1">Control your brand identity and site behavior.</p>
+                </div>
+                <button 
+                    onClick={handleSave} 
+                    disabled={isSaving}
+                    className="bg-brand-cyan text-brand-dark font-bold py-3 px-8 rounded-xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+                >
+                    {isSaving ? <Loader2 className="animate-spin" /> : <Shield size={18} />}
+                    {t('save_changes')}
                 </button>
             </div>
-            <div className="bg-brand-dark-blue p-8 rounded-lg border border-brand-light-blue/50 space-y-8">
-                <div>
-                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">وضع الصيانة (Maintenance Mode)</h3>
-                    <div className="bg-brand-dark/40 p-6 rounded-2xl border border-white/5 space-y-4">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-white font-bold text-lg">تفعيل وضع الصيانة</p>
-                                <p className="text-gray-400 text-sm">سيتم منع جميع الزوار من دخول الموقع وإظهار صفحة الصيانة، باستثناء الطاقم الإداري.</p>
-                            </div>
-                            <button 
-                                onClick={() => handleChange('MAINTENANCE_MODE', !settings.MAINTENANCE_MODE)}
-                                className={`w-16 h-8 rounded-full transition-all duration-300 relative ${settings.MAINTENANCE_MODE ? 'bg-brand-cyan' : 'bg-gray-600'}`}
-                            >
-                                <div className={`absolute top-1 w-6 h-6 rounded-full bg-white transition-all duration-300 ${settings.MAINTENANCE_MODE ? 'right-1' : 'right-9'}`} />
-                            </button>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="bg-brand-dark-blue p-8 rounded-3xl border border-white/5 space-y-6">
+                    <h3 className="text-xl font-bold text-brand-cyan flex items-center gap-2">
+                        <Palette size={20} /> {t('edit_branding')}
+                    </h3>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400 mb-2">{t('site_name')}</label>
+                            <input value={brandingData.siteName} onChange={e => setBrandingData(p => ({ ...p, siteName: e.target.value }))} className="vixel-input" />
                         </div>
-                        {settings.MAINTENANCE_MODE && (
-                            <div className="pt-4 animate-fade-in">
-                                <label className="block text-sm font-bold text-brand-cyan mb-2">رسالة الصيانة (تظهر للزوار)</label>
-                                <textarea 
-                                    value={settings.MAINTENANCE_MESSAGE_AR || ''} 
-                                    onChange={(e) => handleChange('MAINTENANCE_MESSAGE_AR', e.target.value)}
-                                    className="nova-input min-h-[100px]"
-                                    placeholder="اكتب هنا الرسالة التي ستظهر للزوار..."
-                                />
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400 mb-2">{t('site_logo')}</label>
+                            <input value={brandingData.logoUrl} onChange={e => setBrandingData(p => ({ ...p, logoUrl: e.target.value }))} className="vixel-input" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-400 mb-2">{t('primary_color')}</label>
+                                <input type="color" value={brandingData.primaryColor} onChange={e => setBrandingData(p => ({ ...p, primaryColor: e.target.value }))} className="w-full h-12 bg-transparent cursor-pointer rounded-lg overflow-hidden border border-white/10" />
                             </div>
-                        )}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-400 mb-2">{t('secondary_color')}</label>
+                                <input type="color" value={brandingData.secondaryColor} onChange={e => setBrandingData(p => ({ ...p, secondaryColor: e.target.value }))} className="w-full h-12 bg-transparent cursor-pointer rounded-lg overflow-hidden border border-white/10" />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400 mb-2">{t('hero_title')}</label>
+                            <input value={brandingData.heroTitle} onChange={e => setBrandingData(p => ({ ...p, heroTitle: e.target.value }))} className="vixel-input" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400 mb-2">{t('hero_subtitle')}</label>
+                            <textarea value={brandingData.heroSubtitle} onChange={e => setBrandingData(p => ({ ...p, heroSubtitle: e.target.value }))} className="vixel-input min-h-[100px]" />
+                        </div>
                     </div>
                 </div>
 
-                <div>
-                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">General Settings</h3>
-                    <div className="space-y-6">
-                        <InputField labelKey="community_name" value={settings.COMMUNITY_NAME || ''} onChange={val => handleChange('COMMUNITY_NAME', val)} />
-                        <InputField labelKey="logo_url" value={settings.LOGO_URL || ''} onChange={val => handleChange('LOGO_URL', val)} />
-                        <InputField labelKey="background_image_url" descKey="background_image_url_desc" value={settings.BACKGROUND_IMAGE_URL || ''} onChange={val => handleChange('BACKGROUND_IMAGE_URL', val)} />
+                <div className="bg-brand-dark-blue p-8 rounded-3xl border border-white/5 space-y-6">
+                    <h3 className="text-xl font-bold text-gray-200 flex items-center gap-2">
+                        <Shield size={20} /> Core Config
+                    </h3>
+                    <div className="flex items-center justify-between p-6 bg-brand-dark/30 rounded-2xl border border-white/5">
+                        <div>
+                            <h4 className="text-white font-bold">وضع الصيانة (Maintenance Mode)</h4>
+                            <p className="text-xs text-gray-500">Only Admins can access the site when active.</p>
+                        </div>
+                        <button onClick={() => setSettings(prev => ({ ...prev, MAINTENANCE_MODE: !settings.MAINTENANCE_MODE }))} className={`w-14 h-8 rounded-full p-1 transition-all duration-300 ${settings.MAINTENANCE_MODE ? 'bg-brand-cyan' : 'bg-gray-600'}`}>
+                            <div className={`w-6 h-6 bg-white rounded-full transition-transform duration-300 ${settings.MAINTENANCE_MODE ? 'translate-x-6' : 'translate-x-0'}`} />
+                        </button>
                     </div>
-                </div>
-
-                <div>
-                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">Core Integration</h3>
-                     <div className="space-y-6">
-                        <InputField labelKey="discord_guild_id" descKey="discord_guild_id_desc" value={settings.DISCORD_GUILD_ID || ''} onChange={val => handleChange('DISCORD_GUILD_ID', val)} />
-                    </div>
-                </div>
-
-                <div>
-                    <h3 className="text-2xl font-bold text-brand-cyan border-b-2 border-brand-cyan/50 pb-2 mb-6">Security</h3>
-                     <div className="space-y-6">
-                        <InputField labelKey="admin_panel_password" descKey="admin_panel_password_desc" value={settings.admin_password || ''} onChange={val => handleChange('admin_password', val)} type="password" placeholder="Leave empty to disable"/>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400 mb-2">Discord Guild ID</label>
+                            <input value={settings.DISCORD_GUILD_ID || ''} onChange={e => setSettings(p => ({ ...p, DISCORD_GUILD_ID: e.target.value }))} className="vixel-input" placeholder="1234567890..." />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400 mb-2">Discord Invite URL</label>
+                            <input value={settings.DISCORD_INVITE_URL || ''} onChange={e => setSettings(p => ({ ...p, DISCORD_INVITE_URL: e.target.value }))} className="vixel-input" placeholder="https://discord.gg/..." />
+                        </div>
                     </div>
                 </div>
             </div>

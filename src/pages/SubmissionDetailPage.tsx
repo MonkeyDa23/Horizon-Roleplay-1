@@ -1,9 +1,3 @@
-/**
- * Nova Roleplay - Official Website
- * Submission Detail Page
- * Copyright (c) 2024 Nova Roleplay. All rights reserved.
- */
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useLocalization } from '../contexts/LocalizationContext';
@@ -35,7 +29,7 @@ const SubmissionDetailPage: React.FC = () => {
             const data = await getSubmissionById(submissionId);
             setSubmission(data);
         } catch (error) {
-            showToast('فشل تحميل التقديم.', 'error');
+            showToast('Failed to load submission.', 'error');
             navigate('/admin');
         } finally {
             setIsLoading(false);
@@ -56,11 +50,9 @@ const SubmissionDetailPage: React.FC = () => {
         setIsProcessing(true);
         
         try {
-            // 1. Update Database
             const updatedSub = await updateSubmissionStatus(submission.id, status, decisionReason);
             setSubmission(updatedSub);
             
-            // 2. Log Action (Public & DM)
             await logSubmissionAction(
                 config, 
                 user, 
@@ -69,7 +61,7 @@ const SubmissionDetailPage: React.FC = () => {
                 decisionReason
             );
 
-            showToast(`تم ${status === 'accepted' ? 'قبول' : 'رفض'} التقديم وإرسال السجلات.`, 'success');
+            showToast(`Submission ${status === 'accepted' ? 'accepted' : 'refused'}.`, 'success');
             navigate('/admin');
 
         } catch (e) {
@@ -84,11 +76,8 @@ const SubmissionDetailPage: React.FC = () => {
         setIsProcessing(true);
         try {
             await updateSubmissionStatus(submission.id, 'taken');
-            showToast('تم استلام الطلب.', 'success');
-            
-            // Log that admin took the ticket & Send DM
+            showToast('Ticket taken.', 'success');
             await logSubmissionAction(config, user, submission, 'TAKEN');
-
             fetchSubmission();
         } catch (e) {
             showToast((e as Error).message, 'error');
@@ -102,7 +91,7 @@ const SubmissionDetailPage: React.FC = () => {
 
     return (
         <>
-            <SEO title={`مراجعة: ${submission.username}`} noIndex={true} description="Admin Panel"/>
+            <SEO title={`Review: ${submission.username}`} noIndex={true} description="Admin Panel"/>
             <div className="min-h-screen bg-brand-dark pb-24 relative">
                 <div className="sticky top-0 z-40 bg-brand-dark/90 backdrop-blur-md border-b border-brand-light-blue/30 py-4 px-6 shadow-lg">
                     <div className="container mx-auto max-w-6xl flex justify-between items-center">
@@ -136,7 +125,7 @@ const SubmissionDetailPage: React.FC = () => {
                             <div>
                                 <h2 className="text-3xl font-bold text-white mb-2">{submission.username}</h2>
                                 <div className="flex flex-wrap gap-4 text-sm">
-                                    <p className="text-gray-400 flex items-center gap-2 bg-brand-dark/50 px-3 py-1 rounded-full"><Shield size={14}/> الرتبة: {submission.user_highest_role || t('member')}</p>
+                                    <p className="text-gray-400 flex items-center gap-2 bg-brand-dark/50 px-3 py-1 rounded-full"><Shield size={14}/> Level: {submission.user_highest_role || t('member')}</p>
                                     <p className="text-gray-400 flex items-center gap-2 bg-brand-dark/50 px-3 py-1 rounded-full"><Calendar size={14}/> {new Date(submission.submittedAt).toLocaleString()}</p>
                                 </div>
                             </div>
@@ -163,12 +152,12 @@ const SubmissionDetailPage: React.FC = () => {
                     </div>
 
                     <div className="space-y-8">
-                        <h3 className="text-2xl font-bold text-white border-b border-gray-700 pb-4">الإجابات</h3>
+                        <h3 className="text-2xl font-bold text-white border-b border-gray-700 pb-4">{t('answers')}</h3>
                         {submission.answers.map((item, index) => (
                             <div key={index} className="glass-panel p-0 overflow-hidden animate-fade-in-up" style={{ animationDelay: `${index * 50}ms` }}>
                                 <div className="bg-brand-light-blue/10 p-4 border-b border-brand-light-blue/20 flex justify-between items-center">
-                                    <h4 className="text-lg font-bold text-brand-cyan">سؤال {index + 1}</h4>
-                                    <span className="text-xs text-gray-500 font-mono bg-brand-dark px-2 py-1 rounded">الوقت المستغرق: {item.timeTaken}s</span>
+                                    <h4 className="text-lg font-bold text-brand-cyan">{t('question')} {index + 1}</h4>
+                                    <span className="text-xs text-gray-500 font-mono bg-brand-dark px-2 py-1 rounded">{t('time_taken')}: {item.timeTaken}s</span>
                                 </div>
                                 <div className="p-6">
                                     <p className="text-lg text-white font-medium mb-4">{item.questionText}</p>
@@ -184,8 +173,8 @@ const SubmissionDetailPage: React.FC = () => {
                         <div className="glass-panel p-6 sticky bottom-6 border-t-4 border-brand-cyan shadow-2xl shadow-black/80 z-30 mt-12">
                             <div className="flex flex-col md:flex-row gap-6 items-start">
                                 <div className="flex-grow w-full">
-                                    <label className="block text-gray-300 mb-2 font-bold text-sm uppercase tracking-wider">{t('reason')} (سيتم إرساله للمستخدم)</label>
-                                    <textarea value={decisionReason} onChange={(e) => setDecisionReason(e.target.value)} placeholder="اكتب سبب القبول أو الرفض هنا..." className="nova-input min-h-[80px] !bg-brand-dark" />
+                                    <label className="block text-gray-300 mb-2 font-bold text-sm uppercase tracking-wider">{t('reason')}</label>
+                                    <textarea value={decisionReason} onChange={(e) => setDecisionReason(e.target.value)} placeholder="..." className="vixel-input min-h-[80px] !bg-brand-dark" />
                                 </div>
                                 <div className="flex md:flex-col gap-3 w-full md:w-auto pt-7 md:pt-0 min-w-[200px]">
                                     <button onClick={() => handleDecision('accepted')} disabled={isProcessing} className="flex-1 bg-green-600/90 text-white font-bold py-4 px-6 rounded-lg hover:bg-green-500 transition-all flex justify-center items-center gap-2 text-lg shadow-lg">

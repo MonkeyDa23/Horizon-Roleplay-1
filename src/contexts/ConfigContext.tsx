@@ -1,5 +1,3 @@
-
-// src/contexts/ConfigContext.tsx
 import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
 import { getConfig } from '../lib/api';
 import type { AppConfig } from '../types';
@@ -7,45 +5,57 @@ import { supabase } from '../lib/supabaseClient';
 
 interface ConfigContextType {
   config: AppConfig;
+  branding: {
+    siteName: string;
+    logoUrl: string;
+    primaryColor: string;
+    secondaryColor: string;
+    heroTitle: string;
+    heroSubtitle: string;
+    discordUrl: string;
+  };
   configLoading: boolean;
   configError: Error | null;
   refreshConfig: () => Promise<void>;
 }
 
+const defaultBranding = {
+    siteName: 'Nova Roleplay',
+    logoUrl: 'https://cdn-icons-png.flaticon.com/512/2910/2910768.png',
+    primaryColor: '#00F2EA',
+    secondaryColor: '#6366F1',
+    heroTitle: 'نوفا رول بلاي',
+    heroSubtitle: 'أفضل تجربة واقع حياة',
+    discordUrl: 'https://discord.gg/nova'
+};
+
 const defaultConfig: AppConfig = {
-    COMMUNITY_NAME: 'Nova Roleplay',
+    siteName: 'Nova Roleplay',
     LOGO_URL: 'https://cdn.discordapp.com/attachments/1424465148055257109/1500036309723385926/27f5d244b02e1b6a9ef659711901656a.png?ex=69f6f92d&is=69f5a7ad&hm=e1825f49a40b63d043803dacacd6fe900651782a1c23224a2289b74e58cf1423&',
-    MAINTENANCE_MODE: false,
-    MAINTENANCE_MESSAGE_AR: 'الموقع حالياً تحت الصيانة لتحسين تجربتكم. سنعود قريباً!',
     DISCORD_GUILD_ID: '',
     DISCORD_INVITE_URL: 'https://discord.gg/u3CazwhxVa',
     MTA_SERVER_URL: 'mtasa://134.255.216.22:22041',
     BACKGROUND_IMAGE_URL: '',
     SHOW_HEALTH_CHECK: false,
+    MAINTENANCE_MODE: false,
     admin_password: null,
-
-    // New Webhook logging settings
     DISCORD_PROXY_URL: null,
     DISCORD_PROXY_SECRET: null,
-
-    // Notification Channel IDs
     submissions_channel_id: null,
     log_channel_submissions: null,
     log_channel_bans: null,
     log_channel_admin: null,
-    log_channel_auth: null, // New Members Log
-    log_channel_finance: null, // New: Finance Log (Balance/Invoices)
-    log_channel_store: null, // New: Store Log (User Purchases)
+    log_channel_auth: null,
+    log_channel_finance: null,
+    log_channel_store: null,
     audit_log_channel_id: null,
-
-    // Mention Roles
     mention_role_submissions: null,
     mention_role_audit_log_submissions: null,
     mention_role_audit_log_bans: null,
     mention_role_audit_log_admin: null,
-    mention_role_auth: null, // New Members Role
-    mention_role_finance: null, // New
-    mention_role_store: null, // New
+    mention_role_auth: null,
+    mention_role_finance: null,
+    mention_role_store: null,
     mention_role_audit_log_general: null,
 };
 
@@ -58,6 +68,7 @@ export const ConfigContext = createContext<ConfigContextType>({
 
 export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [config, setConfig] = useState<AppConfig>(defaultConfig);
+  const [branding, setBranding] = useState(defaultBranding);
   const [configLoading, setConfigLoading] = useState(true);
   const [configError, setConfigError] = useState<Error | null>(null);
 
@@ -69,10 +80,28 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     try {
       const configData = await getConfig();
-      setConfig(configData); // Directly use data from DB without overrides
+      setConfig(configData);
+
+      const { data: brandingData } = await supabase
+        .from('config')
+        .select('value')
+        .eq('key', 'branding')
+        .single();
+      
+      let finalBranding = defaultBranding;
+      if (brandingData?.value) {
+        setBranding(brandingData.value);
+        finalBranding = brandingData.value;
+      }
+
+      if (typeof document !== 'undefined') {
+          const root = document.documentElement;
+          root.style.setProperty('--brand-primary', finalBranding.primaryColor);
+          root.style.setProperty('--brand-secondary', finalBranding.secondaryColor);
+      }
+
       setConfigError(null);
     } catch (error) {
-      console.error("Fatal: Could not fetch remote config. Using fallback.", error);
       setConfigError(error as Error);
     } finally {
       setConfigLoading(false);
@@ -89,13 +118,12 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   };
 
   return (
-    <ConfigContext.Provider value={{ config, configLoading, configError, refreshConfig }}>
+    <ConfigContext.Provider value={{ config, branding, configLoading, configError, refreshConfig }}>
       {children}
     </ConfigContext.Provider>
   );
 };
 
-// Merged Hook
 export const useConfig = () => {
   const context = useContext(ConfigContext);
   if (context === undefined) {

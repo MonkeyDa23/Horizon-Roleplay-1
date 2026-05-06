@@ -1,6 +1,6 @@
 // This file will handle the database connection and fetching settings.
 import mysql from 'mysql2/promise';
-import { env } from '../env';
+import { env } from '../env.js';
 
 export const pool = mysql.createPool({
     host: env.MTA_DB_HOST,
@@ -13,10 +13,6 @@ export const pool = mysql.createPool({
 });
 
 export const getBotSettings = async () => {
-    const [rows] = await pool.execute('SELECT * FROM bot_settings');
-    const settings = (rows as any[]).reduce((acc, row) => {
-        acc[row.setting_key] = row.setting_value;
-        return acc;
-    }, {});
-    return settings;
+    // This function is currently not used in the merged bot, but kept for compatibility
+    return {};
 };

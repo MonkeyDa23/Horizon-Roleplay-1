@@ -1,0 +1,265 @@
+/**
+ * Nova Roleplay - Official Website
+ * Admin Security Monitoring Panel
+ * Copyright (c) 2024 Nova Roleplay. All rights reserved.
+ */
+
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabaseClient';
+import { Shield, ShieldAlert, ShieldCheck, AlertTriangle, Clock, User, Globe, Activity, Search, Filter, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { useLocalization } from '../../contexts/LocalizationContext';
+
+interface SecurityEvent {
+    id: string;
+    user_id: string | null;
+    event_type: string;
+    severity: 'INFO' | 'WARNING' | 'CRITICAL';
+    ip_address: string;
+    user_agent: string;
+    details: any;
+    created_at: string;
+    profiles?: {
+        username: string;
+        discord_id: string;
+    };
+}
+
+const SecurityPanel: React.FC = () => {
+    const { t, language } = useLocalization();
+    const isArabic = language === 'ar';
+
+    const [events, setEvents] = useState<SecurityEvent[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [severityFilter, setSeverityFilter] = useState<'ALL' | 'INFO' | 'WARNING' | 'CRITICAL'>('ALL');
+    const [page, setPage] = useState(1);
+    const [totalCount, setTotalCount] = useState(0);
+    const pageSize = 20;
+
+    const fetchEvents = useCallback(async () => {
+        setLoading(true);
+        try {
+            let query = supabase
+                .from('security_events')
+                .select('*, profiles(username, discord_id)', { count: 'exact' });
+
+            if (severityFilter !== 'ALL') {
+                query = query.eq('severity', severityFilter);
+            }
+
+            if (searchTerm) {
+                query = query.or(`event_type.ilike.%${searchTerm}%,ip_address.ilike.%${searchTerm}%`);
+            }
+
+            const { data, count, error } = await query
+                .order('created_at', { ascending: false })
+                .range((page - 1) * pageSize, page * pageSize - 1);
+
+            if (error) throw error;
+            setEvents(data as any[] || []);
+            setTotalCount(count || 0);
+        } catch (error) {
+            console.error('Error fetching security events:', error);
+        } finally {
+            setLoading(false);
+        }
+    }, [severityFilter, page, searchTerm, pageSize]);
+
+    useEffect(() => {
+        fetchEvents();
+    }, [fetchEvents]);
+
+    const handleSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        setPage(1);
+        fetchEvents();
+    };
+
+    const getSeverityIcon = (severity: string) => {
+        switch (severity) {
+            case 'CRITICAL': return <ShieldAlert className="text-red-500" size={18} />;
+            case 'WARNING': return <AlertTriangle className="text-yellow-500" size={18} />;
+            default: return <ShieldCheck className="text-blue-500" size={18} />;
+        }
+    };
+
+    const getSeverityBadge = (severity: string) => {
+        const base = "px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5";
+        switch (severity) {
+            case 'CRITICAL': return <span className={`${base} bg-red-500/10 text-red-500 border border-red-500/20`}>{getSeverityIcon(severity)} {severity}</span>;
+            case 'WARNING': return <span className={`${base} bg-yellow-500/10 text-yellow-500 border border-yellow-500/20`}>{getSeverityIcon(severity)} {severity}</span>;
+            default: return <span className={`${base} bg-blue-500/10 text-blue-500 border border-blue-500/20`}>{getSeverityIcon(severity)} {severity}</span>;
+        }
+    };
+
+    return (
+        <div className="space-y-6" dir={isArabic ? 'rtl' : 'ltr'}>
+            {/* Header Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white/[0.02] border border-white/5 p-6 rounded-[32px] flex items-center gap-5">
+                    <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center">
+                        <Activity className="text-blue-500" size={24} />
+                    </div>
+                    <div>
+                        <div className="text-2xl font-black text-white">{totalCount}</div>
+                        <div className="text-text-secondary text-xs uppercase font-bold tracking-widest">{t('total_events')}</div>
+                    </div>
+                </div>
+                <div className="bg-white/[0.02] border border-white/5 p-6 rounded-[32px] flex items-center gap-5">
+                    <div className="w-12 h-12 bg-red-500/10 rounded-2xl flex items-center justify-center">
+                        <ShieldAlert className="text-red-500" size={24} />
+                    </div>
+                    <div>
+                        <div className="text-2xl font-black text-white">{events.filter(e => e.severity === 'CRITICAL').length}</div>
+                        <div className="text-text-secondary text-xs uppercase font-bold tracking-widest">{t('critical_threats')}</div>
+                    </div>
+                </div>
+                <div className="bg-white/[0.02] border border-white/5 p-6 rounded-[32px] flex items-center gap-5">
+                    <div className="w-12 h-12 bg-brand-cyan/10 rounded-2xl flex items-center justify-center">
+                        <ShieldCheck className="text-brand-cyan" size={24} />
+                    </div>
+                    <div>
+                        <div className="text-2xl font-black text-white">Active</div>
+                        <div className="text-text-secondary text-xs uppercase font-bold tracking-widest">{t('security_status')}</div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Controls */}
+            <div className="bg-white/[0.02] border border-white/5 p-6 rounded-[32px] flex flex-col md:flex-row gap-4 items-center justify-between">
+                <form onSubmit={handleSearch} className="relative w-full md:max-w-md">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" size={18} />
+                    <input 
+                        type="text"
+                        placeholder={t('search_logs')}
+                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-12 pr-4 text-sm text-white focus:border-brand-cyan/50 outline-none transition-all"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </form>
+
+                <div className="flex items-center gap-2">
+                    {(['ALL', 'INFO', 'WARNING', 'CRITICAL'] as const).map(sev => (
+                        <button 
+                            key={sev}
+                            onClick={() => { setSeverityFilter(sev); setPage(1); }}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${severityFilter === sev ? 'bg-brand-cyan text-bg-primary' : 'bg-white/5 text-text-secondary hover:bg-white/10'}`}
+                        >
+                            {sev}
+                        </button>
+                    ))}
+                    <button 
+                        onClick={() => fetchEvents()}
+                        disabled={loading}
+                        className="p-3 bg-white/5 hover:bg-white/10 rounded-xl text-text-secondary transition-all"
+                    >
+                        <RefreshCw className={loading ? 'animate-spin' : ''} size={18} />
+                    </button>
+                </div>
+            </div>
+
+            {/* Table */}
+            <div className="bg-white/[0.02] border border-white/5 rounded-[32px] overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="border-b border-white/5 bg-white/[0.01]">
+                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-text-secondary whitespace-nowrap">{t('event')}</th>
+                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-text-secondary whitespace-nowrap">{t('applicant')}</th>
+                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-text-secondary whitespace-nowrap">{t('severity')}</th>
+                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-text-secondary whitespace-nowrap">{t('ip_client')}</th>
+                                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-text-secondary whitespace-nowrap">{t('submitted_on')}</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/5">
+                            {loading ? (
+                                Array.from({ length: 5 }).map((_, i) => (
+                                    <tr key={i} className="animate-pulse">
+                                        <td colSpan={5} className="px-6 py-4"><div className="h-10 bg-white/5 rounded-xl w-full"></div></td>
+                                    </tr>
+                                ))
+                            ) : events.length === 0 ? (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-12 text-center text-text-secondary">
+                                        {t('no_security_logs')}
+                                    </td>
+                                </tr>
+                            ) : (
+                                events.map((event) => (
+                                    <tr key={event.id} className="hover:bg-white/[0.02] transition-colors group">
+                                        <td className="px-6 py-4">
+                                            <div className="font-bold text-white text-sm">{event.event_type}</div>
+                                            <div className="text-[10px] text-text-secondary truncate max-w-[200px]" title={JSON.stringify(event.details)}>
+                                                {JSON.stringify(event.details)}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {event.profiles ? (
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-brand-cyan/10 flex items-center justify-center text-brand-cyan font-bold text-xs uppercase">
+                                                        {event.profiles.username?.[0] || 'U'}
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-xs font-bold text-white leading-none">{event.profiles.username}</div>
+                                                        <div className="text-[10px] text-text-secondary mt-1">{event.profiles.discord_id}</div>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <span className="text-text-secondary text-xs italic">System / Unknown</span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {getSeverityBadge(event.severity)}
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-2 text-text-secondary">
+                                                <Globe size={14} />
+                                                <span className="text-xs font-mono">{event.ip_address || '---'}</span>
+                                            </div>
+                                            <div className="text-[9px] text-text-secondary opacity-40 mt-1 truncate max-w-[150px]">
+                                                {event.user_agent}
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-2 text-text-secondary">
+                                                <Clock size={14} />
+                                                <span className="text-xs">{new Date(event.created_at).toLocaleString(isArabic ? 'ar' : 'en')}</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Pagination */}
+                <div className="px-6 py-4 bg-white/[0.01] border-t border-white/5 flex items-center justify-between">
+                    <div className="text-xs text-text-secondary font-bold">
+                        {isArabic ? `عرض ${events.length} من أصل ${totalCount}` : `Showing ${events.length} of ${totalCount}`}
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button 
+                            disabled={page === 1 || loading}
+                            onClick={() => setPage(p => p - 1)}
+                            className="p-2 bg-white/5 hover:bg-white/10 disabled:opacity-30 rounded-lg text-white transition-all"
+                        >
+                            <ChevronLeft size={18} />
+                        </button>
+                        <span className="text-xs font-black text-brand-cyan px-2">{page}</span>
+                        <button 
+                            disabled={page * pageSize >= totalCount || loading}
+                            onClick={() => setPage(p => p + 1)}
+                            className="p-2 bg-white/5 hover:bg-white/10 disabled:opacity-30 rounded-lg text-white transition-all"
+                        >
+                            <ChevronRight size={18} />
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default SecurityPanel;

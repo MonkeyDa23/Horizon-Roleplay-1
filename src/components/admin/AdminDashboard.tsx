@@ -8,9 +8,10 @@ const AdminDashboard: React.FC = () => {
     const { t } = useLocalization();
 
     return (
-        <div className="bg-brand-dark-blue p-8 rounded-lg border border-brand-light-blue/50 animate-fade-in-up">
-            <h2 className="text-3xl font-bold text-white mb-2">{t('welcome')}, {user?.username}!</h2>
-            <p className="text-gray-300">{t('admin_dashboard_welcome_message', {})}</p>
+        <div className="bg-white/[0.03] p-12 rounded-[50px] border border-white/10 animate-fade-in-up relative overflow-hidden">
+             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-brand-cyan/20 to-transparent"></div>
+            <h2 className="text-5xl font-black text-white mb-4 tracking-tighter">{t('welcome')}, {user?.username}!</h2>
+            <p className="text-text-secondary text-xl font-medium opacity-80">{t('admin_dashboard_welcome_message', {})}</p>
         </div>
     );
 };

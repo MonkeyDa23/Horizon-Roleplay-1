@@ -1,7 +1,7 @@
 /**
- * Nova Roleplay - Official Website
+ * Florida Roleplay - Official Website
  * Health Check Page
- * Copyright (c) 2024 Nova Roleplay. All rights reserved.
+ * Copyright (c) 2024 Florida Roleplay. All rights reserved.
  */
 
 import React, { useState } from 'react';
@@ -96,7 +96,7 @@ const HealthCheckPage: React.FC = () => {
 
     return (
         <>
-            <SEO title="System Health Check" noIndex={true} description="System diagnostics for Nova"/>
+            <SEO title="System Health Check" noIndex={true} description="System diagnostics for Vixel"/>
             <div className="container mx-auto px-6 py-16">
                 <div className="max-w-4xl mx-auto">
                     <h1 className="text-4xl font-bold mb-2 text-center">{t('health_check_title')}</h1>
