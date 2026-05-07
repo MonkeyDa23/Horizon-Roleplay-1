@@ -41,7 +41,7 @@ const StaffCard: React.FC<{ member: StaffMember, index: number }> = React.memo((
 
 const AboutUsPage: React.FC = () => {
     const { t } = useLocalization();
-    const { refreshTranslations } = useTranslations();
+    const { refetch } = useTranslations();
     const { config } = useConfig();
     const communityName = config.COMMUNITY_NAME;
     const [widgets, setWidgets] = useState<DiscordWidget[]>([]);
@@ -56,7 +56,7 @@ const AboutUsPage: React.FC = () => {
             const [widgetsData, staffData] = await Promise.all([
                 getDiscordWidgets(),
                 getStaff(),
-                refreshTranslations() 
+                refetch() 
             ]);
             setWidgets(widgetsData);
             setStaff(staffData);

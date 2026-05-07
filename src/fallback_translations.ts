@@ -357,6 +357,11 @@ export const fallbackTranslations: Translations = {
   'page_title_about': { ar: 'معلومات عننا', en: 'About Us' },
   'about_intro': { ar: 'تعرف علينا اكثر وكيف يشتغل السيرفر', en: 'Get to know us better and how the server works.' },
   'meet_the_team': { ar: 'فريق العمل', en: 'Meet The Team' },
+  'staff_empty': { ar: 'قائمة فريق العمل فارغة حالياً.', en: 'Staff list is currently empty.' },
   'our_servers': { ar: 'خوادمنا', en: 'Our Servers' },
-  'server_management': { ar: 'إدارة الخادم', en: 'Server Management' }
+  'server_management': { ar: 'إدارة الخادم', en: 'Server Management' },
+  'footer_rights': { ar: 'جميع الحقوق محفوظة {year} لـ {communityName}', en: 'All rights reserved {year} for nova roleplay 2026' },
+  'page_title_applies': { ar: 'التقديمات', en: 'Applications' },
+  'status_taken': { ar: 'قيد المراجعة', en: 'Taken' },
+  'status_refused': { ar: 'مرفوض', en: 'Refused' }
 };

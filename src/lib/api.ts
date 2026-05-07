@@ -123,7 +123,7 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
       };
   }
 
-  const { data: existingProfiles } = await supabase.from('profiles').select('id, is_banned, ban_reason, ban_expires_at, balance, mta_serial, mta_name, mta_linked_at, two_factor_enabled').eq('id', session.user.id);
+  const { data: existingProfiles } = await supabase.from('users').select('id, is_banned, ban_reason, ban_expires_at, balance, mta_serial, mta_name, mta_linked_at, two_factor_enabled').eq('id', session.user.id);
   const existingProfile = existingProfiles?.[0] || null;
   const isNewUser = !existingProfile;
 
@@ -149,7 +149,7 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
       two_factor_enabled: existingProfile?.two_factor_enabled ?? false,
   };
 
-  await supabase.from('profiles').upsert({
+  await supabase.from('users').upsert({
       id: finalUser.id, 
       discord_id: finalUser.discordId, 
       username: finalUser.username, 
@@ -406,7 +406,7 @@ export const getProducts = async (): Promise<Product[]> => {
 };
 export const getProductCategories = async (): Promise<ProductCategory[]> => {
     if (!supabase) return [];
-    const { data } = await supabase.from('product_categories').select('*').order('position');
+    const { data } = await supabase.from('categories').select('*').order('position');
     return (data as ProductCategory[]) || [];
 };
 export const saveProduct = async (productData: any): Promise<Product> => {
@@ -515,7 +515,7 @@ export const unlinkMtaAccount = async (serial: string): Promise<{ success: boole
     const { data: { user: authUser } } = await supabase!.auth.getUser();
     if (authUser) {
         await supabase!
-            .from('profiles')
+            .from('users')
             .update({
                 mta_serial: null,
                 mta_name: null,
@@ -540,11 +540,11 @@ export const getSubmissions = async (): Promise<QuizSubmission[]> => {
     return (data as QuizSubmission[]) || [];
 };
 export const getSubmissionById = async (id: string): Promise<QuizSubmission> => {
-    const { data } = await supabase!.from('submissions').select('*').eq('id', id).single();
+    const { data } = await supabase!.from('quiz_submissions').select('*').eq('id', id).single();
     return data as QuizSubmission;
 };
 export const getSubmissionsByUserId = async (userId: string): Promise<QuizSubmission[]> => {
-    const { data } = await supabase!.from('submissions').select('*').eq('user_id', userId);
+    const { data } = await supabase!.from('quiz_submissions').select('*').eq('user_id', userId);
     return (data as QuizSubmission[]) || [];
 };
 export const updateSubmissionStatus = async (id: string, status: string, reason?: string): Promise<QuizSubmission> => {

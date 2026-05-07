@@ -88,8 +88,15 @@ CREATE TABLE IF NOT EXISTS public.quiz_submissions (
 );
 
 -- ==========================================
--- ROW LEVEL SECURITY (RLS)
+-- ROW LEVEL SECURITY (RLS) & HELPERS
 -- ==========================================
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND (role = 'admin' OR role = 'super_admin'));
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.config ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.translations ENABLE ROW LEVEL SECURITY;
@@ -100,32 +107,33 @@ ALTER TABLE public.quiz_submissions ENABLE ROW LEVEL SECURITY;
 
 -- Users RLS
 CREATE POLICY "Users can read own profile" ON public.users FOR SELECT USING (auth.uid() = id);
-CREATE POLICY "Admins can read all profiles" ON public.users FOR SELECT USING (EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND (role = 'admin' OR role = 'super_admin')));
+CREATE POLICY "Admins can read all profiles" ON public.users FOR SELECT USING (public.is_admin());
 CREATE POLICY "Users can update own profile" ON public.users FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Users can insert own profile" ON public.users FOR INSERT WITH CHECK (auth.uid() = id);
 
 -- Config RLS (Public Read)
 CREATE POLICY "Public read config" ON public.config FOR SELECT USING (true);
-CREATE POLICY "Admins manage config" ON public.config FOR ALL USING (EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND (role = 'admin' OR role = 'super_admin')));
+CREATE POLICY "Admins manage config" ON public.config FOR ALL USING (public.is_admin());
 
 -- Translations RLS (Public Read)
 CREATE POLICY "Public read translations" ON public.translations FOR SELECT USING (true);
-CREATE POLICY "Admins manage translations" ON public.translations FOR ALL USING (EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND (role = 'admin' OR role = 'super_admin')));
+CREATE POLICY "Admins manage translations" ON public.translations FOR ALL USING (public.is_admin());
 
 -- Categories & Products RLS
 CREATE POLICY "Public read categories" ON public.categories FOR SELECT USING (true);
-CREATE POLICY "Admins manage categories" ON public.categories FOR ALL USING (EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND (role = 'admin' OR role = 'super_admin')));
+CREATE POLICY "Admins manage categories" ON public.categories FOR ALL USING (public.is_admin());
 
 CREATE POLICY "Public read products" ON public.products FOR SELECT USING (true);
-CREATE POLICY "Admins manage products" ON public.products FOR ALL USING (EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND (role = 'admin' OR role = 'super_admin')));
+CREATE POLICY "Admins manage products" ON public.products FOR ALL USING (public.is_admin());
 
 -- Rules RLS
 CREATE POLICY "Public read rules" ON public.rules FOR SELECT USING (true);
-CREATE POLICY "Admins manage rules" ON public.rules FOR ALL USING (EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND (role = 'admin' OR role = 'super_admin')));
+CREATE POLICY "Admins manage rules" ON public.rules FOR ALL USING (public.is_admin());
 
 -- Quiz Submissions RLS
 CREATE POLICY "Users read own submissions" ON public.quiz_submissions FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users create submissions" ON public.quiz_submissions FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Admins manage submissions" ON public.quiz_submissions FOR ALL USING (EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND (role = 'admin' OR role = 'super_admin')));
+CREATE POLICY "Admins manage submissions" ON public.quiz_submissions FOR ALL USING (public.is_admin());
 
 -- ==========================================
 -- FUNCTIONS & TRIGGERS

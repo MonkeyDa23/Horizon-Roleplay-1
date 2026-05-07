@@ -43,7 +43,7 @@ function toggleLinkingUI()
 end
 
 addEventHandler("onClientResourceStart", resourceRoot, function()
-    bindKey("f5", "down", toggleLinkingUI)
+    bindKey("F5", "down", toggleLinkingUI)
 end)
 
 addCommandHandler("link", toggleLinkingUI)
