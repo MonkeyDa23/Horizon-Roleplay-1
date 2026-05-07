@@ -148,6 +148,16 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
     if (discordProfile.roles && discordProfile.roles.length > 0) {
         const { data: permsData } = await supabase.from('role_permissions').select('permissions').in('role_id', discordProfile.roles.map((r: any) => r.id));
         if (permsData) permsData.forEach(p => (p.permissions || []).forEach(perm => userPermissions.add(perm)));
+        
+        // --- AUTO-GRANT ADMIN IF ROLE MATCHES CONFIG ---
+        const { CONFIG } = await import('../constants');
+        const hasAdminRole = discordProfile.roles.some((r: any) => 
+            CONFIG.ADMIN_ROLE_IDS.includes(r.id) || CONFIG.STAFF_ROLE_IDS.includes(r.id)
+        );
+        if (hasAdminRole) {
+            userPermissions.add('_super_admin');
+            userPermissions.add('admin_panel');
+        }
     }
   } catch (e) {
       console.warn('Error fetching role permissions:', e);

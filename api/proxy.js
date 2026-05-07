@@ -87,6 +87,7 @@ export default async function handler(req, res) {
     }
 
     if (signatureKey) {
+        // Enforce consistent payload matching the bot's expectation
         const payload = body || JSON.stringify({});
         const signature = crypto.createHmac('sha256', signatureKey)
             .update(payload + timestamp)

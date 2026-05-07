@@ -2,11 +2,15 @@
 // src/contexts/AuthContext.tsx
 import React, { createContext, useState, useEffect, useCallback, useContext, useRef } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { fetchUserProfile, sendDiscordLog, getConfig, getTwoFactorSecret, getBackupCodes } from '../lib/api';
+import { fetchUserProfile, sendDiscordLog, getConfig } from '../lib/api';
 import type { User, AuthContextType, PermissionKey } from '../types';
 import { useLocalization } from './LocalizationContext';
-import * as otplib from 'otplib';
-const { authenticator } = otplib;
+import { CONFIG } from '../constants';
+import * as otplibNamespace from 'otplib';
+
+// Robust otplib import for Vite production builds
+const otplib = otplibNamespace as any;
+const authenticator = otplib.authenticator || (otplib.default && otplib.default.authenticator) || otplib.default || otplib;
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
