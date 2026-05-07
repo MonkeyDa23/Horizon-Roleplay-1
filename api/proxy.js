@@ -92,8 +92,8 @@ export default async function handler(req, res) {
 
     if (signatureKey) {
         // Enforce consistent payload matching the bot's expectation
-        // We use the raw request body if possible or stringify it consistently
-        const payload = body || JSON.stringify({});
+        // Use empty string for GET requests or empty bodies
+        const payload = body || ''; 
         const signature = crypto.createHmac('sha256', signatureKey)
             .update(payload + timestamp)
             .digest('hex');

@@ -3,9 +3,7 @@
  * Two-Factor Authentication Setup Component
  */
 import React, { useState, useEffect } from 'react';
-import * as otplibNamespace from 'otplib';
-const otplib = otplibNamespace as any;
-const authenticator = otplib.authenticator || (otplib.default && otplib.default.authenticator) || otplib.default || otplib;
+import * as otplib from 'otplib';
 import QRCode from 'qrcode';
 import { ShieldCheck, ShieldAlert, Copy, RefreshCw, CheckCircle2, AlertCircle, Key, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -17,6 +15,9 @@ const TwoFactorSetup: React.FC = () => {
   const { user, updateUser } = useAuth();
   const { t, language } = useLocalization();
   const isArabic = language === 'ar';
+
+  // Extract authenticator safely for both dev and production
+  const authenticator = (otplib as any).authenticator || (otplib as any).default?.authenticator || otplib;
 
   const [step, setStep] = useState<'status' | 'setup' | 'verify' | 'backup'>('status');
   const [secret, setSecret] = useState('');
@@ -71,14 +72,26 @@ const TwoFactorSetup: React.FC = () => {
     setError(null);
     setLoading(true);
     try {
-      // Robust check/verify call to handle different export formats in production
-      const checkFn = authenticator.check || (authenticator as any).verify || (authenticator as any).default?.check;
-      
-      if (typeof checkFn !== 'function') {
-        throw new Error('Authenticator check function not found');
+      if (!verificationCode || !secret) {
+        throw new Error(isArabic ? 'الرمز أو المفتاح مفقود' : 'Code or secret is missing');
       }
 
-      const isValid = checkFn(verificationCode, secret);
+      // Try multiple possible verification methods provided by otplib variants
+      let isValid = false;
+      
+      try {
+        if (typeof authenticator.check === 'function') {
+          isValid = authenticator.check(verificationCode, secret);
+        } else if (typeof authenticator.verify === 'function') {
+          isValid = authenticator.verify({ token: verificationCode, secret });
+        } else {
+          throw new Error('No verification method found on authenticator object');
+        }
+      } catch (checkErr) {
+        console.error('Check function failed:', checkErr);
+        throw checkErr;
+      }
+      
       if (!isValid) {
         setError(t('2fa_invalid_code') || 'رمز غير صحيح');
         return;

@@ -78,8 +78,8 @@ const Navbar: React.FC = () => {
     { to: '/', text: t('nav_home') || t('home') || 'Home' },
     { to: '/store', text: t('nav_store') || t('store') || 'Store' },
     { to: '/rules', text: t('nav_rules') || t('rules') || 'Rules' },
-    { to: '/applies', text: t('nav_applies') || t('applies') || 'Applications' },
-    { to: '/about', text: t('nav_about') || t('about_us') || 'About Us' },
+    { to: '/applies', text: t('nav_applies') || t('applies') || 'Apps' },
+    { to: '/about', text: t('nav_about') || t('about_us') || 'About' },
   ];
 
   const closeAllMenus = () => {
@@ -92,58 +92,81 @@ const Navbar: React.FC = () => {
   return (
     <>
       <header className="fixed top-0 left-0 z-[60] w-full" dir={dir}>
-        <div className="bg-brand-dark/80 border-b border-white/5 backdrop-blur-3xl px-6 py-4 shadow-2xl">
-          <div className="max-w-7xl mx-auto flex justify-between items-center">
+        <div className="bg-brand-dark/80 border-b border-white/5 backdrop-blur-3xl px-4 py-3 shadow-2xl">
+          <div className="max-w-7xl mx-auto grid grid-cols-3 items-center">
             
-            <Link to="/" className="flex items-center gap-4 group/logo">
-              <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center group-hover/logo:scale-110 transition-all duration-500">
-                <img src={branding.logoUrl} alt={branding.siteName} className="h-8 w-8 object-contain" />
-              </div>
-              <h1 className="text-xl md:text-2xl font-black text-white truncate max-w-[150px] sm:max-w-xs">{branding.siteName}</h1>
-            </Link>
+            {/* Right Side: User Profile & Logo */}
+            <div className="flex items-center gap-4 justify-start">
+              <Link to="/" className="flex items-center gap-3 group/logo">
+                <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center group-hover/logo:scale-105 transition-all">
+                  <img src={branding.logoUrl} alt={branding.siteName} className="h-6 w-6 object-contain" />
+                </div>
+                <h1 className="text-lg font-black text-white hidden sm:block truncate max-w-[120px]">{branding.siteName}</h1>
+              </Link>
 
-            <div className="hidden lg:flex items-center gap-8 xl:gap-12">
+              {user && (
+                <div className="relative">
+                  <button 
+                    onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                    onBlur={() => setTimeout(() => setUserDropdownOpen(false), 200)}
+                    className="flex items-center gap-2 pl-1 pr-3 py-1 bg-white/5 hover:bg-white/10 border border-white/5 rounded-full transition-all group"
+                  >
+                    <img src={user.avatar} alt={user.username} className="w-8 h-8 rounded-full border border-white/10" />
+                    <div className="text-start hidden md:block">
+                      <p className="text-xs font-black text-white leading-none truncate max-w-[80px]">{user.username}</p>
+                    </div>
+                    <ChevronDown size={12} className={`text-text-secondary transition-transform duration-500 ${userDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+                  {userDropdownOpen && (
+                    <div className="absolute top-full mt-3 right-0 bg-brand-dark border border-white/10 p-2 w-56 rounded-[24px] animate-fade-in-up origin-top-right shadow-2xl">
+                      <UserMenuLink to="/profile" icon={User} onClick={closeAllMenus}>{t('my_profile')}</UserMenuLink>
+                      <UserMenuLink to="/my-applications" icon={FileText} onClick={closeAllMenus}>{t('my_applications')}</UserMenuLink>
+                      {hasPermission('admin_panel') && (
+                        <UserMenuLink to="/admin" icon={UserCog} onClick={closeAllMenus}>{t('admin_panel')}</UserMenuLink>
+                      )}
+                      <div className="h-[1px] bg-white/5 my-2 mx-3"></div>
+                      <button 
+                        onClick={logout}
+                        className="flex items-center gap-3 w-full text-start px-4 py-3 text-sm font-black text-red-500 hover:bg-red-500/10 rounded-[16px] transition-all"
+                      >
+                        <LogOut size={18} className="opacity-60" />
+                        {t('logout')}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Middle: Navigation Links */}
+            <div className="hidden lg:flex items-center justify-center gap-6 xl:gap-8">
               {navLinks.map((link) => (
                 <NavLink key={link.to} to={link.to}>{link.text}</NavLink>
               ))}
             </div>
 
-            <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
-              {/* Cart */}
-              <button 
-                onClick={() => setCartOpen(true)}
-                className="relative w-12 h-12 flex items-center justify-center rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all group"
-              >
-                <ShoppingCart size={22} className="text-text-secondary group-hover:text-white transition-colors" />
-                {totalItems > 0 && (
-                  <span className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-xl font-black text-[10px] text-brand-dark shadow-xl" style={{ backgroundColor: branding.primaryColor }}>
-                    {totalItems}
-                  </span>
-                )}
-              </button>
-
+            {/* Left Side: Tools & Mobile Menu */}
+            <div className="flex items-center gap-2 sm:gap-3 justify-end">
               {/* Currency */}
               <div className="relative">
                 <button 
                   onClick={() => setCurrencyDropdownOpen(!currencyDropdownOpen)}
                   onBlur={() => setTimeout(() => setCurrencyDropdownOpen(false), 200)}
-                  className="h-12 px-5 flex items-center gap-2 bg-white/5 border border-white/5 rounded-2xl text-white font-black text-xs hover:bg-white/10 transition-all cursor-pointer"
+                  className="h-10 px-3 flex items-center gap-2 bg-white/5 border border-white/5 rounded-xl text-white font-black text-[10px] hover:bg-white/10 transition-all"
                 >
-                  <Coins size={18} style={{ color: branding.primaryColor }} />
-                  <span className="hidden sm:inline bg-transparent opacity-80 uppercase">{currency}</span>
-                  <ChevronDown size={14} className={`opacity-40 transition-transform duration-500 ${currencyDropdownOpen ? 'rotate-180' : ''}`} />
+                  <Coins size={14} style={{ color: branding.primaryColor }} />
+                  <span className="uppercase">{currency}</span>
                 </button>
                 {currencyDropdownOpen && (
-                  <div className="absolute top-full mt-4 right-0 bg-brand-dark border border-white/10 p-3 w-44 rounded-[32px] animate-fade-in-up origin-top shadow-2xl">
+                  <div className="absolute top-full mt-3 right-0 bg-brand-dark border border-white/10 p-2 w-40 rounded-[24px] animate-fade-in-up origin-top z-50">
                     {(['USD', 'JOD', 'SAR', 'EGP'] as Currency[]).map((cur) => (
                       <button 
                         key={cur}
                         onClick={() => { setCurrency(cur); closeAllMenus(); }}
-                        className={`flex items-center justify-between w-full text-start px-5 py-3 text-sm font-black rounded-2xl transition-all ${currency === cur ? 'text-brand-dark' : 'text-text-secondary hover:bg-white/5 hover:text-white'}`}
+                        className={`flex items-center justify-between w-full px-4 py-2 text-xs font-black rounded-lg transition-all ${currency === cur ? 'text-brand-dark' : 'text-text-secondary hover:bg-white/5 hover:text-white'}`}
                         style={{ backgroundColor: currency === cur ? branding.primaryColor : undefined }}
                       >
-                        <span>{t(`currency_${cur.toLowerCase()}` as any) || cur}</span>
-                        {currency === cur && <CheckCircle size={14} />}
+                        <span>{cur}</span>
                       </button>
                     ))}
                   </div>
@@ -155,78 +178,51 @@ const Navbar: React.FC = () => {
                 <button 
                   onClick={() => setLangDropdownOpen(!langDropdownOpen)}
                   onBlur={() => setTimeout(() => setLangDropdownOpen(false), 200)}
-                  className="h-12 px-5 flex items-center gap-2 bg-white/5 border border-white/5 rounded-2xl text-white font-black text-xs hover:bg-white/10 transition-all cursor-pointer"
+                  className="h-10 px-3 flex items-center gap-2 bg-white/5 border border-white/5 rounded-xl text-white font-black text-[10px] hover:bg-white/10 transition-all"
                 >
-                  <Globe size={18} style={{ color: branding.primaryColor }} />
-                  <span className="hidden sm:inline opacity-80 uppercase">{language.toUpperCase()}</span>
-                  <ChevronDown size={14} className={`opacity-40 transition-transform duration-500 ${langDropdownOpen ? 'rotate-180' : ''}`} />
+                  <Globe size={14} style={{ color: branding.primaryColor }} />
+                  <span className="uppercase">{language}</span>
                 </button>
                 {langDropdownOpen && (
-                  <div className="absolute top-full mt-4 right-0 bg-brand-dark border border-white/10 p-3 w-44 rounded-[32px] animate-fade-in-up origin-top shadow-2xl">
-                    <button onClick={() => { setLanguage('en'); closeAllMenus(); }} className={`block w-full text-start px-5 py-3 text-sm font-black rounded-2xl transition-all ${language === 'en' ? 'text-white bg-white/10' : 'text-text-secondary hover:bg-white/5 hover:text-white'}`}>English</button>
-                    <button onClick={() => { setLanguage('ar'); closeAllMenus(); }} className={`block w-full text-start px-5 py-3 text-sm font-black rounded-2xl transition-all ${language === 'ar' ? 'text-white bg-white/10' : 'text-text-secondary hover:bg-white/5 hover:text-white'}`}>العربية</button>
+                  <div className="absolute top-full mt-3 right-0 bg-brand-dark border border-white/10 p-2 w-40 rounded-[24px] animate-fade-in-up origin-top z-50">
+                    <button onClick={() => { setLanguage('en'); closeAllMenus(); }} className={`block w-full text-start px-4 py-2 text-xs font-black rounded-lg ${language === 'en' ? 'bg-white/10 text-white' : 'text-text-secondary'}`}>English</button>
+                    <button onClick={() => { setLanguage('ar'); closeAllMenus(); }} className={`block w-full text-start px-4 py-2 text-xs font-black rounded-lg ${language === 'ar' ? 'bg-white/10 text-white' : 'text-text-secondary'}`}>العربية</button>
                   </div>
                 )}
               </div>
 
-              {/* User Menu / Login */}
-              {user ? (
-                <div className="relative">
-                  <button 
-                    onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                    onBlur={() => setTimeout(() => setUserDropdownOpen(false), 200)}
-                    className="flex items-center gap-3 pl-1 pr-4 py-1.5 bg-white/5 hover:bg-white/10 border border-white/5 rounded-full transition-all group"
-                  >
-                    <div className="relative">
-                      <img src={user.avatar} alt={user.username} className="w-10 h-10 rounded-full border-2 border-white/5 group-hover:border-white/20 transition-all" />
-                      <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-brand-dark rounded-full"></div>
-                    </div>
-                    <div className="text-start hidden sm:block">
-                      <p className="text-[10px] font-black text-text-secondary uppercase opacity-40 leading-none mb-1">{t('welcome')}</p>
-                      <p className="text-sm font-black text-white leading-none">{user.username}</p>
-                    </div>
-                    <ChevronDown size={14} className={`text-text-secondary transition-transform duration-500 ${userDropdownOpen ? 'rotate-180' : ''} hidden sm:block`} />
-                  </button>
-                  {userDropdownOpen && (
-                    <div className="absolute top-full mt-4 right-0 bg-brand-dark border border-white/10 p-3 w-64 rounded-[40px] animate-fade-in-up origin-top-right shadow-2xl">
-                      <UserMenuLink to="/profile" icon={User} onClick={closeAllMenus}>{t('my_profile')}</UserMenuLink>
-                      <UserMenuLink to="/my-applications" icon={FileText} onClick={closeAllMenus}>{t('my_applications')}</UserMenuLink>
-                      {hasPermission('admin_panel') && (
-                        <UserMenuLink to="/admin" icon={UserCog} onClick={closeAllMenus}>{t('admin_panel')}</UserMenuLink>
-                      )}
-                      <div className="h-[1px] bg-white/5 my-3 mx-4"></div>
-                      <button 
-                        onClick={logout}
-                        className="flex items-center gap-4 w-full text-start px-5 py-4 text-sm font-black text-red-500 hover:bg-red-500/10 rounded-[20px] transition-all group"
-                      >
-                        <LogOut size={20} className="opacity-60 group-hover:opacity-100 transition-all" />
-                        {t('logout')}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : (
+              {/* Cart */}
+              <button 
+                onClick={() => setCartOpen(true)}
+                className="relative w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all"
+              >
+                <ShoppingCart size={18} className="text-text-secondary" />
+                {totalItems > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full font-black text-[8px] text-brand-dark" style={{ backgroundColor: branding.primaryColor }}>
+                    {totalItems}
+                  </span>
+                )}
+              </button>
+
+              {!user && (
                 <button 
                   onClick={() => setLoginCaptchaOpen(true)}
                   disabled={loading}
-                  className="relative overflow-hidden group h-12 px-8 rounded-2xl flex items-center gap-3 font-black text-sm text-brand-dark transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+                  className="h-10 px-4 rounded-xl flex items-center gap-2 font-black text-xs text-brand-dark transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
                   style={{ backgroundColor: branding.primaryColor }}
                 >
-                  <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-                  {loading ? <Loader2 size={20} className="animate-spin" /> : <DiscordLogo className="w-5 h-5" />}
-                  <span className="hidden sm:inline">{t('login')}</span>
+                  {loading ? <Loader2 size={16} className="animate-spin" /> : <DiscordLogo className="w-4 h-4" />}
+                  <span>{t('login')}</span>
                 </button>
               )}
 
-              {/* Mobile Menu Toggle */}
-              <div className="lg:hidden">
-                <button 
-                  onClick={() => setMobileMenuOpen(true)}
-                  className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/5 hover:bg-white/10 transition-all text-text-secondary"
-                >
-                  <Menu size={28} />
-                </button>
-              </div>
+              {/* Mobile Menu */}
+              <button 
+                onClick={() => setMobileMenuOpen(true)}
+                className="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 text-text-secondary"
+              >
+                <Menu size={24} />
+              </button>
             </div>
           </div>
         </div>
