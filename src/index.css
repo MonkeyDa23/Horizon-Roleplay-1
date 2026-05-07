@@ -19,9 +19,15 @@
 
   /* Remove letter-spacing for Arabic text and add specific line-height */
   [lang="ar"], .rtl, [dir="rtl"] {
-    letter-spacing: normal !important;
-    word-spacing: 0.1em;
-    line-height: 1.95 !important;
+    letter-spacing: 0 !important;
+    word-spacing: 0.15em;
+    line-height: 2.1 !important;
+  }
+  
+  /* Responsive Arabic adjustments */
+  [lang="ar"] h1, [lang="ar"] h2, [lang="ar"] h3 {
+    line-height: 1.4 !important;
+    padding-bottom: 0.25em;
   }
 }
 

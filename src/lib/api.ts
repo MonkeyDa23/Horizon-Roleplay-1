@@ -119,18 +119,38 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
           username: meta.custom_claims?.global_name || meta.full_name || 'Unknown',
           avatar: meta.avatar_url || '',
           roles: [],
-          highestRole: null
+          highestRole: null,
+          mtaLink: null
       };
   }
 
-  const { data: existingProfiles } = await supabase.from('users').select('id, is_banned, ban_reason, ban_expires_at, balance, mta_serial, mta_name, mta_linked_at, two_factor_enabled').eq('id', session.user.id);
-  const existingProfile = existingProfiles?.[0] || null;
+  // Graceful profile fetching to avoid completely breaking on RLS recursion
+  let existingProfile = null;
+  try {
+      const { data: existingProfiles, error: fetchError } = await supabase
+        .from('users')
+        .select('id, is_banned, ban_reason, ban_expires_at, balance, mta_serial, mta_name, mta_linked_at, two_factor_enabled')
+        .eq('id', session.user.id);
+      
+      if (fetchError) {
+          console.warn('Error fetching user profile from DB (possible RLS issue):', fetchError.message);
+      } else {
+          existingProfile = existingProfiles?.[0] || null;
+      }
+  } catch (e) {
+      console.warn('Exception fetching user profile:', e);
+  }
+
   const isNewUser = !existingProfile;
 
   const userPermissions = new Set<string>();
-  if (discordProfile.roles.length > 0) {
-      const { data: permsData } = await supabase.from('role_permissions').select('permissions').in('role_id', discordProfile.roles.map((r: any) => r.id));
-      if (permsData) permsData.forEach(p => (p.permissions || []).forEach(perm => userPermissions.add(perm)));
+  try {
+    if (discordProfile.roles && discordProfile.roles.length > 0) {
+        const { data: permsData } = await supabase.from('role_permissions').select('permissions').in('role_id', discordProfile.roles.map((r: any) => r.id));
+        if (permsData) permsData.forEach(p => (p.permissions || []).forEach(perm => userPermissions.add(perm)));
+    }
+  } catch (e) {
+      console.warn('Error fetching role permissions:', e);
   }
 
   const finalUser: User = {
@@ -149,18 +169,25 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
       two_factor_enabled: existingProfile?.two_factor_enabled ?? false,
   };
 
-  await supabase.from('users').upsert({
-      id: finalUser.id, 
-      discord_id: finalUser.discordId, 
-      username: finalUser.username, 
-      avatar_url: finalUser.avatar,
-      roles: finalUser.roles, 
-      highest_role: finalUser.highestRole, 
-      mta_serial: finalUser.mta_serial,
-      mta_name: finalUser.mta_name,
-      mta_linked_at: finalUser.mta_linked_at,
-      last_synced_at: new Date().toISOString()
-  }, { onConflict: 'id' });
+  try {
+    const upsertData = {
+        id: finalUser.id, 
+        discord_id: finalUser.discordId, 
+        username: finalUser.username, 
+        avatar_url: finalUser.avatar,
+        roles: finalUser.roles, 
+        highest_role: finalUser.highestRole, 
+        mta_serial: finalUser.mta_serial,
+        mta_name: finalUser.mta_name,
+        mta_linked_at: finalUser.mta_linked_at,
+        last_synced_at: new Date().toISOString()
+    };
+
+    const { error: upsertError } = await supabase.from('users').upsert(upsertData, { onConflict: 'id' });
+    if (upsertError) console.warn('Upsert user error (RLS?):', upsertError.message);
+  } catch (e) {
+      console.warn('Upsert user exception:', e);
+  }
 
   return { user: finalUser, syncError, isNewUser };
 };
@@ -357,10 +384,21 @@ export const saveConfig = async (configData: Partial<AppConfig>): Promise<void> 
 
 export const getTranslations = async (): Promise<Translations> => {
   if (!supabase) return {};
-  const { data } = await supabase.from('translations').select('key, en, ar');
-  const translations: Translations = {};
-  data?.forEach((item: any) => translations[item.key] = { en: item.en, ar: item.ar });
-  return translations;
+  try {
+    const { data, error } = await supabase.from('translations').select('key, en, ar');
+    if (error) {
+        console.warn('getTranslations error:', error.message);
+        return {};
+    }
+    const translations: Translations = {};
+    data?.forEach((item: any) => {
+        if (item.key) translations[item.key] = { en: item.en || '', ar: item.ar || '' };
+    });
+    return translations;
+  } catch (e) {
+    console.error('getTranslations exception:', e);
+    return {};
+  }
 };
 
 export const saveTranslations = async (translations: Translations): Promise<any> => {
