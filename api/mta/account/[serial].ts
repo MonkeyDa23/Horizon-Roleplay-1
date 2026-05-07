@@ -50,7 +50,6 @@ export default async function (req: VercelRequest, res: VercelResponse) {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
       console.error(`[API] Bot API error: ${response.status}`);
       return res.status(response.status).json({ 
         error: "Failed to fetch data from game server"

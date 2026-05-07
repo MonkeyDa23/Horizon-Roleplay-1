@@ -2,8 +2,13 @@ import crypto from 'crypto';
 
 export default async function handler(req, res) {
     // Secret keys from environment variables
-    const HCAPTCHA_SECRET = process.env.HCAPTCHA_SECRET_KEY || process.env.VITE_HCAPTCHA_SITE_KEY; // Ensure you have HCAPTCHA_SECRET_KEY in Vercel
+    const HCAPTCHA_SECRET = process.env.HCAPTCHA_SECRET_KEY;
     const SESSION_SECRET = process.env.SESSION_SECRET;
+
+    if (!HCAPTCHA_SECRET) {
+        console.error('CRITICAL: HCAPTCHA_SECRET_KEY environment variable is required');
+        return res.status(500).json({ error: 'Server configuration error: Missing HCAPTCHA_SECRET_KEY' });
+    }
 
     if (!SESSION_SECRET) {
         console.error('CRITICAL: SESSION_SECRET environment variable is required');

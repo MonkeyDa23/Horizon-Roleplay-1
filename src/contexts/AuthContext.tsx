@@ -131,7 +131,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       options: { 
           scopes: 'identify guilds.members.read', 
           captchaToken,
-          redirectTo: window.location.origin // Ensure we redirect back to clean root
+          redirectTo: import.meta.env.VITE_SITE_URL || window.location.origin
       }
     });
     if (error) {
