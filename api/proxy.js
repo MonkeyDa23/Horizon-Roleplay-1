@@ -79,9 +79,15 @@ export default async function handler(req, res) {
     };
 
     const method = req.method;
-    const body = ['POST', 'PUT', 'PATCH'].includes(method) ? JSON.stringify(req.body) : '';
+    let body = '';
+    
+    if (['POST', 'PUT', 'PATCH'].includes(method)) {
+        // Ensure the body is treated exactly as it will be by the bot (normalized JSON)
+        body = JSON.stringify(req.body);
+    }
 
     if (signatureKey) {
+        // Match the bot's payload + timestamp pattern
         const payload = body + timestamp;
         const signature = crypto.createHmac('sha256', signatureKey)
             .update(payload)

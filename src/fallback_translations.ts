@@ -352,16 +352,4 @@ export const fallbackTranslations: Translations = {
   'no_characters_found': { ar: 'لا توجد شخصيات', en: 'No Characters Found' },
   'play_to_create_character': { ar: 'العب داخل الخادم لإنشاء شخصيتك الأولى!', en: 'Play in the server to create your first character!' },
   'game_characters': { ar: 'شخصيات اللعبة', en: 'Game Characters' },
-  'syncing': { ar: 'جاري المزامنة...', en: 'Syncing...' },
-  'link_now': { ar: 'اربط الآن', en: 'Link Now' },
-  'page_title_about': { ar: 'عن مجتمعنا', en: 'About Our Community' },
-  'about_intro': { ar: 'اكتشف رؤيتنا وأهدافنا وما يجعل مجتمعنا متميزاً عما سواه.', en: 'Learn about our vision and what makes us special.' },
-  'meet_the_team': { ar: 'فريق الإدارة المنظم', en: 'Management Team' },
-  'staff_empty': { ar: 'لا يوجد أعضاء مسجلين في الفريق حالياً.', en: 'No staff members listed yet.' },
-  'our_servers': { ar: 'خدماتنا وخوادمنا المتاحة', en: 'Our Servers' },
-  'server_management': { ar: 'إدارة خوادم المجتمع', en: 'Server Management' },
-  'footer_rights': { ar: 'جميع الحقوق محفوظة © {year} لـ {communityName}', en: 'All rights reserved © {year} to {communityName}' },
-  'page_title_applies': { ar: 'التقديمات المتاحة حالياً', en: 'Current Applications' },
-  'status_taken': { ar: 'قيد المراجعة الفنية', en: 'Under Review' },
-  'status_refused': { ar: 'مرفوض نهائياً', en: 'Refused' }
 };

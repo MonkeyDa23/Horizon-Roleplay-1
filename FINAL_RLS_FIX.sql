@@ -46,7 +46,18 @@ FOR UPDATE USING (auth.uid() = id);
 CREATE POLICY "user_insert_self" ON public.users 
 FOR INSERT WITH CHECK (auth.uid() = id);
 
--- 6. إصلاح مشكلة RPC get_products_with_categories
+-- 7. التأكد من وجود الأعمدة المطلوبة
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='avatar_url') THEN
+    ALTER TABLE public.users ADD COLUMN avatar_url TEXT;
+  END IF;
+  
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='discord_id') THEN
+    ALTER TABLE public.users ADD COLUMN discord_id TEXT;
+  END IF;
+END $$;
+
 CREATE OR REPLACE FUNCTION public.get_products_with_categories()
 RETURNS jsonb AS $$
 DECLARE

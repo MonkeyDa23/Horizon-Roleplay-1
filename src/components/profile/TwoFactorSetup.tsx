@@ -4,7 +4,7 @@
  */
 import React, { useState, useEffect } from 'react';
 import * as otplib from 'otplib';
-const { authenticator } = otplib;
+const authenticator = (otplib as any).authenticator || otplib;
 import QRCode from 'qrcode';
 import { ShieldCheck, ShieldAlert, Copy, RefreshCw, CheckCircle2, AlertCircle, Key, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
