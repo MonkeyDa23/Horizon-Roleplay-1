@@ -41,17 +41,18 @@ const TwoFactorSetup: React.FC = () => {
       
       // Robust keyuri generation
       const userName = user?.discordId || user?.username || 'user';
+      const issuer = 'Nova Roleplay نوفا رول بلاي';
       let otpauth = '';
       
       try {
         if (typeof authenticator.keyuri === 'function') {
-          otpauth = authenticator.keyuri(userName, 'Nova RP', newSecret);
+          otpauth = authenticator.keyuri(userName, issuer, newSecret);
         } else {
           // Manual fallback if bundled incorrectly
-          otpauth = `otpauth://totp/Nova%20RP:${encodeURIComponent(userName)}?secret=${newSecret}&issuer=Nova%20RP`;
+          otpauth = `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(userName)}?secret=${newSecret}&issuer=${encodeURIComponent(issuer)}`;
         }
       } catch (e) {
-        otpauth = `otpauth://totp/Nova%20RP:${encodeURIComponent(userName)}?secret=${newSecret}&issuer=Nova%20RP`;
+        otpauth = `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(userName)}?secret=${newSecret}&issuer=${encodeURIComponent(issuer)}`;
       }
       
       const qr = await QRCode.toDataURL(otpauth);
@@ -70,7 +71,14 @@ const TwoFactorSetup: React.FC = () => {
     setError(null);
     setLoading(true);
     try {
-      const isValid = authenticator.check(verificationCode, secret);
+      // Robust check/verify call to handle different export formats in production
+      const checkFn = authenticator.check || (authenticator as any).verify || (authenticator as any).default?.check;
+      
+      if (typeof checkFn !== 'function') {
+        throw new Error('Authenticator check function not found');
+      }
+
+      const isValid = checkFn(verificationCode, secret);
       if (!isValid) {
         setError(t('2fa_invalid_code') || 'رمز غير صحيح');
         return;
