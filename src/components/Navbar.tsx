@@ -68,7 +68,6 @@ const Navbar: React.FC = () => {
     { to: '/store', text: t('store') },
     { to: '/rules', text: t('rules') },
     { to: '/applies', text: t('applies') },
-    { to: '/link-account', text: t('mta_account') },
   ];
   
   const closeAllMenus = () => {
@@ -80,25 +79,23 @@ const Navbar: React.FC = () => {
 
   return (
     <>
-      <header className="fixed top-8 z-[60] left-1/2 -translate-x-1/2 w-full max-w-7xl px-6 animate-fade-in-up" dir={dir}>
-        <div className="bg-white/[0.03] border border-white/10 backdrop-blur-2xl rounded-[40px] px-8 py-4 shadow-2xl relative overflow-hidden group/nav">
-            <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent group-hover/nav:via-white/30 transition-all duration-700"></div>
-            
-            <div className="flex justify-between items-center relative z-10">
+      <header className="fixed top-0 left-0 z-[60] w-full animate-fade-in-up" dir={dir}>
+        <div className="bg-brand-dark/80 border-b border-white/5 backdrop-blur-3xl px-6 py-4 relative shadow-2xl">
+            <div className="max-w-7xl mx-auto flex justify-between items-center relative z-10">
               <Link to="/" className="flex items-center gap-4 group/logo">
                 <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center group-hover/logo:scale-110 transition-all duration-500">
                     <img src={branding.logoUrl} alt={branding.siteName} className="h-8 w-8 object-contain" />
                 </div>
-                <h1 className="text-2xl font-black text-white tracking-tighter hidden md:block">{branding.siteName}</h1>
+                <h1 className="text-xl md:text-2xl font-black text-white tracking-tighter truncate max-w-[150px] sm:max-w-xs">{branding.siteName}</h1>
               </Link>
               
-              <div className="hidden lg:flex items-center gap-10">
+              <div className="hidden lg:flex items-center gap-8 xl:gap-12">
                 {navLinks.map((link) => (
                     <NavLink key={link.to} to={link.to}>{link.text}</NavLink>
                 ))}
               </div>
               
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
                   <button
                     onClick={() => setCartOpen(true)}
                     className="relative w-12 h-12 flex items-center justify-center rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all group"
@@ -116,10 +113,10 @@ const Navbar: React.FC = () => {
                   <button
                     onClick={() => setCurrencyDropdownOpen(!currencyDropdownOpen)}
                     onBlur={() => setTimeout(() => setCurrencyDropdownOpen(false), 200)}
-                    className="h-12 px-6 flex items-center gap-3 bg-white/5 border border-white/5 rounded-2xl text-white font-black text-xs hover:bg-white/10 transition-all"
+                    className="h-12 px-5 flex items-center gap-2 bg-white/5 border border-white/5 rounded-2xl text-white font-black text-xs hover:bg-white/10 transition-all cursor-pointer"
                   >
                     <Coins size={18} style={{ color: branding.primaryColor }} />
-                    <span className="hidden sm:inline lowercase opacity-60 tracking-widest">{currency}</span>
+                    <span className="hidden sm:inline bg-transparent opacity-80 tracking-widest uppercase">{currency}</span>
                     <ChevronDown size={14} className={`opacity-40 transition-transform duration-500 ${currencyDropdownOpen ? 'rotate-180' : ''}`} />
                   </button>
                   {currencyDropdownOpen && (
@@ -131,7 +128,7 @@ const Navbar: React.FC = () => {
                           className={`flex items-center justify-between w-full text-start px-5 py-3 text-sm font-black rounded-2xl transition-all ${currency === cur ? 'text-brand-dark' : 'text-text-secondary hover:bg-white/5 hover:text-white'}`}
                           style={{ backgroundColor: currency === cur ? branding.primaryColor : undefined }}
                         >
-                          <span>{cur}</span>
+                          <span>{t(`currency_${cur.toLowerCase()}` as any) || cur}</span>
                           {currency === cur && <CheckCircle size={14} />}
                         </button>
                       ))}
@@ -143,9 +140,11 @@ const Navbar: React.FC = () => {
                   <button
                     onClick={() => setLangDropdownOpen(!langDropdownOpen)}
                     onBlur={() => setTimeout(() => setLangDropdownOpen(false), 200)}
-                    className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all font-black"
+                    className="h-12 px-5 flex items-center gap-2 bg-white/5 border border-white/5 rounded-2xl text-white font-black text-xs hover:bg-white/10 transition-all cursor-pointer"
                   >
-                    <Globe size={18} className="text-text-secondary" />
+                    <Globe size={18} style={{ color: branding.primaryColor }} />
+                    <span className="hidden sm:inline opacity-80 tracking-widest uppercase">{language.toUpperCase()}</span>
+                    <ChevronDown size={14} className={`opacity-40 transition-transform duration-500 ${langDropdownOpen ? 'rotate-180' : ''}`} />
                   </button>
                   {langDropdownOpen && (
                     <div className="absolute top-full mt-4 right-0 bg-brand-dark border border-white/10 p-3 w-44 rounded-[32px] animate-fade-in-up origin-top shadow-2xl">
@@ -175,7 +174,6 @@ const Navbar: React.FC = () => {
                     {userDropdownOpen && (
                        <div className="absolute top-full mt-4 right-0 bg-brand-dark border border-white/10 p-3 w-64 rounded-[40px] animate-fade-in-up origin-top-right shadow-2xl">
                          <UserMenuLink to="/profile" icon={User} onClick={closeAllMenus}>{t('my_profile')}</UserMenuLink>
-                         <UserMenuLink to="/link-account" icon={Link2} onClick={closeAllMenus}>{t('link_account').title}</UserMenuLink>
                          <UserMenuLink to="/my-applications" icon={FileText} onClick={closeAllMenus}>{t('my_applications')}</UserMenuLink>
                          {hasPermission('admin_panel') && (
                             <UserMenuLink to="/admin" icon={UserCog} onClick={closeAllMenus}>{t('admin_panel')}</UserMenuLink>

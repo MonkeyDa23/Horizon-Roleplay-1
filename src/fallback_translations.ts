@@ -345,4 +345,8 @@ export const fallbackTranslations: Translations = {
   'admin_staff': {ar: 'الإدارة', en: 'Staff'},
   'admin_translations': {ar: 'الترجمات', en: 'Translations'},
   'admin_settings': {ar: 'الإعدادات', en: 'Settings'},
+  'currency_usd': { ar: 'دولار أمريكي', en: 'USD' },
+  'currency_jod': { ar: 'دينار أردني', en: 'JOD' },
+  'currency_sar': { ar: 'ريال سعودي', en: 'SAR' },
+  'currency_egp': { ar: 'جنيه مصري', en: 'EGP' }
 };

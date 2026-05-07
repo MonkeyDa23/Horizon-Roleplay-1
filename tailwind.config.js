@@ -7,7 +7,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Poppins', 'sans-serif'],
+        sans: ['Noto Kufi Arabic', 'Cairo', 'Poppins', 'sans-serif'],
       },
       colors: {
         'primary-blue': '#00A9FF',

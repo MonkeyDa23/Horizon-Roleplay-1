@@ -143,7 +143,7 @@ const AppContent: React.FC = () => {
       <TwoFactorModal />
       <Navbar />
       {permissionWarning && <PermissionWarningBanner message={permissionWarning} />}
-      <main className="flex-grow">
+      <main className="flex-grow pt-24">
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/store" element={<StorePage />} />

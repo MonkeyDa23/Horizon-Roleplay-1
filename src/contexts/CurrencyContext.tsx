@@ -15,7 +15,7 @@ const EXCHANGE_RATES: Record<Currency, number> = {
   USD: 1,
   JOD: 0.71,
   SAR: 3.75,
-  EGP: 30.90,
+  EGP: 48.0,
 };
 
 const SYMBOLS: Record<Currency, string> = {
