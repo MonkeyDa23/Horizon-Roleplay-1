@@ -79,18 +79,23 @@ export default async function handler(req, res) {
     };
 
     const method = req.method;
-    let body = '';
+    let body = null;
     
-    if (['POST', 'PUT', 'PATCH'].includes(method)) {
-        // Ensure the body is treated exactly as it will be by the bot (normalized JSON)
+    if (['POST', 'PUT', 'PATCH'].includes(method) && req.body) {
+        // Use a consistent stringification
         body = JSON.stringify(req.body);
     }
 
     if (signatureKey) {
-        // Match the bot's payload + timestamp pattern
-        const payload = body + timestamp;
+        const timestamp = Date.now().toString();
+        headers['x-timestamp'] = timestamp;
+        
+        // Match the bot's signature logic exactly
+        // Bot: typeof req.body === 'string' ? req.body : JSON.stringify(req.body)
+        // Since we are sending 'body' which is JSON.stringify(req.body), it matches.
+        const payload = body || JSON.stringify({});
         const signature = crypto.createHmac('sha256', signatureKey)
-            .update(payload)
+            .update(payload + timestamp)
             .digest('hex');
         headers['x-signature'] = signature;
     }

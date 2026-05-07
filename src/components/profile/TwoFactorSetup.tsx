@@ -3,8 +3,9 @@
  * Two-Factor Authentication Setup Component
  */
 import React, { useState, useEffect } from 'react';
-import * as otplib from 'otplib';
-const authenticator = (otplib as any).authenticator || otplib;
+import * as otplibNamespace from 'otplib';
+const otplib = otplibNamespace as any;
+const authenticator = otplib.authenticator || (otplib.default && otplib.default.authenticator) || otplib.default || otplib;
 import QRCode from 'qrcode';
 import { ShieldCheck, ShieldAlert, Copy, RefreshCw, CheckCircle2, AlertCircle, Key, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
