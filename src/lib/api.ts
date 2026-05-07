@@ -165,6 +165,7 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
 
   const finalUser: User = {
       id: session.user.id,
+      email: existingProfile?.email || session.user.email || `${session.user.id}@discord.nova`,
       ...discordProfile,
       permissions: Array.from(userPermissions),
       is_banned: existingProfile?.is_banned ?? false,
@@ -182,10 +183,11 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
   try {
     const upsertData = {
         id: finalUser.id, 
+        email: finalUser.email || `${finalUser.id}@discord.nova`,
         discord_id: finalUser.discordId, 
         username: finalUser.username, 
         avatar_url: finalUser.avatar,
-        roles: finalUser.roles, 
+        roles: finalUser.roles || [], 
         highest_role: finalUser.highestRole, 
         mta_serial: finalUser.mta_serial,
         mta_name: finalUser.mta_name,

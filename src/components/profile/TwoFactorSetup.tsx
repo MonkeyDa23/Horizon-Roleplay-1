@@ -38,7 +38,22 @@ const TwoFactorSetup: React.FC = () => {
     setError(null);
     try {
       const newSecret = authenticator.generateSecret();
-      const otpauth = authenticator.keyuri(user?.discordId || 'user', 'Nova RP', newSecret);
+      
+      // Robust keyuri generation
+      const userName = user?.discordId || user?.username || 'user';
+      let otpauth = '';
+      
+      try {
+        if (typeof authenticator.keyuri === 'function') {
+          otpauth = authenticator.keyuri(userName, 'Nova RP', newSecret);
+        } else {
+          // Manual fallback if bundled incorrectly
+          otpauth = `otpauth://totp/Nova%20RP:${encodeURIComponent(userName)}?secret=${newSecret}&issuer=Nova%20RP`;
+        }
+      } catch (e) {
+        otpauth = `otpauth://totp/Nova%20RP:${encodeURIComponent(userName)}?secret=${newSecret}&issuer=Nova%20RP`;
+      }
+      
       const qr = await QRCode.toDataURL(otpauth);
       setSecret(newSecret);
       setQrCodeUrl(qr);
