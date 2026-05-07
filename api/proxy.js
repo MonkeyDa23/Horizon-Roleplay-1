@@ -87,12 +87,6 @@ export default async function handler(req, res) {
     }
 
     if (signatureKey) {
-        const timestamp = Date.now().toString();
-        headers['x-timestamp'] = timestamp;
-        
-        // Match the bot's signature logic exactly
-        // Bot: typeof req.body === 'string' ? req.body : JSON.stringify(req.body)
-        // Since we are sending 'body' which is JSON.stringify(req.body), it matches.
         const payload = body || JSON.stringify({});
         const signature = crypto.createHmac('sha256', signatureKey)
             .update(payload + timestamp)

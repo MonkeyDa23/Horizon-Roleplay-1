@@ -20,8 +20,8 @@
   /* Remove letter-spacing for Arabic text and add specific line-height */
   [lang="ar"], .rtl, [dir="rtl"] {
     letter-spacing: 0 !important;
-    word-spacing: 0.1em;
-    line-height: 1.6 !important;
+    word-spacing: 0.05em;
+    line-height: 1.5 !important;
   }
   
   /* Responsive Arabic adjustments */
@@ -29,16 +29,17 @@
     line-height: 1.2 !important;
     padding-bottom: 0.1rem;
     margin-bottom: 0.5rem;
+    font-weight: 800;
   }
 
-  [lang="ar"] h1 { font-size: 2.25rem !important; }
-  [lang="ar"] h2 { font-size: 1.85rem !important; }
-  [lang="ar"] h3 { font-size: 1.5rem !important; }
+  [lang="ar"] h1 { font-size: 2.1rem !important; }
+  [lang="ar"] h2 { font-size: 1.7rem !important; }
+  [lang="ar"] h3 { font-size: 1.4rem !important; }
 
   [lang="ar"] p {
     font-size: 0.95rem;
     font-weight: 400;
-    line-height: 1.7 !important;
+    line-height: 1.6 !important;
   }
 
   @media (min-width: 768px) {
