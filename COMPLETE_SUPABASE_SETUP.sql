@@ -18,9 +18,14 @@ CREATE TABLE IF NOT EXISTS public.users (
   discord_id TEXT,
   is_banned BOOLEAN DEFAULT FALSE,
   ban_reason TEXT,
+  balance INTEGER DEFAULT 0,
   ban_expires_at TIMESTAMP WITH TIME ZONE,
   role TEXT DEFAULT 'user',
   mta_serial TEXT,
+  mta_name TEXT,
+  mta_linked_at TIMESTAMP WITH TIME ZONE,
+  two_factor_enabled BOOLEAN DEFAULT FALSE,
+  last_synced_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -92,10 +97,13 @@ CREATE TABLE IF NOT EXISTS public.quiz_submissions (
 -- ==========================================
 CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN AS $$
+DECLARE
+  current_role TEXT;
 BEGIN
-  RETURN EXISTS (SELECT 1 FROM public.users WHERE id = auth.uid() AND (role = 'admin' OR role = 'super_admin'));
+  SELECT role INTO current_role FROM public.users WHERE id = auth.uid();
+  RETURN (current_role = 'admin' OR current_role = 'super_admin');
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.config ENABLE ROW LEVEL SECURITY;

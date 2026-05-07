@@ -8,18 +8,44 @@
   body {
     @apply bg-background-dark text-text-primary;
     overflow-x: hidden;
+    font-family: 'Cairo', 'Noto Kufi Arabic', 'Poppins', sans-serif;
+    line-height: 1.6;
+  }
+
+  /* RTL Support */
+  [dir="rtl"] body {
+    text-align: right;
+  }
+
+  /* Remove letter-spacing for Arabic text which breaks it */
+  [lang="ar"], .rtl, [dir="rtl"] {
+    letter-spacing: normal !important;
+    word-spacing: 0.1em;
   }
 }
 
 @layer components {
   /* The core of the new "Vixel Fusion" design system */
   .glass-panel {
-    @apply bg-background-light/70 backdrop-blur-xl border border-border-color rounded-2xl shadow-2xl shadow-black/40 transition-all duration-300;
+    @apply bg-background-light/70 backdrop-blur-xl border border-border-color rounded-2xl shadow-2xl shadow-black/40 transition-all duration-300 p-6;
+  }
+
+  /* Improved container with better spacing */
+  .container-custom {
+    @apply max-w-7xl mx-auto px-6 md:px-12 py-12 md:py-24 space-y-12 md:space-y-24;
   }
 
   /* FIX: Improved input/textarea visibility for better UX */
   .vixel-input {
-      @apply w-full bg-background-light text-text-primary p-3 rounded-md border border-gray-600 focus:ring-2 focus:ring-primary-blue focus:border-primary-blue transition-colors placeholder:text-text-secondary;
+      @apply w-full bg-background-light text-text-primary p-4 rounded-xl border border-gray-600 focus:ring-2 focus:ring-primary-blue focus:border-primary-blue transition-all placeholder:text-text-secondary outline-none;
+  }
+
+  .nav-link {
+    @apply text-text-secondary hover:text-white font-bold transition-all px-4 py-2 rounded-xl hover:bg-white/5;
+  }
+
+  .nav-link-active {
+    @apply text-white bg-white/10;
   }
 }
 

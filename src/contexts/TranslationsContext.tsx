@@ -53,6 +53,7 @@ export const TranslationsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     translations,
     loading,
     refetch: fetchTranslations,
+    refreshTranslations: fetchTranslations,
   };
 
   return (

@@ -1,16 +1,15 @@
 /**
- * Florida Roleplay - Official Website
+ * Nova Roleplay - Official Website
  * Character Detail Page
- * Copyright (c) 2024 Florida Roleplay. All rights reserved.
  */
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useLocalization } from '../contexts/LocalizationContext';
-import { motion } from 'framer-motion';
+import { useConfig } from '../contexts/ConfigContext';
 import { 
   User, Calendar, Clock, Star, Wallet, Building2, Car, 
-  ChevronLeft, Loader2, Shield, Info, Activity
+  ChevronLeft, Loader2, Shield, Info, Activity,
+  Users, MapPin
 } from 'lucide-react';
 import SEO from '../components/SEO';
 import type { MtaCharacter, MtaVehicle, MtaProperty } from '../types';
@@ -21,12 +20,30 @@ interface CharacterDetails {
   properties: MtaProperty[];
 }
 
-const CharacterDetailPage = () => {
+const InfoItem = ({ icon: Icon, label, value, color = "text-white", brandingColor }: any) => (
+  <div className="flex items-center gap-6 bg-white/[0.02] border border-white/5 p-6 rounded-3xl hover:bg-white/[0.05] transition-all">
+    <div 
+      className="w-14 h-14 rounded-2xl flex items-center justify-center text-text-secondary shadow-inner border border-white/5"
+      style={{ backgroundColor: brandingColor ? `${brandingColor}11` : undefined }}
+    >
+      <Icon size={28} style={{ color: brandingColor }} />
+    </div>
+    <div>
+      <div className="text-sm text-text-secondary font-black uppercase tracking-widest mb-1 opacity-60">{label}</div>
+      <div className={`text-xl font-black ${color}`}>{value}</div>
+    </div>
+  </div>
+);
+
+const CharacterDetailPage: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { t } = useLocalization();
+  const { t, dir } = useLocalization();
+  const { branding } = useConfig();
   const [data, setData] = useState<CharacterDetails | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const communityName = branding.siteName || 'Nova Roleplay';
 
   useEffect(() => {
     const fetchDetails = async () => {
@@ -48,17 +65,24 @@ const CharacterDetailPage = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 size={48} className="text-brand-cyan animate-spin" />
+        <Loader2 size={64} className="animate-spin opacity-20" style={{ color: branding.primaryColor }} />
       </div>
     );
   }
 
   if (!data) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center px-4">
-        <h1 className="text-2xl font-bold text-white mb-4">Character not found</h1>
-        <button onClick={() => navigate(-1)} className="text-brand-cyan flex items-center gap-2">
-          <ChevronLeft size={20} /> Go Back
+      <div className="min-h-screen flex flex-col items-center justify-center px-4 space-y-8">
+        <div className="w-24 h-24 bg-white/5 rounded-[40px] flex items-center justify-center border border-white/10">
+          <User size={48} className="opacity-20 translate-y-1" />
+        </div>
+        <div className="text-center space-y-2">
+          <h1 className="text-4xl font-black text-white">Character Not Found</h1>
+          <p className="text-text-secondary text-lg">الشخصية المطلوبة غير موجودة أو تم حذفها.</p>
+        </div>
+        <button onClick={() => navigate(-1)} className="px-10 py-5 bg-white/5 hover:bg-white/10 text-white rounded-2xl font-black flex items-center gap-3 transition-all border border-white/5 shadow-xl">
+          <ChevronLeft size={24} className={dir === 'rtl' ? 'rotate-180' : ''} /> 
+          {t('go_back') || 'العودة للخلف'}
         </button>
       </div>
     );
@@ -67,112 +91,120 @@ const CharacterDetailPage = () => {
   const { character, vehicles, properties } = data;
 
   return (
-    <div className="min-h-screen pt-24 pb-12 px-4">
-      <SEO title={`${character.name} - Details`} />
+    <div className="min-h-screen pt-32 pb-24 px-6" dir={dir}>
+      <SEO 
+        title={`${character.name} - ${t('character_details') || 'تفاصيل الشخصية'}`} 
+        description={`عرض تفاصيل وإحصائيات شخصية ${character.name} في مجتمع ${communityName}.`}
+      />
       
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-6xl mx-auto space-y-16">
         <button 
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-text-secondary hover:text-brand-cyan transition-colors mb-8 group"
+          className="flex items-center gap-3 text-text-secondary hover:text-white transition-all font-black group text-lg"
         >
-          <ChevronLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-          العودة للملف الشخصي
+          <ChevronLeft size={24} className={`group-hover:-translate-x-2 transition-transform ${dir === 'rtl' ? 'rotate-180 group-hover:translate-x-2' : ''}`} />
+          {t('back_to_profile') || 'العودة للملف الشخصي'}
         </button>
 
         {/* Character Header */}
-        <div className="bg-card-bg border border-border-color rounded-2xl p-8 mb-8 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-brand-cyan/5 blur-[100px] rounded-full -mr-32 -mt-32"></div>
-          <div className="flex flex-col md:flex-row items-center gap-8 relative z-10">
-            <div className="w-24 h-24 bg-brand-cyan/10 rounded-2xl flex items-center justify-center text-brand-cyan font-bold text-4xl border border-brand-cyan/20">
-              {character.name.charAt(0)}
-            </div>
-            <div className="text-center md:text-right flex-1">
-              <h1 className="text-4xl font-bold text-white mb-2">{character.name}</h1>
-              <div className="flex flex-wrap justify-center md:justify-start gap-4">
-                <span className="bg-white/5 px-3 py-1 rounded-full text-sm text-text-secondary border border-white/10">
-                  ID: {character.id}
-                </span>
-                <span className="bg-brand-cyan/10 px-3 py-1 rounded-full text-sm text-brand-cyan border border-brand-cyan/20">
-                  {character.job}
-                </span>
-              </div>
+        <div className="glass-panel p-12 relative overflow-hidden flex flex-col md:flex-row items-center gap-12 border-white/10">
+          <div className="absolute top-0 right-0 w-96 h-96 blur-[120px] rounded-full -mr-48 -mt-48 opacity-20" style={{ backgroundColor: branding.primaryColor }}></div>
+          
+          <div className="w-40 h-40 bg-white/5 rounded-[48px] flex items-center justify-center text-white font-black text-7xl border border-white/10 shadow-2xl relative z-10">
+            {character.name.charAt(0)}
+          </div>
+          
+          <div className="text-center md:text-start flex-1 space-y-4 relative z-10">
+            <h1 className="text-5xl md:text-7xl font-black text-white leading-none">{character.name}</h1>
+            <div className="flex flex-wrap justify-center md:justify-start gap-4">
+              <span className="bg-white/5 px-6 py-2 rounded-2xl text-base font-black text-text-secondary border border-white/5 shadow-inner">
+                ID: {character.id}
+              </span>
+              <span className="px-6 py-2 rounded-2xl text-base font-black border border-white/10 shadow-xl" style={{ backgroundColor: `${branding.primaryColor}22`, color: branding.primaryColor }}>
+                {character.job}
+              </span>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {/* Left Column: General Info & Stats */}
-          <div className="md:col-span-2 space-y-8">
-            {/* General Info */}
-            <section className="bg-card-bg border border-border-color rounded-2xl p-6">
-              <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
-                <Info className="text-brand-cyan" />
-                المعلومات العامة
-              </h3>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+          {/* Main Stats */}
+          <div className="lg:col-span-2 space-y-12">
+            <section className="space-y-10">
+              <div className="flex items-center gap-6">
+                <div className="w-14 h-14 bg-white/5 rounded-2xl flex items-center justify-center text-white shadow-inner border border-white/5">
+                  <Info size={30} style={{ color: branding.primaryColor }} />
+                </div>
+                <h3 className="text-3xl font-black text-white">{t('personal_info') || 'المعلومات الشخصية'}</h3>
+              </div>
+              
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <InfoItem icon={Shield} label="رقم الشخصية" value={character.id} />
-                <InfoItem icon={User} label="الجنس" value={character.gender} />
-                <InfoItem icon={Calendar} label="تاريخ الميلاد" value={character.dob} />
-                <InfoItem icon={Activity} label="العمر" value={`${character.age} سنة`} />
-                <InfoItem icon={Star} label="الاسم الكامل" value={character.name} />
-                <InfoItem icon={Star} label="الجنسية" value={character.nationality} />
+                <InfoItem icon={Shield} label="رقم الهوية" value={character.id} brandingColor={branding.primaryColor} />
+                <InfoItem icon={User} label="الجنس" value={character.gender === 'Male' ? 'ذكر' : 'أنثى'} brandingColor={branding.primaryColor} />
+                <InfoItem icon={Calendar} label="تاريخ الميلاد" value={character.dob} brandingColor={branding.primaryColor} />
+                <InfoItem icon={Activity} label="العمر" value={`${character.age} سنة`} brandingColor={branding.primaryColor} />
+                <InfoItem icon={Star} label="الجنسية" value={character.nationality} brandingColor={branding.primaryColor} />
+                <InfoItem icon={MapPin} label="مكان الإقامة" value="لوس سانتوس" brandingColor={branding.primaryColor} />
               </div>
             </section>
 
-            {/* Game Stats */}
-            <section className="bg-card-bg border border-border-color rounded-2xl p-6">
-              <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
-                <Activity className="text-brand-cyan" />
-                إحصائيات اللعبة
-              </h3>
+            <section className="space-y-10">
+              <div className="flex items-center gap-6">
+                <div className="w-14 h-14 bg-white/5 rounded-2xl flex items-center justify-center text-white shadow-inner border border-white/5">
+                  <Activity size={30} style={{ color: branding.primaryColor }} />
+                </div>
+                <h3 className="text-3xl font-black text-white">{t('game_stats') || 'إحصائيات الشخصية'}</h3>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <InfoItem icon={Clock} label="وقت اللعب" value={`${character.playtime_hours} ساعة`} />
-                <InfoItem icon={Star} label="المستوى" value={character.level} />
-                <InfoItem icon={Shield} label="الوظيفة" value={character.job} />
-                <InfoItem icon={Users} label="القطاع (عصابة/فاكشن)" value={character.sector || "لا يوجد"} />
-                <InfoItem icon={Wallet} label="الأموال في الحقيبة" value={`$${character.cash.toLocaleString()}`} color="text-green-400" />
-                <InfoItem icon={Building2} label="الأموال في البنك" value={`$${character.bank.toLocaleString()}`} color="text-brand-cyan" />
+                <InfoItem icon={Clock} label="وقت اللعب" value={`${character.playtime_hours} ساعة`} brandingColor={branding.primaryColor} />
+                <InfoItem icon={Star} label="المستوى" value={character.level} brandingColor={branding.primaryColor} />
+                <InfoItem icon={Shield} label="الرتبة" value={character.job} brandingColor={branding.primaryColor} />
+                <InfoItem icon={Users} label="المنظمة (الفاكشن)" value={character.sector || "مواطن"} brandingColor={branding.primaryColor} />
+                <InfoItem icon={Wallet} label="الكاش" value={`$${character.cash.toLocaleString()}`} color="text-green-400" brandingColor={branding.primaryColor} />
+                <InfoItem icon={Building2} label="البنك" value={`$${character.bank.toLocaleString()}`} color="text-brand-cyan" brandingColor={branding.primaryColor} />
               </div>
             </section>
           </div>
 
-          {/* Right Column: Assets */}
-          <div className="space-y-8">
-            {/* Vehicles */}
-            <section className="bg-card-bg border border-border-color rounded-2xl p-6">
-              <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <Car size={20} className="text-brand-cyan" />
-                المركبات ({vehicles.length})
+          {/* ASSETS */}
+          <div className="space-y-12">
+            <section className="glass-panel p-10 space-y-8 border-white/5">
+              <h3 className="text-2xl font-black text-white flex items-center gap-4">
+                <Car size={32} style={{ color: branding.primaryColor }} />
+                {t('vehicles') || 'المركبات'} ({vehicles.length})
               </h3>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {vehicles.length > 0 ? vehicles.map(v => (
-                  <div key={v.id} className="bg-white/5 p-3 rounded-xl border border-white/10 flex justify-between items-center">
+                  <div key={v.id} className="bg-white/5 p-6 rounded-[32px] border border-white/5 flex justify-between items-center group hover:bg-white/10 transition-all">
                     <div>
-                      <div className="text-white font-medium">{v.model}</div>
-                      <div className="text-xs text-text-secondary">Plate: {v.plate}</div>
+                      <div className="text-white font-black text-lg mb-1">{v.model}</div>
+                      <div className="text-[10px] font-black uppercase text-text-secondary tracking-widest">Plate: {v.plate}</div>
                     </div>
-                    <div className="text-xs text-brand-cyan font-mono">#{v.id}</div>
+                    <div className="text-xs font-black px-3 py-1 rounded-lg bg-black/40 text-white/40">#{v.id}</div>
                   </div>
                 )) : (
-                  <div className="text-sm text-text-secondary italic">لا توجد مركبات مسجلة</div>
+                  <div className="text-base text-text-secondary italic text-center py-8 bg-white/5 rounded-[32px] border border-dashed border-white/10">لا توجد مركبات مسجلة</div>
                 )}
               </div>
             </section>
 
-            {/* Properties */}
-            <section className="bg-card-bg border border-border-color rounded-2xl p-6">
-              <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
-                <Building2 size={20} className="text-brand-cyan" />
-                العقارات ({properties.length})
+            <section className="glass-panel p-10 space-y-8 border-white/5">
+              <h3 className="text-2xl font-black text-white flex items-center gap-4">
+                <Building2 size={32} style={{ color: branding.primaryColor }} />
+                {t('properties') || 'العقارات'} ({properties.length})
               </h3>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {properties.length > 0 ? properties.map(p => (
-                  <div key={p.id} className="bg-white/5 p-3 rounded-xl border border-white/10">
-                    <div className="text-white font-medium">{p.name}</div>
-                    <div className="text-xs text-text-secondary">{p.address}</div>
+                  <div key={p.id} className="bg-white/5 p-6 rounded-[32px] border border-white/5 flex flex-col gap-1 group hover:bg-white/10 transition-all">
+                    <div className="text-white font-black text-lg">{p.name}</div>
+                    <div className="text-xs font-black text-text-secondary flex items-center gap-2">
+                       <MapPin size={12} style={{ color: branding.primaryColor }} />
+                       {p.address}
+                    </div>
                   </div>
                 )) : (
-                  <div className="text-sm text-text-secondary italic">لا توجد عقارات مسجلة</div>
+                  <div className="text-base text-text-secondary italic text-center py-8 bg-white/5 rounded-[32px] border border-dashed border-white/10">لا توجد عقارات مسجلة</div>
                 )}
               </div>
             </section>
@@ -182,17 +214,5 @@ const CharacterDetailPage = () => {
     </div>
   );
 };
-
-const InfoItem = ({ icon: Icon, label, value, color = "text-white" }: any) => (
-  <div className="flex items-center gap-4">
-    <div className="w-10 h-10 bg-white/5 rounded-lg flex items-center justify-center text-text-secondary">
-      <Icon size={20} />
-    </div>
-    <div>
-      <div className="text-xs text-text-secondary mb-0.5">{label}</div>
-      <div className={`font-bold ${color}`}>{value}</div>
-    </div>
-  </div>
-);
 
 export default CharacterDetailPage;
