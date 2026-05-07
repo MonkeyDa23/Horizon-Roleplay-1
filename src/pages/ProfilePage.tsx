@@ -8,7 +8,7 @@ import {
   User as UserIcon, Loader2, FileText, Shield, RefreshCw,
   Gamepad2, ChevronRight, Star, Link2, ShieldCheck,
   Wallet, Landmark, Trophy, History, X,
-  Briefcase, Car, Home
+  Briefcase, Car, Home, Users
 } from 'lucide-react';
 import { useConfig } from '../contexts/ConfigContext';
 import SEO from '../components/SEO';
@@ -384,7 +384,7 @@ const ProfilePage: React.FC = () => {
               className={`flex-1 py-4 px-8 rounded-[40px] font-black text-sm transition-all flex items-center justify-center gap-3 ${activeTab === 'mta' ? 'bg-white text-brand-dark shadow-xl' : 'text-text-secondary hover:text-white hover:bg-white/5'}`}
             >
               <Gamepad2 size={20} />
-              {t('mta_profile')}
+              {t('game_characters')}
             </button>
           </div>
 
@@ -483,19 +483,12 @@ const ProfilePage: React.FC = () => {
                 {!user?.mta_serial ? (
                   <div className="bg-white/[0.03] border border-white/10 rounded-[48px] p-16 text-center space-y-8">
                     <div className="w-24 h-24 bg-white/5 rounded-[40px] flex items-center justify-center mx-auto border border-white/10 group">
-                      <Link2 size={48} className="text-text-secondary group-hover:scale-110 transition-transform" />
+                      <Gamepad2 size={48} className="text-text-secondary group-hover:scale-110 transition-transform" />
                     </div>
                     <div className="max-w-2xl mx-auto space-y-4">
-                      <h2 className="text-4xl font-black text-white tracking-tight">{t('link_mta_title')}</h2>
-                      <p className="text-text-secondary text-lg leading-relaxed">{t('link_mta_description')}</p>
+                      <h2 className="text-4xl font-black text-white tracking-tight">{t('no_characters_found')}</h2>
+                      <p className="text-text-secondary text-lg leading-relaxed">{t('play_to_create_character')}</p>
                     </div>
-                    <button 
-                      onClick={() => navigate('/link-account')}
-                      className="px-12 py-5 bg-white text-brand-dark rounded-3xl font-black text-lg hover:scale-105 active:scale-95 transition-all shadow-xl flex items-center gap-3 mx-auto"
-                    >
-                      <Gamepad2 size={24} />
-                      {t('link_now')}
-                    </button>
                   </div>
                 ) : mtaAccountLoading ? (
                   <div className="bg-white/[0.03] border border-white/10 rounded-[48px] p-24 text-center">

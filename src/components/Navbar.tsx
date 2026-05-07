@@ -65,6 +65,7 @@ const Navbar: React.FC = () => {
 
   const navLinks = [
     { to: '/', text: t('home') },
+    { to: '/about', text: t('about_us') },
     { to: '/store', text: t('store') },
     { to: '/rules', text: t('rules') },
     { to: '/applies', text: t('applies') },

@@ -29,7 +29,6 @@ import MyApplicationsPage from './pages/MyApplicationsPage';
 import ProfilePage from './pages/ProfilePage';
 import CharacterDetailPage from './pages/CharacterDetailPage';
 import HealthCheckPage from './pages/HealthCheckPage';
-import LinkAccountPage from './pages/LinkAccountPage';
 import AdminPage from './pages/AdminPage';
 import BannedPage from './pages/BannedPage';
 import LoginErrorPage from './pages/LoginErrorPage';
@@ -155,7 +154,6 @@ const AppContent: React.FC = () => {
           <Route path="/my-applications" element={<ProtectedRoute><MyApplicationsPage /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
           <Route path="/character/:id" element={<ProtectedRoute><CharacterDetailPage /></ProtectedRoute>} />
-          <Route path="/link-account" element={<ProtectedRoute><LinkAccountPage /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute permission="admin_panel"><AdminGate><AdminPage /></AdminGate></ProtectedRoute>} />
           <Route path="/admin/submissions/:submissionId" element={<ProtectedRoute permission="admin_submissions"><AdminGate><SubmissionDetailPage /></AdminGate></ProtectedRoute>} />
           <Route path="/health-check" element={<ProtectedRoute permission="_super_admin"><HealthCheckPage /></ProtectedRoute>} />

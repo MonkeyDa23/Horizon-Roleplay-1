@@ -348,5 +348,15 @@ export const fallbackTranslations: Translations = {
   'currency_usd': { ar: 'دولار أمريكي', en: 'USD' },
   'currency_jod': { ar: 'دينار أردني', en: 'JOD' },
   'currency_sar': { ar: 'ريال سعودي', en: 'SAR' },
-  'currency_egp': { ar: 'جنيه مصري', en: 'EGP' }
+  'currency_egp': { ar: 'جنيه مصري', en: 'EGP' },
+  'no_characters_found': { ar: 'لا توجد شخصيات', en: 'No Characters Found' },
+  'play_to_create_character': { ar: 'العب داخل الخادم لإنشاء شخصيتك الأولى!', en: 'Play in the server to create your first character!' },
+  'game_characters': { ar: 'شخصيات اللعبة', en: 'Game Characters' },
+  'syncing': { ar: 'جاري المزامنة...', en: 'Syncing...' },
+  'link_now': { ar: 'ربط الان', en: 'Link Now' },
+  'page_title_about': { ar: 'معلومات عننا', en: 'About Us' },
+  'about_intro': { ar: 'تعرف علينا اكثر وكيف يشتغل السيرفر', en: 'Get to know us better and how the server works.' },
+  'meet_the_team': { ar: 'فريق العمل', en: 'Meet The Team' },
+  'our_servers': { ar: 'خوادمنا', en: 'Our Servers' },
+  'server_management': { ar: 'إدارة الخادم', en: 'Server Management' }
 };
