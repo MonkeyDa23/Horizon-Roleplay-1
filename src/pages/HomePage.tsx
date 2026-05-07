@@ -39,23 +39,23 @@ const HomePage: React.FC = () => {
           <div className="absolute inset-0 bg-gradient-to-t from-brand-dark via-brand-dark/80 to-transparent"></div>
         </div>
 
-        <div className="container-custom relative z-20 text-center space-y-12 animate-fade-in-up">
-          <div className="space-y-6">
+        <div className="container-custom relative z-20 text-center space-y-8 md:space-y-12 animate-fade-in-up px-4 md:px-8">
+          <div className="space-y-4 md:space-y-6">
             <h1 
-              className="text-6xl md:text-9xl font-black text-white leading-tight tracking-tighter"
+              className="text-4xl sm:text-6xl md:text-8xl lg:text-9xl font-black text-white leading-tight tracking-tighter"
               style={{ textShadow: `0 0 50px ${branding.primaryColor}44, 0 20px 40px rgba(0,0,0,0.5)` }}
             >
               {branding.heroTitle || 'NOVA ROLEPLAY'}
             </h1>
-            <p className="text-xl md:text-3xl text-text-secondary max-w-4xl mx-auto font-medium leading-relaxed opacity-80">
+            <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-text-secondary max-w-4xl mx-auto font-medium leading-relaxed opacity-80 px-4">
               {branding.heroSubtitle || 'نحن هنا لنقدم لك التجربة الأمثل في عالم الـ رول بلاي.'}
             </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 md:gap-6 px-4">
             <button 
               onClick={() => setIsModalOpen(true)}
-              className="px-14 py-6 rounded-[32px] text-2xl font-black transition-all hover:scale-105 active:scale-95 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.5)] flex items-center gap-4 group"
+              className="w-full sm:w-auto px-8 md:px-14 py-4 md:py-6 rounded-[24px] md:rounded-[32px] text-xl md:text-2xl font-black transition-all hover:scale-105 active:scale-95 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.5)] flex items-center justify-center gap-4 group"
               style={{ backgroundColor: branding.primaryColor, color: '#000' }}
             >
               {t('join_us') || 'انضم إلينا الآن'}
@@ -65,7 +65,7 @@ const HomePage: React.FC = () => {
               href={config.DISCORD_INVITE_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="px-14 py-6 rounded-[32px] text-2xl font-black bg-white/5 text-white border border-white/10 hover:bg-white/10 transition-all backdrop-blur-xl flex items-center gap-4 group"
+              className="w-full sm:w-auto px-8 md:px-14 py-4 md:py-6 rounded-[24px] md:rounded-[32px] text-xl md:text-2xl font-black bg-white/5 text-white border border-white/10 hover:bg-white/10 transition-all backdrop-blur-xl flex items-center justify-center gap-4 group"
             >
               المتجر
               <ChevronRight className={`group-hover:translate-x-2 transition-transform ${dir === 'rtl' ? 'rotate-180 group-hover:-translate-x-2' : ''}`} />

@@ -9,7 +9,7 @@
     @apply bg-background-dark text-text-primary;
     overflow-x: hidden;
     font-family: 'Cairo', 'Noto Kufi Arabic', 'Poppins', sans-serif;
-    line-height: 1.6;
+    line-height: 1.8;
   }
 
   /* RTL Support */
@@ -17,10 +17,11 @@
     text-align: right;
   }
 
-  /* Remove letter-spacing for Arabic text which breaks it */
+  /* Remove letter-spacing for Arabic text and add specific line-height */
   [lang="ar"], .rtl, [dir="rtl"] {
     letter-spacing: normal !important;
     word-spacing: 0.1em;
+    line-height: 1.95 !important;
   }
 }
 
