@@ -506,9 +506,6 @@ const ProfilePage: React.FC = () => {
                         {t('play_to_create_character') || 'يجب عليك الربط من داخل اللعبة لتتمكن من رؤية شخصياتك هنا.'}
                       </p>
                       <div className="pt-6">
-                        <Link to="/about" className="inline-flex py-4 px-10 bg-white text-brand-dark rounded-2xl font-black text-lg shadow-2xl hover:scale-105 transition-all">
-                          {t('how_to_fix') || 'كيفية الربط'}
-                        </Link>
                       </div>
                     </div>
                   </div>
