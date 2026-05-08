@@ -146,8 +146,8 @@ const TwoFactorSetup: React.FC = () => {
   return (
     <div className="bg-white/[0.02] border border-white/5 rounded-3xl p-8 overflow-hidden relative" dir={isArabic ? 'rtl' : 'ltr'}>
       <div className="flex items-center gap-4 mb-8">
-        <div className={`p-3 rounded-2xl ${user?.two_factor_enabled ? 'bg-green-500/10' : 'bg-brand-cyan/10'}`}>
-          {user?.two_factor_enabled ? <ShieldCheck className="text-green-500" size={32} /> : <Lock className="text-brand-cyan" size={32} />}
+        <div className={`p-4 rounded-2xl ${user?.two_factor_enabled ? 'bg-green-500/10' : 'bg-brand-cyan/10'}`}>
+          {user?.two_factor_enabled ? <ShieldCheck className="text-green-500" size={42} /> : <Lock className="text-brand-cyan" size={42} />}
         </div>
         <div>
           <h2 className="text-2xl font-black text-white">{t('2fa_title') || 'الحماية الثنائية'}</h2>
@@ -173,7 +173,7 @@ const TwoFactorSetup: React.FC = () => {
               <div className="space-y-6">
                 <div className="p-8 bg-green-500/5 border border-green-500/10 rounded-[30px] text-center space-y-4">
                   <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto text-green-500">
-                    <ShieldCheck size={48} />
+                    <ShieldCheck size={64} />
                   </div>
                   <div>
                     <div className="text-xl font-black text-white mb-2">
@@ -196,7 +196,7 @@ const TwoFactorSetup: React.FC = () => {
             ) : (
               <div className="text-center py-6 space-y-8">
                 <div className="w-24 h-24 bg-white/5 rounded-[40px] flex items-center justify-center mx-auto border border-white/5 text-white/20">
-                  <Lock size={48} />
+                  <Lock size={64} />
                 </div>
                 <div className="space-y-3">
                   <h3 className="text-xl font-black text-white">{isArabic ? 'قم بتعزيز أمان حسابك' : 'Fortify Your Account'}</h3>

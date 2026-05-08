@@ -12,6 +12,15 @@ export const pool = mysql.createPool({
     queueLimit: 0
 });
 
+import { createClient } from '@supabase/supabase-js';
+if (!process.env.VITE_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.warn('Supabase env vars missing in bot database.ts');
+}
+export const supabase = createClient(
+    process.env.VITE_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+);
+
 export const getBotSettings = async () => {
     // This function is currently not used in the merged bot, but kept for compatibility
     return {};

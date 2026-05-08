@@ -36,7 +36,9 @@ import {
   Briefcase, 
   Car, 
   Home, 
-  Users 
+  Users,
+  Clock,
+  AlertTriangle
 } from 'lucide-react';
 import SEO from '../components/SEO';
 import { motion, AnimatePresence } from 'motion/react';
@@ -463,10 +465,10 @@ const ProfilePage: React.FC = () => {
                               </div>
                               <div>
                                 <h3 className="text-2xl font-black text-white mb-2 group-hover:text-brand-cyan transition-colors">{sub.quiz_title}</h3>
-                                <div className="flex items-center gap-2 text-text-secondary text-sm font-bold opacity-60">
-                                  <Clock size={16} />
-                                  {new Date(sub.submitted_at).toLocaleDateString()}
-                                </div>
+                                  <div className="flex items-center gap-2 text-text-secondary text-sm font-bold opacity-60">
+                                    <Clock size={20} />
+                                    {new Date(sub.submitted_at).toLocaleDateString()}
+                                  </div>
                               </div>
                             </div>
                             <div className="flex items-center gap-8">
@@ -539,7 +541,7 @@ const ProfilePage: React.FC = () => {
                 ) : mtaAccountError ? (
                   <div className="glass-panel p-20 text-center space-y-10 max-w-4xl mx-auto border-red-500/20 bg-red-500/5">
                     <div className="w-24 h-24 bg-red-500/10 rounded-[40px] flex items-center justify-center text-red-500 mx-auto border border-red-500/10">
-                      <Shield size={48} />
+                      <Shield size={64} />
                     </div>
                     <div className="space-y-4">
                       <h3 className="text-3xl font-black text-white">{t('mta_error_title') || 'خطأ في جلب البيانات'}</h3>
@@ -587,9 +589,9 @@ const ProfilePage: React.FC = () => {
                     <div className="space-y-12">
                       <section className="glass-panel p-10 md:p-14 space-y-10 bg-red-500/5 border-red-500/20">
                         <div className="flex items-center gap-6">
-                          <div className="w-16 h-16 bg-red-500/10 rounded-3xl flex items-center justify-center text-red-500 shadow-inner">
-                            <AlertTriangle size={32} />
-                          </div>
+                            <div className="w-16 h-16 bg-red-500/10 rounded-3xl flex items-center justify-center text-red-500 shadow-inner">
+                              <AlertTriangle size={42} />
+                            </div>
                           <h2 className="text-2xl font-black text-white">منطقة خطرة</h2>
                         </div>
                         <p className="text-text-secondary text-lg font-medium leading-relaxed opacity-60">{t('mta_unlink_warning') || 'تحذير: فك الربط سيؤدي إلى فقدان إمكانية الوصول لبياناتك من خلال الموقع حالياً.'}</p>

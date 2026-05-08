@@ -155,7 +155,7 @@ async function startServer() {
           const { data: { user } } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
           if (user) {
             userId = user.id;
-            const { data: profile } = await supabase.from('profiles').select('username').eq('id', user.id).single();
+            const { data: profile } = await supabase.from('users').select('username').eq('id', user.id).single();
             username = profile?.username || user.email || user.id;
           }
         } catch (err) {
@@ -235,12 +235,12 @@ async function startServer() {
       if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
       // Check if requested serial belongs to the user
-      const { data: profile } = await supabase.from('profiles').select('mta_serial').eq('id', user.id).single();
+      const { data: profile } = await supabase.from('users').select('mta_serial').eq('id', user.id).single();
       if (!profile || profile.mta_serial !== req.params.serial) {
         return res.status(403).json({ error: 'Forbidden - Serial Mismatch' });
       }
 
-      const { data, error } = await supabase.from('profiles').select('mta_serial, username').eq('mta_serial', req.params.serial).single();
+      const { data, error } = await supabase.from('users').select('mta_serial, username').eq('mta_serial', req.params.serial).single();
       if (error || !data) return res.json({ linked: false });
       res.json({ linked: true, username: data.username });
     } catch (e) { res.status(500).json({ error: 'Error' }); }

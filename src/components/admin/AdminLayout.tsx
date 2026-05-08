@@ -181,7 +181,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, tabs, activeTab, se
                     boxShadow: activeTab === tab.id ? `0 10px 25px -5px ${branding.primaryColor}33` : 'none'
                   }}
                 >
-                  <tab.icon size={20} className={activeTab === tab.id ? 'text-brand-dark' : 'opacity-40 group-hover:opacity-100'} />
+                  <tab.icon size={24} className={activeTab === tab.id ? 'text-brand-dark' : 'opacity-40 group-hover:opacity-100'} />
                   <span>{t(tab.labelKey)}</span>
                 </button>
               ))}
@@ -193,9 +193,9 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, tabs, activeTab, se
         <main className="flex-1 min-w-0">
           <div className="flex flex-col sm:flex-row items-center gap-6 mb-12">
             {PageIcon && (
-              <div className="w-16 h-16 rounded-[24px] flex items-center justify-center bg-white/5 border border-white/10 shadow-2xl relative">
+              <div className="w-20 h-20 rounded-[28px] flex items-center justify-center bg-white/5 border border-white/10 shadow-2xl relative">
                 <div className="absolute inset-0 blur-xl opacity-20" style={{ backgroundColor: branding.primaryColor }}></div>
-                <PageIcon style={{ color: branding.primaryColor }} size={32} className="relative z-10" />
+                <PageIcon style={{ color: branding.primaryColor }} size={40} className="relative z-10" />
               </div>
             )}
             <h1 className="text-4xl md:text-5xl font-black text-white">{pageTitle}</h1>

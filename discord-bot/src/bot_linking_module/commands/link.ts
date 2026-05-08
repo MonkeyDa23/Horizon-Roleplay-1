@@ -1,6 +1,6 @@
 // This file contains the handler for the /link command.
 import { CommandInteraction, ChannelType, Client } from 'discord.js';
-import { pool } from '../database.js';
+import { pool, supabase } from '../database.js';
 import { logToDiscord } from '../utils.js';
 
 export const handleLinkCommand = async (interaction: CommandInteraction, client: Client) => {
@@ -58,6 +58,23 @@ export const handleLinkCommand = async (interaction: CommandInteraction, client:
 
         await connection.execute('DELETE FROM linking_codes WHERE id = ?', [linkData.id]);
         await connection.commit();
+
+        // --- SUPABASE SYNC ---
+        try {
+            const { error: supabaseError } = await supabase
+                .from('users')
+                .update({
+                    mta_serial: mtaSerial,
+                    mta_linked_at: new Date().toISOString(),
+                    mta_name: (linkData as any).player_name || 'MTA_Player'
+                })
+                .eq('discord_id', user.id);
+            
+            if (supabaseError) console.error('Supabase sync error:', supabaseError);
+        } catch (err) {
+            console.error('Supabase update failed:', err);
+        }
+        // ---------------------
 
         // Send DM to user
         try {

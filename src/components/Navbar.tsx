@@ -24,7 +24,8 @@ import {
   Menu, 
   X, 
   Coins, 
-  CheckCircle 
+  CheckCircle,
+  Shield
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import DiscordLogo from './icons/DiscordLogo';
@@ -159,7 +160,7 @@ const Navbar: React.FC = () => {
                     }}
                     className="h-10 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl flex items-center gap-2 text-[10px] font-black text-white transition-all shadow-inner active:scale-95"
                   >
-                    <Globe size={14} style={{ color: branding.primaryColor }} />
+                    <Globe size={20} style={{ color: branding.primaryColor }} />
                     {language.toUpperCase()}
                   </button>
                   <AnimatePresence>
@@ -198,7 +199,7 @@ const Navbar: React.FC = () => {
                     }}
                     className="h-10 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl flex items-center gap-2 text-[10px] font-black text-white transition-all shadow-inner active:scale-95"
                   >
-                    <Coins size={14} style={{ color: branding.primaryColor }} />
+                    <Coins size={20} style={{ color: branding.primaryColor }} />
                     {currency}
                   </button>
                   <AnimatePresence>
@@ -231,7 +232,7 @@ const Navbar: React.FC = () => {
                 onClick={() => setCartOpen(true)}
                 className="relative w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 active:scale-90 transition-all font-black shadow-inner"
               >
-                <ShoppingCart size={16} className="text-text-secondary" />
+                <ShoppingCart size={20} className="text-text-secondary" />
                 {totalItems > 0 && (
                   <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full font-black text-[8px] text-brand-dark shadow-lg ring-2 ring-brand-dark" style={{ backgroundColor: branding.primaryColor }}>
                     {totalItems}
@@ -261,18 +262,18 @@ const Navbar: React.FC = () => {
                           className={`absolute top-full mt-3 bg-brand-dark border border-white/10 p-2 w-56 rounded-[24px] shadow-2xl z-50 ${isRTL ? 'right-0' : 'left-0'}`}
                         >
                           <Link to="/profile" onClick={closeAllMenus} className="flex items-center gap-3 px-4 py-3 text-xs font-black text-white hover:bg-white/5 rounded-xl transition-all mb-1 group">
-                            <User size={14} className="opacity-40 group-hover:opacity-100 transition-opacity" style={{ color: branding.primaryColor }} /> 
+                            <User size={22} className="opacity-40 group-hover:opacity-100 transition-opacity" style={{ color: branding.primaryColor }} /> 
                             {t('my_profile')}
                           </Link>
                           {hasPermission('admin_panel') && (
                             <Link to="/admin" onClick={closeAllMenus} className="flex items-center gap-3 px-4 py-3 text-xs font-black text-white hover:bg-white/5 rounded-xl transition-all mb-1 group">
-                              <Shield size={14} className="opacity-40 group-hover:opacity-100 transition-opacity" style={{ color: branding.primaryColor }} /> 
+                              <Shield size={22} className="opacity-40 group-hover:opacity-100 transition-opacity" style={{ color: branding.primaryColor }} /> 
                               {t('admin_panel')}
                             </Link>
                           )}
                           <hr className="border-white/5 my-2 mx-4" />
                           <button onClick={logout} className="flex items-center gap-3 px-4 py-3 text-xs font-black text-red-500 hover:bg-red-500/5 w-full rounded-xl transition-all group">
-                            <LogOut size={14} className="opacity-40 group-hover:opacity-100 transition-opacity" /> 
+                            <LogOut size={22} className="opacity-40 group-hover:opacity-100 transition-opacity" /> 
                             {t('logout')}
                           </button>
                         </motion.div>
