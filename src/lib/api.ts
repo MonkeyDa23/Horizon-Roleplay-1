@@ -205,16 +205,24 @@ export const fetchUserProfile = async (): Promise<{ user: User, syncError: strin
 };
 
 export const verifyCaptcha = async (token: string): Promise<any> => {
-    if (!supabase) throw new Error("Supabase client is not initialized.");
-    const { data, error } = await (supabase as any).functions.invoke('verify-captcha', { body: { token } });
-    if (error || !data.success) throw new Error(data?.error || error?.message || 'Captcha failed');
+    const response = await fetch('/api/auth/verify-captcha', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+    });
+    const data = await response.json();
+    if (!response.ok || !data.success) throw new Error(data?.error || 'Captcha failed');
     return data;
 };
 
 export const verifyAdminPassword = async (password: string): Promise<boolean> => {
-    if (!supabase) return false;
-    const { data } = await (supabase as any).rpc('verify_admin_password', { p_password: password });
-    return data as boolean;
+    const response = await fetch('/api/auth/verify-admin-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+    });
+    const data = await response.json();
+    return data.success === true;
 };
 
 export const logAdminPageVisit = async (pageName: string): Promise<void> => {

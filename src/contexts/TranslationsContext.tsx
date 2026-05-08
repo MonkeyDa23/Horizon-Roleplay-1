@@ -11,7 +11,7 @@ interface TranslationsContextType {
 
 const TranslationsContext = createContext<TranslationsContextType | undefined>(undefined);
 
-import { fallbackTranslations } from '../fallback_translations';
+import { translations as fallbackTranslations } from '../lib/translations';
 
 const defaultTranslations: Translations = fallbackTranslations;
 

@@ -75,11 +75,11 @@ const Navbar: React.FC = () => {
   const [isLoginCaptchaOpen, setLoginCaptchaOpen] = useState(false);
 
   const navLinks = [
-    { to: '/', text: t('nav_home') || t('home') || 'Home' },
-    { to: '/store', text: t('nav_store') || t('store') || 'Store' },
-    { to: '/rules', text: t('nav_rules') || t('rules') || 'Rules' },
-    { to: '/applies', text: t('nav_applies') || t('applies') || 'Apps' },
-    { to: '/about', text: t('nav_about') || t('about_us') || 'About' },
+    { to: '/', text: t('nav_home') || 'Home' },
+    { to: '/store', text: t('nav_store') || 'Store' },
+    { to: '/rules', text: t('nav_rules') || 'Rules' },
+    { to: '/applies', text: t('nav_applies') || 'Apps' },
+    { to: '/about', text: t('nav_about') || 'About' },
   ];
 
   const closeAllMenus = () => {
@@ -89,121 +89,216 @@ const Navbar: React.FC = () => {
     setCurrencyDropdownOpen(false);
   };
 
+  const isRTL = dir === 'rtl';
+
   return (
     <>
-      <header className="fixed top-0 left-0 z-[60] w-full" dir={dir}>
-        <div className="bg-brand-dark/80 border-b border-white/5 backdrop-blur-3xl px-4 py-3 shadow-2xl">
-          <div className="max-w-7xl mx-auto grid grid-cols-3 items-center">
+      <header className="fixed top-0 left-0 right-0 z-[60] px-4 pt-4 sm:px-6 sm:pt-6" dir={dir}>
+        <div className="max-w-[1600px] mx-auto">
+          <div className="bg-brand-dark/40 backdrop-blur-3xl rounded-[40px] border border-white/5 p-2 px-6 md:px-10 flex items-center justify-between shadow-[0_20px_50px_-20px_rgba(0,0,0,0.5)]">
             
-            {/* Left Side: Tools & Profile (Ends up on Left in RTL) */}
-            <div className="flex items-center gap-2 sm:gap-3 justify-start order-1 lg:order-1">
-              {/* Profile / Login */}
-              {user ? (
-                <div className="relative">
-                  <button 
-                    onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                    onBlur={() => setTimeout(() => setUserDropdownOpen(false), 200)}
-                    className="flex items-center gap-2 pl-1 pr-3 py-1 bg-white/5 hover:bg-white/10 border border-white/5 rounded-full transition-all"
-                  >
-                    <img src={user.avatar} alt={user.username} className="w-7 h-7 rounded-full border border-white/10" />
-                    <span className="text-[11px] font-black text-white hidden sm:block tracking-tighter">{user.username}</span>
-                    <ChevronDown size={10} className={`text-text-secondary transition-transform ${userDropdownOpen ? 'rotate-180' : ''}`} />
-                  </button>
-                  {userDropdownOpen && (
-                    <div className="absolute top-full mt-3 left-0 bg-brand-dark border border-white/10 p-2 w-52 rounded-[24px] shadow-2xl animate-fade-in-up origin-top-left z-50">
-                      <UserMenuLink to="/profile" icon={User} onClick={closeAllMenus}>{t('my_profile')}</UserMenuLink>
-                      <UserMenuLink to="/my-applications" icon={FileText} onClick={closeAllMenus}>{t('my_applications')}</UserMenuLink>
-                      {hasPermission('admin_panel') && (
-                        <UserMenuLink to="/admin" icon={UserCog} onClick={closeAllMenus}>{t('admin_panel')}</UserMenuLink>
-                      )}
-                      <div className="h-[1px] bg-white/5 my-2"></div>
-                      <button 
-                        onClick={logout}
-                        className="flex items-center gap-3 w-full text-start px-4 py-2 text-xs font-black text-red-500 hover:bg-red-500/10 rounded-[12px] transition-all"
-                      >
-                        <LogOut size={16} className="opacity-60" />
-                        {t('logout')}
-                      </button>
+            {/* 1. Branding (End in AR, Start in EN) */}
+            <div className={`flex items-center gap-4 flex-1 ${isRTL ? 'justify-end order-last' : 'justify-start order-first'}`}>
+              <Link to="/" className="flex items-center gap-3 transition-transform hover:scale-105 active:scale-95">
+                <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-white/5 border border-white/10 p-0.5 shadow-2xl relative overflow-hidden group">
+                  <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-50"></div>
+                  {branding.logoUrl ? (
+                    <img 
+                      src={branding.logoUrl} 
+                      alt="" 
+                      className="w-full h-full object-cover rounded-full" 
+                      referrerPolicy="no-referrer" 
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center rounded-full" style={{ backgroundColor: `${branding.primaryColor}22` }}>
+                      <Globe style={{ color: branding.primaryColor }} size={24} />
                     </div>
                   )}
+                  <div className="absolute inset-0 border-2 border-white/10 rounded-full group-hover:border-white/30 transition-colors"></div>
                 </div>
-              ) : (
-                <button 
-                  onClick={() => setLoginCaptchaOpen(true)}
-                  disabled={loading}
-                  className="h-9 px-4 rounded-xl flex items-center gap-2 font-black text-xs text-brand-dark transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
-                  style={{ backgroundColor: branding.primaryColor }}
-                >
-                  <DiscordLogo className="w-4 h-4" />
-                  <span className="hidden sm:inline">{t('login')}</span>
-                </button>
-              )}
+                <div className="hidden md:block">
+                  <h1 className="text-lg md:text-xl font-black text-white leading-none tracking-tight">{branding.siteName}</h1>
+                  <span className="text-[10px] font-black opacity-40 uppercase tracking-widest" style={{ color: branding.primaryColor }}>Community</span>
+                </div>
+              </Link>
+            </div>
 
-              {/* Currency Selector */}
-              <div className="relative hidden md:block">
-                <button 
-                  onClick={() => setCurrencyDropdownOpen(!currencyDropdownOpen)}
-                  onBlur={() => setTimeout(() => setCurrencyDropdownOpen(false), 200)}
-                  className="h-9 px-3 flex items-center gap-2 bg-white/5 border border-white/5 rounded-xl text-white font-black text-[10px] hover:bg-white/10 transition-all uppercase"
-                >
-                  <Coins size={14} style={{ color: branding.primaryColor }} />
-                  {currency}
-                </button>
+            {/* 2. Middle Nav (Hidden on Mobile) */}
+            <div className="hidden lg:flex items-center justify-center p-1.5 bg-white/[0.03] rounded-[24px] border border-white/5 shadow-inner">
+              <div className="flex items-center gap-1">
+                {navLinks.map((link) => (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    className={`px-4 py-2 rounded-xl text-[12px] font-black transition-all whitespace-nowrap ${
+                      location.pathname === link.to
+                        ? 'text-brand-dark shadow-xl'
+                        : 'text-text-secondary hover:text-white hover:bg-white/5'
+                    }`}
+                    style={{ 
+                      backgroundColor: location.pathname === link.to ? branding.primaryColor : undefined,
+                    }}
+                  >
+                    {link.text}
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            {/* 3. Actions (Start in AR, End in EN) */}
+            <div className={`flex items-center gap-3 md:gap-4 flex-1 ${isRTL ? 'justify-start order-first' : 'justify-end order-last'}`}>
+              
+              <div className="hidden sm:flex items-center gap-2">
+                {/* Language Selector */}
+                <div className="relative">
+                  <button 
+                    onClick={() => {
+                      setLangDropdownOpen(!langDropdownOpen);
+                      setCurrencyDropdownOpen(false);
+                      setUserDropdownOpen(false);
+                    }}
+                    className="h-10 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl flex items-center gap-2 text-[10px] font-black text-white transition-all shadow-inner active:scale-95"
+                  >
+                    <Globe size={14} style={{ color: branding.primaryColor }} />
+                    {language.toUpperCase()}
+                  </button>
+                  <AnimatePresence>
+                    {langDropdownOpen && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        className={`absolute top-full mt-3 bg-brand-dark border border-white/10 rounded-2xl p-1.5 w-32 shadow-2xl z-50 ${isRTL ? 'right-0' : 'left-0'}`}
+                        onMouseLeave={() => setLangDropdownOpen(false)}
+                      >
+                        <button 
+                          onClick={() => { setLanguage('en'); setLangDropdownOpen(false); }}
+                          className={`w-full px-4 py-2 rounded-xl text-xs font-black text-left flex justify-between items-center ${language === 'en' ? 'bg-white/10 text-white' : 'text-text-secondary hover:bg-white/5 hover:text-white'}`}
+                        >
+                          EN {language === 'en' && <CheckCircle size={10} style={{ color: branding.primaryColor }} />}
+                        </button>
+                        <button 
+                          onClick={() => { setLanguage('ar'); setLangDropdownOpen(false); }}
+                          className={`w-full px-4 py-2 rounded-xl text-xs font-black text-right flex justify-between items-center ${language === 'ar' ? 'bg-white/10 text-white' : 'text-text-secondary hover:bg-white/5 hover:text-white'}`}
+                        >
+                          AR {language === 'ar' && <CheckCircle size={10} style={{ color: branding.primaryColor }} />}
+                        </button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Currency Selector */}
+                <div className="relative">
+                  <button 
+                    onClick={() => {
+                      setCurrencyDropdownOpen(!currencyDropdownOpen);
+                      setLangDropdownOpen(false);
+                      setUserDropdownOpen(false);
+                    }}
+                    className="h-10 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl flex items-center gap-2 text-[10px] font-black text-white transition-all shadow-inner active:scale-95"
+                  >
+                    <Coins size={14} style={{ color: branding.primaryColor }} />
+                    {currency}
+                  </button>
+                  <AnimatePresence>
+                    {currencyDropdownOpen && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                        className={`absolute top-full mt-3 bg-brand-dark border border-white/10 rounded-2xl p-1.5 w-40 shadow-2xl z-50 ${isRTL ? 'right-0' : 'left-0'}`}
+                        onMouseLeave={() => setCurrencyDropdownOpen(false)}
+                      >
+                        {['USD', 'EGP', 'SAR', 'JOD'].map((curr) => (
+                          <button 
+                            key={curr}
+                            onClick={() => { setCurrency(curr as any); setCurrencyDropdownOpen(false); }}
+                            className={`w-full px-4 py-2 rounded-xl text-xs font-black flex justify-between items-center ${currency === curr ? 'bg-white/10 text-white' : 'text-text-secondary hover:bg-white/5 hover:text-white'}`}
+                          >
+                            <span>{curr}</span>
+                            {currency === curr && <CheckCircle size={10} style={{ color: branding.primaryColor }} />}
+                          </button>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
 
-              {/* Shopping Cart */}
+              {/* Cart Button */}
               <button 
                 onClick={() => setCartOpen(true)}
-                className="relative w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-all"
+                className="relative w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 active:scale-90 transition-all font-black shadow-inner"
               >
                 <ShoppingCart size={16} className="text-text-secondary" />
                 {totalItems > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full font-black text-[8px] text-brand-dark" style={{ backgroundColor: branding.primaryColor }}>
+                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full font-black text-[8px] text-brand-dark shadow-lg ring-2 ring-brand-dark" style={{ backgroundColor: branding.primaryColor }}>
                     {totalItems}
                   </span>
                 )}
               </button>
 
-              {/* Language Selector */}
-              <div className="relative">
-                <button 
-                  onClick={() => setLangDropdownOpen(!langDropdownOpen)}
-                  onBlur={() => setTimeout(() => setLangDropdownOpen(false), 200)}
-                  className="h-9 px-3 flex items-center gap-2 bg-white/5 border border-white/5 rounded-xl text-white font-black text-[10px] hover:bg-white/10 transition-all uppercase"
-                >
-                  <Globe size={14} style={{ color: branding.primaryColor }} />
-                  {language}
-                </button>
-              </div>
-            </div>
+              {/* Profile / Login */}
+              {!loading && (
+                user ? (
+                  <div className="relative">
+                    <button 
+                      onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                      className="flex items-center gap-2 bg-white/5 p-1 rounded-xl border border-white/10 hover:bg-white/10 transition-all shadow-inner active:scale-95"
+                    >
+                      <img src={user.avatar} alt="" className="w-8 h-8 rounded-lg object-cover ring-1 ring-white/10 shadow-lg" />
+                      <div className="hidden xl:block md:mx-1">
+                        <div className="text-[10px] font-black text-white leading-none truncate max-w-[100px]">{user.username}</div>
+                      </div>
+                    </button>
+                    <AnimatePresence>
+                      {userDropdownOpen && (
+                        <motion.div 
+                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                          className={`absolute top-full mt-3 bg-brand-dark border border-white/10 p-2 w-56 rounded-[24px] shadow-2xl z-50 ${isRTL ? 'right-0' : 'left-0'}`}
+                        >
+                          <Link to="/profile" onClick={closeAllMenus} className="flex items-center gap-3 px-4 py-3 text-xs font-black text-white hover:bg-white/5 rounded-xl transition-all mb-1 group">
+                            <User size={14} className="opacity-40 group-hover:opacity-100 transition-opacity" style={{ color: branding.primaryColor }} /> 
+                            {t('my_profile')}
+                          </Link>
+                          {hasPermission('admin_panel') && (
+                            <Link to="/admin" onClick={closeAllMenus} className="flex items-center gap-3 px-4 py-3 text-xs font-black text-white hover:bg-white/5 rounded-xl transition-all mb-1 group">
+                              <Shield size={14} className="opacity-40 group-hover:opacity-100 transition-opacity" style={{ color: branding.primaryColor }} /> 
+                              {t('admin_panel')}
+                            </Link>
+                          )}
+                          <hr className="border-white/5 my-2 mx-4" />
+                          <button onClick={logout} className="flex items-center gap-3 px-4 py-3 text-xs font-black text-red-500 hover:bg-red-500/5 w-full rounded-xl transition-all group">
+                            <LogOut size={14} className="opacity-40 group-hover:opacity-100 transition-opacity" /> 
+                            {t('logout')}
+                          </button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                ) : (
+                  <button 
+                    onClick={() => setLoginCaptchaOpen(true)}
+                    className="h-10 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl font-black text-[10px] text-white transition-all shadow-inner flex items-center gap-2 active:scale-95"
+                  >
+                    <DiscordLogo className="w-4 h-4 opacity-40" />
+                    <span>{t('login')}</span>
+                  </button>
+                )
+              )}
 
-            {/* Middle: Navigation Links */}
-            <div className="hidden lg:flex items-center justify-center gap-6 xl:gap-8 order-2">
-              {navLinks.map((link) => (
-                <NavLink key={link.to} to={link.to}>{link.text}</NavLink>
-              ))}
-            </div>
-
-            {/* Right Side: Logo & Website Name (Ends up on Right in RTL) */}
-            <div className="flex items-center gap-4 justify-end order-3">
-               <Link to="/" className="flex items-center gap-3 group/logo">
-                <div className="text-end hidden sm:block">
-                  <h1 className="text-[12px] font-black text-white tracking-tighter leading-none">{branding.siteName}</h1>
-                  <p className="text-[9px] text-text-secondary font-bold opacity-60">Community Platform</p>
-                </div>
-                <div className="w-9 h-9 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group-hover/logo:scale-110 transition-all overflow-hidden ring-2 ring-white/5">
-                  <img src={branding.logoUrl} alt={branding.siteName} className="h-full w-full object-cover" />
-                </div>
-              </Link>
-
-              {/* Mobile Menu Icon */}
+              {/* Mobile Toggle */}
               <button 
                 onClick={() => setMobileMenuOpen(true)}
-                className="lg:hidden w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 text-text-secondary"
+                className="lg:hidden w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 text-white active:scale-90 transition-all font-black"
               >
                 <Menu size={20} />
               </button>
             </div>
+
           </div>
         </div>
       </header>
@@ -246,6 +341,13 @@ const Navbar: React.FC = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {currencyDropdownOpen && (
+        <div className="fixed inset-0 z-[49]" onClick={() => setCurrencyDropdownOpen(false)}></div>
+      )}
+      {langDropdownOpen && (
+        <div className="fixed inset-0 z-[49]" onClick={() => setLangDropdownOpen(false)}></div>
+      )}
 
       <CartModal isOpen={isCartOpen} onClose={() => setCartOpen(false)} />
       <LoginCaptchaModal isOpen={isLoginCaptchaOpen} onClose={() => setLoginCaptchaOpen(false)} />

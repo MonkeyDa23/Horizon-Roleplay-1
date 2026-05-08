@@ -317,84 +317,106 @@ const ProfilePage: React.FC = () => {
           <div className="absolute inset-0 backdrop-blur-3xl z-0"></div>
           
           <div className="container mx-auto px-6 h-full flex items-end pb-16 relative z-10">
-            <div className="flex flex-col md:flex-row items-center md:items-end gap-10 w-full">
+            <div className="flex flex-col md:flex-row items-center md:items-end gap-12 w-full">
               <div className="relative group">
-                <motion.img 
-                  initial={{ scale: 0.8, opacity: 0 }} 
-                  animate={{ scale: 1, opacity: 1 }} 
-                  src={user.avatar} 
-                  alt={user.username} 
-                  className="w-40 h-40 md:w-56 md:h-56 rounded-[60px] border-8 border-brand-dark shadow-2xl object-cover" 
-                />
-                <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-brand-dark rounded-3xl flex items-center justify-center border-4 border-brand-dark shadow-2xl" style={{ color: branding.primaryColor }}>
+                <motion.div 
+                  initial={{ scale: 0.8, opacity: 0, rotate: -10 }} 
+                  animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                  className="relative p-2 bg-white/5 rounded-[60px] border-4 border-white/10 backdrop-blur-3xl shadow-2xl overflow-hidden group-hover:scale-105 transition-transform"
+                >
+                  <img 
+                    src={user.avatar} 
+                    alt={user.username} 
+                    className="w-40 h-40 md:w-56 md:h-56 rounded-[52px] object-cover" 
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                </motion.div>
+                <motion.div 
+                  initial={{ scale: 0, rotate: 90 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ delay: 0.4, type: 'spring' }}
+                  className="absolute -bottom-4 -right-4 w-16 h-16 bg-white rounded-[24px] flex items-center justify-center border-[6px] border-brand-dark shadow-2xl" 
+                  style={{ color: branding.primaryColor }}
+                >
                   <ShieldCheck size={32} />
-                </div>
+                </motion.div>
               </div>
 
               <div className="flex-1 text-center md:text-left space-y-6">
-                <div className="space-y-2">
+                <div className="space-y-4">
+                  <motion.div 
+                    initial={{ y: 20, opacity: 0 }} 
+                    animate={{ y: 0, opacity: 1 }}
+                    className="inline-flex items-center gap-3 px-5 py-2 bg-white/5 rounded-full border border-white/10 text-[10px] uppercase font-black tracking-[0.2em] text-text-secondary mb-2"
+                  >
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: branding.primaryColor }}></span>
+                    Member of Nova Community
+                  </motion.div>
                   <motion.h1 
                     initial={{ y: 20, opacity: 0 }} 
                     animate={{ y: 0, opacity: 1 }} 
-                    className="text-5xl md:text-8xl font-black text-white leading-none"
+                    transition={{ delay: 0.1 }}
+                    className="text-6xl md:text-9xl font-black text-white leading-none tracking-tighter"
                   >
-                    {user.username}
+                    {user.username.split('#')[0]}
                   </motion.h1>
-                  <div className="flex flex-wrap justify-center md:justify-start items-center gap-6 text-text-secondary font-bold text-base opacity-60">
-                    <span className="flex items-center gap-2">
-                      <Shield size={18} style={{ color: branding.primaryColor }} />
-                      {user.email}
-                    </span>
-                    <span className="flex items-center gap-2">
-                      <Star size={18} style={{ color: branding.primaryColor }} />
-                      Nova Member
-                    </span>
-                  </div>
                 </div>
                 
                 <div className="flex flex-wrap justify-center md:justify-start gap-3">
-                  {user.discord_roles?.map((role: any) => {
+                  {user.discord_roles?.map((role: any, idx) => {
                     const color = role.color ? `#${role.color.toString(16).padStart(6, '0')}` : '#99aab5';
                     return (
-                      <span key={role.id} className="px-5 py-2.5 text-xs font-black rounded-2xl text-white flex items-center gap-3 shadow-lg" style={{ backgroundColor: color + '22', border: `1px solid ${color}44` }}>
-                        <div className="w-3 h-3 rounded-full shadow-inner" style={{ backgroundColor: color }}></div>
+                      <motion.span 
+                        key={role.id}
+                        initial={{ opacity: 0, scale: 0.8, x: -10 }}
+                        animate={{ opacity: 1, scale: 1, x: 0 }}
+                        transition={{ delay: 0.2 + (idx * 0.05) }}
+                        className="px-5 py-2.5 text-xs font-black rounded-2xl text-white flex items-center gap-3 shadow-[0_10px_20px_-5px_rgba(0,0,0,0.3)] backdrop-blur-md" 
+                        style={{ backgroundColor: color + '15', border: `1px solid ${color}33`, color: color }}
+                      >
+                        <div className="w-2 h-2 rounded-full shadow-inner" style={{ backgroundColor: color }}></div>
                         {role.name}
-                      </span>
+                      </motion.span>
                     );
                   })}
                 </div>
               </div>
 
-              <div className="flex gap-4">
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="flex gap-4"
+              >
                 <button 
                   onClick={handleRefresh} 
                   disabled={isSyncing}
-                  className="px-10 py-5 bg-white/5 hover:bg-white/10 active:scale-95 text-white font-black rounded-3xl border border-white/10 transition-all flex items-center gap-4 disabled:opacity-50 shadow-2xl"
+                  className="px-10 py-6 bg-white text-brand-dark hover:bg-opacity-90 active:scale-95 font-black rounded-[28px] transition-all flex items-center gap-4 disabled:opacity-50 shadow-[0_20px_50px_-15px_rgba(255,255,255,0.2)] group"
                 >
-                  <RefreshCw size={24} className={isSyncing ? 'animate-spin' : ''} />
-                  {isSyncing ? t('syncing') : t('sync_profile')}
+                  <RefreshCw size={24} className={`${isSyncing ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-700'}`} />
+                  <span className="text-lg">{isSyncing ? t('syncing') : t('sync_profile')}</span>
                 </button>
-              </div>
+              </motion.div>
             </div>
           </div>
         </div>
 
         {/* Navigation Tabs */}
         <div className="container mx-auto px-6 -mt-10 relative z-20">
-          <div className="bg-white/[0.02] border border-white/10 rounded-[60px] p-2 backdrop-blur-3xl mb-16 flex flex-wrap gap-2 max-w-2xl">
+          <div className="bg-white/[0.02] border border-white/5 rounded-[40px] p-2 backdrop-blur-3xl mb-16 flex flex-wrap gap-2 max-w-2xl mx-auto md:mx-0">
             <button 
               onClick={() => setActiveTab('discord')} 
-              className={`flex-1 py-5 px-10 rounded-[50px] font-black text-base transition-all flex items-center justify-center gap-4 ${activeTab === 'discord' ? 'bg-white text-brand-dark shadow-2xl' : 'text-text-secondary hover:text-white hover:bg-white/5'}`}
+              className={`flex-1 py-5 px-10 rounded-[30px] font-black text-base transition-all flex items-center justify-center gap-4 ${activeTab === 'discord' ? 'bg-white text-brand-dark shadow-2xl transform scale-[1.02]' : 'text-text-secondary hover:text-white hover:bg-white/5'}`}
             >
-              <FileText size={22} />
-              {t('discord_profile') || 'معلومات الديسكورد'}
+              <UserIcon size={22} />
+              {t('discord_profile')}
             </button>
             <button 
               onClick={() => setActiveTab('mta')} 
-              className={`flex-1 py-5 px-10 rounded-[50px] font-black text-base transition-all flex items-center justify-center gap-4 ${activeTab === 'mta' ? 'bg-white text-brand-dark shadow-2xl' : 'text-text-secondary hover:text-white hover:bg-white/5'}`}
+              className={`flex-1 py-5 px-10 rounded-[30px] font-black text-base transition-all flex items-center justify-center gap-4 ${activeTab === 'mta' ? 'bg-white text-brand-dark shadow-2xl transform scale-[1.02]' : 'text-text-secondary hover:text-white hover:bg-white/5'}`}
             >
               <Gamepad2 size={22} />
-              {t('game_characters') || 'شخصيات اللعبة'}
+              {t('game_characters')}
             </button>
           </div>
 

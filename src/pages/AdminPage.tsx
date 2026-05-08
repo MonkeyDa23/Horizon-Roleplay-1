@@ -27,18 +27,18 @@ import SecurityPanel from '../components/admin/SecurityPanel';
 export type AdminTab = 'dashboard' | 'submissions' | 'quizzes' | 'rules' | 'store' | 'translations' | 'appearance' | 'lookup' | 'permissions' | 'audit' | 'notifications' | 'widgets' | 'staff' | 'security';
 
 export const TABS: { id: AdminTab; labelKey: string; icon: React.ElementType; permission: PermissionKey }[] = [
-    { id: 'dashboard', labelKey: 'dashboard', icon: UserCog, permission: 'admin_panel' },
-    { id: 'submissions', labelKey: 'submission_management', icon: FileText, permission: 'admin_submissions' },
+    { id: 'dashboard', labelKey: 'admin_dashboard', icon: UserCog, permission: 'admin_panel' },
+    { id: 'submissions', labelKey: 'admin_applies', icon: FileText, permission: 'admin_submissions' },
     { id: 'quizzes', labelKey: 'quiz_management', icon: Server, permission: 'admin_quizzes' },
-    { id: 'rules', labelKey: 'rules_management', icon: BookCopy, permission: 'admin_rules' },
-    { id: 'store', labelKey: 'store_management', icon: Store, permission: 'admin_store' },
-    { id: 'staff', labelKey: 'staff_management', icon: Users, permission: 'admin_staff' },
+    { id: 'rules', labelKey: 'admin_rules', icon: BookCopy, permission: 'admin_rules' },
+    { id: 'store', labelKey: 'admin_store', icon: Store, permission: 'admin_store' },
+    { id: 'staff', labelKey: 'admin_staff', icon: Users, permission: 'admin_staff' },
     { id: 'security', labelKey: 'security_monitor', icon: Shield, permission: 'admin_audit_log' },
     { id: 'notifications', labelKey: 'notifications_management', icon: Bell, permission: 'admin_notifications' },
-    { id: 'translations', labelKey: 'translations_management', icon: Languages, permission: 'admin_translations' },
-    { id: 'appearance', labelKey: 'appearance_settings', icon: Palette, permission: 'admin_appearance' },
+    { id: 'translations', labelKey: 'admin_translations', icon: Languages, permission: 'admin_translations' },
+    { id: 'appearance', labelKey: 'admin_settings', icon: Palette, permission: 'admin_appearance' },
     { id: 'widgets', labelKey: 'widgets_management', icon: LayoutGrid, permission: 'admin_widgets' },
-    { id: 'lookup', labelKey: 'user_lookup', icon: Search, permission: 'admin_lookup'},
+    { id: 'lookup', labelKey: 'find_user', icon: Search, permission: 'admin_lookup'},
     { id: 'permissions', labelKey: 'permissions_management', icon: ShieldQuestion, permission: 'admin_permissions' },
     { id: 'audit', labelKey: 'audit_log', icon: ShieldCheck, permission: 'admin_audit_log' },
 ];

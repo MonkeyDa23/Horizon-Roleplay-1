@@ -72,11 +72,11 @@ const TwoFactorSetup: React.FC = () => {
     setError(null);
     setLoading(true);
     try {
-      if (!verificationCode || !secret) {
-        throw new Error(isArabic ? 'الرمز أو المفتاح مفقود' : 'Code or secret is missing');
+      if (!verificationCode || !secret || !user) {
+        throw new Error(isArabic ? 'المعلومات ناقصة' : 'Missing fields');
       }
 
-      // Try multiple possible verification methods provided by otplib variants
+      // Try multiple verification methods provided by otplib variants
       let isValid = false;
       
       try {
@@ -84,33 +84,36 @@ const TwoFactorSetup: React.FC = () => {
           isValid = authenticator.check(verificationCode, secret);
         } else if (typeof authenticator.verify === 'function') {
           isValid = authenticator.verify({ token: verificationCode, secret });
-        } else {
-          throw new Error('No verification method found on authenticator object');
         }
       } catch (checkErr) {
-        console.error('Check function failed:', checkErr);
-        throw checkErr;
+        console.error('Check failed:', checkErr);
       }
       
       if (!isValid) {
         setError(t('2fa_invalid_code') || 'رمز غير صحيح');
+        setLoading(false);
         return;
       }
 
-      // Generate 10 backup codes
-      const codes = Array.from({ length: 10 }, () => 
-        Math.random().toString(36).substring(2, 10).toUpperCase()
-      );
+      // If valid, send to backend
+      const response = await fetch('/api/auth/2fa/enable', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('sb-access-token')}` // Placeholder for real token handling
+        },
+        body: JSON.stringify({ secret, token: verificationCode })
+      });
 
-      await enable2FA(secret, codes);
-      setBackupCodes(codes);
-      setStep('backup');
-
-      // Update local user state
-      if (user) {
-        updateUser({ ...user, two_factor_enabled: true });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to enable 2FA');
       }
-    } catch (err) {
+      
+      // Update local state
+      updateUser({ ...user, two_factor_enabled: true });
+      setStep('status');
+    } catch (err: any) {
       console.error('2FA Activation Error:', err);
       setError(isArabic ? 'حدث خطأ أثناء التفعيل' : 'Error during activation');
     } finally {
@@ -168,36 +171,47 @@ const TwoFactorSetup: React.FC = () => {
           <motion.div key="status" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             {user?.two_factor_enabled ? (
               <div className="space-y-6">
-                <div className="p-6 bg-green-500/5 border border-green-500/10 rounded-2xl">
-                  <div className="flex items-center gap-3 text-green-500 font-bold mb-2">
-                    <CheckCircle2 size={20} />
-                    {isArabic ? 'الحماية الثنائية مفعلة' : 'Two-Factor Authentication is active'}
+                <div className="p-8 bg-green-500/5 border border-green-500/10 rounded-[30px] text-center space-y-4">
+                  <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto text-green-500">
+                    <ShieldCheck size={48} />
                   </div>
-                  <p className="text-text-secondary text-sm">
-                    {isArabic ? 'حسابك محمي حالياً بكلمة مرور ورمز من تطبيق المصادقة الخاص بك.' : 'Your account is currently protected by your password and a code from your authentication app.'}
-                  </p>
+                  <div>
+                    <div className="text-xl font-black text-white mb-2">
+                      {isArabic ? 'حسابك محمي بنجاح' : 'Account Securely Protected'}
+                    </div>
+                    <p className="text-text-secondary text-sm leading-relaxed opacity-70">
+                      {isArabic ? 'الحماية الثنائية مفعلة حالياً. يتم طلب رمز التحقق عند كل دخول للوحة الإدارة.' : '2FA is active. A verification code will be required for every admin panel access.'}
+                    </p>
+                  </div>
                 </div>
                 <button 
                   onClick={handleDisable} 
                   disabled={loading}
-                  className="w-full py-4 bg-white/5 hover:bg-red-500/10 border border-white/10 hover:border-red-500/20 rounded-2xl text-white font-bold transition-all flex items-center justify-center gap-2 group"
+                  className="w-full py-5 bg-red-500/5 hover:bg-red-500/10 border border-red-500/10 hover:border-red-500/20 rounded-2xl text-red-500 font-black transition-all flex items-center justify-center gap-3 group active:scale-95"
                 >
-                  <ShieldAlert size={20} className="text-red-500 opacity-50 group-hover:opacity-100 transition-opacity" />
-                  {t('2fa_disable') || 'تعطيل الحماية'}
+                  <ShieldAlert size={20} className="opacity-50 group-hover:opacity-100 transition-opacity" />
+                  {t('2fa_disable') || 'إيقاف الحماية الثنائية'}
                 </button>
               </div>
             ) : (
-              <div className="text-center py-8">
-                <div className="mb-6 text-text-secondary">
-                  {isArabic ? 'لم تقم بتفعيل الحماية الثنائية بعد. ننصح وبشدة بتفعيلها لحماية حسابك من الاختراق.' : 'You haven\'t enabled 2FA yet. We highly recommend enabling it to protect your account from hacking.'}
+              <div className="text-center py-6 space-y-8">
+                <div className="w-24 h-24 bg-white/5 rounded-[40px] flex items-center justify-center mx-auto border border-white/5 text-white/20">
+                  <Lock size={48} />
+                </div>
+                <div className="space-y-3">
+                  <h3 className="text-xl font-black text-white">{isArabic ? 'قم بتعزيز أمان حسابك' : 'Fortify Your Account'}</h3>
+                  <p className="text-text-secondary text-sm leading-relaxed max-w-xs mx-auto opacity-60">
+                    {isArabic ? 'تفعيل المصادقة الثنائية يمنع المتسللين من الدخول لحسابك حتى لو حصلوا على كلمة المرور.' : 'Enabling 2FA stops hackers from accessing your account even if they have your password.'}
+                  </p>
                 </div>
                 <button 
                   onClick={startSetup} 
                   disabled={loading}
-                  className="w-full py-4 bg-white text-bg-primary font-black rounded-2xl transition-all shadow-lg flex items-center justify-center gap-2"
+                  className="w-full py-5 font-black rounded-3xl transition-all shadow-[0_20px_50px_-15px_rgba(0,0,0,0.5)] flex items-center justify-center gap-3 transform hover:translate-y-[-2px] active:scale-95"
+                  style={{ backgroundColor: branding.primaryColor, color: '#000' }}
                 >
-                  {loading ? <RefreshCw className="animate-spin" size={20} /> : <CheckCircle2 size={20} />}
-                  {t('2fa_enable') || 'تفعيل الآن'}
+                  {loading ? <RefreshCw className="animate-spin" size={20} /> : <ShieldCheck size={20} />}
+                  {t('2fa_enable') || 'ابدأ خطوات التفعيل'}
                 </button>
               </div>
             )}
@@ -205,82 +219,98 @@ const TwoFactorSetup: React.FC = () => {
         )}
 
         {step === 'setup' && (
-          <motion.div key="setup" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-            <div className="flex flex-col items-center">
-              <div className="p-4 bg-white rounded-3xl mb-6 shadow-2xl">
-                <img src={qrCodeUrl} alt="QR Code" className="w-48 h-48" />
+          <motion.div key="setup" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-8">
+            <div className="text-center space-y-6">
+              <div className="inline-flex items-center gap-3 px-6 py-2 bg-white/5 rounded-full border border-white/10 text-[11px] uppercase font-black tracking-[0.2em] text-text-secondary">
+                <span className="w-2.5 h-2.5 rounded-full animate-pulse" style={{ backgroundColor: branding.primaryColor }}></span>
+                {isArabic ? 'الخطوة 1: مسح الكود' : 'Step 1: Scan QR'}
               </div>
-              <p className="text-text-secondary text-center text-sm mb-6 max-w-sm">
-                {t('2fa_qr_help') || 'قم بمسح الكود أعلاه باستخدام تطبيق Google Authenticator أو تطبيق مماثل.'}
+              <h3 className="text-3xl md:text-4xl font-black text-white">{isArabic ? 'بدء الحماية' : 'Secure Account'}</h3>
+              <p className="text-text-secondary text-sm md:text-base leading-relaxed max-w-sm mx-auto opacity-70">
+                {isArabic ? 'افتح تطبيق Authenticator على هاتفك وقم بمسح رمز الـ QR الظاهر أدناه لإضافة حسابك.' : 'Open your Authenticator app and scan the QR code below to link your community account.'}
               </p>
-              
-              <div className="w-full p-4 bg-white/5 border border-white/10 rounded-2xl mb-8">
-                <div className="text-xs text-text-secondary mb-2 uppercase font-bold">
-                  {isArabic ? 'أو أدخل الكود يدوياً' : 'Or enter secret manually'}
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <code className="text-white font-mono text-lg">{secret}</code>
-                  <button 
-                    onClick={() => navigator.clipboard.writeText(secret)}
-                    className="p-2 hover:bg-white/10 rounded-xl text-text-secondary transition-colors"
-                  >
-                    <Copy size={18} />
-                  </button>
-                </div>
-              </div>
+            </div>
 
+            <div className="relative group max-w-[280px] mx-auto">
+              <div className="absolute inset-0 bg-white/10 blur-[100px] rounded-full opacity-20 group-hover:opacity-40 transition-opacity"></div>
+              <div className="relative p-8 bg-white rounded-[40px] shadow-2xl flex justify-center border-[10px] border-white/5 group-hover:scale-105 transition-transform">
+                <img src={qrCodeUrl} alt="QR Code" className="w-full h-auto" />
+              </div>
+            </div>
+
+            <div className="space-y-4 max-w-sm mx-auto">
               <button 
                 onClick={() => setStep('verify')}
-                className="w-full py-4 bg-white text-bg-primary font-black rounded-2xl transition-all shadow-xl"
+                className="w-full py-5 font-black rounded-3xl transition-all shadow-[0_20px_40px_-5px_rgba(0,0,0,0.4)] flex items-center justify-center gap-3 active:scale-95 group"
+                style={{ backgroundColor: branding.primaryColor, color: '#111' }}
               >
-                {isArabic ? 'التالي: التحقق' : 'Next: Verify'}
+                <span className="text-lg">{isArabic ? 'تم المسح، انتقل للتحقق' : 'I have scanned it'}</span>
+                <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
               </button>
               <button 
                 onClick={() => setStep('status')}
-                className="mt-4 text-text-secondary text-sm hover:text-white transition-colors"
+                className="w-full py-3 text-text-secondary text-sm font-black hover:text-white transition-all opacity-40 hover:opacity-100"
               >
-                {isArabic ? 'إلغاء' : 'Cancel'}
+                {isArabic ? 'إلغاء الإعداد' : 'Cancel Setup'}
               </button>
+            </div>
+
+            <div className="pt-6 p-6 bg-white/[0.03] rounded-[32px] border border-white/5 text-center max-w-sm mx-auto">
+              <div className="text-[10px] font-black uppercase tracking-[0.2em] opacity-40 mb-3">{isArabic ? 'أو أدخل المفتاح يدوياً' : 'Or Manual Setup Key'}</div>
+              <div className="flex items-center justify-between gap-4 bg-black/20 p-4 rounded-2xl border border-white/5">
+                <code className="text-base font-mono text-white/80 select-all">{secret}</code>
+                <button onClick={() => { navigator.clipboard.writeText(secret); setCopied(true); setTimeout(() => setCopied(false), 2000); }} className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl transition-all text-brand-cyan">
+                  {copied ? <CheckCircle2 size={16} /> : <Copy size={16} />}
+                </button>
+              </div>
             </div>
           </motion.div>
         )}
 
         {step === 'verify' && (
-          <motion.div key="verify" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-6">
-            <div className="text-center mb-8">
-              <div className="bg-white/5 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-white/5">
-                <Key className="text-white" size={32} />
+          <motion.div key="verify" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-8">
+            <div className="text-center space-y-6">
+              <div className="inline-flex items-center gap-3 px-6 py-2 bg-white/5 rounded-full border border-white/10 text-[11px] uppercase font-black tracking-[0.2em] text-text-secondary">
+                <span className="w-2.5 h-2.5 rounded-full animate-pulse" style={{ backgroundColor: branding.primaryColor }}></span>
+                {isArabic ? 'الخطوة 2: التحقق' : 'Step 2: Verification'}
               </div>
-              <h3 className="text-xl font-bold text-white mb-2">{t('2fa_verify_code') || 'التحقق من الرمز'}</h3>
-              <p className="text-text-secondary text-sm">
-                {isArabic ? 'أدخل الرمز المكون من 6 أرقام من التطبيق' : 'Enter the 6-digit code from your app'}
+              <h3 className="text-3xl md:text-4xl font-black text-white">{isArabic ? 'تأكيد الرمز' : 'Verify Code'}</h3>
+              <p className="text-text-secondary text-sm md:text-base opacity-70">
+                {isArabic ? 'أدخل الرمز المكون من 6 أرقام والموجود في تطبيق المصادقة لديك.' : 'Enter the 6-digit verification code from your authenticator app.'}
               </p>
             </div>
 
-            <div className="flex justify-center">
-              <input 
-                type="text" 
-                maxLength={6} 
-                placeholder="000000"
-                value={verificationCode}
-                onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
-                className="text-center text-4xl font-black bg-white/5 border border-white/10 rounded-2xl py-4 px-6 w-full max-w-xs text-white tracking-[0.5em] focus:border-white/30 focus:bg-white/[0.08] transition-all outline-none"
-              />
-            </div>
-
-            <div className="space-y-3 pt-6">
+            <div className="space-y-8 max-w-sm mx-auto">
+              <div className="relative">
+                <input 
+                  type="text" 
+                  maxLength={6} 
+                  placeholder="000 000"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
+                  className="text-center text-5xl font-black bg-white/5 border border-white/10 rounded-[40px] py-10 px-6 w-full text-white tracking-[0.2em] focus:border-white/30 focus:bg-white/[0.08] transition-all outline-none shadow-inner placeholder:opacity-10"
+                />
+              </div>
+              
               <button 
                 onClick={handleVerify} 
                 disabled={loading || verificationCode.length !== 6}
-                className="w-full py-4 bg-white disabled:opacity-50 disabled:cursor-not-allowed text-bg-primary font-black rounded-2xl transition-all shadow-lg"
+                className="w-full py-6 font-black rounded-3xl transition-all shadow-[0_20px_40px_-5px_rgba(0,0,0,0.4)] flex items-center justify-center gap-4 disabled:opacity-20 disabled:grayscale active:scale-95 text-lg"
+                style={{ backgroundColor: branding.primaryColor, color: '#111' }}
               >
-                {loading ? <RefreshCw className="animate-spin" size={20} /> : (isArabic ? 'تفعيل الحماية' : 'Enable 2FA')}
+                {loading ? <RefreshCw className="animate-spin" size={24} /> : (
+                  <>
+                    <ShieldCheck size={24} />
+                    <span>{isArabic ? 'تفعيل الحماية المزدوجة' : 'Enable 2FA Protection'}</span>
+                  </>
+                )}
               </button>
+              
               <button 
                 onClick={() => setStep('setup')}
-                className="w-full py-4 text-text-secondary text-sm hover:text-white transition-colors"
+                className="w-full py-4 text-text-secondary text-sm font-black hover:text-white transition-all opacity-40 hover:opacity-100"
               >
-                {isArabic ? 'رجوع للرمز' : 'Back to QR'}
+                {isArabic ? 'رجوع لتصوير الكود' : 'Back to QR Code'}
               </button>
             </div>
           </motion.div>

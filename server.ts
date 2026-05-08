@@ -46,7 +46,7 @@ function verifySignature(payload: any, signature: string, secret: string, timest
   }
 }
 
-const ALLOWED_PATHS = ['/mta/account/', '/mta/character/', '/mta/unlink', '/mta/status/', '/discord-invite/'];
+const ALLOWED_PATHS = ['/mta/account', '/mta/character', '/mta/unlink', '/mta/status', '/discord-invite', '/sync-user', '/notify'];
 
 async function startServer() {
   const app = express();
@@ -90,6 +90,43 @@ async function startServer() {
   });
 
   app.use(globalLimiter);
+
+  // Verification Rate Limiters
+  const verificationLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5, // 5 attempts per 15 minutes
+    message: { error: 'Too many attempts, please try again later' }
+  });
+
+  app.post('/api/auth/verify-captcha', async (req, res) => {
+    try {
+      const { token } = req.body;
+      const secret = process.env.HCAPTCHA_SECRET_KEY;
+      if (!secret) return res.json({ success: true }); // Skip if no secret set
+
+      const response = await fetch('https://hcaptcha.com/siteverify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `secret=${secret}&response=${token}`
+      });
+
+      const data = await response.json();
+      res.json({ success: data.success });
+    } catch (e) {
+      res.status(500).json({ error: 'Captcha verification failed' });
+    }
+  });
+
+  app.post('/api/auth/verify-admin-password', verificationLimiter, (req, res) => {
+    const { password } = req.body;
+    const adminPass = process.env.VITE_ADMIN_PASSWORD || 'admin123';
+    
+    if (password === adminPass) {
+      res.json({ success: true });
+    } else {
+      res.status(401).json({ success: false, error: 'Invalid password' });
+    }
+  });
 
   app.use(['/api/admin', '/api/auth/2fa', '/api/mta/internal'], async (req, res, next) => {
     const signature = req.headers['x-signature'] as string;

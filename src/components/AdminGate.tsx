@@ -96,7 +96,7 @@ const AdminGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     } catch (error) {
       showToast((error as Error).message, 'error');
       if ((window as any).hcaptcha) {
-        try { (window as any).hcaptcha.reset(); } catch (e) {}
+        try { (window as any).hcaptcha.reset(); } catch (e) { console.error('Captcha reset failed', e); }
       }
       setHcaptchaToken(null);
     } finally {

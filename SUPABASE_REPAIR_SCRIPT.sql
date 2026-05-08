@@ -114,11 +114,11 @@ BEGIN
             'name', c.name,
             'name_ar', c.name_ar,
             'icon', c.icon,
-            'products', (
+            'products', COALESCE((
                 SELECT jsonb_agg(p)
                 FROM public.products p
                 WHERE p.category_id = c.id
-            )
+            ), '[]'::jsonb)
         ))
         FROM public.categories c
     );
@@ -136,5 +136,22 @@ BEGIN
         SELECT jsonb_object_agg(key, value)
         FROM public.config
     );
+END;
+$$;
+
+-- 9. RPC: enable_2fa
+CREATE OR REPLACE FUNCTION public.enable_2fa(p_secret text, p_backup_codes text[])
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    UPDATE public.users 
+    SET 
+        two_factor_secret = p_secret,
+        two_factor_backup_codes = p_backup_codes,
+        two_factor_enabled = TRUE,
+        two_factor_enabled_at = NOW()
+    WHERE id = auth.uid();
 END;
 $$;

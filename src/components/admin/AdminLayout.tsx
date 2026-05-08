@@ -7,6 +7,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import type { AdminTab } from '../../pages/AdminPage';
 import type { PermissionKey } from '../../types';
 
+import HCaptcha from '@hcaptcha/react-hcaptcha';
+
 interface AdminLayoutProps {
   children: React.ReactNode;
   tabs: { id: AdminTab; labelKey: string; icon: React.ElementType; permission: PermissionKey }[];
@@ -25,6 +27,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, tabs, activeTab, se
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const captchaRef = React.useRef<HCaptcha>(null);
 
   // 1. Check for 2FA Enablement
   if (user && !user.two_factor_enabled) {
@@ -56,15 +60,21 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, tabs, activeTab, se
   // 2. Admin Password Gate
   const handleUnlock = (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, this would be a server-side check. 
-    // Since we don't have a specific admin password field yet, we'll use a placeholder or check against a config.
-    // For now, I'll allow "admin" as a temporary password or let the user decide.
-    // BUT the user asked for this, so I should probably implement the UI first.
-    if (password === 'admin123') { // Placeholder password
+    
+    if (!captchaToken) {
+      setError(t('complete_captcha_msg') || 'يرجى إكمال التحقق أولاً');
+      return;
+    }
+
+    // The password is set in the environment or config.
+    const adminPass = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123';
+    if (password === adminPass) {
       setIsAdminUnlocked(true);
       setError('');
     } else {
       setError(t('invalid_admin_password') || 'كلمة المرور غير صحيحة');
+      setCaptchaToken(null);
+      captchaRef.current?.resetCaptcha();
     }
   };
 
@@ -81,21 +91,44 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, tabs, activeTab, se
           </div>
           
           <form onSubmit={handleUnlock} className="space-y-6">
-            <input 
-              type="password" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-center text-xl text-white focus:outline-none focus:border-white/20 transition-all font-mono"
-              autoFocus
-            />
-            {error && <p className="text-red-500 text-sm font-black animate-shake">{error}</p>}
+            <div className="space-y-4">
+              <input 
+                type="password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-center text-xl text-white focus:outline-none focus:border-white/20 transition-all font-mono"
+                autoFocus
+              />
+              
+              <div className="flex justify-center border border-white/5 rounded-3xl bg-white/[0.02] overflow-hidden p-2">
+                <HCaptcha
+                  sitekey={import.meta.env.VITE_HCAPTCHA_SITE_KEY || "10000000-ffff-ffff-ffff-000000000001"}
+                  onVerify={(token) => setCaptchaToken(token)}
+                  onExpire={() => setCaptchaToken(null)}
+                  theme="dark"
+                  ref={captchaRef}
+                />
+              </div>
+            </div>
+
+            {error && (
+              <p className="text-red-500 text-sm font-black animate-shake">{error}</p>
+            )}
+            
             <button 
               type="submit"
-              className="w-full py-5 rounded-2xl font-black text-lg transition-all shadow-xl hover:scale-[1.02] active:scale-95"
-              style={{ backgroundColor: branding.primaryColor, color: '#000' }}
+              disabled={!captchaToken || !password}
+              className={`w-full py-5 rounded-[24px] font-black text-lg transition-all shadow-[0_20px_50px_-15px_rgba(0,0,0,0.5)] active:scale-95 ${(!captchaToken || !password) ? 'opacity-30 cursor-not-allowed grayscale' : 'hover:translate-y-[-2px]'}`}
+              style={{ 
+                backgroundColor: branding.primaryColor,
+                color: '#000'
+              }}
             >
-              {t('unlock_admin') || 'فتح اللوحة'}
+              <div className="flex items-center justify-center gap-3">
+                <ShieldCheck size={22} />
+                {t('unlock_admin') || 'فتح لوحة التحكم'}
+              </div>
             </button>
           </form>
         </div>
