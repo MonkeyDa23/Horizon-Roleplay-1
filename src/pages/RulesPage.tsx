@@ -131,10 +131,10 @@ const RulesPage: React.FC = () => {
         <div className="text-center mb-24 animate-fade-in-up space-y-8">
           <div className="inline-block p-6 bg-white/5 rounded-[32px] border border-white/10 shadow-2xl relative group">
             <div className="absolute inset-0 blur-2xl opacity-20 group-hover:opacity-40 transition-opacity" style={{ backgroundColor: branding.primaryColor }}></div>
-            <BookOpen style={{ color: branding.primaryColor }} size={54} className="relative z-10" />
+            <BookOpen style={{ color: branding.primaryColor }} size={40} className="relative z-10" />
           </div>
-          <h1 className="text-4xl md:text-7xl font-black text-white">{t('rules_title') || 'قوانين السيرفر'}</h1>
-          <p className="text-text-secondary text-xl font-medium max-w-2xl mx-auto leading-relaxed">
+          <h1 className="text-5xl md:text-8xl font-black text-white">{t('rules_title') || 'قوانين السيرفر'}</h1>
+          <p className="text-text-secondary text-2xl md:text-3xl font-medium max-w-3xl mx-auto leading-relaxed">
             {t('rules_subtitle') || 'نرجو من الجميع الالتزام بالقوانين التالية لتجنب العقوبات وضمان استمرارية المتعة للجميع.'}
           </p>
         </div>

@@ -129,10 +129,10 @@ const AppliesPage: React.FC = () => {
       <div className="container-custom">
         <div className="text-center max-w-3xl mx-auto space-y-6 animate-fade-in-up">
           <div className="inline-flex p-6 bg-white/5 rounded-[32px] border border-white/10 shadow-2xl">
-            <FileText className="text-primary-blue" size={54} />
+            <FileText className="text-primary-blue" size={40} />
           </div>
-          <h1 className="text-4xl md:text-7xl font-black">{t('page_title_applies') || 'التقديمات المتاحة'}</h1>
-          <p className="text-xl text-text-secondary font-medium">ابدأ مسيرتك المهنية في مجتمعنا من خلال اختيار القسم المناسب لك.</p>
+          <h1 className="text-5xl md:text-8xl font-black">{t('page_title_applies') || 'التقديمات المتاحة'}</h1>
+          <p className="text-2xl text-text-secondary font-medium">ابدأ مسيرتك المهنية في مجتمعنا من خلال اختيار القسم المناسب لك.</p>
         </div>
 
         <div className="max-w-6xl mx-auto">
@@ -232,7 +232,7 @@ const AppliesPage: React.FC = () => {
             </div>
           ) : (
             <div className="text-center glass-panel p-20 space-y-6">
-              <AlertCircle size={64} className="text-white/10 mx-auto" />
+              <AlertCircle size={40} className="text-white/10 mx-auto" />
               <p className="text-2xl text-text-secondary font-bold">{t('no_applies_open')}</p>
             </div>
           )}

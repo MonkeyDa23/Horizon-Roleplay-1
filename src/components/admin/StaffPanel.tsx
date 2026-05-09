@@ -169,11 +169,11 @@ const StaffPanel: React.FC = () => {
             {/* Header / Stats */}
             <div className="bg-white/[0.02] border border-white/5 p-8 rounded-[40px] flex flex-col md:flex-row gap-8 items-center justify-between shadow-2xl backdrop-blur-xl">
                 <div className="flex items-center gap-6">
-                    <div className="w-16 h-16 bg-blue-500/10 rounded-3xl flex items-center justify-center border border-blue-500/10 shadow-inner">
-                        <UserPlus className="text-blue-500" size={32} />
+                    <div className="w-14 h-14 bg-blue-500/10 rounded-2xl flex items-center justify-center border border-blue-500/10 shadow-inner">
+                        <UserPlus className="text-blue-500" size={24} />
                     </div>
                     <div>
-                        <div className="text-4xl font-black text-white">{staff.length}</div>
+                        <div className="text-3xl font-black text-white">{staff.length}</div>
                         <div className="text-text-secondary text-xs uppercase font-black tracking-widest mt-1">{t('staff_members_count')}</div>
                     </div>
                 </div>
@@ -223,7 +223,7 @@ const StaffPanel: React.FC = () => {
                                 <GripVertical className="text-white/10 cursor-grab hidden md:block" />
                                 <div className="relative">
                                     <div className="absolute inset-0 blur-lg opacity-20 bg-white rounded-full"></div>
-                                    <img src={member.avatar_url} alt={member.username} className="w-20 h-20 rounded-3xl relative z-10 border border-white/10 shadow-2xl" />
+                                    <img src={member.avatar_url} alt={member.username} className="w-16 h-16 rounded-3xl relative z-10 border border-white/10 shadow-2xl" />
                                 </div>
                                 <div className="flex-grow">
                                     <p className="text-2xl font-black text-white mb-4 uppercase tracking-tight">{member.username}</p>
@@ -265,7 +265,7 @@ const StaffPanel: React.FC = () => {
                 ) : (
                     <div className="bg-white/[0.02] border border-white/5 rounded-[40px] py-32 text-center text-text-secondary shadow-lg">
                         <div className="flex flex-col items-center gap-6">
-                            <User size={80} className="opacity-5" />
+                            <User size={48} className="opacity-5" />
                             <p className="text-2xl font-black">{t('no_staff_members')}...</p>
                             <button onClick={() => setIsAddModalOpen(true)} className="px-8 py-3 bg-white/5 hover:bg-white/10 rounded-2xl text-white font-black text-sm border border-white/10 transition-all">
                                 {t('add_staff_member')}

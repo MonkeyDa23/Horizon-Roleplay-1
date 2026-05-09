@@ -64,8 +64,8 @@ const AdminDashboard: React.FC = () => {
                         <span>+12%</span>
                     </div>
                 </div>
-                <div className={`w-16 h-16 rounded-3xl flex items-center justify-center text-${color}-500 bg-${color}-500/10 border border-${color}-500/10 shadow-inner group-hover:scale-110 transition-transform`}>
-                    <Icon size={32} />
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-${color}-500 bg-${color}-500/10 border border-${color}-500/10 shadow-inner group-hover:scale-110 transition-transform`}>
+                    <Icon size={24} />
                 </div>
             </div>
             <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/5 to-transparent"></div>
@@ -94,12 +94,12 @@ const AdminDashboard: React.FC = () => {
 
                 <div className="relative z-10 w-full xl:w-1/3 grid grid-cols-2 gap-4">
                   <div className="bg-white/5 p-8 rounded-[40px] border border-white/5 flex flex-col items-center justify-center gap-2 group hover:bg-white/10 transition-all">
-                    <Shield size={32} className="text-brand-cyan mb-2" />
+                    <Shield size={24} className="text-brand-cyan mb-2" />
                     <span className="text-[10px] font-black uppercase tracking-widest opacity-40">System Status</span>
                     <span className="text-xs font-black text-green-400">OPERATIONAL</span>
                   </div>
                   <div className="bg-white/5 p-8 rounded-[40px] border border-white/5 flex flex-col items-center justify-center gap-2 group hover:bg-white/10 transition-all">
-                    <Activity size={32} className="text-blue-500 mb-2" />
+                    <Activity size={24} className="text-blue-500 mb-2" />
                     <span className="text-[10px] font-black uppercase tracking-widest opacity-40">Latency</span>
                     <span className="text-xs font-black text-blue-400 underline decoration-blue-500/20 underline-offset-4">24ms (Avg)</span>
                   </div>

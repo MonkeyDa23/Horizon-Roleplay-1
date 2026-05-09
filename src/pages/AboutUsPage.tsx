@@ -151,12 +151,12 @@ const AboutUsPage: React.FC = () => {
               borderColor: `${config.branding?.primaryColor || '#00A9FF'}55` 
             }}
           >
-            <Info size={54} style={{ color: config.branding?.primaryColor || '#00A9FF' }} />
+            <Info size={40} style={{ color: config.branding?.primaryColor || '#00A9FF' }} />
           </div>
-          <h1 className="text-4xl md:text-7xl font-black leading-tight">
+          <h1 className="text-5xl md:text-8xl font-black leading-tight">
             {t('page_title_about', { communityName }) || `معلومات عن ${communityName}`}
           </h1>
-          <p className="text-xl md:text-2xl text-text-secondary font-medium leading-relaxed">
+          <p className="text-2xl md:text-3xl text-text-secondary font-medium leading-relaxed">
             {t('about_intro', { communityName }) || 'تعرف علينا وكيف يعمل السيرفر لدينا.'}
           </p>
         </div>

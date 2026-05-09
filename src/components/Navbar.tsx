@@ -14,17 +14,12 @@ import CartModal from './CartModal';
 import LoginCaptchaModal from './LoginCaptchaModal';
 import { 
   Globe, 
-  ChevronDown, 
   LogOut, 
-  Loader2, 
   ShoppingCart, 
-  UserCog, 
-  FileText, 
   User, 
   Menu, 
   X, 
   Coins, 
-  CheckCircle,
   Shield
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -77,7 +72,6 @@ const Navbar: React.FC = () => {
 
   const navLinks = [
     { to: '/', text: t('nav_home') || 'Home' },
-    { to: '/store', text: t('nav_store') || 'Store' },
     { to: '/rules', text: t('nav_rules') || 'Rules' },
     { to: '/applies', text: t('nav_applies') || 'Apps' },
     { to: '/about', text: t('nav_about') || 'About' },
@@ -118,7 +112,7 @@ const Navbar: React.FC = () => {
                   <div className="absolute inset-0 border-2 border-white/10 rounded-full group-hover:border-white/30 transition-colors"></div>
                 </div>
                 <div className="hidden md:block">
-                  <h1 className="text-lg md:text-xl font-black text-white leading-none tracking-tight">{branding.siteName}</h1>
+                  <h1 className="text-xl md:text-2xl font-black text-white leading-none tracking-tight">{branding.siteName}</h1>
                   <span className="text-[10px] font-black opacity-40 uppercase tracking-widest" style={{ color: branding.primaryColor }}>Community</span>
                 </div>
               </Link>
@@ -160,8 +154,8 @@ const Navbar: React.FC = () => {
                     }}
                     className="h-12 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl flex items-center gap-3 text-[10px] font-black text-white transition-all shadow-inner active:scale-95"
                   >
-                    <Globe size={32} style={{ color: branding.primaryColor }} />
-                    <span className="text-2xl">{language.toUpperCase()}</span>
+                    <Globe size={20} style={{ color: branding.primaryColor }} />
+                    <span className="text-sm">{language.toUpperCase()}</span>
                   </button>
                   <AnimatePresence>
                     {langDropdownOpen && (
@@ -199,8 +193,8 @@ const Navbar: React.FC = () => {
                     }}
                     className="h-12 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl flex items-center gap-3 text-[10px] font-black text-white transition-all shadow-inner active:scale-95"
                   >
-                    <Coins size={32} style={{ color: branding.primaryColor }} />
-                    <span className="text-2xl">{currency}</span>
+                    <Coins size={20} style={{ color: branding.primaryColor }} />
+                    <span className="text-sm">{currency}</span>
                   </button>
                   <AnimatePresence>
                     {currencyDropdownOpen && (
@@ -230,11 +224,11 @@ const Navbar: React.FC = () => {
               {/* Cart Button */}
               <button 
                 onClick={() => setCartOpen(true)}
-                className="relative w-14 h-14 flex items-center justify-center rounded-[20px] bg-white/5 border border-white/10 hover:bg-white/10 active:scale-90 transition-all font-black shadow-inner"
+                className="relative w-12 h-12 flex items-center justify-center rounded-[18px] bg-white/5 border border-white/10 hover:bg-white/10 active:scale-90 transition-all font-black shadow-inner"
               >
-                <ShoppingCart size={32} className="text-text-secondary" />
+                <ShoppingCart size={22} className="text-text-secondary" />
                 {totalItems > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full font-black text-[10px] text-brand-dark shadow-xl ring-2 ring-brand-dark" style={{ backgroundColor: branding.primaryColor }}>
+                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full font-black text-[10px] text-brand-dark shadow-xl ring-2 ring-brand-dark" style={{ backgroundColor: branding.primaryColor }}>
                     {totalItems}
                   </span>
                 )}
@@ -261,21 +255,21 @@ const Navbar: React.FC = () => {
                           exit={{ opacity: 0, y: 10, scale: 0.95 }}
                           className={`absolute top-full mt-3 bg-brand-dark border border-white/10 p-2 w-56 rounded-[24px] shadow-2xl z-50 ${isRTL ? 'right-0' : 'left-0'}`}
                         >
-                          <Link to="/profile" onClick={closeAllMenus} className="flex items-center gap-4 px-6 py-4 text-lg font-black text-white hover:bg-white/5 rounded-2xl transition-all mb-1 group">
-                            <User size={28} className="opacity-40 group-hover:opacity-100 transition-opacity" style={{ color: branding.primaryColor }} /> 
-                            {t('my_profile')}
-                          </Link>
-                          {hasPermission('admin_panel') && (
-                            <Link to="/admin" onClick={closeAllMenus} className="flex items-center gap-4 px-6 py-4 text-lg font-black text-white hover:bg-white/5 rounded-2xl transition-all mb-1 group">
-                              <Shield size={28} className="opacity-40 group-hover:opacity-100 transition-opacity" style={{ color: branding.primaryColor }} /> 
-                              {t('admin_panel')}
-                            </Link>
-                          )}
-                          <hr className="border-white/5 my-2 mx-4" />
-                          <button onClick={logout} className="flex items-center gap-4 px-6 py-4 text-lg font-black text-red-500 hover:bg-red-500/5 w-full rounded-2xl transition-all group">
-                            <LogOut size={28} className="opacity-40 group-hover:opacity-100 transition-opacity" /> 
-                            {t('logout')}
-                          </button>
+                    <Link to="/profile" onClick={closeAllMenus} className="flex items-center gap-4 px-6 py-4 text-base font-black text-white hover:bg-white/5 rounded-2xl transition-all mb-1 group">
+                      <User size={20} className="opacity-40 group-hover:opacity-100 transition-opacity" style={{ color: branding.primaryColor }} /> 
+                      {t('my_profile')}
+                    </Link>
+                    {hasPermission('admin_panel') && (
+                      <Link to="/admin" onClick={closeAllMenus} className="flex items-center gap-4 px-6 py-4 text-base font-black text-white hover:bg-white/5 rounded-2xl transition-all mb-1 group">
+                        <Shield size={20} className="opacity-40 group-hover:opacity-100 transition-opacity" style={{ color: branding.primaryColor }} /> 
+                        {t('admin_panel')}
+                      </Link>
+                    )}
+                    <hr className="border-white/5 my-2 mx-4" />
+                    <button onClick={logout} className="flex items-center gap-4 px-6 py-4 text-base font-black text-red-500 hover:bg-red-500/5 w-full rounded-2xl transition-all group">
+                      <LogOut size={20} className="opacity-40 group-hover:opacity-100 transition-opacity" /> 
+                      {t('logout')}
+                    </button>
                         </motion.div>
                       )}
                     </AnimatePresence>
@@ -285,7 +279,7 @@ const Navbar: React.FC = () => {
                     onClick={() => setLoginCaptchaOpen(true)}
                     className="h-12 px-6 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl font-black text-[12px] text-white transition-all shadow-inner flex items-center gap-3 active:scale-95"
                   >
-                    <DiscordLogo className="w-6 h-6 opacity-40" />
+                    <DiscordLogo className="w-5 h-5 opacity-40" />
                     <span>{t('login')}</span>
                   </button>
                 )

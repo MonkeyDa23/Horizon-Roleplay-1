@@ -88,7 +88,7 @@ const PermissionsPanel: React.FC = () => {
             <div className="flex flex-col gap-6 justify-center items-center py-32 min-h-[500px]">
                 <div className="relative">
                     <div className="absolute inset-0 blur-3xl opacity-20" style={{ backgroundColor: branding.primaryColor }}></div>
-                    <Loader2 size={80} className="animate-spin text-white relative z-10" style={{ color: branding.primaryColor }} />
+                    <Loader2 size={40} className="animate-spin text-white relative z-10" style={{ color: branding.primaryColor }} />
                 </div>
                 <p className="text-text-secondary font-black uppercase tracking-[0.3em] animate-pulse">{t('please_wait')}</p>
             </div>
@@ -99,8 +99,8 @@ const PermissionsPanel: React.FC = () => {
         return (
             <div className="bg-red-500/5 border border-red-500/20 p-12 rounded-[50px] shadow-2xl animate-fade-in-up">
                 <div className="flex flex-col items-center text-center gap-6">
-                    <div className="w-20 h-20 bg-red-500/10 rounded-[35px] flex items-center justify-center text-red-500 border border-red-500/10">
-                        <AlertTriangle size={48} />
+                    <div className="w-16 h-16 bg-red-500/10 rounded-[28px] flex items-center justify-center text-red-500 border border-red-500/10">
+                        <AlertTriangle size={32} />
                     </div>
                     <div className="space-y-4">
                         <h3 className="text-3xl font-black text-white uppercase tracking-tight">Discord Sync Error</h3>
@@ -161,9 +161,9 @@ const PermissionsPanel: React.FC = () => {
                         <>
                             <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-8 mb-12 relative z-10">
                                 <div className="flex items-center gap-8">
-                                    <div className="w-24 h-24 rounded-[35px] flex items-center justify-center bg-white/5 border border-white/10 shadow-inner relative">
+                                    <div className="w-16 h-16 rounded-[28px] flex items-center justify-center bg-white/5 border border-white/10 shadow-inner relative">
                                         <div className="absolute inset-0 blur-2xl opacity-20" style={{ backgroundColor: branding.primaryColor }}></div>
-                                        <Shield size={40} style={{ color: branding.primaryColor }} className="relative z-10" />
+                                        <Shield size={24} style={{ color: branding.primaryColor }} className="relative z-10" />
                                     </div>
                                     <div className="space-y-2">
                                         <h3 className="text-4xl font-black text-white uppercase tracking-tight">{t('available_permissions')}</h3>
@@ -236,8 +236,8 @@ const PermissionsPanel: React.FC = () => {
                         </>
                     ) : (
                         <div className="flex flex-col items-center justify-center h-full text-center space-y-8 animate-pulse-slow">
-                            <div className="w-32 h-32 bg-white/5 rounded-[45px] flex items-center justify-center text-white/10 border border-white/5 shadow-2xl">
-                                <ShieldQuestion size={64} />
+                            <div className="w-24 h-24 bg-white/5 rounded-[32px] flex items-center justify-center text-white/10 border border-white/5 shadow-2xl">
+                                <ShieldQuestion size={40} />
                             </div>
                             <div className="space-y-4">
                                 <h3 className="text-3xl font-black text-text-secondary opacity-40 uppercase tracking-tight">{t('select_role_to_manage')}</h3>

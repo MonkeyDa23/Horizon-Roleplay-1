@@ -52,54 +52,45 @@ const HomePage: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 md:gap-6 px-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 md:gap-8 px-4">
             <button 
               onClick={() => setIsModalOpen(true)}
-              className="w-full sm:w-auto px-8 md:px-14 py-4 md:py-6 rounded-[24px] md:rounded-[32px] text-xl md:text-2xl font-black transition-all hover:scale-105 active:scale-95 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.5)] flex items-center justify-center gap-4 group"
+              className="w-full sm:w-auto px-10 md:px-16 py-5 md:py-8 rounded-[30px] md:rounded-[40px] text-2xl md:text-3xl font-black transition-all hover:scale-105 active:scale-95 shadow-[0_25px_60px_-10px_rgba(0,0,0,0.6)] flex items-center justify-center gap-5 group"
               style={{ backgroundColor: branding.primaryColor, color: '#000' }}
             >
               {t('join_us') || 'انضم إلينا الآن'}
-              <ChevronRight className={`group-hover:translate-x-2 transition-transform ${dir === 'rtl' ? 'rotate-180 group-hover:-translate-x-2' : ''}`} />
+              <ChevronRight size={28} className={`group-hover:translate-x-2 transition-transform ${dir === 'rtl' ? 'rotate-180 group-hover:-translate-x-2' : ''}`} />
             </button>
-            <a 
-              href={config.DISCORD_INVITE_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full sm:w-auto px-8 md:px-14 py-4 md:py-6 rounded-[24px] md:rounded-[32px] text-xl md:text-2xl font-black bg-white/5 text-white border border-white/10 hover:bg-white/10 transition-all backdrop-blur-xl flex items-center justify-center gap-4 group"
-            >
-              المتجر
-              <ChevronRight className={`group-hover:translate-x-2 transition-transform ${dir === 'rtl' ? 'rotate-180 group-hover:-translate-x-2' : ''}`} />
-            </a>
           </div>
         </div>
       </div>
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={t('join_modal_title') || 'انضم لمجتمعنا'}>
-        <div className="p-4 space-y-6">
-          <p className="text-text-secondary text-lg text-center font-medium">اختر المنصة التي ترغب في الانضمام من خلالها:</p>
-          <div className="grid grid-cols-1 gap-4">
+        <div className="p-6 space-y-8">
+          <p className="text-text-secondary text-2xl text-center font-bold">{t('join_modal_desc') || 'اختر المنصة التي ترغب في الانضمام من خلالها:'}</p>
+          <div className="grid grid-cols-1 gap-6">
             <a 
               href={config.DISCORD_INVITE_URL} 
               target="_blank" 
               rel="noopener noreferrer" 
-              className="group flex items-center justify-between p-8 bg-[#5865F2] text-white font-black rounded-[32px] hover:bg-[#4752C4] transition-all duration-300 shadow-xl"
+              className="group flex items-center justify-between p-10 bg-[#5865F2] text-white font-black rounded-[40px] hover:bg-[#4752C4] transition-all duration-300 shadow-2xl hover:translate-y--1"
             >
-              <div className="flex items-center gap-6">
-                <DiscordLogo className="w-10 h-10 transition-transform duration-500 group-hover:rotate-12" />
-                <span className="text-2xl">{t('join_discord') || 'خادم الديسكورد'}</span>
+              <div className="flex items-center gap-8">
+                <DiscordLogo className="w-12 h-12 transition-transform duration-500 group-hover:rotate-12" />
+                <span className="text-3xl">{t('join_discord') || 'خادم الديسكورد'}</span>
               </div>
-              <ChevronRight size={24} className={dir === 'rtl' ? 'rotate-180' : ''} />
+              <ChevronRight size={32} className={dir === 'rtl' ? 'rotate-180' : ''} />
             </a>
             
             <a 
               href={config.MTA_SERVER_URL}
-              className="group flex items-center justify-between p-8 bg-white/10 border border-white/10 text-white font-black rounded-[32px] hover:bg-white/20 transition-all duration-300 shadow-xl"
+              className="group flex items-center justify-between p-10 bg-white/10 border border-white/10 text-white font-black rounded-[40px] hover:bg-white/20 transition-all duration-300 shadow-2xl hover:translate-y--1"
             >
-              <div className="flex items-center gap-6">
-                <Gamepad2 size={40} className="transition-transform duration-500 group-hover:scale-110" />
-                <span className="text-2xl">{t('connect_mta') || 'خادم اللعبة (MTA)'}</span>
+              <div className="flex items-center gap-8">
+                <Gamepad2 size={48} className="transition-transform duration-500 group-hover:scale-110" />
+                <span className="text-3xl">{t('connect_mta') || 'خادم اللعبة (MTA)'}</span>
               </div>
-              <ChevronRight size={24} className={dir === 'rtl' ? 'rotate-180' : ''} />
+              <ChevronRight size={32} className={dir === 'rtl' ? 'rotate-180' : ''} />
             </a>
           </div>
         </div>
