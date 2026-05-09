@@ -1,3 +1,7 @@
+/**
+ * Nova Roleplay - Official Website
+ * Admin User Lookup Panel
+ */
 import React, { useState } from 'react';
 import { useLocalization } from '../../contexts/LocalizationContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -6,7 +10,7 @@ import { useConfig } from '../../contexts/ConfigContext';
 import { lookupUser, banUser, unbanUser, addBalance, createInvoice, getUserInvoices, sendDiscordLog, getProducts, logAdminAction, logFinanceAction } from '../../lib/api';
 import type { UserLookupResult, DiscordRole, Invoice, Product } from '../../types';
 import Modal from '../Modal';
-import { Loader2, Search, Ban, Coins, Receipt, PlusCircle, Trash2 } from 'lucide-react';
+import { Loader2, Search, Ban, Coins, Receipt, PlusCircle, Trash2, User, UserX, ShieldCheck, CreditCard, History, Clock, FileText, ArrowRight } from 'lucide-react';
 
 const RoleBadge: React.FC<{ role: DiscordRole }> = ({ role }) => {
     const color = role.color ? `#${role.color.toString(16).padStart(6, '0')}` : '#99aab5';
@@ -15,14 +19,22 @@ const RoleBadge: React.FC<{ role: DiscordRole }> = ({ role }) => {
     const b = parseInt(color.slice(5, 7), 16);
     const brightness = (r * 299 + g * 587 + b * 114) / 1000;
     const textColor = brightness > 125 ? 'text-black' : 'text-white';
-    return <span className={`px-2 py-1 text-xs font-bold rounded-md ${textColor}`} style={{ backgroundColor: color }}>{role.name}</span>;
+    return (
+        <span 
+            className={`px-3 py-1 text-[10px] font-black rounded-full border border-white/10 shadow-sm ${textColor} uppercase tracking-wider`} 
+            style={{ backgroundColor: color }}
+        >
+            {role.name}
+        </span>
+    );
 };
 
 const UserLookupPanel: React.FC = () => {
-    const { t } = useLocalization();
+    const { t, language, dir } = useLocalization();
+    const isArabic = language === 'ar';
     const { showToast } = useToast();
     const { user: adminUser } = useAuth();
-    const { config } = useConfig();
+    const { config, branding } = useConfig();
     
     const [discordId, setDiscordId] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -194,73 +206,159 @@ const UserLookupPanel: React.FC = () => {
     };
 
     return (
-        <div className="animate-fade-in-up">
-            <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50 mb-8">
-                <div className="flex flex-col md:flex-row gap-4">
-                    <input type="text" placeholder={t('discord_id_placeholder')} value={discordId} onChange={(e) => setDiscordId(e.target.value)} className="vixel-input flex-grow" />
-                    <button onClick={handleSearch} disabled={!discordId || isLoading} className="bg-brand-cyan text-brand-dark font-bold py-3 px-8 rounded-md hover:bg-white transition-colors flex items-center justify-center gap-2 disabled:opacity-50 min-w-[120px]">
-                        {isLoading ? <Loader2 className="animate-spin" /> : <><Search size={20} /> {t('search')}</>}
+        <div className="space-y-10 animate-fade-in-up" dir={dir}>
+            {/* Search Header */}
+            <div className="bg-white/[0.02] border border-white/5 p-8 rounded-[40px] shadow-2xl backdrop-blur-xl">
+                <div className="flex flex-col md:flex-row gap-6">
+                    <div className="relative flex-grow">
+                        <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-text-secondary opacity-40" size={28} />
+                        <input 
+                            type="text" 
+                            placeholder={t('discord_id_placeholder') || 'Enter Discord ID...'} 
+                            value={discordId} 
+                            onChange={(e) => setDiscordId(e.target.value)} 
+                            className="w-full bg-white/5 border-2 border-white/10 rounded-[28px] py-6 pl-16 pr-8 text-2xl text-white focus:outline-none focus:border-white/20 transition-all font-mono"
+                        />
+                    </div>
+                    <button 
+                        onClick={handleSearch} 
+                        disabled={!discordId || isLoading} 
+                        style={{ backgroundColor: branding.primaryColor }}
+                        className="text-brand-dark font-black py-6 px-12 rounded-[28px] hover:scale-105 transition-all shadow-xl flex items-center justify-center gap-4 disabled:opacity-30 disabled:grayscale active:scale-95 min-w-[180px]"
+                    >
+                        {isLoading ? <Loader2 className="animate-spin" size={32} /> : <><Search size={28} /> {t('lookup_user')}</>}
                     </button>
                 </div>
-                {error && <p className="text-red-400 mt-4 bg-red-500/10 p-3 rounded-md border border-red-500/30">{error}</p>}
+                {error && <p className="text-red-400 mt-6 bg-red-500/10 p-5 rounded-2xl border border-red-500/20 font-bold animate-shake">{error}</p>}
             </div>
 
             {searchResult && (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="lg:col-span-1 space-y-6">
-                        <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50 text-center">
-                            <img src={searchResult.avatar} alt={searchResult.username} className="w-32 h-32 rounded-full mx-auto mb-4 border-4 border-brand-cyan shadow-glow-cyan" />
-                            <h2 className="text-2xl font-bold text-white">{searchResult.username}</h2>
-                            <p className="text-gray-400 mb-4 text-sm font-mono select-all bg-black/20 inline-block px-2 rounded mt-1">{searchResult.discordId}</p>
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
+                    {/* User Profile Card */}
+                    <div className="xl:col-span-4 self-start">
+                        <div className="bg-white/[0.02] border border-white/5 p-10 rounded-[50px] shadow-2xl text-center space-y-8 relative overflow-hidden backdrop-blur-3xl">
+                            <div className="absolute top-0 left-0 w-full h-2" style={{ backgroundColor: branding.primaryColor }}></div>
                             
-                            <div className="bg-brand-dark p-3 rounded-lg border border-brand-light-blue/30 mb-6 flex items-center justify-center gap-2 text-accent-cyan">
-                                <Coins size={20} />
-                                <span className="font-bold text-xl">${searchResult.balance.toLocaleString()}</span>
+                            <div className="relative inline-block group">
+                                <div className="absolute inset-0 blur-3xl opacity-30 group-hover:opacity-50 transition-opacity" style={{ backgroundColor: branding.primaryColor }}></div>
+                                <img 
+                                    src={searchResult.avatar} 
+                                    alt={searchResult.username} 
+                                    className="w-40 h-40 rounded-[48px] mx-auto border-4 border-white/10 relative z-10 shadow-glow pointer-events-none"
+                                />
                             </div>
 
-                            <div className="flex flex-wrap gap-2 justify-center mb-6">
+                            <div>
+                                <h2 className="text-3xl font-black text-white">{searchResult.username}</h2>
+                                <p className="text-xs text-text-secondary font-mono mt-3 opacity-40 uppercase tracking-widest bg-white/5 px-4 py-2 rounded-full inline-block select-all cursor-copy">
+                                    {searchResult.discordId}
+                                </p>
+                            </div>
+                            
+                            <div className="bg-white/[0.03] p-6 rounded-[32px] border border-white/5 flex flex-col items-center gap-2 shadow-inner">
+                                <p className="text-[10px] font-black text-text-secondary uppercase opacity-40 tracking-widest">{t('account_balance')}</p>
+                                <div className="flex items-center gap-3 text-3xl font-black" style={{ color: branding.primaryColor }}>
+                                    <Coins size={32} />
+                                    <span>${searchResult.balance.toLocaleString()}</span>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2 justify-center">
                                 {searchResult.roles.map(role => <RoleBadge key={role.id} role={role} />)}
                             </div>
 
-                            {searchResult.is_banned ? (
-                                <div className="bg-red-500/10 border border-red-500/50 p-4 rounded-lg mb-6">
-                                    <p className="text-red-400 font-bold flex items-center justify-center gap-2"><Ban size={20} /> BANNED</p>
-                                    <p className="text-sm text-red-300 mt-1">{searchResult.ban_reason}</p>
-                                    <p className="text-xs text-red-300/70 mt-2">Expires: {searchResult.ban_expires_at ? new Date(searchResult.ban_expires_at).toLocaleString() : 'Never'}</p>
-                                    <button onClick={handleUnban} className="mt-3 w-full bg-red-500 text-white py-2 rounded font-bold hover:bg-red-600 transition-colors">{t('unban')}</button>
-                                </div>
-                            ) : (
-                                <div className="space-y-3">
-                                    <button onClick={() => setBanModalOpen(true)} className="w-full bg-brand-dark border border-red-500 text-red-500 py-2 rounded font-bold hover:bg-red-500 hover:text-white transition-colors flex items-center justify-center gap-2"><Ban size={18} /> {t('ban')}</button>
-                                    <button onClick={() => setBalanceModalOpen(true)} className="w-full bg-brand-dark border border-accent-cyan text-accent-cyan py-2 rounded font-bold hover:bg-accent-cyan hover:text-black transition-colors flex items-center justify-center gap-2"><PlusCircle size={18} /> {t('add_balance')}</button>
-                                    <button onClick={openInvoiceModal} className="w-full bg-brand-dark border border-brand-light-blue text-brand-light-blue py-2 rounded font-bold hover:bg-brand-light-blue hover:text-white transition-colors flex items-center justify-center gap-2"><Receipt size={18} /> {t('create_invoice')}</button>
-                                </div>
-                            )}
+                            <div className="pt-8 border-t border-white/5 space-y-4">
+                                {searchResult.is_banned ? (
+                                    <div className="space-y-4">
+                                        <div className="bg-red-500/5 border border-red-500/20 p-6 rounded-[32px] text-center">
+                                            <div className="bg-red-500/10 w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4 text-red-500 border border-red-500/20 shadow-inner">
+                                                <UserX size={24} />
+                                            </div>
+                                            <h4 className="text-red-500 font-black text-xl mb-1 uppercase">{t('banned')}</h4>
+                                            <p className="text-xs text-red-400 font-bold opacity-80 leading-relaxed px-4">{searchResult.ban_reason}</p>
+                                            <div className="mt-4 flex items-center justify-center gap-2 text-[10px] text-red-400/50 font-black uppercase">
+                                                <Clock size={12} />
+                                                <span>{searchResult.ban_expires_at ? new Date(searchResult.ban_expires_at).toLocaleString() : 'Permanent'}</span>
+                                            </div>
+                                        </div>
+                                        <button 
+                                            onClick={handleUnban} 
+                                            className="w-full py-5 rounded-[24px] font-black text-lg bg-red-500 text-white shadow-2xl hover:scale-105 active:scale-95 transition-all"
+                                        >
+                                            {t('unban_user')}
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 gap-4">
+                                        <button 
+                                            onClick={() => setBanModalOpen(true)} 
+                                            className="w-full py-4 rounded-2xl font-black text-sm bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center gap-3 active:scale-95"
+                                        >
+                                            <Ban size={20} /> {t('ban_user')}
+                                        </button>
+                                        <button 
+                                            onClick={() => setBalanceModalOpen(true)} 
+                                            className="w-full py-4 rounded-2xl font-black text-sm bg-brand-cyan/10 text-brand-cyan border border-brand-cyan/20 hover:bg-brand-cyan hover:text-brand-dark transition-all flex items-center justify-center gap-3 active:scale-95"
+                                            style={{ borderColor: `${branding.primaryColor}33`, color: branding.primaryColor }}
+                                        >
+                                            <PlusCircle size={20} /> {t('modify_balance')}
+                                        </button>
+                                        <button 
+                                            onClick={openInvoiceModal} 
+                                            className="w-full py-4 rounded-2xl font-black text-sm bg-white/5 text-white border border-white/10 hover:bg-white/10 transition-all flex items-center justify-center gap-3 active:scale-95 shadow-xl"
+                                        >
+                                            <Receipt size={20} /> {t('create_invoice')}
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
 
-                    <div className="lg:col-span-2">
-                        <div className="bg-brand-dark-blue p-6 rounded-lg border border-brand-light-blue/50 h-full">
-                            <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><Receipt /> {t('invoice_history')}</h3>
+                    {/* Content Area (Invoices) */}
+                    <div className="xl:col-span-8">
+                        <div className="bg-white/[0.02] border border-white/5 p-10 rounded-[50px] shadow-2xl h-full backdrop-blur-3xl relative">
+                            <h3 className="text-3xl font-black text-white mb-10 flex items-center gap-4">
+                                <History size={32} style={{ color: branding.primaryColor }} /> 
+                                {t('transaction_history')}
+                            </h3>
+
                             {invoices.length > 0 ? (
-                                <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                                <div className="space-y-6 max-h-[800px] overflow-y-auto pr-4 custom-scrollbar">
                                     {invoices.map(inv => (
-                                        <div key={inv.id} className="bg-brand-dark p-4 rounded-lg border border-gray-700 hover:border-brand-cyan/50 transition-colors">
-                                            <div className="flex justify-between items-start mb-2">
-                                                <div>
-                                                    <p className="text-xs text-gray-500 font-mono">{inv.id}</p>
-                                                    <p className="text-sm text-gray-400">{new Date(inv.created_at).toLocaleString()}</p>
+                                        <div key={inv.id} className="bg-white/[0.02] p-8 rounded-[40px] border border-white/5 hover:border-white/10 transition-all group shadow-xl">
+                                            <div className="flex flex-col sm:flex-row justify-between items-start gap-6 border-b border-white/5 pb-6 mb-6">
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center gap-3 text-xs text-text-secondary opacity-40 font-mono font-black uppercase">
+                                                        <FileText size={14} />
+                                                        ID: {inv.id}
+                                                    </div>
+                                                    <div className="flex items-center gap-3 text-sm text-text-secondary font-black bg-white/5 px-4 py-2 rounded-full inline-block">
+                                                        <Clock size={16} />
+                                                        {new Date(inv.created_at).toLocaleString(isArabic ? 'ar' : 'en')}
+                                                    </div>
                                                 </div>
-                                                <div className="text-right">
-                                                    <p className="font-bold text-brand-cyan text-lg">${inv.total_amount.toLocaleString()}</p>
-                                                    <p className="text-xs text-gray-500">By: {inv.admin_username}</p>
+                                                <div className="text-right flex flex-col items-end">
+                                                    <p className="text-3xl font-black" style={{ color: branding.primaryColor }}>
+                                                        ${inv.total_amount.toLocaleString()}
+                                                    </p>
+                                                    <div className="flex items-center gap-2 text-xs text-text-secondary font-black opacity-40 mt-1">
+                                                        <User size={14} />
+                                                        <span>By: {inv.admin_username}</span>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <div className="border-t border-gray-700 pt-2 mt-2">
+
+                                            <div className="space-y-3">
                                                 {inv.products && (inv.products as any[]).map((p, idx) => (
-                                                    <div key={idx} className="flex justify-between text-sm text-gray-300">
-                                                        <span>{p.productName}</span>
-                                                        <span>${p.price}</span>
+                                                    <div key={idx} className="flex justify-between items-center bg-black/20 p-4 rounded-2xl border border-white/5 shadow-inner">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/20">
+                                                                <CreditCard size={20} />
+                                                            </div>
+                                                            <span className="font-black text-white">{p.productName}</span>
+                                                        </div>
+                                                        <span className="font-black text-lg py-1 px-3 bg-white/5 rounded-xl border border-white/5">${p.price}</span>
                                                     </div>
                                                 ))}
                                             </div>
@@ -268,72 +366,171 @@ const UserLookupPanel: React.FC = () => {
                                     ))}
                                 </div>
                             ) : (
-                                <div className="text-center py-10 text-gray-500">{t('no_invoices_yet')}</div>
+                                <div className="text-center py-40 text-text-secondary">
+                                    <div className="flex flex-col items-center gap-8">
+                                        <History size={100} className=" opacity-5" />
+                                        <p className="text-3xl font-black opacity-20">{t('no_invoices_yet')}</p>
+                                    </div>
+                                </div>
                             )}
                         </div>
                     </div>
                 </div>
             )}
 
-            <Modal isOpen={isBanModalOpen} onClose={() => setBanModalOpen(false)} title={t('ban')}>
-                <div className="space-y-4">
-                    <input type="text" placeholder={t('reason')} value={banReason} onChange={(e) => setBanReason(e.target.value)} className="vixel-input" />
-                    <input type="number" placeholder={`${t('duration')} (hours)`} value={banDuration || ''} onChange={(e) => setBanDuration(parseInt(e.target.value) || null)} className="vixel-input" />
-                    <button onClick={handleBan} className="w-full bg-red-600 text-white font-bold py-3 rounded-lg hover:bg-red-500">{t('confirm_ban')}</button>
-                </div>
-            </Modal>
-
-            <Modal isOpen={isBalanceModalOpen} onClose={() => setBalanceModalOpen(false)} title={t('add_balance')}>
-                <div className="space-y-4">
-                    <div className="text-center mb-4">
-                        <p className="text-gray-400">{t('current_balance')}</p>
-                        <p className="text-3xl font-bold text-accent-cyan">${searchResult?.balance.toLocaleString()}</p>
+            {/* Ban Modal */}
+            <Modal isOpen={isBanModalOpen} onClose={() => setBanModalOpen(false)} title={t('ban_user')}>
+                <div className="p-8 space-y-8" dir={dir}>
+                    <div className="space-y-4">
+                        <label className="text-[10px] font-black uppercase text-text-secondary opacity-40 tracking-widest">{t('ban_reason')}</label>
+                        <input 
+                            type="text" 
+                            placeholder={t('reason_placeholder') || 'Enter ban reason...'} 
+                            value={banReason} 
+                            onChange={(e) => setBanReason(e.target.value)} 
+                            className="w-full bg-white/5 border-2 border-white/10 rounded-2xl p-4 text-white focus:outline-none focus:border-white/20 transition-all font-bold" 
+                        />
                     </div>
-                    <input type="number" placeholder={t('amount')} value={balanceAmount} onChange={(e) => setBalanceAmount(parseFloat(e.target.value))} className="vixel-input text-center text-2xl font-bold" />
-                    <button onClick={handleAddBalance} disabled={isProcessingBalance} className="w-full bg-accent-cyan text-black font-bold py-3 rounded-lg hover:bg-white flex justify-center items-center gap-2">
-                        {isProcessingBalance ? <Loader2 className="animate-spin" /> : t('add_balance')}
+                    <div className="space-y-4">
+                        <label className="text-[10px] font-black uppercase text-text-secondary opacity-40 tracking-widest">{t('ban_duration_hours')} (0 = Permanent)</label>
+                        <input 
+                            type="number" 
+                            placeholder="0" 
+                            value={banDuration || ''} 
+                            onChange={(e) => setBanDuration(parseInt(e.target.value) || null)} 
+                            className="w-full bg-white/5 border-2 border-white/10 rounded-2xl p-4 text-white focus:outline-none focus:border-white/20 transition-all font-black text-xl" 
+                        />
+                    </div>
+                    <button 
+                        onClick={handleBan} 
+                        className="w-full py-5 rounded-[24px] font-black text-xl bg-red-600 text-white shadow-2xl hover:scale-105 active:scale-95 transition-all mt-4"
+                    >
+                        {t('confirm_ban')}
                     </button>
                 </div>
             </Modal>
 
-            <Modal isOpen={isInvoiceModalOpen} onClose={() => setInvoiceModalOpen(false)} title={t('create_invoice')} maxWidth="3xl">
-                <div className="flex flex-col md:flex-row gap-6 max-h-[70vh]">
-                    <div className="w-full md:w-1/2 space-y-4 overflow-y-auto pr-2 custom-scrollbar">
-                        <h4 className="font-bold text-gray-300 border-b border-gray-600 pb-2">{t('select_products')}</h4>
-                        {availableProducts.map(prod => (
-                            <div key={prod.id} className="flex items-center justify-between bg-brand-dark p-3 rounded border border-gray-700 cursor-pointer hover:border-brand-cyan transition-colors" onClick={() => addToInvoice(prod)}>
-                                <div className="flex items-center gap-3">
-                                    <img src={prod.imageUrl} className="w-10 h-10 rounded object-cover" />
-                                    <div>
-                                        <p className="font-bold text-sm">{t(prod.nameKey)}</p>
-                                        <p className="text-xs text-accent-cyan">${prod.price}</p>
-                                    </div>
-                                </div>
-                                <PlusCircle size={18} className="text-gray-400" />
-                            </div>
-                        ))}
+            {/* Balance Modal */}
+            <Modal isOpen={isBalanceModalOpen} onClose={() => setBalanceModalOpen(false)} title={t('modify_balance')}>
+                <div className="p-8 space-y-10" dir={dir}>
+                    <div className="text-center p-8 bg-black/20 rounded-[40px] border border-white/5 shadow-inner">
+                        <p className="text-xs font-black text-text-secondary uppercase opacity-40 tracking-widest mb-2">{t('current_balance')}</p>
+                        <p className="text-5xl font-black" style={{ color: branding.primaryColor }}>${searchResult?.balance.toLocaleString()}</p>
+                    </div>
+                    
+                    <div className="space-y-4">
+                        <label className="text-[10px] font-black uppercase text-text-secondary opacity-40 tracking-widest">{t('modify_amount')}</label>
+                        <input 
+                            type="number" 
+                            placeholder="0" 
+                            value={balanceAmount} 
+                            onChange={(e) => setBalanceAmount(parseFloat(e.target.value))} 
+                            className="w-full bg-white/5 border-2 border-white/10 rounded-[32px] p-8 text-center text-4xl font-black text-white focus:outline-none focus:border-white/20 transition-all shadow-glow-inner" 
+                        />
                     </div>
 
-                    <div className="w-full md:w-1/2 bg-brand-dark-blue p-4 rounded border border-brand-light-blue flex flex-col">
-                        <h4 className="font-bold text-white border-b border-gray-600 pb-2 mb-4">{t('products_in_invoice')}</h4>
-                        <div className="flex-grow overflow-y-auto space-y-2 mb-4 custom-scrollbar">
-                            {selectedInvoiceProducts.map((prod, idx) => (
-                                <div key={idx} className="flex justify-between items-center bg-brand-dark p-2 rounded">
-                                    <span className="text-sm">{t(prod.nameKey)}</span>
-                                    <div className="flex items-center gap-3">
-                                        <span className="font-mono text-sm">${prod.price}</span>
-                                        <button onClick={() => removeFromInvoice(idx)} className="text-red-500"><Trash2 size={14} /></button>
+                    <button 
+                        onClick={handleAddBalance} 
+                        disabled={isProcessingBalance} 
+                        style={{ backgroundColor: branding.primaryColor }}
+                        className="w-full py-6 rounded-[32px] font-black text-2xl text-brand-dark shadow-2xl hover:scale-105 active:scale-95 transition-all flex justify-center items-center gap-4 disabled:opacity-30 disabled:grayscale"
+                    >
+                        {isProcessingBalance ? <Loader2 className="animate-spin" size={32} /> : (
+                            <>
+                                <PlusCircle size={32} />
+                                {t('apply_changes')}
+                            </>
+                        )}
+                    </button>
+                </div>
+            </Modal>
+
+            {/* Invoice Modal */}
+            <Modal isOpen={isInvoiceModalOpen} onClose={() => setInvoiceModalOpen(false)} title={t('create_invoice')} maxWidth="5xl">
+                <div className="flex flex-col xl:flex-row gap-10 p-10 max-h-[85vh]" dir={dir}>
+                    <div className="w-full xl:w-7/12 space-y-8 flex flex-col">
+                        <div className="flex items-center gap-4 text-white font-black text-2xl pb-4 border-b border-white/5">
+                            <PlusCircle size={28} style={{ color: branding.primaryColor }} />
+                            {t('available_store_items')}
+                        </div>
+                        <div className="flex-grow overflow-y-auto pr-4 custom-scrollbar space-y-4">
+                            {availableProducts.map(prod => (
+                                <div 
+                                    key={prod.id} 
+                                    className="flex items-center justify-between bg-white/5 p-5 rounded-[32px] border border-white/5 cursor-pointer hover:border-white/20 hover:scale-[1.02] active:scale-95 transition-all group shadow-xl" 
+                                    onClick={() => addToInvoice(prod)}
+                                >
+                                    <div className="flex items-center gap-5">
+                                        <img src={prod.imageUrl} className="w-16 h-16 rounded-2xl object-cover border border-white/10 shadow-lg" />
+                                        <div>
+                                            <p className="font-black text-lg text-white mb-1">{t(prod.nameKey)}</p>
+                                            <p className="text-xl font-black" style={{ color: branding.primaryColor }}>${prod.price}</p>
+                                        </div>
+                                    </div>
+                                    <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <PlusCircle size={24} className="text-white" />
                                     </div>
                                 </div>
                             ))}
                         </div>
-                        <div className="border-t border-gray-600 pt-4">
-                            <div className="flex justify-between text-xl font-bold text-white mb-4">
-                                <span>{t('total_amount')}</span>
-                                <span className="text-accent-cyan">${selectedInvoiceProducts.reduce((acc, p) => acc + p.price, 0).toFixed(2)}</span>
+                    </div>
+
+                    <div className="w-full xl:w-5/12 bg-black/20 p-8 rounded-[45px] border border-white/5 flex flex-col shadow-inner relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 blur-[100px] opacity-10 rounded-full" style={{ backgroundColor: branding.primaryColor }}></div>
+                        
+                        <h4 className="font-black text-white text-2xl border-b border-white/5 pb-6 mb-8 flex items-center justify-between">
+                            {t('invoice_summary')}
+                            <span className="text-xs bg-white/10 px-3 py-1 rounded-full opacity-60">{selectedInvoiceProducts.length} Items</span>
+                        </h4>
+
+                        <div className="flex-grow overflow-y-auto space-y-4 mb-8 custom-scrollbar">
+                            {selectedInvoiceProducts.length > 0 ? selectedInvoiceProducts.map((prod, idx) => (
+                                <div key={idx} className="flex justify-between items-center bg-white/[0.03] p-5 rounded-2xl border border-white/5 animate-fade-in group">
+                                    <div className="flex flex-col">
+                                        <span className="font-black text-white text-sm mb-1">{t(prod.nameKey)}</span>
+                                        <span className="text-xs font-mono opacity-40 font-bold tracking-widest uppercase mb-1">SKU: {prod.id.slice(0, 8)}</span>
+                                    </div>
+                                    <div className="flex items-center gap-6">
+                                        <span className="font-black text-xl text-white">${prod.price}</span>
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); removeFromInvoice(idx); }} 
+                                            className="p-2 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all opacity-40 group-hover:opacity-100"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                </div>
+                            )) : (
+                                <div className="h-full flex flex-col items-center justify-center text-center opacity-10 gap-6">
+                                    <History size={80} />
+                                    <p className="text-xl font-black uppercase tracking-[0.2em]">Cart Empty</p>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="border-t border-white/5 pt-8 space-y-6">
+                            <div className="flex justify-between items-end">
+                                <span className="text-xs font-black text-text-secondary uppercase tracking-[0.3em] opacity-40 mb-2">{t('net_total')}</span>
+                                <div className="text-right">
+                                    <span className="text-5xl font-black text-white tracking-tight">
+                                        ${selectedInvoiceProducts.reduce((acc, p) => acc + p.price, 0).toFixed(0)}
+                                    </span>
+                                    <span className="text-xl font-black opacity-30">.00</span>
+                                </div>
                             </div>
-                            <button onClick={handleCreateInvoice} disabled={isProcessingInvoice || selectedInvoiceProducts.length === 0} className="w-full bg-brand-cyan text-black font-bold py-3 rounded hover:bg-white flex justify-center items-center gap-2 disabled:opacity-50">
-                                {isProcessingInvoice ? <Loader2 className="animate-spin" /> : t('create_invoice')}
+                            
+                            <button 
+                                onClick={handleCreateInvoice} 
+                                disabled={isProcessingInvoice || selectedInvoiceProducts.length === 0} 
+                                style={{ backgroundColor: branding.primaryColor }}
+                                className="w-full py-6 rounded-[32px] font-black text-2xl text-brand-dark shadow-2xl hover:scale-105 active:scale-95 transition-all flex justify-center items-center gap-4 disabled:opacity-30 disabled:grayscale"
+                            >
+                                {isProcessingInvoice ? <Loader2 className="animate-spin" size={32} /> : (
+                                    <>
+                                        <Receipt size={32} />
+                                        {t('issue_invoice')}
+                                    </>
+                                )}
                             </button>
                         </div>
                     </div>

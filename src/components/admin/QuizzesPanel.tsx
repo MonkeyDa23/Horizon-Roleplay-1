@@ -55,7 +55,7 @@ const QuizzesPanel: React.FC = () => {
     const { t } = useLocalization();
     const { showToast } = useToast();
     const { translations, refetch: refreshTranslations } = useTranslations();
-    const { config } = useConfig();
+    const { config, branding } = useConfig();
     const { user } = useAuth();
     
     const [quizzes, setQuizzes] = useState<Quiz[]>([]);
@@ -255,9 +255,13 @@ const QuizzesPanel: React.FC = () => {
 
     return (
         <Panel isLoading={isLoading} loadingText="Loading quizzes...">
-            <div className="flex justify-end mb-6">
-                <button onClick={handleCreateNew} className="bg-brand-cyan text-brand-dark font-bold py-2 px-4 rounded-md hover:bg-white transition-all flex items-center gap-2">
-                    <Plus size={20} /> {t('create_new_quiz')}
+            <div className="flex justify-end mb-8">
+                <button 
+                    onClick={handleCreateNew} 
+                    style={{ backgroundColor: branding.primaryColor }}
+                    className="text-brand-dark font-black py-3 px-8 rounded-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-3 shadow-lg"
+                >
+                    <Plus size={24} /> {t('create_new_quiz')}
                 </button>
             </div>
             <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50 overflow-hidden">
@@ -282,9 +286,9 @@ const QuizzesPanel: React.FC = () => {
                                     </td>
                                     <td className="p-4 text-gray-300">{(quiz.questions || []).length}</td>
                                     <td className="p-4 text-right">
-                                        <div className="inline-flex gap-4">
-                                            <button onClick={() => handleEdit(quiz)} className="text-gray-300 hover:text-brand-cyan"><Edit size={20}/></button>
-                                            <button onClick={() => handleDelete(quiz)} className="text-gray-300 hover:text-red-500"><Trash2 size={20}/></button>
+                                        <div className="inline-flex gap-6">
+                                            <button onClick={() => handleEdit(quiz)} className="text-gray-300 hover:text-brand-cyan transition-colors"><Edit size={24}/></button>
+                                            <button onClick={() => handleDelete(quiz)} className="text-gray-300 hover:text-red-500 transition-colors"><Trash2 size={24}/></button>
                                         </div>
                                     </td>
                                 </tr>
@@ -371,10 +375,15 @@ const QuizzesPanel: React.FC = () => {
                         </button>
                     </div>
 
-                    <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4">
-                        <button onClick={handleCancel} disabled={isSaving} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button>
-                        <button onClick={handleSave} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white min-w-[8rem] flex justify-center gap-2">
-                            {isSaving ? <Loader2 className="animate-spin" /> : <><Save size={18} /> {t('save_quiz')}</>}
+                    <div className="flex justify-end gap-6 pt-6 border-t border-brand-light-blue/50 mt-8">
+                        <button onClick={handleCancel} disabled={isSaving} className="bg-gray-600/50 text-white font-bold py-3 px-8 rounded-2xl hover:bg-gray-600 transition-all">Cancel</button>
+                        <button 
+                            onClick={handleSave} 
+                            disabled={isSaving} 
+                            style={{ backgroundColor: branding.primaryColor }}
+                            className="text-brand-dark font-black py-3 px-10 rounded-2xl hover:scale-105 transition-all min-w-[10rem] flex justify-center gap-3 shadow-lg"
+                        >
+                            {isSaving ? <Loader2 className="animate-spin" size={24} /> : <><Save size={24} /> {t('save_quiz')}</>}
                         </button>
                     </div>
                 </div>

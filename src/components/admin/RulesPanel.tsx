@@ -28,7 +28,7 @@ const RulesPanel: React.FC = () => {
     const { t } = useLocalization();
     const { showToast } = useToast();
     const { translations, loading: translationsLoading, refetch: refreshTranslations } = useTranslations();
-    const { config } = useConfig();
+    const { config, branding } = useConfig();
     const { user } = useAuth();
     
     // PERSISTENT STATE
@@ -178,11 +178,20 @@ const RulesPanel: React.FC = () => {
                     <span className="text-sm">التغييرات تحفظ تلقائياً كمسودة.</span>
                 </div>
                 <div className="flex gap-4">
-                     <button onClick={addCategory} className="bg-blue-500/80 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-500 transition-colors flex items-center gap-2">
-                        <Plus size={18} /> إضافة قسم
+                     <button 
+                        onClick={addCategory} 
+                        style={{ backgroundColor: `${branding.primaryColor}22`, color: branding.primaryColor, border: `1px solid ${branding.primaryColor}44` }}
+                        className="font-black py-3 px-6 rounded-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-3 shadow-lg"
+                    >
+                        <Plus size={24} /> إضافة قسم
                     </button>
-                    <button onClick={handleSave} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white transition-colors min-w-[9rem] flex justify-center">
-                        {isSaving ? <Loader2 className="animate-spin" /> : t('save_rules')}
+                    <button 
+                        onClick={handleSave} 
+                        disabled={isSaving} 
+                        style={{ backgroundColor: branding.primaryColor }}
+                        className="text-brand-dark font-black py-3 px-8 rounded-2xl hover:scale-105 active:scale-95 transition-all min-w-[10rem] flex justify-center shadow-lg"
+                    >
+                        {isSaving ? <Loader2 className="animate-spin" size={24} /> : t('save_rules')}
                     </button>
                 </div>
             </div>
@@ -200,17 +209,17 @@ const RulesPanel: React.FC = () => {
                         </div>
                         <div className="space-y-3 pl-8">
                             {category.rules.map((rule, ruleIndex) => (
-                                <div key={rule.id} className="flex items-start gap-2">
-                                    <span className="text-gray-500 font-bold pt-2">{ruleIndex + 1}.</span>
-                                    <div className="w-full grid grid-cols-2 gap-2">
-                                        <textarea value={rule.textEn} onChange={(e) => handleRuleChange(catIndex, ruleIndex, 'textEn', e.currentTarget.value)} placeholder="Rule Text (EN)" className="vixel-input h-20"/>
-                                        <textarea dir="rtl" value={rule.textAr} onChange={(e) => handleRuleChange(catIndex, ruleIndex, 'textAr', e.currentTarget.value)} placeholder="نص القانون (AR)" className="vixel-input h-20"/>
+                                <div key={rule.id} className="flex items-start gap-4">
+                                    <span className="text-gray-500 font-bold pt-2 text-xl">{ruleIndex + 1}.</span>
+                                    <div className="w-full grid grid-cols-2 gap-4">
+                                        <textarea value={rule.textEn} onChange={(e) => handleRuleChange(catIndex, ruleIndex, 'textEn', e.currentTarget.value)} placeholder="Rule Text (EN)" className="vixel-input h-28 text-lg"/>
+                                        <textarea dir="rtl" value={rule.textAr} onChange={(e) => handleRuleChange(catIndex, ruleIndex, 'textAr', e.currentTarget.value)} placeholder="نص القانون (AR)" className="vixel-input h-28 text-lg"/>
                                     </div>
-                                    <button onClick={() => deleteRule(catIndex, ruleIndex)} className="text-red-500 hover:text-red-400 pt-2"><Trash2 size={18} /></button>
+                                    <button onClick={() => deleteRule(catIndex, ruleIndex)} className="text-red-500 hover:text-red-400 pt-2 transition-transform hover:scale-110 active:scale-90"><Trash2 size={24} /></button>
                                 </div>
                             ))}
-                            <button onClick={() => addRule(catIndex)} className="text-sm text-brand-cyan hover:text-white font-semibold flex items-center gap-1">
-                                <Plus size={16} /> إضافة قانون
+                            <button onClick={() => addRule(catIndex)} className="text-lg hover:text-white font-black flex items-center gap-2 transition-colors mt-4" style={{ color: branding.primaryColor }}>
+                                <Plus size={24} /> إضافة قانون
                             </button>
                         </div>
                     </div>

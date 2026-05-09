@@ -28,7 +28,7 @@ const StorePanel: React.FC = () => {
     const { t } = useLocalization();
     const { showToast } = useToast();
     const { translations, loading: translationsLoading, refetch: refreshTranslations } = useTranslations();
-    const { config } = useConfig();
+    const { config, branding } = useConfig();
     const { user } = useAuth();
     
     // PERSISTENT STATE: Keeps active view and edits safe
@@ -221,8 +221,12 @@ const StorePanel: React.FC = () => {
             {activeView === 'products' && (
                 <div>
                     <div className="flex justify-end mb-6">
-                        <button onClick={handleCreateNewProduct} className="bg-brand-cyan text-brand-dark font-bold py-2 px-4 rounded-md hover:bg-white transition-all flex items-center gap-2">
-                            <Plus size={20} /> {t('add_new_product')}
+                        <button 
+                            onClick={handleCreateNewProduct} 
+                            style={{ backgroundColor: branding.primaryColor }}
+                            className="text-brand-dark font-black py-3 px-6 rounded-2xl hover:scale-105 active:scale-95 transition-all flex items-center gap-2 shadow-lg"
+                        >
+                            <Plus size={24} /> {t('add_new_product')}
                         </button>
                     </div>
                     <div className="bg-brand-dark-blue rounded-lg border border-brand-light-blue/50 overflow-hidden">
@@ -243,9 +247,13 @@ const StorePanel: React.FC = () => {
                                             <td className="p-4 text-gray-400">{product.category_id ? t(categories.find(c => c.id === product.category_id)?.nameKey || '') : '-'}</td>
                                             <td className="p-4 text-brand-cyan font-bold">${product.price.toFixed(2)}</td>
                                             <td className="p-4 text-right">
-                                                <div className="inline-flex gap-4">
-                                                    <button onClick={() => handleEditProduct(product)} className="text-gray-300 hover:text-brand-cyan"><Edit size={20}/></button>
-                                                    <button onClick={() => handleDeleteProduct(product)} className="text-gray-300 hover:text-red-500"><Trash2 size={20}/></button>
+                                                <div className="inline-flex gap-6">
+                                                    <button onClick={() => handleEditProduct(product)} className="text-gray-300 hover:text-brand-cyan transition-colors">
+                                                        <Edit size={24}/>
+                                                    </button>
+                                                    <button onClick={() => handleDeleteProduct(product)} className="text-gray-300 hover:text-red-500 transition-colors">
+                                                        <Trash2 size={24}/>
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -265,8 +273,15 @@ const StorePanel: React.FC = () => {
                             <span className="text-sm">يتم حفظ الترتيب والأسماء تلقائياً في المسودة. اضغط حفظ لتطبيق التغييرات.</span>
                         </div>
                         <div className="flex gap-4">
-                            <button onClick={addCategory} className="bg-blue-500/80 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-500 transition-colors flex items-center gap-2"><Plus size={18} /> {t('add_category')}</button>
-                            <button onClick={handleSaveCategories} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white transition-colors min-w-[9rem] flex justify-center">{isSaving ? <Loader2 className="animate-spin" /> : t('save_settings')}</button>
+                            <button onClick={addCategory} className="bg-white/5 text-white border border-white/10 font-bold py-3 px-6 rounded-2xl hover:bg-white/10 transition-all flex items-center gap-2"><Plus size={22} /> {t('add_category')}</button>
+                            <button 
+                                onClick={handleSaveCategories} 
+                                disabled={isSaving} 
+                                style={{ backgroundColor: branding.primaryColor }}
+                                className="text-brand-dark font-black py-3 px-8 rounded-2xl hover:scale-105 transition-all shadow-lg min-w-[9rem] flex justify-center"
+                            >
+                                {isSaving ? <Loader2 className="animate-spin" size={24} /> : t('save_settings')}
+                            </button>
                         </div>
                     </div>
                      <div className="space-y-4">
@@ -277,7 +292,9 @@ const StorePanel: React.FC = () => {
                                     <input type="text" value={cat.nameEn} onChange={(e) => handleCategoryChange(index, 'nameEn', e.target.value)} placeholder={t('category_name_en')} className="vixel-input" />
                                     <input type="text" dir="rtl" value={cat.nameAr} onChange={(e) => handleCategoryChange(index, 'nameAr', e.target.value)} placeholder={t('category_name_ar')} className="vixel-input" />
                                 </div>
-                                <button onClick={() => deleteCategory(index)} className="text-red-500 hover:text-red-400"><Trash2 size={20} /></button>
+                                <button onClick={() => deleteCategory(index)} className="text-red-500 hover:text-red-400 p-2 hover:bg-red-500/10 rounded-xl transition-all">
+                                    <Trash2 size={24} />
+                                </button>
                             </div>
                         ))}
                     </div>
@@ -324,10 +341,15 @@ const StorePanel: React.FC = () => {
                             <label className="block mb-1 font-semibold text-gray-300">{t('image_url')}</label>
                             <input type="text" value={editingProduct.imageUrl} onChange={(e) => setEditingProduct({ ...editingProduct, imageUrl: e.currentTarget.value })} className="vixel-input" />
                         </div>
-                        <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4">
-                            <button onClick={() => { if(window.confirm('Discard unsaved changes?')) setEditingProduct(null); }} disabled={isSaving} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button>
-                            <button onClick={handleSaveProduct} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white min-w-[8rem] flex justify-center">
-                                {isSaving ? <Loader2 className="animate-spin"/> : t('save_product')}
+                        <div className="flex justify-end gap-6 pt-6 border-t border-brand-light-blue/50 mt-8">
+                            <button onClick={() => { if(window.confirm('Discard unsaved changes?')) setEditingProduct(null); }} disabled={isSaving} className="bg-gray-600/50 text-white font-bold py-3 px-8 rounded-2xl hover:bg-gray-600 transition-all">Cancel</button>
+                            <button 
+                                onClick={handleSaveProduct} 
+                                disabled={isSaving} 
+                                style={{ backgroundColor: branding.primaryColor }}
+                                className="text-brand-dark font-black py-3 px-10 rounded-2xl hover:scale-105 transition-all min-w-[10rem] flex justify-center shadow-lg"
+                            >
+                                {isSaving ? <Loader2 className="animate-spin" size={24} /> : t('save_product')}
                             </button>
                         </div>
                     </div>

@@ -1,5 +1,7 @@
-
-// src/components/admin/WidgetsPanel.tsx
+/**
+ * Nova Roleplay - Official Website
+ * Admin Discord Widgets Panel
+ */
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocalization } from '../../contexts/LocalizationContext';
 import { useToast } from '../../contexts/ToastContext';
@@ -8,7 +10,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { getDiscordWidgets, saveDiscordWidgets, sendDiscordLog } from '../../lib/api';
 import { usePersistentState } from '../../hooks/usePersistentState';
 import type { DiscordWidget } from '../../types';
-import { Loader2, Plus, GripVertical, Trash2, AlertCircle } from 'lucide-react';
+import { Loader2, Plus, GripVertical, Trash2, AlertCircle, LayoutGrid, Save, Edit2, ExternalLink } from 'lucide-react';
 import Modal from '../Modal';
 
 type EditingWidget = {
@@ -19,14 +21,13 @@ type EditingWidget = {
 };
 
 const WidgetsPanel: React.FC = () => {
-    const { t } = useLocalization();
+    const { t, dir } = useLocalization();
     const { showToast } = useToast();
-    const { config } = useConfig();
+    const { config, branding } = useConfig();
     const { user } = useAuth();
     
-    // PERSISTENT STATE
     const [widgets, setWidgets] = usePersistentState<DiscordWidget[]>('vixel_admin_widgets_draft', []);
-    const [editingWidget, setEditingWidget] = usePersistentState<EditingWidget | null>('vixel_admin_widget_edit_draft', null);
+    const [editingWidget, setEditingWidget] = useState<EditingWidget | null>(null);
     
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -35,7 +36,6 @@ const WidgetsPanel: React.FC = () => {
         setIsLoading(true);
         try {
             const data = await getDiscordWidgets();
-            // Use draft if exists, else fetched
             setWidgets(prev => prev.length > 0 ? prev : data);
         } catch (error) {
             showToast('Failed to load Discord widgets.', 'error');
@@ -61,10 +61,7 @@ const WidgetsPanel: React.FC = () => {
             }));
             await saveDiscordWidgets(widgetsToSave);
             
-            // Clear draft
             localStorage.removeItem('vixel_admin_widgets_draft');
-            
-            // Force Refresh
             const data = await getDiscordWidgets();
             setWidgets(data); 
             
@@ -73,13 +70,12 @@ const WidgetsPanel: React.FC = () => {
             const embed = {
                 title: "🖼️ تحديث ودجتات الديسكورد",
                 description: `قام المشرف **${user.username}** بتحديث قائمة سيرفرات الديسكورد (Widgets).\n\n**العدد الحالي:** ${widgets.length}`,
-                color: 0xFFA500, // Orange
+                color: 0x5865F2, // Discord Blue
                 author: { name: user.username, icon_url: user.avatar },
                 timestamp: new Date().toISOString(),
                 footer: { text: "سجل الإعدادات" }
             };
             await sendDiscordLog(config, embed, 'admin');
-
         } catch (error) {
             showToast((error as Error).message, 'error');
         } finally {
@@ -97,6 +93,10 @@ const WidgetsPanel: React.FC = () => {
 
     const handleModalSave = () => {
         if (!editingWidget) return;
+        if (!editingWidget.server_name || !editingWidget.server_id) {
+          showToast('Server Name and ID are required.', 'warning');
+          return;
+        }
 
         const newWidgets = editingWidget.id 
             ? widgets.map(w => w.id === (editingWidget as DiscordWidget).id ? { ...w, ...editingWidget } : w)
@@ -107,66 +107,156 @@ const WidgetsPanel: React.FC = () => {
     };
 
     const deleteWidget = (id: string) => {
-        setWidgets(widgets.filter(w => w.id !== id));
+        if(window.confirm('Delete this widget?')) {
+            setWidgets(widgets.filter(w => w.id !== id));
+        }
     };
 
-    if (isLoading) {
-        return <div className="flex justify-center items-center py-20"><Loader2 size={40} className="text-brand-cyan animate-spin" /></div>;
-    }
-    
     return (
-        <div className="animate-fade-in-up">
-            <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center gap-2 text-gray-400 bg-brand-dark p-2 rounded">
-                    <AlertCircle size={16} />
-                    <span className="text-sm">التغييرات محفوظة كمسودة حتى الحفظ النهائي.</span>
+        <div className="space-y-8 animate-fade-in-up" dir={dir}>
+            {/* Header / Stats */}
+            <div className="bg-white/[0.02] border border-white/5 p-8 rounded-[40px] flex flex-col md:flex-row gap-8 items-center justify-between shadow-2xl backdrop-blur-xl">
+                <div className="flex items-center gap-6">
+                    <div className="w-16 h-16 bg-blue-500/10 rounded-3xl flex items-center justify-center border border-blue-500/10 shadow-inner">
+                        <LayoutGrid className="text-blue-500" size={32} />
+                    </div>
+                    <div>
+                        <div className="text-4xl font-black text-white">{widgets.length}</div>
+                        <div className="text-text-secondary text-xs uppercase font-black tracking-widest mt-1">{t('active_widgets')}</div>
+                    </div>
                 </div>
+
                 <div className="flex gap-4">
-                     <button onClick={() => handleOpenModal()} className="bg-blue-500/80 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-500 transition-colors flex items-center gap-2">
-                        <Plus size={18} /> Add Widget
+                     <button 
+                        onClick={() => handleOpenModal()} 
+                        className="bg-white/5 text-white border border-white/10 font-black py-4 px-8 rounded-2xl hover:bg-white/10 transition-all flex items-center gap-3 active:scale-95"
+                    >
+                        <Plus size={24} /> {t('add_widget')}
                     </button>
-                    <button onClick={handleSave} disabled={isSaving} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white transition-colors min-w-[9rem] flex justify-center">
-                        {isSaving ? <Loader2 className="animate-spin" /> : t('save_settings')}
+                    <button 
+                        onClick={handleSave} 
+                        disabled={isSaving || isLoading} 
+                        style={{ backgroundColor: branding.primaryColor }}
+                        className="text-brand-dark font-black py-4 px-10 rounded-2xl hover:scale-105 transition-all shadow-xl min-w-[10rem] flex justify-center disabled:opacity-30 disabled:grayscale active:scale-95"
+                    >
+                        {isSaving ? <Loader2 className="animate-spin" size={24} /> : (
+                            <div className="flex items-center gap-3">
+                                <Save size={24} />
+                                {t('save_settings')}
+                            </div>
+                        )}
                     </button>
                 </div>
             </div>
+
+            {/* Warning Area */}
+            <div className="bg-blue-500/5 border border-blue-500/10 p-6 rounded-3xl flex items-center gap-4 text-blue-200">
+                <AlertCircle className="flex-shrink-0" size={24} />
+                <p className="text-sm font-black opacity-80">{t('widgets_draft_hint') || 'التعديلات محفوظة كمسودة حتى تضغط حفظ لتطبيقها على الموقع.'}</p>
+            </div>
             
+            {/* Widgets List */}
             <div className="space-y-4">
-                {widgets.length > 0 ? widgets.map((widget) => (
-                    <div key={widget.id} className="bg-brand-dark-blue p-3 rounded-lg border border-brand-light-blue/50 flex items-center gap-4">
-                        <GripVertical className="cursor-grab text-gray-500" />
-                        <div className="flex-grow">
-                            <p className="font-bold text-white text-lg">{widget.server_name}</p>
-                            <p className="text-sm text-gray-400">ID: {widget.server_id}</p>
+                {isLoading ? (
+                    <div className="flex justify-center items-center py-20"><Loader2 size={64} className="animate-spin opacity-20" style={{ color: branding.primaryColor }} /></div>
+                ) : widgets.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-4">
+                    {widgets.map((widget) => (
+                        <div key={widget.id} className="bg-white/[0.02] p-6 rounded-[32px] border border-white/5 flex flex-col md:flex-row items-center gap-8 shadow-xl group hover:border-white/10 transition-all">
+                            <div className="flex items-center gap-6 flex-grow">
+                                <GripVertical className="text-white/10 cursor-grab opacity-0 group-hover:opacity-100 transition-opacity" />
+                                <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center border border-white/10 text-white/20">
+                                  <LayoutGrid size={32} />
+                                </div>
+                                <div className="flex-grow">
+                                    <p className="text-2xl font-black text-white mb-1 uppercase tracking-tight">{widget.server_name}</p>
+                                    <div className="flex items-center gap-4">
+                                      <p className="text-xs font-mono text-text-secondary opacity-60 tracking-widest uppercase">ID: {widget.server_id}</p>
+                                      {widget.invite_url && (
+                                        <a href={widget.invite_url} target="_blank" rel="noreferrer" className="text-[10px] text-blue-400 font-bold flex items-center gap-1 hover:underline">
+                                          Invite Link <ExternalLink size={10} />
+                                        </a>
+                                      )}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="flex items-center gap-3 w-full md:w-auto">
+                                <button 
+                                    onClick={() => handleOpenModal(widget)} 
+                                    className="flex-grow md:flex-none px-6 py-4 bg-white/5 text-white hover:bg-white/10 rounded-2xl transition-all border border-white/10 font-bold flex items-center justify-center gap-2"
+                                >
+                                    <Edit2 size={18} /> {t('edit')}
+                                </button>
+                                <button 
+                                    onClick={() => deleteWidget(widget.id)} 
+                                    className="p-4 bg-red-500/5 text-red-500 hover:bg-red-500/10 rounded-2xl transition-all border border-red-500/10 hover:border-red-500/20 active:scale-95"
+                                >
+                                    <Trash2 size={24} />
+                                </button>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-4">
-                            <button onClick={() => handleOpenModal(widget)} className="text-gray-300 hover:text-brand-cyan">Edit</button>
-                            <button onClick={() => deleteWidget(widget.id)} className="text-red-500 hover:text-red-400"><Trash2 size={20} /></button>
+                    ))}
+                  </div>
+                ) : (
+                    <div className="bg-white/[0.02] border border-white/5 rounded-[40px] py-32 text-center text-text-secondary shadow-lg">
+                        <div className="flex flex-col items-center gap-6">
+                            <LayoutGrid size={80} className="opacity-5" />
+                            <p className="text-2xl font-black">{t('no_widgets_found')}...</p>
+                            <button onClick={() => handleOpenModal()} className="px-8 py-3 bg-white/5 hover:bg-white/10 rounded-2xl text-white font-black text-sm border border-white/10 transition-all">
+                                {t('add_widget')}
+                            </button>
                         </div>
                     </div>
-                )) : (
-                    <div className="text-center py-10 text-gray-400">No widgets configured yet. Click "Add Widget" to create one.</div>
                 )}
             </div>
 
+            {/* Edit Modal */}
             {editingWidget && (
-                <Modal isOpen={!!editingWidget} onClose={() => setEditingWidget(null)} title={editingWidget.id ? 'Edit Widget' : 'Add Widget'}>
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block font-semibold mb-1">Server Name</label>
-                            <input type="text" value={editingWidget.server_name} onChange={e => setEditingWidget({...editingWidget, server_name: e.currentTarget.value})} className="w-full bg-background-light text-text-primary p-2 rounded border border-gray-600"/>
+                <Modal isOpen={!!editingWidget} onClose={() => setEditingWidget(null)} title={editingWidget.id ? t('edit_widget') : t('add_widget')}>
+                   <div className="p-8 space-y-8" dir={dir}>
+                        <div className="grid grid-cols-1 gap-8">
+                             <div className="space-y-4">
+                                <label className="text-xs font-black uppercase text-text-secondary opacity-40 tracking-widest">{t('server_name')}</label>
+                                <input 
+                                    type="text" 
+                                    value={editingWidget.server_name} 
+                                    onChange={e => setEditingWidget({...editingWidget, server_name: e.currentTarget.value})} 
+                                    className="w-full bg-white/5 border-2 border-white/10 rounded-2xl p-4 text-lg text-white focus:outline-none transition-all shadow-inner"
+                                    placeholder="Nova Main Server..."
+                                />
+                            </div>
+                             <div className="space-y-4">
+                                <label className="text-xs font-black uppercase text-text-secondary opacity-40 tracking-widest">{t('server_id')}</label>
+                                <input 
+                                    type="text" 
+                                    value={editingWidget.server_id} 
+                                    onChange={e => setEditingWidget({...editingWidget, server_id: e.currentTarget.value})} 
+                                    className="w-full bg-white/5 border-2 border-white/10 rounded-2xl p-4 text-lg text-white focus:outline-none transition-all shadow-inner"
+                                    placeholder="812345678901234567..."
+                                />
+                            </div>
+                             <div className="space-y-4">
+                                <label className="text-xs font-black uppercase text-text-secondary opacity-40 tracking-widest">{t('invite_url')}</label>
+                                <input 
+                                    type="text" 
+                                    value={editingWidget.invite_url} 
+                                    onChange={e => setEditingWidget({...editingWidget, invite_url: e.currentTarget.value})} 
+                                    className="w-full bg-white/5 border-2 border-white/10 rounded-2xl p-4 text-lg text-white focus:outline-none transition-all shadow-inner"
+                                    placeholder="https://discord.gg/..."
+                                />
+                            </div>
                         </div>
-                         <div>
-                            <label className="block font-semibold mb-1">Server ID</label>
-                            <input type="text" value={editingWidget.server_id} onChange={e => setEditingWidget({...editingWidget, server_id: e.currentTarget.value})} className="w-full bg-background-light text-text-primary p-2 rounded border border-gray-600"/>
-                        </div>
-                         <div>
-                            <label className="block font-semibold mb-1">Invite URL</label>
-                            <input type="text" value={editingWidget.invite_url} onChange={e => setEditingWidget({...editingWidget, invite_url: e.currentTarget.value})} className="w-full bg-background-light text-text-primary p-2 rounded border border-gray-600"/>
-                        </div>
-                        <div className="flex justify-end gap-4 pt-4 border-t border-brand-light-blue/50 mt-4">
-                            <button onClick={() => setEditingWidget(null)} className="bg-gray-600 text-white font-bold py-2 px-6 rounded-md hover:bg-gray-500">Cancel</button>
-                            <button onClick={handleModalSave} className="bg-brand-cyan text-brand-dark font-bold py-2 px-6 rounded-md hover:bg-white">Save</button>
+
+                        <div className="flex justify-end gap-6 pt-10 border-t border-white/5">
+                            <button onClick={() => setEditingWidget(null)} className="bg-white/5 text-text-secondary font-black py-4 px-10 rounded-2xl hover:bg-white/10 transition-all active:scale-95">Cancel</button>
+                            <button 
+                                onClick={handleModalSave} 
+                                style={{ backgroundColor: branding.primaryColor }}
+                                className="text-brand-dark font-black py-4 px-12 rounded-2xl hover:scale-105 transition-all shadow-2xl active:scale-95"
+                            >
+                                {t('save')}
+                            </button>
                         </div>
                     </div>
                 </Modal>

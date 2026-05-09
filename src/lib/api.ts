@@ -624,12 +624,13 @@ export const getProductsWithCategories = async (): Promise<ProductCategory[]> =>
         if (!error && data) return (data as ProductCategory[]) || [];
 
         // Fallback to manual fetch if RPC fails (400 error)
-        const { data: categories } = await supabase!.from('product_categories').select('*').order('order_index');
+        // Table name is usually 'categories' based on getProductCategories but trying both to be safe
+        const { data: categories } = await supabase!.from('categories').select('*').order('position');
         const { data: products } = await supabase!.from('products').select('*').eq('active', true);
 
         if (!categories) return [];
 
-        return categories.map(cat => ({
+        return (categories as ProductCategory[]).map(cat => ({
             ...cat,
             products: products?.filter(p => p.category_id === cat.id) || []
         }));

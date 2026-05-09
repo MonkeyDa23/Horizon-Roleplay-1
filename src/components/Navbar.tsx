@@ -53,9 +53,9 @@ const UserMenuLink: React.FC<{ to: string; children: React.ReactNode; icon: Reac
     <Link 
       to={to} 
       onClick={onClick} 
-      className="flex items-center gap-4 w-full text-start px-5 py-4 text-sm font-black text-text-secondary hover:bg-white/[0.05] hover:text-white rounded-[20px] transition-all group"
+      className="flex items-center gap-6 w-full text-start px-8 py-6 text-xl font-black text-text-secondary hover:bg-white/[0.05] hover:text-white rounded-[32px] transition-all group"
     >
-      <Icon size={20} className="opacity-40 group-hover:opacity-100 transition-opacity" style={{ color: branding.primaryColor }} />
+      <Icon size={32} className="opacity-40 group-hover:opacity-100 transition-all" style={{ color: branding.primaryColor }} />
       {children}
     </Link>
   );
@@ -158,10 +158,10 @@ const Navbar: React.FC = () => {
                       setCurrencyDropdownOpen(false);
                       setUserDropdownOpen(false);
                     }}
-                    className="h-10 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl flex items-center gap-2 text-[10px] font-black text-white transition-all shadow-inner active:scale-95"
+                    className="h-12 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl flex items-center gap-3 text-[10px] font-black text-white transition-all shadow-inner active:scale-95"
                   >
-                    <Globe size={20} style={{ color: branding.primaryColor }} />
-                    {language.toUpperCase()}
+                    <Globe size={32} style={{ color: branding.primaryColor }} />
+                    <span className="text-2xl">{language.toUpperCase()}</span>
                   </button>
                   <AnimatePresence>
                     {langDropdownOpen && (
@@ -169,20 +169,20 @@ const Navbar: React.FC = () => {
                         initial={{ opacity: 0, y: 10, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        className={`absolute top-full mt-3 bg-brand-dark border border-white/10 rounded-2xl p-1.5 w-32 shadow-2xl z-50 ${isRTL ? 'right-0' : 'left-0'}`}
+                        className={`absolute top-full mt-3 bg-brand-dark border border-white/10 rounded-[32px] p-2 w-48 shadow-2xl z-50 ${isRTL ? 'right-0' : 'left-0'}`}
                         onMouseLeave={() => setLangDropdownOpen(false)}
                       >
                         <button 
                           onClick={() => { setLanguage('en'); setLangDropdownOpen(false); }}
-                          className={`w-full px-4 py-2 rounded-xl text-xs font-black text-left flex justify-between items-center ${language === 'en' ? 'bg-white/10 text-white' : 'text-text-secondary hover:bg-white/5 hover:text-white'}`}
+                          className={`w-full px-6 py-4 rounded-2xl text-lg font-black text-left flex justify-between items-center ${language === 'en' ? 'bg-white/10 text-white' : 'text-text-secondary hover:bg-white/5 hover:text-white transition-all'}`}
                         >
-                          EN {language === 'en' && <CheckCircle size={10} style={{ color: branding.primaryColor }} />}
+                          EN {language === 'en' && <CheckCircle size={18} style={{ color: branding.primaryColor }} />}
                         </button>
                         <button 
                           onClick={() => { setLanguage('ar'); setLangDropdownOpen(false); }}
-                          className={`w-full px-4 py-2 rounded-xl text-xs font-black text-right flex justify-between items-center ${language === 'ar' ? 'bg-white/10 text-white' : 'text-text-secondary hover:bg-white/5 hover:text-white'}`}
+                          className={`w-full px-6 py-4 rounded-2xl text-lg font-black text-right flex justify-between items-center ${language === 'ar' ? 'bg-white/10 text-white' : 'text-text-secondary hover:bg-white/5 hover:text-white transition-all'}`}
                         >
-                          AR {language === 'ar' && <CheckCircle size={10} style={{ color: branding.primaryColor }} />}
+                          AR {language === 'ar' && <CheckCircle size={18} style={{ color: branding.primaryColor }} />}
                         </button>
                       </motion.div>
                     )}
@@ -197,10 +197,10 @@ const Navbar: React.FC = () => {
                       setLangDropdownOpen(false);
                       setUserDropdownOpen(false);
                     }}
-                    className="h-10 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl flex items-center gap-2 text-[10px] font-black text-white transition-all shadow-inner active:scale-95"
+                    className="h-12 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl flex items-center gap-3 text-[10px] font-black text-white transition-all shadow-inner active:scale-95"
                   >
-                    <Coins size={20} style={{ color: branding.primaryColor }} />
-                    {currency}
+                    <Coins size={32} style={{ color: branding.primaryColor }} />
+                    <span className="text-2xl">{currency}</span>
                   </button>
                   <AnimatePresence>
                     {currencyDropdownOpen && (
@@ -208,17 +208,17 @@ const Navbar: React.FC = () => {
                         initial={{ opacity: 0, y: 10, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        className={`absolute top-full mt-3 bg-brand-dark border border-white/10 rounded-2xl p-1.5 w-40 shadow-2xl z-50 ${isRTL ? 'right-0' : 'left-0'}`}
+                        className={`absolute top-full mt-3 bg-brand-dark border border-white/10 rounded-[32px] p-2 w-48 shadow-2xl z-50 ${isRTL ? 'right-0' : 'left-0'}`}
                         onMouseLeave={() => setCurrencyDropdownOpen(false)}
                       >
                         {['USD', 'EGP', 'SAR', 'JOD'].map((curr) => (
                           <button 
                             key={curr}
                             onClick={() => { setCurrency(curr as any); setCurrencyDropdownOpen(false); }}
-                            className={`w-full px-4 py-2 rounded-xl text-xs font-black flex justify-between items-center ${currency === curr ? 'bg-white/10 text-white' : 'text-text-secondary hover:bg-white/5 hover:text-white'}`}
+                            className={`w-full px-6 py-4 rounded-2xl text-lg font-black flex justify-between items-center ${currency === curr ? 'bg-white/10 text-white' : 'text-text-secondary hover:bg-white/5 hover:text-white transition-all'}`}
                           >
                             <span>{curr}</span>
-                            {currency === curr && <CheckCircle size={10} style={{ color: branding.primaryColor }} />}
+                            {currency === curr && <CheckCircle size={18} style={{ color: branding.primaryColor }} />}
                           </button>
                         ))}
                       </motion.div>
@@ -230,11 +230,11 @@ const Navbar: React.FC = () => {
               {/* Cart Button */}
               <button 
                 onClick={() => setCartOpen(true)}
-                className="relative w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 active:scale-90 transition-all font-black shadow-inner"
+                className="relative w-14 h-14 flex items-center justify-center rounded-[20px] bg-white/5 border border-white/10 hover:bg-white/10 active:scale-90 transition-all font-black shadow-inner"
               >
-                <ShoppingCart size={20} className="text-text-secondary" />
+                <ShoppingCart size={32} className="text-text-secondary" />
                 {totalItems > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full font-black text-[8px] text-brand-dark shadow-lg ring-2 ring-brand-dark" style={{ backgroundColor: branding.primaryColor }}>
+                  <span className="absolute -top-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full font-black text-[10px] text-brand-dark shadow-xl ring-2 ring-brand-dark" style={{ backgroundColor: branding.primaryColor }}>
                     {totalItems}
                   </span>
                 )}
@@ -246,11 +246,11 @@ const Navbar: React.FC = () => {
                   <div className="relative">
                     <button 
                       onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                      className="flex items-center gap-2 bg-white/5 p-1 rounded-xl border border-white/10 hover:bg-white/10 transition-all shadow-inner active:scale-95"
+                      className="flex items-center gap-3 bg-white/5 p-1.5 rounded-2xl border border-white/10 hover:bg-white/10 transition-all shadow-inner active:scale-95"
                     >
-                      <img src={user.avatar} alt="" className="w-8 h-8 rounded-lg object-cover ring-1 ring-white/10 shadow-lg" />
+                      <img src={user.avatar} alt="" className="w-10 h-10 rounded-xl object-cover ring-1 ring-white/10 shadow-lg" />
                       <div className="hidden xl:block md:mx-1">
-                        <div className="text-[10px] font-black text-white leading-none truncate max-w-[100px]">{user.username}</div>
+                        <div className="text-[12px] font-black text-white leading-none truncate max-w-[120px]">{user.username}</div>
                       </div>
                     </button>
                     <AnimatePresence>
@@ -261,19 +261,19 @@ const Navbar: React.FC = () => {
                           exit={{ opacity: 0, y: 10, scale: 0.95 }}
                           className={`absolute top-full mt-3 bg-brand-dark border border-white/10 p-2 w-56 rounded-[24px] shadow-2xl z-50 ${isRTL ? 'right-0' : 'left-0'}`}
                         >
-                          <Link to="/profile" onClick={closeAllMenus} className="flex items-center gap-3 px-4 py-3 text-xs font-black text-white hover:bg-white/5 rounded-xl transition-all mb-1 group">
-                            <User size={22} className="opacity-40 group-hover:opacity-100 transition-opacity" style={{ color: branding.primaryColor }} /> 
+                          <Link to="/profile" onClick={closeAllMenus} className="flex items-center gap-4 px-6 py-4 text-lg font-black text-white hover:bg-white/5 rounded-2xl transition-all mb-1 group">
+                            <User size={28} className="opacity-40 group-hover:opacity-100 transition-opacity" style={{ color: branding.primaryColor }} /> 
                             {t('my_profile')}
                           </Link>
                           {hasPermission('admin_panel') && (
-                            <Link to="/admin" onClick={closeAllMenus} className="flex items-center gap-3 px-4 py-3 text-xs font-black text-white hover:bg-white/5 rounded-xl transition-all mb-1 group">
-                              <Shield size={22} className="opacity-40 group-hover:opacity-100 transition-opacity" style={{ color: branding.primaryColor }} /> 
+                            <Link to="/admin" onClick={closeAllMenus} className="flex items-center gap-4 px-6 py-4 text-lg font-black text-white hover:bg-white/5 rounded-2xl transition-all mb-1 group">
+                              <Shield size={28} className="opacity-40 group-hover:opacity-100 transition-opacity" style={{ color: branding.primaryColor }} /> 
                               {t('admin_panel')}
                             </Link>
                           )}
                           <hr className="border-white/5 my-2 mx-4" />
-                          <button onClick={logout} className="flex items-center gap-3 px-4 py-3 text-xs font-black text-red-500 hover:bg-red-500/5 w-full rounded-xl transition-all group">
-                            <LogOut size={22} className="opacity-40 group-hover:opacity-100 transition-opacity" /> 
+                          <button onClick={logout} className="flex items-center gap-4 px-6 py-4 text-lg font-black text-red-500 hover:bg-red-500/5 w-full rounded-2xl transition-all group">
+                            <LogOut size={28} className="opacity-40 group-hover:opacity-100 transition-opacity" /> 
                             {t('logout')}
                           </button>
                         </motion.div>
@@ -283,9 +283,9 @@ const Navbar: React.FC = () => {
                 ) : (
                   <button 
                     onClick={() => setLoginCaptchaOpen(true)}
-                    className="h-10 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl font-black text-[10px] text-white transition-all shadow-inner flex items-center gap-2 active:scale-95"
+                    className="h-12 px-6 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl font-black text-[12px] text-white transition-all shadow-inner flex items-center gap-3 active:scale-95"
                   >
-                    <DiscordLogo className="w-4 h-4 opacity-40" />
+                    <DiscordLogo className="w-6 h-6 opacity-40" />
                     <span>{t('login')}</span>
                   </button>
                 )

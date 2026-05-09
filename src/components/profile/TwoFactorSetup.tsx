@@ -9,11 +9,13 @@ import { ShieldCheck, ShieldAlert, Copy, RefreshCw, CheckCircle2, AlertCircle, K
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useLocalization } from '../../contexts/LocalizationContext';
+import { useConfig } from '../../contexts/ConfigContext';
 import { enable2FA, disable2FA } from '../../lib/api';
 
 const TwoFactorSetup: React.FC = () => {
   const { user, updateUser } = useAuth();
   const { t, language } = useLocalization();
+  const { branding } = useConfig();
   const isArabic = language === 'ar';
 
   // Extract authenticator safely for both dev and production
@@ -260,7 +262,7 @@ const TwoFactorSetup: React.FC = () => {
               <div className="flex items-center justify-between gap-4 bg-black/20 p-4 rounded-2xl border border-white/5">
                 <code className="text-base font-mono text-white/80 select-all">{secret}</code>
                 <button onClick={() => { navigator.clipboard.writeText(secret); setCopied(true); setTimeout(() => setCopied(false), 2000); }} className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl transition-all text-brand-cyan">
-                  {copied ? <CheckCircle2 size={16} /> : <Copy size={16} />}
+                  {copied ? <CheckCircle2 size={20} /> : <Copy size={20} />}
                 </button>
               </div>
             </div>
@@ -295,12 +297,12 @@ const TwoFactorSetup: React.FC = () => {
               <button 
                 onClick={handleVerify} 
                 disabled={loading || verificationCode.length !== 6}
-                className="w-full py-6 font-black rounded-3xl transition-all shadow-[0_20px_40px_-5px_rgba(0,0,0,0.4)] flex items-center justify-center gap-4 disabled:opacity-20 disabled:grayscale active:scale-95 text-lg"
+                className="w-full py-6 font-black rounded-3xl transition-all shadow-[0_20px_40px_-5px_rgba(0,0,0,0.4)] flex items-center justify-center gap-4 disabled:opacity-20 disabled:grayscale active:scale-95 text-xl"
                 style={{ backgroundColor: branding.primaryColor, color: '#111' }}
               >
-                {loading ? <RefreshCw className="animate-spin" size={24} /> : (
+                {loading ? <RefreshCw className="animate-spin" size={28} /> : (
                   <>
-                    <ShieldCheck size={24} />
+                    <ShieldCheck size={28} />
                     <span>{isArabic ? 'تفعيل الحماية المزدوجة' : 'Enable 2FA Protection'}</span>
                   </>
                 )}
