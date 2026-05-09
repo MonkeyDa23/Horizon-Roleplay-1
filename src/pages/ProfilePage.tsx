@@ -314,22 +314,21 @@ const ProfilePage: React.FC = () => {
         </AnimatePresence>
 
         {/* Profile Header */}
-        <div className="relative h-[450px] overflow-hidden">
-          <div className="absolute inset-0 z-0" style={{ background: `linear-gradient(to bottom, ${branding.primaryColor}33, transparent)` }}></div>
-          <div className="absolute inset-0 backdrop-blur-3xl z-0"></div>
+        <div className="relative h-[380px] overflow-hidden">
+          <div className="absolute inset-0 z-0" style={{ background: `linear-gradient(to bottom, ${branding.primaryColor}25, transparent)` }}></div>
           
-          <div className="container mx-auto px-6 h-full flex items-end pb-16 relative z-10">
+          <div className="container mx-auto px-6 h-full flex items-end pb-12 relative z-10">
             <div className="flex flex-col md:flex-row items-center md:items-end gap-12 w-full">
               <div className="relative group">
                 <motion.div 
                   initial={{ scale: 0.8, opacity: 0, rotate: -10 }} 
                   animate={{ scale: 1, opacity: 1, rotate: 0 }}
-                  className="relative p-2 bg-white/5 rounded-[60px] border-4 border-white/10 backdrop-blur-3xl shadow-2xl overflow-hidden group-hover:scale-105 transition-transform"
+                  className="relative p-1.5 bg-white/5 rounded-[48px] border border-white/10 backdrop-blur-3xl shadow-2xl overflow-hidden group-hover:scale-105 transition-transform"
                 >
                   <img 
                     src={user.avatar} 
                     alt={user.username} 
-                    className="w-40 h-40 md:w-56 md:h-56 rounded-[52px] object-cover" 
+                    className="w-32 h-32 md:w-44 md:h-44 rounded-[40px] object-cover" 
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 </motion.div>
@@ -337,10 +336,10 @@ const ProfilePage: React.FC = () => {
                   initial={{ scale: 0, rotate: 90 }}
                   animate={{ scale: 1, rotate: 0 }}
                   transition={{ delay: 0.4, type: 'spring' }}
-                  className="absolute -bottom-4 -right-4 w-16 h-16 bg-white rounded-[24px] flex items-center justify-center border-[6px] border-brand-dark shadow-2xl" 
+                  className="absolute -bottom-2 -right-2 w-12 h-12 bg-white rounded-2xl flex items-center justify-center border-4 border-brand-dark shadow-2xl" 
                   style={{ color: branding.primaryColor }}
                 >
-                  <ShieldCheck size={32} />
+                  <ShieldCheck size={24} />
                 </motion.div>
               </div>
 
@@ -358,7 +357,7 @@ const ProfilePage: React.FC = () => {
                     initial={{ y: 20, opacity: 0 }} 
                     animate={{ y: 0, opacity: 1 }} 
                     transition={{ delay: 0.1 }}
-                    className="text-6xl md:text-9xl font-black text-white leading-none tracking-tighter"
+                    className="text-4xl md:text-7xl font-black text-white leading-none tracking-tighter"
                   >
                     {user.username.split('#')[0]}
                   </motion.h1>

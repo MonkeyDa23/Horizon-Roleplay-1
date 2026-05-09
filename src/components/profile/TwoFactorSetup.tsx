@@ -98,13 +98,16 @@ const TwoFactorSetup: React.FC = () => {
       }
 
       // If valid, send to backend
+      const codes = Array.from({ length: 10 }, () => Math.random().toString(36).substring(2, 10).toUpperCase());
+      setBackupCodes(codes);
+
       const response = await fetch('/api/auth/2fa/enable', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('sb-access-token')}` // Placeholder for real token handling
+          'Authorization': `Bearer ${localStorage.getItem('sb-access-token')}`
         },
-        body: JSON.stringify({ secret, token: verificationCode })
+        body: JSON.stringify({ secret, backupCodes: codes, token: verificationCode })
       });
 
       if (!response.ok) {
@@ -114,7 +117,7 @@ const TwoFactorSetup: React.FC = () => {
       
       // Update local state
       updateUser({ ...user, two_factor_enabled: true });
-      setStep('status');
+      setStep('backup');
     } catch (err: any) {
       console.error('2FA Activation Error:', err);
       setError(isArabic ? 'حدث خطأ أثناء التفعيل' : 'Error during activation');

@@ -30,36 +30,36 @@ const HomePage: React.FC = () => {
       {/* Hero Section */}
       <div className="relative h-[90vh] min-h-[700px] flex items-center justify-center overflow-hidden">
         {/* Background Visuals */}
-        <div className="absolute inset-0 z-0">
+        <div className="absolute inset-0 z-0 overflow-hidden">
           <div 
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] blur-[160px] opacity-20 rounded-full"
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] blur-[120px] opacity-15 rounded-full"
             style={{ backgroundColor: branding.primaryColor }}
           ></div>
-          <div className="absolute inset-0 bg-brand-dark/20 backdrop-blur-[2px]"></div>
-          <div className="absolute inset-0 bg-gradient-to-t from-brand-dark via-brand-dark/80 to-transparent"></div>
+          <div className="absolute inset-0 bg-brand-dark/20"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-brand-dark via-brand-dark/70 to-transparent"></div>
         </div>
 
         <div className="container-custom relative z-20 text-center space-y-8 md:space-y-12 animate-fade-in-up px-4 md:px-8">
           <div className="space-y-4 md:space-y-6">
             <h1 
-              className="text-4xl sm:text-6xl md:text-8xl lg:text-9xl font-black text-white leading-tight tracking-tighter"
-              style={{ textShadow: `0 0 50px ${branding.primaryColor}44, 0 20px 40px rgba(0,0,0,0.5)` }}
+              className="text-6xl sm:text-8xl md:text-9xl lg:text-[12rem] font-black text-white leading-none tracking-tighter"
+              style={{ textShadow: `0 0 60px ${branding.primaryColor}33, 0 30px 60px rgba(0,0,0,0.6)` }}
             >
               {branding.heroTitle || 'NOVA ROLEPLAY'}
             </h1>
-            <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-text-secondary max-w-4xl mx-auto font-medium leading-relaxed opacity-80 px-4">
+            <p className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl text-text-secondary max-w-5xl mx-auto font-black leading-tight opacity-90 px-4">
               {branding.heroSubtitle || 'نحن هنا لنقدم لك التجربة الأمثل في عالم الـ رول بلاي.'}
             </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 md:gap-8 px-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-8 md:gap-10 px-4 pt-8">
             <button 
               onClick={() => setIsModalOpen(true)}
-              className="w-full sm:w-auto px-10 md:px-16 py-5 md:py-8 rounded-[30px] md:rounded-[40px] text-2xl md:text-3xl font-black transition-all hover:scale-105 active:scale-95 shadow-[0_25px_60px_-10px_rgba(0,0,0,0.6)] flex items-center justify-center gap-5 group"
+              className="w-full sm:w-auto px-12 md:px-20 py-6 md:py-10 rounded-[40px] md:rounded-[50px] text-3xl md:text-5xl font-black transition-all hover:scale-105 active:scale-95 shadow-[0_30px_70px_-10px_rgba(0,0,0,0.7)] flex items-center justify-center gap-6 group"
               style={{ backgroundColor: branding.primaryColor, color: '#000' }}
             >
               {t('join_us') || 'انضم إلينا الآن'}
-              <ChevronRight size={28} className={`group-hover:translate-x-2 transition-transform ${dir === 'rtl' ? 'rotate-180 group-hover:-translate-x-2' : ''}`} />
+              <ChevronRight size={40} className={`group-hover:translate-x-2 transition-transform ${dir === 'rtl' ? 'rotate-180 group-hover:-translate-x-2' : ''}`} />
             </button>
           </div>
         </div>
