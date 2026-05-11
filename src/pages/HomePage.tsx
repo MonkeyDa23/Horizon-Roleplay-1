@@ -6,7 +6,7 @@ import React, { useState } from 'react';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { useConfig } from '../contexts/ConfigContext';
 import Modal from '../components/Modal';
-import { Gamepad2, ChevronRight } from 'lucide-react';
+import { Gamepad2, ChevronRight, ShoppingCart } from 'lucide-react';
 import SEO from '../components/SEO';
 import DiscordLogo from '../components/icons/DiscordLogo';
 
@@ -42,12 +42,12 @@ const HomePage: React.FC = () => {
         <div className="container-custom relative z-20 text-center space-y-8 md:space-y-12 animate-fade-in-up px-4 md:px-8">
           <div className="space-y-4 md:space-y-6">
             <h1 
-              className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-black text-white leading-none tracking-tighter"
-              style={{ textShadow: `0 10px 30px rgba(0,0,0,0.5)` }}
+              className="text-6xl sm:text-8xl md:text-9xl lg:text-[10rem] font-black text-white leading-none tracking-tighter"
+              style={{ textShadow: `0 10px 40px rgba(0,0,0,0.6)` }}
             >
               {branding.heroTitle || 'NOVA ROLEPLAY'}
             </h1>
-            <p className="text-xl sm:text-2xl md:text-3xl lg:text-4xl text-text-secondary max-w-4xl mx-auto font-black leading-tight opacity-90 px-4">
+            <p className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl text-text-secondary max-w-5xl mx-auto font-black leading-tight opacity-90 px-4">
               {branding.heroSubtitle || 'نحن هنا لنقدم لك التجربة الأمثل في عالم الـ رول بلاي.'}
             </p>
           </div>
@@ -61,6 +61,13 @@ const HomePage: React.FC = () => {
               {t('join_us') || 'انضم إلينا الآن'}
               <ChevronRight size={32} className={`group-hover:translate-x-2 transition-transform ${dir === 'rtl' ? 'rotate-180 group-hover:-translate-x-2' : ''}`} />
             </button>
+            <a 
+              href="/store"
+              className="w-full sm:w-auto px-10 md:px-14 py-5 md:py-7 rounded-[30px] md:rounded-[40px] text-2xl md:text-3xl font-black transition-all hover:scale-105 active:scale-95 shadow-2xl flex items-center justify-center gap-5 group bg-white/5 border border-white/10 text-white"
+            >
+              {t('view_store') || 'تصفح المتجر'}
+              <ShoppingCart size={32} className="opacity-40 group-hover:opacity-100 transition-all" />
+            </a>
           </div>
         </div>
       </div>

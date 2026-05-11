@@ -328,7 +328,7 @@ const ProfilePage: React.FC = () => {
                   <img 
                     src={user.avatar} 
                     alt={user.username} 
-                    className="w-28 h-28 md:w-40 md:h-40 rounded-[34px] object-cover" 
+                    className="w-24 h-24 md:w-32 md:h-32 rounded-[30px] object-cover" 
                     onError={(e) => {
                       e.currentTarget.src = `https://ui-avatars.com/api/?name=${user.username}&background=00A9FF&color=fff&size=256`;
                     }}
@@ -360,7 +360,7 @@ const ProfilePage: React.FC = () => {
                     initial={{ y: 20, opacity: 0 }} 
                     animate={{ y: 0, opacity: 1 }} 
                     transition={{ delay: 0.1 }}
-                    className="text-4xl md:text-6xl font-black text-white leading-none tracking-tighter"
+                    className="text-3xl md:text-5xl font-black text-white leading-none tracking-tighter"
                   >
                     {user.username.split('#')[0]}
                   </motion.h1>
@@ -372,13 +372,13 @@ const ProfilePage: React.FC = () => {
                     return (
                       <motion.span 
                         key={role.id}
-                        initial={{ opacity: 0, scale: 0.8, x: -10 }}
-                        animate={{ opacity: 1, scale: 1, x: 0 }}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 0.2 + (idx * 0.05) }}
-                        className="px-5 py-2.5 text-xs font-black rounded-2xl text-white flex items-center gap-3 shadow-[0_10px_20px_-5px_rgba(0,0,0,0.3)] backdrop-blur-md" 
-                        style={{ backgroundColor: color + '15', border: `1px solid ${color}33`, color: color }}
+                        className="px-4 py-2 text-[10px] font-black rounded-xl text-white flex items-center gap-2 border border-white/5 backdrop-blur-md" 
+                        style={{ color: color }}
                       >
-                        <div className="w-2 h-2 rounded-full shadow-inner" style={{ backgroundColor: color }}></div>
+                        <div className="w-1.5 h-1.5 rounded-full shadow-inner" style={{ backgroundColor: color }}></div>
                         {role.name}
                       </motion.span>
                     );

@@ -464,8 +464,18 @@ export const getProducts = async (): Promise<Product[]> => {
 };
 export const getProductCategories = async (): Promise<ProductCategory[]> => {
     if (!supabase) return [];
-    const { data } = await supabase.from('categories').select('*').order('position');
-    return (data as ProductCategory[]) || [];
+    try {
+        const { data, error } = await supabase.from('categories').select('*').order('sort_order', { ascending: true });
+        if (error) {
+            console.warn('getProductCategories fallback:', error.message);
+            // Try without order as a last resort
+            const { data: simpleData } = await supabase.from('categories').select('*');
+            return (simpleData as ProductCategory[]) || [];
+        }
+        return (data as ProductCategory[]) || [];
+    } catch (e) {
+        return [];
+    }
 };
 export const saveProduct = async (productData: any): Promise<Product> => {
     const { data, error } = await supabase!.rpc('save_product_with_translations', { p_product_data: productData });
@@ -624,8 +634,7 @@ export const getProductsWithCategories = async (): Promise<ProductCategory[]> =>
         if (!error && data) return (data as ProductCategory[]) || [];
 
         // Fallback to manual fetch if RPC fails (400 error)
-        // Table name is usually 'categories' based on getProductCategories but trying both to be safe
-        const { data: categories } = await supabase!.from('categories').select('*').order('position');
+        const { data: categories } = await supabase!.from('categories').select('*').order('sort_order', { ascending: true });
         const { data: products } = await supabase!.from('products').select('*').eq('active', true);
 
         if (!categories) return [];

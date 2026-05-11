@@ -218,12 +218,12 @@ async function startServer() {
 
   app.use(auditLogger);
 
-  app.use(['/api/admin', '/api/auth/2fa', '/api/mta/internal'], async (req, res, next) => {
+  app.use(['/api/admin', '/api/mta/internal'], async (req, res, next) => {
     const signature = req.headers['x-signature'] as string;
     const timestamp = req.headers['x-timestamp'] as string;
     const botSecret = process.env.BOT_WEB_KEY;
     
-    // Always enforce signature for sensitive paths
+    // Always enforce signature for sensitive internal paths
     if (signature && botSecret && timestamp) {
       if (!verifySignature(req.body, signature, botSecret, timestamp)) {
         return res.status(401).json({ error: 'Auth Failed' });
@@ -234,9 +234,15 @@ async function startServer() {
     res.status(403).json({ error: 'Signature Required' });
   });
 
+  // User-facing 2FA doesn't need bot signatures
   app.post('/api/auth/2fa/enable', async (req, res) => {
     try {
       const { secret, backupCodes, token: userToken } = req.body;
+      
+      if (!secret || !backupCodes || !userToken) {
+        return res.status(400).json({ error: 'Missing required fields' });
+      }
+
       const authHeader = req.headers['authorization'];
       const token = authHeader?.replace('Bearer ', '');
       const encryptionKey = process.env.ENCRYPTION_KEY;

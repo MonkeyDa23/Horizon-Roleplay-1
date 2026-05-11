@@ -8,28 +8,30 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { userId, secret, token } = req.body;
+  const { secret, backupCodes, token: userToken } = req.body;
+  const authHeader = req.headers['authorization'];
+  const authToken = authHeader?.replace('Bearer ', '');
 
-  if (!userId || !secret || !token) {
-    return res.status(400).json({ error: 'Missing required fields' });
+  if (!secret || !userToken || !authToken) {
+    return res.status(400).json({ error: 'Missing required fields or unauthorized' });
   }
 
-  // NOTE: In a real production app, we would verify the 'token' here using otplib
-  // but since we are troubleshooting connectivity first, we will proceed to save if the user confirmed it.
-
   const supabase = createClient(
-    process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 
   try {
+    // 1. Verify User
+    const { data: { user }, error: authError } = await supabase.auth.getUser(authToken);
+    if (authError || !user) return res.status(401).json({ error: 'Unauthorized' });
     const { error } = await supabase
       .from('users')
       .update({ 
         two_factor_secret: secret,
         two_factor_enabled: true 
       })
-      .eq('id', userId);
+      .eq('id', user.id);
 
     if (error) throw error;
 
