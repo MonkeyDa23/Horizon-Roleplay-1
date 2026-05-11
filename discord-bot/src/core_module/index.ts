@@ -23,7 +23,7 @@ export const setupCoreModule = (client: Client) => {
     app.use(apiLimiter);
 
     app.use(cors({ 
-        origin: [/^https?:\/\/localhost(:\d+)?$/, /^https:\/\/[^.]+\.vercel\.app$/, /^https:\/\/[^.]+\.run\.app$/],
+        origin: [/localhost/, "https://novaroleplay-sandy.vercel.app"],
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
     }));
     app.use(express.json({ limit: '5kb' }));
@@ -34,7 +34,7 @@ export const setupCoreModule = (client: Client) => {
         const timestamp = req.headers['x-timestamp'];
 
         if (!apiKey) {
-            return res.status(401).json({ error: 'Unauthorized' });
+            return res.status(401).json({ error: 'Auth Required' });
         }
 
         // Timing-safe API Key check
@@ -43,8 +43,7 @@ export const setupCoreModule = (client: Client) => {
         const isKeyValid = keyBuf.length === secretBuf.length && crypto.timingSafeEqual(keyBuf, secretBuf);
 
         if (!isKeyValid) {
-            logToDiscord(client, 'ERROR', '🚨 unauthorized access attempt', `IP: ${req.ip}`, 'ADMIN').catch(() => {});
-            return res.status(401).json({ error: 'Unauthorized' });
+            return res.status(401).json({ error: 'Auth failed' });
         }
 
         // Always require signature if SIGNATURE_KEY is set

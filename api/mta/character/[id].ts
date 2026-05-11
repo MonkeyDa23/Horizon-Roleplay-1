@@ -11,13 +11,12 @@ const pool = mysql.createPool({
 });
 
 const supabase = createClient(
-  process.env.VITE_SUPABASE_URL!,
+  process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 export default async function (req: VercelRequest, res: VercelResponse) {
   try {
-    // Vulnerability #1: Authentication Check via Supabase Session
     const authHeader = req.headers['authorization'];
     if (!authHeader) return res.status(401).json({ error: 'Unauthorized' });
 
@@ -27,15 +26,15 @@ export default async function (req: VercelRequest, res: VercelResponse) {
     }
 
     const { id } = req.query;
+    const charId = Array.isArray(id) ? id[0] : id;
 
-    if (!id) {
-      return res.status(400).json({ error: "Missing character ID parameter" });
+    if (!charId || isNaN(Number(charId))) {
+      return res.status(400).json({ error: "Invalid or missing character ID" });
     }
 
     // Check if the character belongs to the authenticated user
-    // We need to check the 'profiles' table for the user's serial, then check characters table
     const { data: profile } = await supabase
-      .from('profiles')
+      .from('users')
       .select('mta_serial')
       .eq('id', user.id)
       .single();
@@ -51,7 +50,7 @@ export default async function (req: VercelRequest, res: VercelResponse) {
     // Ideally, we'd verify ownership here.
     const [chars]: any = await pool.execute(
       "SELECT c.* FROM characters c JOIN accounts a ON c.account_id = a.id WHERE c.id = ? AND a.mtaserial = ? LIMIT 1",
-      [id, profile.mta_serial]
+      [charId, profile.mta_serial]
     );
 
     if (chars.length === 0) {
@@ -62,13 +61,13 @@ export default async function (req: VercelRequest, res: VercelResponse) {
     // 2. Fetch Vehicles
     const [vehicles]: any = await pool.execute(
       "SELECT v.id, v.model, v.plate FROM vehicles v JOIN characters c ON v.owner_id = c.id JOIN accounts a ON c.account_id = a.id WHERE v.owner_id = ? AND a.mtaserial = ?",
-      [id, profile.mta_serial]
+      [charId, profile.mta_serial]
     );
 
     // 3. Fetch Properties
     const [properties]: any = await pool.execute(
       "SELECT i.id, i.name, i.address FROM properties i JOIN characters c ON i.owner_id = c.id JOIN accounts a ON c.account_id = a.id WHERE i.owner_id = ? AND a.mtaserial = ?",
-      [id, profile.mta_serial]
+      [charId, profile.mta_serial]
     );
 
     res.json({

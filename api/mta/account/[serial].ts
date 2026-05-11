@@ -2,7 +2,7 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
-  process.env.VITE_SUPABASE_URL!,
+  process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
@@ -24,7 +24,7 @@ export default async function (req: VercelRequest, res: VercelResponse) {
 
     // Verify serial ownership
     const { data: profile } = await supabase
-      .from('profiles')
+      .from('users')
       .select('mta_serial')
       .eq('id', user.id)
       .single();

@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   // --- Secure Session Check (Anti-Bot) ---
   const cookies = req.headers.cookie || '';
   // السماح بمرور الكوكيز من Supabase أيضاً لضمان العمل
-  const hasValidSession = cookies.includes('vixel_secure_session=') || cookies.includes('sb-') || cookies.includes('supabase-auth-token');
+  const hasValidSession = cookies.includes('vixel_secure_session=');
   
   if (!hasValidSession && process.env.NODE_ENV === 'production') {
        return res.status(403).json({ error: 'Missing secure session. Complete Captcha first.' });

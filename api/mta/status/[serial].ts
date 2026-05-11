@@ -2,7 +2,7 @@ import { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
-  process.env.VITE_SUPABASE_URL!,
+  process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
@@ -24,7 +24,7 @@ export default async function (req: VercelRequest, res: VercelResponse) {
 
     // Check Supabase for a profile with this serial and ensure it belongs to the authenticated user
     const { data: profile, error } = await supabase
-      .from('profiles')
+      .from('users')
       .select('id, mta_name')
       .eq('mta_serial', serial)
       .eq('id', user.id) // Authorization: Ensure the serial belongs to the current user

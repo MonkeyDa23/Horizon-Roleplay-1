@@ -13,6 +13,12 @@ export const handleLinkCommand = async (interaction: CommandInteraction, client:
     const code = interaction.options.get('code', true).value as string;
     const user = interaction.user;
 
+    // Validate code format (example: 32 hex chars)
+    if (!/^[A-F0-9]{32}$/i.test(code)) {
+        await interaction.reply({ content: '❌ صيغة الكود غير صحيحة. الكود يجب أن يكون 32 حرفاً (أرقام وحروف A-F).', ephemeral: true });
+        return;
+    }
+
     await interaction.deferReply({ ephemeral: true });
 
     let connection;
