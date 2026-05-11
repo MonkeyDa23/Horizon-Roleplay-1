@@ -459,8 +459,12 @@ export const deleteQuiz = async (id: string): Promise<void> => {
 
 export const getProducts = async (): Promise<Product[]> => {
     if (!supabase) return [];
-    const { data } = await supabase.from('products').select('*');
-    return (data as Product[]) || [];
+    try {
+        const { data } = await supabase.from('products').select('*').order('sort_order', { ascending: true });
+        return (data as Product[]) || [];
+    } catch (e) {
+        return [];
+    }
 };
 export const getProductCategories = async (): Promise<ProductCategory[]> => {
     if (!supabase) return [];
@@ -485,8 +489,18 @@ export const deleteProduct = async (id: string) => { await supabase!.rpc('delete
 export const saveProductCategories = async (cats: any[]) => { await supabase!.rpc('save_product_categories', { p_categories_data: cats }); };
 
 export const getRules = async (): Promise<RuleCategory[]> => {
-    const { data } = await supabase!.from('rules').select('*').order('position');
-    return (data as RuleCategory[]) || [];
+    if (!supabase) return [];
+    try {
+        const { data, error } = await supabase.from('rules').select('*').order('position', { ascending: true });
+        if (error) {
+            console.warn('getRules fallback:', error.message);
+            const { data: simpleData } = await supabase.from('rules').select('*');
+            return (simpleData as RuleCategory[]) || [];
+        }
+        return (data as RuleCategory[]) || [];
+    } catch (e) {
+        return [];
+    }
 };
 export const saveRules = async (rules: any[]) => { await supabase!.rpc('save_rules', { p_rules_data: rules }); };
 
@@ -628,14 +642,15 @@ export const getProductById = async (id: string): Promise<Product> => {
 };
 export const getProductsWithCategories = async (): Promise<ProductCategory[]> => {
     try {
+        if (!supabase) return [];
         // Attempt RPC first
-        const { data, error } = await supabase!.rpc('get_products_with_categories');
+        const { data, error } = await supabase.rpc('get_products_with_categories');
         
         if (!error && data) return (data as ProductCategory[]) || [];
 
-        // Fallback to manual fetch if RPC fails (400 error)
-        const { data: categories } = await supabase!.from('categories').select('*').order('sort_order', { ascending: true });
-        const { data: products } = await supabase!.from('products').select('*').eq('active', true);
+        // Fallback to manual fetch if RPC fails
+        const { data: categories } = await supabase.from('categories').select('*').order('sort_order', { ascending: true });
+        const { data: products } = await supabase.from('products').select('*').order('sort_order', { ascending: true });
 
         if (!categories) return [];
 

@@ -8,6 +8,7 @@ import rateLimit from 'express-rate-limit';
 import hpp from 'hpp';
 import xss from 'xss-clean';
 import crypto from 'crypto';
+import { encrypt } from './lib/encryption.js';
 
 dotenv.config();
 
@@ -260,7 +261,12 @@ async function startServer() {
       }
 
       // 3. Encrypt and Save
-      const { encrypt } = await import('./lib/encryption.js');
+      const encryptionKey = process.env.ENCRYPTION_KEY;
+      if (!encryptionKey) {
+        console.error('ENCRYPTION_KEY is missing');
+        return res.status(500).json({ error: 'System encryption not configured' });
+      }
+
       const encryptedSecret = encrypt(secret, encryptionKey);
       const encryptedCodes = backupCodes.map((code: string) => encrypt(code, encryptionKey));
 

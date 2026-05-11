@@ -314,8 +314,8 @@ const ProfilePage: React.FC = () => {
         </AnimatePresence>
 
         {/* Profile Header */}
-        <div className="relative h-[320px] overflow-hidden">
-          <div className="absolute inset-0 z-0" style={{ background: `linear-gradient(to bottom, ${branding.primaryColor}15, transparent)` }}></div>
+        <div className="relative h-[280px] overflow-hidden">
+          <div className="absolute inset-0 z-0 bg-brand-dark"></div>
           
           <div className="container mx-auto px-6 h-full flex items-end pb-8 relative z-10">
             <div className="flex flex-col md:flex-row items-center md:items-end gap-10 w-full">
@@ -323,50 +323,49 @@ const ProfilePage: React.FC = () => {
                 <motion.div 
                   initial={{ scale: 0.8, opacity: 0, rotate: -10 }} 
                   animate={{ scale: 1, opacity: 1, rotate: 0 }}
-                  className="relative p-1 bg-white/5 rounded-[42px] border border-white/10 backdrop-blur-3xl shadow-2xl overflow-hidden group-hover:scale-105 transition-transform"
+                  className="relative p-1 bg-white/5 rounded-[38px] border border-white/10 backdrop-blur-3xl shadow-2xl overflow-hidden group-hover:scale-105 transition-transform"
                 >
                   <img 
                     src={user.avatar} 
                     alt={user.username} 
-                    className="w-24 h-24 md:w-32 md:h-32 rounded-[30px] object-cover" 
+                    className="w-24 h-24 md:w-32 md:h-32 rounded-[28px] object-cover" 
                     onError={(e) => {
                       e.currentTarget.src = `https://ui-avatars.com/api/?name=${user.username}&background=00A9FF&color=fff&size=256`;
                     }}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 </motion.div>
                 <motion.div 
                   initial={{ scale: 0, rotate: 90 }}
                   animate={{ scale: 1, rotate: 0 }}
                   transition={{ delay: 0.4, type: 'spring' }}
-                  className="absolute -bottom-1 -right-1 w-10 h-10 bg-white rounded-xl flex items-center justify-center border-4 border-brand-dark shadow-2xl" 
+                  className="absolute -bottom-1 -right-1 w-9 h-9 bg-white rounded-xl flex items-center justify-center border-4 border-brand-dark shadow-2xl" 
                   style={{ color: branding.primaryColor }}
                 >
-                  <ShieldCheck size={20} />
+                  <ShieldCheck size={18} />
                 </motion.div>
               </div>
 
-              <div className="flex-1 text-center md:text-left space-y-4">
-                <div className="space-y-3">
+              <div className="flex-1 text-center md:text-left space-y-3">
+                <div className="space-y-2">
                   <motion.div 
                     initial={{ y: 20, opacity: 0 }} 
                     animate={{ y: 0, opacity: 1 }}
-                    className="inline-flex items-center gap-2.5 px-4 py-1.5 bg-white/5 rounded-full border border-white/10 text-[9px] uppercase font-black tracking-[0.2em] text-text-secondary mb-1"
+                    className="inline-flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/10 text-[8px] uppercase font-black tracking-[0.2em] text-text-secondary"
                   >
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: branding.primaryColor }}></span>
-                    Member of Nova Community
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: branding.primaryColor }}></span>
+                    Member of {communityName}
                   </motion.div>
                   <motion.h1 
                     initial={{ y: 20, opacity: 0 }} 
                     animate={{ y: 0, opacity: 1 }} 
                     transition={{ delay: 0.1 }}
-                    className="text-3xl md:text-5xl font-black text-white leading-none tracking-tighter"
+                    className="text-3xl md:text-4xl font-black text-white leading-none tracking-tighter"
                   >
                     {user.username.split('#')[0]}
                   </motion.h1>
                 </div>
                 
-                <div className="flex flex-wrap justify-center md:justify-start gap-3">
+                <div className="flex flex-wrap justify-center md:justify-start gap-2">
                   {user.discord_roles?.map((role: any, idx) => {
                     const color = role.color ? `#${role.color.toString(16).padStart(6, '0')}` : '#99aab5';
                     return (
@@ -375,10 +374,10 @@ const ProfilePage: React.FC = () => {
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 0.2 + (idx * 0.05) }}
-                        className="px-4 py-2 text-[10px] font-black rounded-xl text-white flex items-center gap-2 border border-white/5 backdrop-blur-md" 
+                        className="px-3.5 py-1.5 text-[9px] font-black rounded-lg text-white flex items-center gap-2 border border-white/5 backdrop-blur-md" 
                         style={{ color: color }}
                       >
-                        <div className="w-1.5 h-1.5 rounded-full shadow-inner" style={{ backgroundColor: color }}></div>
+                        <div className="w-1 h-1 rounded-full shadow-inner" style={{ backgroundColor: color }}></div>
                         {role.name}
                       </motion.span>
                     );
@@ -395,10 +394,10 @@ const ProfilePage: React.FC = () => {
                 <button 
                   onClick={handleRefresh} 
                   disabled={isSyncing}
-                  className="px-10 py-6 bg-white text-brand-dark hover:bg-opacity-90 active:scale-95 font-black rounded-[28px] transition-all flex items-center gap-4 disabled:opacity-50 shadow-[0_20px_50px_-15px_rgba(255,255,255,0.2)] group"
+                  className="px-8 py-5 bg-white text-brand-dark hover:bg-opacity-90 active:scale-95 font-black rounded-[24px] transition-all flex items-center gap-3 disabled:opacity-50 shadow-xl group"
                 >
-                  <RefreshCw size={24} className={`${isSyncing ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-700'}`} />
-                  <span className="text-lg">{isSyncing ? t('syncing') : t('sync_profile')}</span>
+                  <RefreshCw size={20} className={`${isSyncing ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-700'}`} />
+                  <span className="text-base">{isSyncing ? t('syncing') : t('sync_profile')}</span>
                 </button>
               </motion.div>
             </div>

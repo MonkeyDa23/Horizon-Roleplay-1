@@ -42,32 +42,25 @@ const HomePage: React.FC = () => {
         <div className="container-custom relative z-20 text-center space-y-8 md:space-y-12 animate-fade-in-up px-4 md:px-8">
           <div className="space-y-4 md:space-y-6">
             <h1 
-              className="text-6xl sm:text-8xl md:text-9xl lg:text-[10rem] font-black text-white leading-none tracking-tighter"
+              className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-black text-white leading-none tracking-tighter"
               style={{ textShadow: `0 10px 40px rgba(0,0,0,0.6)` }}
             >
               {branding.heroTitle || 'NOVA ROLEPLAY'}
             </h1>
-            <p className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl text-text-secondary max-w-5xl mx-auto font-black leading-tight opacity-90 px-4">
+            <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl text-text-secondary max-w-4xl mx-auto font-bold leading-tight opacity-90 px-4">
               {branding.heroSubtitle || 'نحن هنا لنقدم لك التجربة الأمثل في عالم الـ رول بلاي.'}
             </p>
           </div>
-
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 md:gap-8 px-4 pt-4">
+          
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 px-4 pt-4">
             <button 
               onClick={() => setIsModalOpen(true)}
-              className="w-full sm:w-auto px-10 md:px-14 py-5 md:py-7 rounded-[30px] md:rounded-[40px] text-2xl md:text-3xl font-black transition-all hover:scale-105 active:scale-95 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.5)] flex items-center justify-center gap-5 group"
+              className="w-full sm:w-auto px-8 md:px-12 py-3.5 md:py-5 rounded-[25px] md:rounded-[30px] text-lg md:text-xl font-black transition-all hover:scale-105 active:scale-95 shadow-[0_15px_40px_-5px_rgba(0,0,0,0.5)] flex items-center justify-center gap-3 group"
               style={{ backgroundColor: branding.primaryColor, color: '#000' }}
             >
               {t('join_us') || 'انضم إلينا الآن'}
-              <ChevronRight size={32} className={`group-hover:translate-x-2 transition-transform ${dir === 'rtl' ? 'rotate-180 group-hover:-translate-x-2' : ''}`} />
+              <ChevronRight size={20} className={`group-hover:translate-x-1.5 transition-transform ${dir === 'rtl' ? 'rotate-180 group-hover:-translate-x-1.5' : ''}`} />
             </button>
-            <a 
-              href="/store"
-              className="w-full sm:w-auto px-10 md:px-14 py-5 md:py-7 rounded-[30px] md:rounded-[40px] text-2xl md:text-3xl font-black transition-all hover:scale-105 active:scale-95 shadow-2xl flex items-center justify-center gap-5 group bg-white/5 border border-white/10 text-white"
-            >
-              {t('view_store') || 'تصفح المتجر'}
-              <ShoppingCart size={32} className="opacity-40 group-hover:opacity-100 transition-all" />
-            </a>
           </div>
         </div>
       </div>
