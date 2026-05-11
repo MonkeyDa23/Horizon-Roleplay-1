@@ -159,8 +159,8 @@ const Navbar: React.FC = () => {
                     }}
                     className="h-9 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg flex items-center gap-2 text-[10px] font-black text-white transition-all shadow-inner active:scale-95"
                   >
-                    <Globe size={16} style={{ color: branding.primaryColor }} />
-                    <span className="text-[12px]">{language.toUpperCase()}</span>
+                    <Globe size={18} style={{ color: branding.primaryColor }} />
+                    <span className="text-[11px]">{language.toUpperCase()}</span>
                   </button>
                   <AnimatePresence>
                     {langDropdownOpen && (
@@ -198,8 +198,8 @@ const Navbar: React.FC = () => {
                     }}
                     className="h-9 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg flex items-center gap-2 text-[10px] font-black text-white transition-all shadow-inner active:scale-95"
                   >
-                    <Coins size={16} style={{ color: branding.primaryColor }} />
-                    <span className="text-[12px]">{currency}</span>
+                    <Coins size={18} style={{ color: branding.primaryColor }} />
+                    <span className="text-[11px]">{currency}</span>
                   </button>
                   <AnimatePresence>
                     {currencyDropdownOpen && (
@@ -231,7 +231,7 @@ const Navbar: React.FC = () => {
                 onClick={() => setCartOpen(true)}
                 className="relative w-9 h-9 flex items-center justify-center rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 active:scale-90 transition-all font-black shadow-inner"
               >
-                <ShoppingCart size={18} className="text-text-secondary" />
+                <ShoppingCart size={20} className="text-text-secondary" />
                 {totalItems > 0 && (
                   <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full font-black text-[8px] text-brand-dark shadow-xl ring-1 ring-brand-dark" style={{ backgroundColor: branding.primaryColor }}>
                     {totalItems}

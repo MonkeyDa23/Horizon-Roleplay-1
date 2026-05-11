@@ -460,7 +460,7 @@ export const deleteQuiz = async (id: string): Promise<void> => {
 export const getProducts = async (): Promise<Product[]> => {
     if (!supabase) return [];
     try {
-        const { data } = await supabase.from('products').select('*').order('sort_order', { ascending: true });
+        const { data } = await supabase.from('products').select('*').order('position', { ascending: true });
         return (data as Product[]) || [];
     } catch (e) {
         return [];
@@ -469,7 +469,7 @@ export const getProducts = async (): Promise<Product[]> => {
 export const getProductCategories = async (): Promise<ProductCategory[]> => {
     if (!supabase) return [];
     try {
-        const { data, error } = await supabase.from('categories').select('*').order('sort_order', { ascending: true });
+        const { data, error } = await supabase.from('categories').select('*').order('position', { ascending: true });
         if (error) {
             console.warn('getProductCategories fallback:', error.message);
             // Try without order as a last resort
@@ -649,8 +649,8 @@ export const getProductsWithCategories = async (): Promise<ProductCategory[]> =>
         if (!error && data) return (data as ProductCategory[]) || [];
 
         // Fallback to manual fetch if RPC fails
-        const { data: categories } = await supabase.from('categories').select('*').order('sort_order', { ascending: true });
-        const { data: products } = await supabase.from('products').select('*').order('sort_order', { ascending: true });
+        const { data: categories } = await supabase.from('categories').select('*').order('position', { ascending: true });
+        const { data: products } = await supabase.from('products').select('*').eq('active', true).order('position', { ascending: true });
 
         if (!categories) return [];
 

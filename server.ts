@@ -261,12 +261,6 @@ async function startServer() {
       }
 
       // 3. Encrypt and Save
-      const encryptionKey = process.env.ENCRYPTION_KEY;
-      if (!encryptionKey) {
-        console.error('ENCRYPTION_KEY is missing');
-        return res.status(500).json({ error: 'System encryption not configured' });
-      }
-
       const encryptedSecret = encrypt(secret, encryptionKey);
       const encryptedCodes = backupCodes.map((code: string) => encrypt(code, encryptionKey));
 
@@ -277,9 +271,9 @@ async function startServer() {
 
       if (dbError) throw dbError;
       res.json({ success: true });
-    } catch (e) { 
-      console.error('2FA Enable Error:', e);
-      res.status(500).json({ error: 'Internal Error' }); 
+    } catch (err: any) { 
+      console.error('2FA Enable Fatal Error:', err);
+      res.status(500).json({ error: err.message || 'Server error' });
     }
   });
 
