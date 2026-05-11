@@ -247,7 +247,12 @@ async function startServer() {
       const authHeader = req.headers['authorization'];
       const token = authHeader?.replace('Bearer ', '');
       const encryptionKey = process.env.ENCRYPTION_KEY;
-      if (!encryptionKey || !token) return res.status(401).json({ error: 'Unauthorized' });
+      
+      if (!token) return res.status(401).json({ error: 'Login required' });
+      if (!encryptionKey) {
+        console.error('CRITICAL: ENCRYPTION_KEY is not set in environment variables.');
+        return res.status(500).json({ error: 'System encryption not configured' });
+      }
 
       // 1. Verify User
       const { data: { user }, error: authError } = await supabase.auth.getUser(token);
@@ -261,8 +266,16 @@ async function startServer() {
       }
 
       // 3. Encrypt and Save
-      const encryptedSecret = encrypt(secret, encryptionKey);
-      const encryptedCodes = backupCodes.map((code: string) => encrypt(code, encryptionKey));
+      let encryptedSecret: string;
+      let encryptedCodes: string[];
+      
+      try {
+        encryptedSecret = encrypt(secret, encryptionKey);
+        encryptedCodes = backupCodes.map((code: string) => encrypt(code, encryptionKey));
+      } catch (encryptError: any) {
+        console.error('Encryption Failure:', encryptError);
+        return res.status(500).json({ error: 'Encryption failed: ' + encryptError.message });
+      }
 
       const { error: dbError } = await supabase.rpc('enable_2fa', { 
         p_secret: encryptedSecret, 

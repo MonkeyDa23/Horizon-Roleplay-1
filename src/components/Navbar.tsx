@@ -157,10 +157,10 @@ const Navbar: React.FC = () => {
                       setCurrencyDropdownOpen(false);
                       setUserDropdownOpen(false);
                     }}
-                    className="h-9 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg flex items-center gap-2 text-[10px] font-black text-white transition-all shadow-inner active:scale-95"
+                    className="h-10 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl flex items-center gap-2.5 text-[11px] font-black text-white transition-all shadow-inner active:scale-95"
                   >
-                    <Globe size={18} style={{ color: branding.primaryColor }} />
-                    <span className="text-[11px]">{language.toUpperCase()}</span>
+                    <Globe size={20} style={{ color: branding.primaryColor }} />
+                    <span className="text-[13px]">{language.toUpperCase()}</span>
                   </button>
                   <AnimatePresence>
                     {langDropdownOpen && (
@@ -196,10 +196,10 @@ const Navbar: React.FC = () => {
                       setLangDropdownOpen(false);
                       setUserDropdownOpen(false);
                     }}
-                    className="h-9 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg flex items-center gap-2 text-[10px] font-black text-white transition-all shadow-inner active:scale-95"
+                    className="h-10 px-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl flex items-center gap-2.5 text-[11px] font-black text-white transition-all shadow-inner active:scale-95"
                   >
-                    <Coins size={18} style={{ color: branding.primaryColor }} />
-                    <span className="text-[11px]">{currency}</span>
+                    <Coins size={20} style={{ color: branding.primaryColor }} />
+                    <span className="text-[13px]">{currency}</span>
                   </button>
                   <AnimatePresence>
                     {currencyDropdownOpen && (
@@ -229,11 +229,11 @@ const Navbar: React.FC = () => {
               {/* Cart Button */}
               <button 
                 onClick={() => setCartOpen(true)}
-                className="relative w-9 h-9 flex items-center justify-center rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 active:scale-90 transition-all font-black shadow-inner"
+                className="relative w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 active:scale-90 transition-all font-black shadow-inner"
               >
-                <ShoppingCart size={20} className="text-text-secondary" />
+                <ShoppingCart size={22} className="text-text-secondary" />
                 {totalItems > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full font-black text-[8px] text-brand-dark shadow-xl ring-1 ring-brand-dark" style={{ backgroundColor: branding.primaryColor }}>
+                  <span className="absolute -top-1 -right-1 flex h-4.5 w-4.5 items-center justify-center rounded-full font-black text-[9px] text-brand-dark shadow-xl ring-1 ring-brand-dark" style={{ backgroundColor: branding.primaryColor }}>
                     {totalItems}
                   </span>
                 )}

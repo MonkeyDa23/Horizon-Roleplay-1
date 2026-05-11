@@ -88,10 +88,17 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         .eq('key', 'branding')
         .single();
       
-      let finalBranding = defaultBranding;
+      let finalBranding = { ...defaultBranding };
       if (brandingData?.value) {
-        setBranding(brandingData.value);
-        finalBranding = brandingData.value;
+        const brandingVal = { ...brandingData.value };
+        
+        // Fix broken default image link from earlier setup
+        if (brandingVal.logoUrl && brandingVal.logoUrl.includes('image_28.png')) {
+          brandingVal.logoUrl = defaultBranding.logoUrl;
+        }
+        
+        setBranding(brandingVal);
+        finalBranding = { ...defaultBranding, ...brandingVal };
       }
 
       if (typeof document !== 'undefined') {

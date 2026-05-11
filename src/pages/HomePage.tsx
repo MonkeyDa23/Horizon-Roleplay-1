@@ -6,7 +6,7 @@ import React, { useState } from 'react';
 import { useLocalization } from '../contexts/LocalizationContext';
 import { useConfig } from '../contexts/ConfigContext';
 import Modal from '../components/Modal';
-import { Gamepad2, ChevronRight, ShoppingCart } from 'lucide-react';
+import { Gamepad2, ChevronRight } from 'lucide-react';
 import SEO from '../components/SEO';
 import DiscordLogo from '../components/icons/DiscordLogo';
 
