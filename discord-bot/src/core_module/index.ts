@@ -225,7 +225,8 @@ export const setupCoreModule = (client: Client) => {
                 let jobRows: any[] = [];
                 if (jobIds.length > 0) {
                     const placeholders = jobIds.map(() => '?').join(',');
-                    [jobRows] = await pool.execute(`SELECT id, name FROM jobs WHERE id IN (${placeholders})`, jobIds).catch(() => [[]]);
+                    const [rows]: any = await pool.execute(`SELECT id, name FROM jobs WHERE id IN (${placeholders})`, jobIds).catch(() => [[]]);
+                    jobRows = rows;
                 }
                 
                 // Get faction names for the specific factions in characters
@@ -233,7 +234,8 @@ export const setupCoreModule = (client: Client) => {
                 let factionRows: any[] = [];
                 if (factionIds.length > 0) {
                     const placeholders = factionIds.map(() => '?').join(',');
-                    [factionRows] = await pool.execute(`SELECT id, name FROM factions WHERE id IN (${placeholders})`, factionIds).catch(() => [[]]);
+                    const [rows]: any = await pool.execute(`SELECT id, name FROM factions WHERE id IN (${placeholders})`, factionIds).catch(() => [[]]);
+                    factionRows = rows;
                 }
 
                 const jobMap = new Map(jobRows.map((j: any) => [j.id, j.name || j.id]));

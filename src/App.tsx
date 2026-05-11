@@ -3,7 +3,8 @@
  * Main App Component
  */
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AnimatePresence, motion } from 'motion/react';
 import { AppProviders } from './contexts/AppProviders';
 import { useConfig } from './contexts/ConfigContext';
 import { useAuth } from './contexts/AuthContext';
@@ -63,6 +64,7 @@ const AppContent: React.FC = () => {
   const { branding, config, configLoading, configError } = useConfig();
   const { user, isInitialLoading, permissionWarning, syncError, logout, retrySync, hasPermission } = useAuth();
   const { t, dir } = useLocalization();
+  const location = useLocation();
 
   if (isInitialLoading || configLoading) {
     return (
@@ -131,42 +133,52 @@ const AppContent: React.FC = () => {
       <Navbar />
       {permissionWarning && <PermissionWarningBanner message={permissionWarning} />}
       <main className="flex-grow pt-24">
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/store" element={<StorePage />} />
-          <Route path="/store/:productId" element={<ProductDetailPage />} />
-          <Route path="/rules" element={<RulesPage />} />
-          <Route path="/applies" element={<AppliesPage />} />
-          <Route path="/about" element={<AboutUsPage />} />
-          <Route 
-            path="/applies/:quizId" 
-            element={<ProtectedRoute><QuizPage /></ProtectedRoute>} 
-          />
-          <Route 
-            path="/my-applications" 
-            element={<ProtectedRoute><MyApplicationsPage /></ProtectedRoute>} 
-          />
-          <Route 
-            path="/profile" 
-            element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} 
-          />
-          <Route 
-            path="/character/:id" 
-            element={<ProtectedRoute><CharacterDetailPage /></ProtectedRoute>} 
-          />
-          <Route 
-            path="/admin" 
-            element={<ProtectedRoute permission="admin_panel"><AdminGate><AdminPage /></AdminGate></ProtectedRoute>} 
-          />
-          <Route 
-            path="/admin/submissions/:submissionId" 
-            element={<ProtectedRoute permission="admin_submissions"><AdminGate><SubmissionDetailPage /></AdminGate></ProtectedRoute>} 
-          />
-          <Route 
-            path="/health-check" 
-            element={<ProtectedRoute permission="_super_admin"><HealthCheckPage /></ProtectedRoute>} 
-          />
-        </Routes>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.3, ease: 'easeInOut' }}
+          >
+            <Routes location={location} key={location.pathname}>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/store" element={<StorePage />} />
+              <Route path="/store/:productId" element={<ProductDetailPage />} />
+              <Route path="/rules" element={<RulesPage />} />
+              <Route path="/applies" element={<AppliesPage />} />
+              <Route path="/about" element={<AboutUsPage />} />
+              <Route 
+                path="/applies/:quizId" 
+                element={<ProtectedRoute><QuizPage /></ProtectedRoute>} 
+              />
+              <Route 
+                path="/my-applications" 
+                element={<ProtectedRoute><MyApplicationsPage /></ProtectedRoute>} 
+              />
+              <Route 
+                path="/profile" 
+                element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} 
+              />
+              <Route 
+                path="/character/:id" 
+                element={<ProtectedRoute><CharacterDetailPage /></ProtectedRoute>} 
+              />
+              <Route 
+                path="/admin" 
+                element={<ProtectedRoute permission="admin_panel"><AdminGate><AdminPage /></AdminGate></ProtectedRoute>} 
+              />
+              <Route 
+                path="/admin/submissions/:submissionId" 
+                element={<ProtectedRoute permission="admin_submissions"><AdminGate><SubmissionDetailPage /></AdminGate></ProtectedRoute>} 
+              />
+              <Route 
+                path="/health-check" 
+                element={<ProtectedRoute permission="_super_admin"><HealthCheckPage /></ProtectedRoute>} 
+              />
+            </Routes>
+          </motion.div>
+        </AnimatePresence>
       </main>
       <Footer />
     </div>
