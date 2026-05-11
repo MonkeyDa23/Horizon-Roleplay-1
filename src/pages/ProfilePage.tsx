@@ -314,21 +314,24 @@ const ProfilePage: React.FC = () => {
         </AnimatePresence>
 
         {/* Profile Header */}
-        <div className="relative h-[380px] overflow-hidden">
-          <div className="absolute inset-0 z-0" style={{ background: `linear-gradient(to bottom, ${branding.primaryColor}25, transparent)` }}></div>
+        <div className="relative h-[320px] overflow-hidden">
+          <div className="absolute inset-0 z-0" style={{ background: `linear-gradient(to bottom, ${branding.primaryColor}15, transparent)` }}></div>
           
-          <div className="container mx-auto px-6 h-full flex items-end pb-12 relative z-10">
-            <div className="flex flex-col md:flex-row items-center md:items-end gap-12 w-full">
+          <div className="container mx-auto px-6 h-full flex items-end pb-8 relative z-10">
+            <div className="flex flex-col md:flex-row items-center md:items-end gap-10 w-full">
               <div className="relative group">
                 <motion.div 
                   initial={{ scale: 0.8, opacity: 0, rotate: -10 }} 
                   animate={{ scale: 1, opacity: 1, rotate: 0 }}
-                  className="relative p-1.5 bg-white/5 rounded-[48px] border border-white/10 backdrop-blur-3xl shadow-2xl overflow-hidden group-hover:scale-105 transition-transform"
+                  className="relative p-1 bg-white/5 rounded-[42px] border border-white/10 backdrop-blur-3xl shadow-2xl overflow-hidden group-hover:scale-105 transition-transform"
                 >
                   <img 
                     src={user.avatar} 
                     alt={user.username} 
-                    className="w-32 h-32 md:w-44 md:h-44 rounded-[40px] object-cover" 
+                    className="w-28 h-28 md:w-40 md:h-40 rounded-[34px] object-cover" 
+                    onError={(e) => {
+                      e.currentTarget.src = `https://ui-avatars.com/api/?name=${user.username}&background=00A9FF&color=fff&size=256`;
+                    }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                 </motion.div>
@@ -336,28 +339,28 @@ const ProfilePage: React.FC = () => {
                   initial={{ scale: 0, rotate: 90 }}
                   animate={{ scale: 1, rotate: 0 }}
                   transition={{ delay: 0.4, type: 'spring' }}
-                  className="absolute -bottom-2 -right-2 w-12 h-12 bg-white rounded-2xl flex items-center justify-center border-4 border-brand-dark shadow-2xl" 
+                  className="absolute -bottom-1 -right-1 w-10 h-10 bg-white rounded-xl flex items-center justify-center border-4 border-brand-dark shadow-2xl" 
                   style={{ color: branding.primaryColor }}
                 >
-                  <ShieldCheck size={24} />
+                  <ShieldCheck size={20} />
                 </motion.div>
               </div>
 
-              <div className="flex-1 text-center md:text-left space-y-6">
-                <div className="space-y-4">
+              <div className="flex-1 text-center md:text-left space-y-4">
+                <div className="space-y-3">
                   <motion.div 
                     initial={{ y: 20, opacity: 0 }} 
                     animate={{ y: 0, opacity: 1 }}
-                    className="inline-flex items-center gap-3 px-5 py-2 bg-white/5 rounded-full border border-white/10 text-[10px] uppercase font-black tracking-[0.2em] text-text-secondary mb-2"
+                    className="inline-flex items-center gap-2.5 px-4 py-1.5 bg-white/5 rounded-full border border-white/10 text-[9px] uppercase font-black tracking-[0.2em] text-text-secondary mb-1"
                   >
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: branding.primaryColor }}></span>
+                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: branding.primaryColor }}></span>
                     Member of Nova Community
                   </motion.div>
                   <motion.h1 
                     initial={{ y: 20, opacity: 0 }} 
                     animate={{ y: 0, opacity: 1 }} 
                     transition={{ delay: 0.1 }}
-                    className="text-4xl md:text-7xl font-black text-white leading-none tracking-tighter"
+                    className="text-4xl md:text-6xl font-black text-white leading-none tracking-tighter"
                   >
                     {user.username.split('#')[0]}
                   </motion.h1>

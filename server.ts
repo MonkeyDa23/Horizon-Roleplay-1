@@ -52,7 +52,7 @@ async function startServer() {
   const app = express();
   const PORT = process.env.PORT || 3000;
 
-  app.set('trust proxy', false);
+  app.set('trust proxy', 1);
 
   app.use(express.json({ limit: '10kb' })); 
   app.use(express.urlencoded({ extended: false, limit: '10kb' }));
@@ -98,11 +98,15 @@ async function startServer() {
     message: { error: 'Too many attempts, please try again later' }
   });
 
-  app.post('/api/auth/verify-captcha', async (req, res) => {
+  app.post('/api/auth/verify-captcha', verificationLimiter, async (req, res) => {
     try {
       const { token } = req.body;
       const secret = process.env.HCAPTCHA_SECRET_KEY;
-      if (!secret) return res.json({ success: true }); // Skip if no secret set
+      
+      if (!secret) {
+        console.error('HCAPTCHA_SECRET_KEY is missing! Blocking verification.');
+        return res.status(500).json({ error: 'Captcha system not configured' });
+      }
 
       const response = await fetch('https://hcaptcha.com/siteverify', {
         method: 'POST',
@@ -117,16 +121,102 @@ async function startServer() {
     }
   });
 
-  app.post('/api/auth/verify-admin-password', verificationLimiter, (req, res) => {
-    const { password } = req.body;
-    const adminPass = process.env.VITE_ADMIN_PASSWORD || 'admin123';
+  app.post('/api/auth/verify-admin-password', verificationLimiter, async (req, res) => {
+    const { password, captcha } = req.body;
+    const adminPass = process.env.VITE_ADMIN_PASSWORD;
     
-    if (password === adminPass) {
+    if (!adminPass) {
+      return res.status(500).json({ error: 'System not configured' });
+    }
+
+    if (!captcha) {
+      return res.status(401).json({ error: 'Captcha required' });
+    }
+
+    // Verify Captcha
+    const captchaSecret = process.env.HCAPTCHA_SECRET_KEY;
+    const captchaRes = await fetch('https://hcaptcha.com/siteverify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `secret=${captchaSecret}&response=${captcha}`
+    });
+    const captchaData = await captchaRes.json();
+    if (!captchaData.success) {
+      return res.status(401).json({ error: 'Captcha verification failed' });
+    }
+    
+    // Timing-safe comparison
+    const { timingSafeEqual } = await import('node:crypto');
+    const inputBuf = Buffer.from(password);
+    const passBuf = Buffer.from(adminPass);
+
+    if (inputBuf.length === passBuf.length && timingSafeEqual(inputBuf, passBuf)) {
       res.json({ success: true });
     } else {
       res.status(401).json({ success: false, error: 'Invalid password' });
     }
   });
+
+  // Central Audit Logger
+  const auditLogger = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    // Only log state-changing operations
+    if (!['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) return next();
+
+    // Store original send to capture status code
+    const originalSend = res.send;
+    res.send = function (body) {
+      const statusCode = res.statusCode;
+      
+      // Only log successful or relevant auth attempts (avoid flooding on generic 404s/403s maybe?)
+      // For now, let's log everything but include the status code
+      
+      (async () => {
+        let userId = 'Anonymous';
+        let username = 'Anonymous';
+        const authHeader = req.headers['authorization'];
+
+        if (authHeader) {
+          try {
+            const { data: { user } } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
+            if (user) {
+              userId = user.id;
+              const { data: profile } = await supabase.from('users').select('username').eq('id', user.id).single();
+              username = profile?.username || user.email || user.id;
+            }
+          } catch (e) {}
+        }
+
+        try {
+          const sanitizedBody = { ...req.body };
+          const sensitiveKeys = ['token', 'secret', 'password', 'backupCodes', 'p_codes', 'p_secret', 'code'];
+          sensitiveKeys.forEach(key => { if (sanitizedBody[key]) sanitizedBody[key] = '[REDACTED]'; });
+
+          await supabase.from('audit_logs').insert({
+            user_id: userId === 'Anonymous' ? null : userId,
+            username,
+            action: `${req.method} ${req.originalUrl}`,
+            details: {
+              body: sanitizedBody,
+              query: req.query,
+              ip: req.socket.remoteAddress,
+              status: statusCode
+            },
+            severity: statusCode >= 400 ? 'WARNING' : 'INFO',
+            category: req.originalUrl.includes('admin') ? 'ADMIN' : 'SECURITY',
+            ip_address: req.socket.remoteAddress,
+            user_agent: req.headers['user-agent']
+          });
+        } catch (err) {
+          console.error('Audit Log Sync Failure:', err);
+        }
+      })();
+
+      return originalSend.apply(res, arguments as any);
+    };
+    next();
+  };
+
+  app.use(auditLogger);
 
   app.use(['/api/admin', '/api/auth/2fa', '/api/mta/internal'], async (req, res, next) => {
     const signature = req.headers['x-signature'] as string;
@@ -144,74 +234,26 @@ async function startServer() {
     res.status(403).json({ error: 'Signature Required' });
   });
 
-  app.use(async (req, res, next) => {
-    if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(req.method)) {
-      const authHeader = req.headers['authorization'];
-      let userId = 'Anonymous';
-      let username = 'Anonymous';
-
-      if (authHeader) {
-        try {
-          const { data: { user } } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''));
-          if (user) {
-            userId = user.id;
-            const { data: profile } = await supabase.from('users').select('username').eq('id', user.id).single();
-            username = profile?.username || user.email || user.id;
-          }
-        } catch (err) {
-          console.error('Audit user fetch error:', err);
-        }
-      }
-
-      try {
-        const signature = req.headers['x-signature'] as string;
-        const timestamp = req.headers['x-timestamp'] as string;
-        const botSecret = process.env.BOT_WEB_KEY;
-
-        if (signature && timestamp && botSecret) {
-          if (!verifySignature(req.body, signature, botSecret, timestamp)) {
-            return res.status(403).json({ error: 'Invalid Signature' });
-          }
-        }
-
-        const sanitizedBody = { ...req.body };
-        const sensitiveKeys = ['token', 'secret', 'password', 'backupCodes', 'p_codes', 'p_secret', 'code'];
-        sensitiveKeys.forEach(key => {
-          if (sanitizedBody[key]) sanitizedBody[key] = '[REDACTED]';
-        });
-
-        await supabase.from('audit_logs').insert({
-          user_id: userId === 'Anonymous' ? null : userId,
-          username,
-          action: `${req.method} ${req.originalUrl}`,
-          details: {
-            body: sanitizedBody,
-            query: req.query,
-            ip: req.socket.remoteAddress,
-          },
-          severity: 'INFO',
-          category: req.originalUrl.includes('admin') ? 'ADMIN' : 'SECURITY',
-          ip_address: req.socket.remoteAddress,
-          user_agent: req.headers['user-agent']
-        });
-      } catch (err) {
-        console.error('Audit insert error:', err);
-      }
-    }
-    next();
-  });
-
   app.post('/api/auth/2fa/enable', async (req, res) => {
     try {
-      const { secret, backupCodes } = req.body;
+      const { secret, backupCodes, token: userToken } = req.body;
       const authHeader = req.headers['authorization'];
       const token = authHeader?.replace('Bearer ', '');
       const encryptionKey = process.env.ENCRYPTION_KEY;
       if (!encryptionKey || !token) return res.status(401).json({ error: 'Unauthorized' });
 
+      // 1. Verify User
       const { data: { user }, error: authError } = await supabase.auth.getUser(token);
       if (authError || !user) return res.status(401).json({ error: 'Unauthorized' });
 
+      // 2. Verify TOTP Token before enabling
+      const { authenticator } = await import('otplib');
+      const isValid = authenticator.verify({ token: userToken, secret });
+      if (!isValid) {
+        return res.status(400).json({ error: 'Invalid verification code' });
+      }
+
+      // 3. Encrypt and Save
       const { encrypt } = await import('./lib/encryption.js');
       const encryptedSecret = encrypt(secret, encryptionKey);
       const encryptedCodes = backupCodes.map((code: string) => encrypt(code, encryptionKey));
@@ -223,7 +265,10 @@ async function startServer() {
 
       if (dbError) throw dbError;
       res.json({ success: true });
-    } catch (e) { res.status(500).json({ error: 'Internal Error' }); }
+    } catch (e) { 
+      console.error('2FA Enable Error:', e);
+      res.status(500).json({ error: 'Internal Error' }); 
+    }
   });
 
   app.get('/api/mta/status/:serial', async (req, res) => {

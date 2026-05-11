@@ -1,6 +1,25 @@
 local apiKey = Config.Discord.apiKey
 local botUrl = Config.Discord.botUrl or "http://localhost:3001/internal/"
 
+addEventHandler("onResourceStart", resourceRoot, function()
+    local apiKey = Config.Discord.apiKey
+    local secret = Config.Discord.secret
+    
+    if not apiKey or apiKey == "" or apiKey == "YOUR_BOT_API_KEY" then
+        outputDebugString("[ERROR] Discord Bot API Key is missing! Resource will not function correctly.", 1)
+        cancelEvent()
+        return
+    end
+
+    if not secret or secret == "" or secret == "YOUR_SIGNATURE_SECRET" then
+        outputDebugString("[ERROR] Discord Signature Secret is missing! Security at risk.", 1)
+        cancelEvent()
+        return
+    end
+
+    outputDebugString("[SUCCESS] Nova Roleplay MTA Bridge started successfully.", 3)
+end)
+
 -- HMAC-SHA256 Implementation for Lua (MTA)
 -- Based on standard construction: HMAC(K, m) = H((K ^ opad) .. H((K ^ ipad) .. m))
 function hmac_sha256(key, message)

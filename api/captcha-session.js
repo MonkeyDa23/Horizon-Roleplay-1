@@ -25,7 +25,11 @@ export default async function handler(req, res) {
                 const [payload, signature] = token.split(':signature:');
                 if (payload && signature) {
                     const expectedSignature = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('hex');
-                    if (signature === expectedSignature) {
+                    
+                    const sigBuf = Buffer.from(signature);
+                    const expectedBuf = Buffer.from(expectedSignature);
+                    
+                    if (sigBuf.length === expectedBuf.length && crypto.timingSafeEqual(sigBuf, expectedBuf)) {
                         const [, expires] = payload.split(':');
                         if (Date.now() < parseInt(expires, 10)) {
                             return res.json({ verified: true });

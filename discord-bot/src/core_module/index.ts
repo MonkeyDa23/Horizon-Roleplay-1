@@ -23,7 +23,7 @@ export const setupCoreModule = (client: Client) => {
     app.use(apiLimiter);
 
     app.use(cors({ 
-        origin: [/localhost/, /\.run\.app$/, /\.vercel\.app$/],
+        origin: [/^https?:\/\/localhost(:\d+)?$/, /^https:\/\/[^.]+\.vercel\.app$/, /^https:\/\/[^.]+\.run\.app$/],
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
     }));
     app.use(express.json({ limit: '5kb' }));
@@ -33,8 +33,17 @@ export const setupCoreModule = (client: Client) => {
         const signature = req.headers['x-signature'];
         const timestamp = req.headers['x-timestamp'];
 
-        if (!apiKey || apiKey !== env.API_SECRET_KEY) {
-            logToDiscord(client, 'ERROR', '🚨 unauthorized access', `IP: ${req.ip}`, 'ADMIN').catch(() => {});
+        if (!apiKey) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        // Timing-safe API Key check
+        const keyBuf = Buffer.from(apiKey);
+        const secretBuf = Buffer.from(env.API_SECRET_KEY || '');
+        const isKeyValid = keyBuf.length === secretBuf.length && crypto.timingSafeEqual(keyBuf, secretBuf);
+
+        if (!isKeyValid) {
+            logToDiscord(client, 'ERROR', '🚨 unauthorized access attempt', `IP: ${req.ip}`, 'ADMIN').catch(() => {});
             return res.status(401).json({ error: 'Unauthorized' });
         }
 
@@ -55,7 +64,10 @@ export const setupCoreModule = (client: Client) => {
                 .update(payload + timestamp)
                 .digest('hex');
 
-            if (signature !== expectedSignature) {
+            const sigBuf = Buffer.from(signature);
+            const expectedBuf = Buffer.from(expectedSignature);
+
+            if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) {
                 return res.status(403).json({ error: 'Forbidden - Invalid Signature' });
             }
         }
@@ -206,12 +218,26 @@ export const setupCoreModule = (client: Client) => {
 
             let characters: any[] = [];
             try {
-                const [charRows]: any = await pool.execute("SELECT * FROM characters WHERE account = ?", [account.id]);
-                const [jobRows]: any = await pool.execute("SELECT * FROM jobs").catch(() => [[]]);
-                const [factionRows]: any = await pool.execute("SELECT * FROM factions").catch(() => [[]]);
+                const [charRows]: any = await pool.execute("SELECT id, charactername, skin, gender, age, day, month, year, level, job, faction_id, money, bankmoney, hoursplayed FROM characters WHERE account = ?", [account.id]);
+                
+                // Get job names for the specific jobs in characters
+                const jobIds = charRows.map((c: any) => c.job).filter((id: any) => id !== null && id !== undefined);
+                let jobRows: any[] = [];
+                if (jobIds.length > 0) {
+                    const placeholders = jobIds.map(() => '?').join(',');
+                    [jobRows] = await pool.execute(`SELECT id, name FROM jobs WHERE id IN (${placeholders})`, jobIds).catch(() => [[]]);
+                }
+                
+                // Get faction names for the specific factions in characters
+                const factionIds = charRows.map((c: any) => c.faction_id).filter((id: any) => id !== null && id !== undefined);
+                let factionRows: any[] = [];
+                if (factionIds.length > 0) {
+                    const placeholders = factionIds.map(() => '?').join(',');
+                    [factionRows] = await pool.execute(`SELECT id, name FROM factions WHERE id IN (${placeholders})`, factionIds).catch(() => [[]]);
+                }
 
-                const jobMap = new Map(jobRows.map((j: any) => [j.id, j.name || j.job_name || j.label || j.id]));
-                const factionMap = new Map(factionRows.map((f: any) => [f.id, f.name || f.faction_name || f.id]));
+                const jobMap = new Map(jobRows.map((j: any) => [j.id, j.name || j.id]));
+                const factionMap = new Map(factionRows.map((f: any) => [f.id, f.name || f.id]));
 
                 const [vehicleRows]: any = await pool.execute(
                     "SELECT id, model, owner FROM vehicles WHERE owner IN (SELECT id FROM characters WHERE account = ?)",

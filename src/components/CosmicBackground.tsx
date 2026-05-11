@@ -3,10 +3,9 @@ import React from 'react';
 
 const CosmicBackground: React.FC = () => {
   return (
-    <div className="fixed top-0 left-0 w-full h-screen overflow-hidden z-0 bg-background-dark">
-      <div id="stars" className="absolute top-0 left-0 w-full h-full bg-stars-sm opacity-60 animate-pan"></div>
-      <div id="stars2" className="absolute top-0 left-0 w-full h-full bg-stars-md opacity-40 animate-pan-slow"></div>
-      <div id="stars3" className="absolute top-0 left-0 w-full h-full bg-stars-lg opacity-20 animate-pan-slower"></div>
+    <div className="fixed top-0 left-0 w-full h-screen overflow-hidden z-0 bg-brand-dark">
+      <div id="stars" className="absolute top-0 left-0 w-full h-full bg-stars-sm opacity-30"></div>
+      <div id="stars2" className="absolute top-0 left-0 w-full h-full bg-stars-md opacity-20"></div>
       <style>{`
         @keyframes pan {
           0% { transform: translateY(0); }

@@ -95,27 +95,30 @@ const Navbar: React.FC = () => {
           <div className="bg-brand-dark/40 backdrop-blur-3xl rounded-[40px] border border-white/5 p-2 px-6 md:px-10 flex items-center justify-between shadow-[0_20px_50px_-20px_rgba(0,0,0,0.5)]">
             
             {/* 1. Branding (End in AR, Start in EN) */}
-            <div className={`flex items-center gap-4 flex-1 ${isRTL ? 'justify-end order-last' : 'justify-start order-first'}`}>
+            <div className={`flex items-center gap-3 flex-1 ${isRTL ? 'justify-end order-last' : 'justify-start order-first'}`}>
               <Link to="/" className="flex items-center gap-2 transition-transform hover:scale-105 active:scale-95">
-                <div className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-white/5 border border-white/10 p-0.5 shadow-2xl relative overflow-hidden group">
+                <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-white/5 border border-white/10 p-0.5 shadow-2xl relative overflow-hidden group">
                   <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-50"></div>
                   {branding.logoUrl ? (
                     <img 
                       src={branding.logoUrl} 
                       alt="" 
                       className="w-full h-full object-cover rounded-full" 
-                      referrerPolicy="no-referrer" 
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        e.currentTarget.src = 'https://ui-avatars.com/api/?name=Nova&background=00A9FF&color=fff';
+                      }}
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center rounded-full" style={{ backgroundColor: `${branding.primaryColor}22` }}>
-                      <Globe style={{ color: branding.primaryColor }} size={20} />
+                      <Globe style={{ color: branding.primaryColor }} size={14} />
                     </div>
                   )}
                   <div className="absolute inset-0 border-2 border-white/10 rounded-full group-hover:border-white/30 transition-colors"></div>
                 </div>
                 <div className="hidden md:block">
-                  <h1 className="text-lg md:text-xl font-black text-white leading-none tracking-tight">{branding.siteName}</h1>
-                  <span className="text-[9px] font-black opacity-40 uppercase tracking-widest" style={{ color: branding.primaryColor }}>Community</span>
+                  <h1 className="text-sm md:text-base font-black text-white leading-none tracking-tight">{branding.siteName}</h1>
+                  <span className="text-[7px] font-black opacity-40 uppercase tracking-widest" style={{ color: branding.primaryColor }}>Community</span>
                 </div>
               </Link>
             </div>
@@ -154,9 +157,9 @@ const Navbar: React.FC = () => {
                       setCurrencyDropdownOpen(false);
                       setUserDropdownOpen(false);
                     }}
-                    className="h-10 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl flex items-center gap-2 text-[10px] font-black text-white transition-all shadow-inner active:scale-95"
+                    className="h-9 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg flex items-center gap-2 text-[9px] font-black text-white transition-all shadow-inner active:scale-95"
                   >
-                    <Globe size={16} style={{ color: branding.primaryColor }} />
+                    <Globe size={14} style={{ color: branding.primaryColor }} />
                     <span className="text-xs">{language.toUpperCase()}</span>
                   </button>
                   <AnimatePresence>
@@ -193,9 +196,9 @@ const Navbar: React.FC = () => {
                       setLangDropdownOpen(false);
                       setUserDropdownOpen(false);
                     }}
-                    className="h-10 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl flex items-center gap-2 text-[10px] font-black text-white transition-all shadow-inner active:scale-95"
+                    className="h-9 px-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg flex items-center gap-2 text-[9px] font-black text-white transition-all shadow-inner active:scale-95"
                   >
-                    <Coins size={16} style={{ color: branding.primaryColor }} />
+                    <Coins size={14} style={{ color: branding.primaryColor }} />
                     <span className="text-xs">{currency}</span>
                   </button>
                   <AnimatePresence>
@@ -226,11 +229,11 @@ const Navbar: React.FC = () => {
               {/* Cart Button */}
               <button 
                 onClick={() => setCartOpen(true)}
-                className="relative w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 active:scale-90 transition-all font-black shadow-inner"
+                className="relative w-9 h-9 flex items-center justify-center rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 active:scale-90 transition-all font-black shadow-inner"
               >
-                <ShoppingCart size={18} className="text-text-secondary" />
+                <ShoppingCart size={16} className="text-text-secondary" />
                 {totalItems > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full font-black text-[8px] text-brand-dark shadow-xl ring-2 ring-brand-dark" style={{ backgroundColor: branding.primaryColor }}>
+                  <span className="absolute -top-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full font-black text-[7px] text-brand-dark shadow-xl ring-1 ring-brand-dark" style={{ backgroundColor: branding.primaryColor }}>
                     {totalItems}
                   </span>
                 )}
@@ -242,11 +245,18 @@ const Navbar: React.FC = () => {
                   <div className="relative">
                     <button 
                       onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                      className="flex items-center gap-2 bg-white/5 p-1 rounded-xl border border-white/10 hover:bg-white/10 transition-all shadow-inner active:scale-95"
+                      className="flex items-center gap-2 bg-white/5 p-1 rounded-lg border border-white/10 hover:bg-white/10 transition-all shadow-inner active:scale-95"
                     >
-                      <img src={user.avatar} alt="" className="w-8 h-8 rounded-lg object-cover ring-1 ring-white/10 shadow-lg" />
+                      <img 
+                        src={user.avatar} 
+                        alt="" 
+                        className="w-7 h-7 rounded-md object-cover ring-1 ring-white/10 shadow-lg" 
+                        onError={(e) => {
+                          e.currentTarget.src = `https://ui-avatars.com/api/?name=${user.username}&background=random`;
+                        }}
+                      />
                       <div className="hidden xl:block md:mx-1">
-                        <div className="text-[10px] font-black text-white leading-none truncate max-w-[100px]">{user.username}</div>
+                        <div className="text-[9px] font-black text-white leading-none truncate max-w-[80px]">{user.username}</div>
                       </div>
                     </button>
                     <AnimatePresence>

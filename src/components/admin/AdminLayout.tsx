@@ -58,7 +58,9 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, tabs, activeTab, se
   }
 
   // 2. Admin Password Gate
-  const handleUnlock = (e: React.FormEvent) => {
+  const [loading, setLoading] = useState(false);
+  
+  const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!captchaToken) {
@@ -66,15 +68,31 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, tabs, activeTab, se
       return;
     }
 
-    // The password is set in the environment or config.
-    const adminPass = import.meta.env.VITE_ADMIN_PASSWORD || 'admin123';
-    if (password === adminPass) {
-      setIsAdminUnlocked(true);
-      setError('');
-    } else {
-      setError(t('invalid_admin_password') || 'كلمة المرور غير صحيحة');
-      setCaptchaToken(null);
-      captchaRef.current?.resetCaptcha();
+    setLoading(true);
+    setError('');
+
+    try {
+      const res = await fetch('/api/auth/verify-admin-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password, captcha: captchaToken })
+      });
+      
+      const data = await res.json();
+      
+      if (data.success) {
+        setIsAdminUnlocked(true);
+        setError('');
+        sessionStorage.setItem('admin_session', 'true');
+      } else {
+        setError(data.error || t('invalid_admin_password') || 'كلمة المرور غير صحيحة');
+        setCaptchaToken(null);
+        captchaRef.current?.resetCaptcha();
+      }
+    } catch (err) {
+      setError('System connection error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -83,11 +101,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, tabs, activeTab, se
       <div className="min-h-[80vh] flex items-center justify-center p-6" dir={dir}>
         <div className="glass-panel p-12 max-w-md w-full text-center space-y-10 animate-fade-in-up border-white/5 shadow-2xl">
           <div className="w-20 h-20 bg-brand-dark/50 rounded-[35px] flex items-center justify-center text-white/20 mx-auto border border-white/10 shadow-inner">
-            <Lock size={40} />
+            {loading ? <div className="w-8 h-8 border-4 border-white/10 border-t-white rounded-full animate-spin"></div> : <Lock size={40} />}
           </div>
           <div className="space-y-4">
             <h1 className="text-3xl font-black text-white">{t('admin_lock_title') || 'لوحة الإدارة مقفولة'}</h1>
-            <p className="text-text-secondary font-medium opacity-60">يرجى إدخال كلمة مرور الإدارة للمتابعة</p>
+            <p className="text-text-secondary font-medium opacity-60">يرجى إدخل كلمة مرور الإدارة للمتابعة</p>
           </div>
           
           <form onSubmit={handleUnlock} className="space-y-6">
@@ -97,7 +115,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, tabs, activeTab, se
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-center text-xl text-white focus:outline-none focus:border-white/20 transition-all font-mono"
+                disabled={loading}
+                className="w-full bg-white/5 border border-white/10 rounded-2xl p-5 text-center text-xl text-white focus:outline-none focus:border-white/20 transition-all font-mono disabled:opacity-50"
                 autoFocus
               />
               

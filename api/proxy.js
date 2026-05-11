@@ -11,8 +11,7 @@ export default async function handler(req, res) {
   const hasValidSession = cookies.includes('vixel_secure_session=') || cookies.includes('sb-') || cookies.includes('supabase-auth-token');
   
   if (!hasValidSession && process.env.NODE_ENV === 'production') {
-      // return res.status(403).json({ error: 'Missing secure session. Complete Captcha first.' });
-      // سنكتفي بتسجيل تحذير مؤقتاً لتجنب منع المستخدمين، أو التحقق من وجود توكن
+       return res.status(403).json({ error: 'Missing secure session. Complete Captcha first.' });
   }
 
   const ip = req.headers['x-vercel-forwarded-for'] || req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
